@@ -7,6 +7,24 @@ and the dashboard (`telemetry-worker/`), and the admin filter for genclass.dev (
 from this note are in [section 10](#10-implementation-notes). Not released: genclass.dev needs a runtime release
 first (section 7).
 
+**Product analytics (2026-10-25).** The owner asked for analytics "like PostHog in the dashboard ... choose the most
+easy and reliable way". Section [1.2](#12-visits-sources-devices-unreleased) adds visits, where they came from,
+devices, countries, new or returning, entry and exit pages and funnels, inside the same `analytics: true` opt-in and
+the same no-text rule; section [3.1](#31-visits-and-funnels) says how the collector counts them.
+
+**Why not embed PostHog, Plausible or Umami.** Each is a good product, and each would be a second pipeline: the hosted
+versions send the app's visitors' page views to another company (a new recipient for every app's privacy policy,
+and for EU visitors a transfer to assess), and the self-hosted versions are a service someone has to run, upgrade and
+back up (PostHog needs ClickHouse, Kafka and Postgres; Plausible ClickHouse and Postgres; Umami a database and a Node
+server). Their own snippet would also be a second script in every app, with its own cookie or storage and its own
+consent, next to GenClass's. And the dashboard's Content-Security-Policy allows no third-party script, so an embedded
+chart (an iframe or a script from their host) would need that policy loosened on a page that holds a private link.
+GenClass already has the pieces: an opt-in runtime chunk that counts per page view without text, a collector that
+aggregates into D1 per app, and a dashboard with tables and charts. Extending those is less code than integrating
+any of the three, adds no dependency and no recipient, keeps one consent switch (`analytics: true`,
+`runtime.analytics.start()`), and keeps every number in the same export. What this gives up: PostHog's session
+replay, feature flags, arbitrary custom events and ad-hoc queries. Funnels here are over page routes only.
+
 The owner asked on 2026-10-17: "can genclass please track all the clicks, and scrolls, time spent everywhere, and then
 we'll put genclass on our own website to track everything." This note says what the runtime would record, how the
 collector would count it, what the dashboard would show, how an app turns it on, and what consent it needs.
@@ -44,9 +62,10 @@ Every part that comes from an attribute goes through `DATA_LIKE`; one that match
 used. A click inside a control counts for the control (the same `closest()` the user-action observer uses).
 
 **Never recorded:** element text, `aria-label`, `title`, `alt`, `placeholder`, input values, what was typed, mouse
-coordinates, the click order or timing (a sequence of clicks), the query string or fragment, the referrer, the
-page title, the screen size, a visitor id. Nothing is written to cookies or `localStorage`, so two page loads by the
-same person cannot be linked and the dashboard cannot count unique visitors.
+coordinates, the click order or timing (a sequence of clicks), the query string or fragment (except the three utm
+values of section 1.2), the referrer's path or query, the page title, the screen size, the user agent string, a
+visitor id. No cookies. Since section 1.2 one `localStorage` entry links the page loads of one visit (30 minutes);
+nothing links two visits except a yes-or-no "visited before" flag, so the dashboard cannot count unique visitors.
 
 **Not counted:** synthetic events (`isTrusted` false, whatever `observe.untrustedEvents` says), events inside
 `[data-genclass-ignore]` (the devtools overlay), events while GenClass is paused or off.
@@ -72,6 +91,35 @@ Every count is a delta since the previous `interactions` event of the same view,
 is queued when a view ends, when the tab is hidden (before the existing hidden flush) and before the minute's
 `summary`, and only if something changed. At most 50 element keys per event for `clicks` and 20 each for `rage` and
 `dead`; the rest are added up under `(other)`. A view of a few minutes sends one or two events of well under 2 KB.
+
+### 1.2 Visits, sources, devices (Unreleased)
+
+Built 2026-10-25 (branch `dash-analytics`) on the owner's request above, inside `analytics: true`; nothing changes
+without it.
+
+- **Visit.** Page views with no gap over 30 minutes (`VISIT_IDLE_MS`, as Google Analytics and PostHog define a
+  session). The chunk keeps `localStorage["genclass.analytics.<token>"] = { v, t, r }`: `v` a visit id (16 random hex
+  characters from `crypto.getRandomValues`), `t` the wall time of the visit's last page view or `interactions` event
+  (`performance.timeOrigin` plus the runtime's Clock: only compared with the stored value, never sent), `r: 1` once
+  the browser has had a visit. A view opens a new visit when `t` is more than 30 minutes away, or when its page load
+  came from another site or a utm link (a new campaign is a new visit). The entry is written with `rt.selfStorage`
+  set, so the runtime's storage observer does not record it (rule 1: nothing in the event log changes), and
+  `runtime.analytics.stop()` removes it. Storage blocked: a visit lasts the page load, `returning` is not sent.
+- **Sent**, on the `interactions` event that starts a view: `visit`. On the view that opened the visit also `entry:
+  true` and:
+
+| field | what it is |
+|---|---|
+| `ref` | `document.referrer`'s host, lower case, `www.` dropped, only when it is another host than the page's (`android-app://` package names count); at most 80 characters; `(other)` when it looks like data (telemetry's `DATA_LIKE`). Absent: direct, or this site |
+| `utm` | `{ source, medium, campaign }` from the page URL's `utm_source`, `utm_medium`, `utm_campaign`, each lower case, only letters, digits, `. _ + -` and spaces, words with 4+ digits, 8+ hex characters or 20+ characters dropped (ids), at most 40 characters, dropped when the rest still looks like data |
+| `device` | `desktop`, `mobile` or `tablet`, from the user agent and `navigator.userAgentData.mobile` (iPadOS's desktop-mode string with touch points counts as a tablet) |
+| `browser` | `Chrome`, `Safari`, `Firefox`, `Edge`, `Opera`, `Samsung Internet` or `Other` (bots and headless browsers: `Other`) |
+| `os` | `Windows`, `macOS`, `iOS`, `Android`, `Linux`, `ChromeOS` or `Other` |
+| `returning` | whether the stored entry existed before this visit (absent with storage blocked) |
+
+- **Country** comes from the collector (`request.cf.country`, already stored with every batch), counted once per
+  visit. The runtime sends none.
+- **First load:** nothing; all of it is in the lazy chunk (`src/analytics/index.ts`), and the stub is unchanged.
 
 ## 2. How it is built in the runtime
 
@@ -117,10 +165,40 @@ picker), shown once the app has sent `interactions` events, using the page's exi
 - per page: views, average engaged time, share of views reaching 50 % and 100 %;
 - most clicked elements (page, element key, clicks), and rage and dead clicks the same way, worst first;
 - a line saying unique visitors are not counted (no visitor id is stored, by design).
+- (Section 1.2, 2026-10-25) Sources (Table 7, referring sites; Table 8, utm values), Devices (Table 9: device,
+  browser, system, country, new or returning), Sessions (visits with the change on the previous period, visits per
+  day, pages per visit, one-page visits, returning share, Fig. 5 visits per bucket), Entry and exit pages (Tables 10
+  and 11) and Funnels (Fig. 4: per step the visits, the share of step 1 and of the step before, where most visits are
+  lost, and an editor: a name and one route per line). For an app without analytics the Visitors view is one big
+  button, "Copy the prompt for your coding agent" (the same button sits in account mode's Connect panel), that copies
+  a prompt to install `@genclass/runtime@beta`, add `analytics: true` with the app's token to whichever config the app
+  uses, respect consent with `runtime.analytics.start()`, run the dev server once and say where the numbers appear.
 
 The footer stays true and gets one clause: "…and, for apps that turn on interaction analytics, page views, time on
 page, scroll depth and clicks per element (named by a selector or a name the app gave it, never its text). No text
 from your pages, no IP addresses and no user agents are stored."
+
+### 3.1 Visits and funnels
+
+- **Per-visit counters** (the view with `entry: true`, in the `ix_*` budget): `ix_sessions` (`''`), `ix_ref` (the host
+  or `(direct)`), `ix_utm_source`, `ix_utm_medium`, `ix_utm_campaign`, `ix_device`, `ix_browser`, `ix_os`,
+  `ix_country`, `ix_returning` (`new` / `returning`). The collector checks every value against the runtime's buckets
+  or a pattern, whatever the client sent (an unknown device is `(unknown)`, an unknown browser or OS `Other`, a bad
+  host `(other)`, a bad utm value is not counted). `ix_sessions` is on the timeline and in `previous`.
+- **The `visits` table** (migration `0010_visits_funnels.sql`): one row per visit, keyed by
+  `sha256(token + ":visit:" + id)` (never the id), with `started`, `updated`, `entry`, `exit`, `pages` and `routes`,
+  the routes of about its first 50 page views (`VISIT_ROUTES`; the batch that crosses 50 still goes in whole) as
+  `\t/a\t\t/b\t`. An upsert per visit per batch, in the same `db.batch` as the counters and skipped with them for a
+  repeated batch. At most 5 visits per batch. Deleted 90 days after `started`, on every plan, and with the account.
+- **Stats:** `visits` (`sessions`, `pages`, `bounces` (one page view), top 25 `entry` and `exit` pages) over the
+  visits that started in the period; `funnels` with per-step counts.
+- **Funnels.** `projects.funnels` (JSON): up to 5 funnels of 2 to 6 steps, a step a route normalised like the
+  runtime's (`/products/123` becomes `/products/:id`) or a prefix ending in `*` (`/docs/*`). Step k counts the visits
+  whose routes match `GLOB '*\t<step 1>\t*\t<step 2>\t* ... *'` for the first k steps: those steps in that order,
+  other pages allowed between them, case-sensitive. Counted at read time from the stored routes, so a funnel defined
+  today counts the past 90 days. Saved with `PUT /api/projects/<secret>/funnels` (the private link) or
+  `PUT /api/account/projects/<id>/funnels` (the owner's browser session with the site's Origin), body
+  `{ "funnels": [{ "name", "steps" }] }`, the whole list at once, at most 4 KB; the sample dashboard answers 403.
 
 ## 4. How an app turns it on
 
@@ -142,7 +220,10 @@ GenClass.init({ token: "gc_…", analytics: true });
 - Every telemetry opt-out also turns analytics off: `telemetry: false`, `?genclass=no-telemetry`, `?genclass=off`,
   `localStorage` `genclass.telemetry = off`, **Global Privacy Control**, local and private hosts (unless telemetry is
   set explicitly), `createRuntime()` and SSR without the option.
-- No cookies, no storage writes, no persistent id: the session id stays random per page load.
+- No cookies and no persistent id: the session id stays random per page load. Since section 1.2 one `localStorage`
+  entry holds the visit id (30 minutes) and the "visited before" flag; it is written only while analytics run and
+  `runtime.analytics.stop()` removes it. Under the ePrivacy rule below this is storage on the device, which the
+  consent advice already covers.
 - **EU, EEA and UK.** Article 5(3) of the ePrivacy Directive (PECR regulation 6 in the UK) requires consent to store
   or read information on a visitor's device unless it is strictly necessary for the service the visitor asked for,
   and the EDPB's Guidelines 2/2023 read it as covering scripts that read information on the device and send it, not only cookies.

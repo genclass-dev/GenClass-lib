@@ -371,8 +371,11 @@ export class RuntimeImpl implements Runtime {
   private learnKey = "genclass:learn";
   private learnVersion: string | undefined;
   private learnMaxBytes = LEARN_MAX_BYTES;
-  /** The runtime is writing its own learned state: the storage observer must not record it. */
-  private selfStorage = false;
+  /**
+   * The runtime is writing its own state (learned state; the analytics chunk's visit flag, src/analytics/index.ts): the
+   * storage observer must not record it. Internal.
+   */
+  selfStorage = false;
   private reportMode: "console" | "interventions" | "silent" | "fn" = "console";
   private uninstall: (() => void)[] = [];
   private teardowns: (() => void)[] = [];
