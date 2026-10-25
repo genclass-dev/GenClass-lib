@@ -1,11 +1,11 @@
 // HTML for the paid plans: /account/billing (the plan, its renewal or end, the plans side by side, Upgrade, Switch and
 // Manage billing buttons) and the plan-dependent sections of an owned app's dashboard (forwarding and export, and the
-// note on the time ranges). A switch between Pro and Custom is a new Checkout (src/billing.ts checkout); back from it
+// note on the time ranges). A switch between two paid plans is a new Checkout (src/billing.ts checkout); back from it
 // the page waits for the new plan. Same shell, tokens and rules as the account pages; server-rendered text goes through esc(),
 // scripts insert text with textContent. Buttons that need Stripe are shown only to an account that can buy (a live
-// STRIPE_SECRET_KEY, or a test key and the account in STRIPE_TEST_ACCOUNTS). Start a trial needs no Stripe: it shows
-// to an account without a paid plan or grant that has not had its trial. The trial's days left are said only inside the
-// dashboard, never here.
+// STRIPE_SECRET_KEY, or a test key and the account in STRIPE_TEST_ACCOUNTS). A plan agreed by email (Enterprise) has
+// Talk to us, a mailto link, whatever the key. Which plans include something is said from billing/plans.json
+// (plansWith), never by name.
 
 import { ACCOUNT_CSS, CLIENT_JS, time } from "./account-pages.js";
 import type { Env } from "./collector.js";
@@ -15,11 +15,14 @@ import { DASH_CSS, embed, esc, shell, SIGNED_IN_NAV } from "./pages.js";
 import {
   accountPlan,
   billingLive,
+  byAgreement,
   entitled,
   GRACE_DAYS,
   keepDays,
   LIVE_STATUSES,
+  PAID_PLANS,
   PAST_DUE_GRACE_DAYS,
+  RETIRED_PLAN_IDS,
   PLANS,
   PLANS_FILE,
   planById,
@@ -27,11 +30,22 @@ import {
   viewRanges,
   type Access,
   type Billing,
+  type Entitlement,
   type Plan,
 } from "./plans.js";
 
 const CONTACT = PLANS_FILE.contact;
 const day = (iso: string | null): string => (iso ? time(iso, "date") : "");
+
+/** "A and B", "A, B or C": the names of the plans that include `e`, from billing/plans.json. */
+function plansWith(e: Entitlement, last: "and" | "or" = "and"): string {
+  const n = PLANS.filter((p) => entitled(p, e)).map((p) => p.name);
+  return n.length > 1 ? `${n.slice(0, -1).join(", ")} ${last} ${n[n.length - 1]}` : (n[0] ?? "");
+}
+/** Every plan includes `e` (today: the dashboard, forwarding, export and analytics). */
+const everyPlan = (e: Entitlement): boolean => PLANS.every((p) => entitled(p, e));
+/** "A and B": the paid plans a switch moves between, said only when there are two or more. */
+const switchable = (): string | null => (PAID_PLANS.length > 1 ? PAID_PLANS.map((p) => p.name).join(" and ") : null);
 
 // --------------------------------------------------------------------------------------------- /account/billing
 
@@ -39,7 +53,7 @@ export interface BillingView {
   account: { id: string; email: string | null; githubLogin: string | null };
   apps: { id: string; name: string }[];
   billing: Billing;
-  /** What the account may use now: its paid plan, or Pro during GenClass's grant or the trial (src/plans.ts). */
+  /** What the account may use now: its paid plan or GenClass's grant (src/plans.ts accessOf). */
   access: Access;
   /** This account can buy (src/plans.ts canBuy). */
   live: boolean;
@@ -47,9 +61,9 @@ export interface BillingView {
   testMode: boolean;
   /** Back from Stripe Checkout (?done=1). */
   done: boolean;
-  /** The plan chosen on the pricing page (?plan=pro|custom). */
+  /** The plan chosen on the pricing page (?plan=<id>). */
   picked: string | null;
-  /** Back from a switch's Checkout (?to=pro|custom): the plan it bought. */
+  /** Back from a switch's Checkout (?to=<plan>): the plan it bought. */
   switchTo?: string | null;
   /** The names of the plans sold through Stripe Managed Payments (src/stripe.ts managedPayments). */
   managedPlans?: string[];
@@ -57,10 +71,10 @@ export interface BillingView {
 }
 
 const BILLING_CSS = `
-.plans{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:28px;margin-top:22px}
-.plan{border-top:2px solid var(--ink);padding-top:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.plans{display:grid;grid-template-columns:repeat(${PLANS.length},minmax(0,1fr));gap:28px;margin-top:22px}
+.plan{border-top:1px solid var(--rule2);padding-top:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
 .plan.cur,.plan.pick{border-top-color:var(--accent)}
-.plan h3{font:700 22px/1.1 var(--display);letter-spacing:-.02em;margin:0}
+.plan h3{font:500 22px/1.1 var(--display);letter-spacing:-.02em;margin:0}
 .plan .price{font:500 15px var(--mono)}
 .plan .sum{font-size:14.5px;color:var(--ink2);line-height:1.5}
 .plan ul{list-style:none;padding:0;margin:4px 0 0;display:grid;gap:7px;font-size:14px;line-height:1.45;color:var(--ink2)}
@@ -70,7 +84,7 @@ const BILLING_CSS = `
 .plan .act{margin-top:auto;padding-top:10px}
 .plan .tag{font:500 12px var(--mono);color:var(--accent)}
 .status{margin-top:18px;font-size:16px;line-height:1.55;max-width:70ch;color:var(--ink2)}
-.status b{color:var(--ink);font-weight:600}
+.status b{color:var(--ink);font-weight:500}
 @media (max-width:860px){.plans{grid-template-columns:1fr}}
 `;
 
@@ -79,15 +93,28 @@ function statusLine(v: BillingView, plan: Plan, apps: number): string {
   const name = `<b>${esc(plan.name)}</b>`;
   if (plan.id === "free") {
     if (v.access.source === "comp") return `You have <b>${esc(v.access.plan.name)}</b>, set up by GenClass. Questions: <a href="mailto:${esc(CONTACT)}">${esc(CONTACT)}</a>.`;
-    if (v.access.source === "trial") return `You are on a <b>${esc(v.access.plan.name)}</b> trial.${v.live ? "" : " Paid plans are not on sale yet."}`;
-    const limits = `the runtime and its on-device model, without the dashboard (you have ${apps} app${apps === 1 ? "" : "s"}). ${v.access.trialUsed ? "Your trial has ended." : "Trials available."}`;
+    const has = entitled(plan, "dashboard")
+      ? `the runtime, its on-device model and the dashboard, with ${plan.limits.history_days} days of history`
+      : "the runtime and its on-device model, without the dashboard";
+    const limits = `${has} (you have ${apps} app${apps === 1 ? "" : "s"}).`;
     const overdue = !!b.subscription_id && (b.subscription_status === "past_due" || b.subscription_status === "unpaid");
-    const ended = overdue
+    // a subscription not ended while the account reads as Free, with nothing sold on the site (or a stored plan GenClass
+    // no longer sells): one to a retired plan (plans.json retired_plans; the webhook stores its plan as free). Paying it
+    // gives no plan, so the page says to cancel it, never to pay it
+    const retired =
+      !!b.subscription_id &&
+      ["active", "trialing", "past_due", "unpaid"].includes(b.subscription_status ?? "") &&
+      (!PAID_PLANS.length || RETIRED_PLAN_IDS.includes(b.plan));
+    const ended = retired
+      ? b.cancel_at_period_end
+        ? ` Your subscription to a plan GenClass no longer sells is cancelled and ends on ${day(b.current_period_end)}, without another charge.`
+        : ` Your subscription to a plan GenClass no longer sells is still open in Stripe and can bill again: cancel it in Manage billing, or email <a href="mailto:${esc(CONTACT)}">${esc(CONTACT)}</a>.`
+      : overdue
       ? ` The last payment for your paid plan did not go through, so it has ended. Update your card in Manage billing to pay it and get the plan back, or email <a href="mailto:${esc(CONTACT)}">${esc(CONTACT)}</a>.`
       : b.subscription_id && b.current_period_end && b.subscription_status === "canceled" && Date.parse(b.current_period_end) > v.now.getTime() - GRACE_DAYS * 86_400_000
         ? ` Your paid plan ended on ${day(b.current_period_end)}. Data older than 90 days stays for ${GRACE_DAYS} days after that, in case you come back.`
         : "";
-    return `You are on the ${name} plan: ${limits}${ended}${v.live ? "" : " Paid plans are not on sale yet."}`;
+    return `You are on the ${name} plan: ${limits}${ended}${v.live || !PAID_PLANS.length ? "" : " Paid plans are not on sale yet."}`;
   }
   if (!b.subscription_id) return `You are on the ${name} plan, set up by GenClass. Questions: <a href="mailto:${esc(CONTACT)}">${esc(CONTACT)}</a>.`;
   if (b.subscription_status === "past_due") {
@@ -96,28 +123,28 @@ function statusLine(v: BillingView, plan: Plan, apps: number): string {
   if (b.cancel_at_period_end) {
     return `You are on the ${name} plan until ${day(b.current_period_end)}. It is cancelled and will not renew; you can resume it in Manage billing before then.`;
   }
-  if (b.subscription_status === "trialing") return `You are on the ${name} plan, in a trial until ${day(b.current_period_end)}.`;
+  if (b.subscription_status === "trialing") {
+    return `You are on the ${name} plan, in a trial until ${day(b.current_period_end)}. When it ends your card is charged for the first month (${esc(priceText(plan))}), unless you cancel before in Manage billing.`;
+  }
   return `You are on the ${name} plan, ${esc(priceText(plan))}. It renews on ${day(b.current_period_end)}.`;
 }
 
 function planColumn(v: BillingView, p: Plan, current: Plan): string {
-  // the column marked as the account's: its paid plan, or Pro during a grant or the trial (which can still be bought)
-  const granted = v.access.source === "comp" || v.access.source === "trial";
-  const cur = p.id === (granted ? v.access.plan.id : current.id);
+  // the column marked as the account's: its paid plan, or the grant's
+  const cur = p.id === (v.access.source === "comp" ? v.access.plan.id : current.id);
   const subscribed = !!v.billing.subscription_id && LIVE_STATUSES.has(v.billing.subscription_status ?? "") && current.id !== "free";
   // back from Checkout (a purchase or a switch) and still waiting for Stripe's word: no buttons, so a second purchase
   // or switch cannot start
   const waiting = !!awaited(v, current);
-  const pick = !(cur && v.access.source !== "trial") && v.picked === p.id && v.live && !waiting;
-  // the trial: no card and no Stripe, once per account
-  const trial = p.id === "pro" && v.access.source === null && !v.access.trialUsed && !waiting;
-  const buy = `<button class="btn${(p.id === "custom" && !pick) || trial ? " ghost" : ""}" type="button" data-plan="${esc(p.id)}"${pick ? " data-pick" : ""}><span>${subscribed ? "Switch to" : "Upgrade to"} ${esc(p.name)}</span></button>`;
+  const pick = !cur && v.picked === p.id && v.live && !waiting;
+  // the first paid plan's button is the strong one, unless another was picked on the pricing page
+  const buy = `<button class="btn${p !== PAID_PLANS[0] && !pick ? " ghost" : ""}" type="button" data-plan="${esc(p.id)}"${pick ? " data-pick" : ""}><span>${subscribed ? "Switch to" : "Upgrade to"} ${esc(p.name)}</span></button>`;
+  const talk = `<a class="btn ghost" href="mailto:${esc(CONTACT)}?subject=${encodeURIComponent(`GenClass ${p.name}`)}"><span>Talk to us</span></a>`;
   let act = "";
-  if (cur && v.access.source === "trial") act = `<span class="tag">Your trial</span>${v.live && !waiting ? ` ${buy}` : ""}`;
-  else if (cur) act = `<span class="tag">${v.access.source === "comp" ? "Set up by GenClass" : "Your plan"}</span>`;
+  if (cur) act = `<span class="tag">${v.access.source === "comp" ? "Set up by GenClass" : "Your plan"}</span>`;
   else if (p.id === "free") act = subscribed && v.live ? '<span class="muted">To go back to Free, cancel in Manage billing.</span>' : "";
+  else if (byAgreement(p)) act = talk;
   else if (v.live && !waiting) act = buy;
-  if (trial) act = `<button class="btn green" type="button" id="trial"><span>Start a trial</span></button>${act ? ` ${act}` : ""}`;
   const features = p.features
     .map((f) => `<li${f.available ? "" : ' class="soon"'}>${esc(f.text)}${f.available || /coming next/i.test(f.text) ? "" : " (coming next)"}</li>`)
     .join("");
@@ -148,15 +175,16 @@ export function billingPage(nonce: string, v: BillingView): string {
         : `<p class="notice n-ok" role="status"><b>Thanks.</b> You are on the ${esc(plan.name)} plan now.</p>`;
   }
   const subscribed = !!v.billing.subscription_id && LIVE_STATUSES.has(v.billing.subscription_status ?? "") && plan.id !== "free";
+  const between = switchable();
   const switchNote =
-    subscribed && v.live && !want
-      ? '<p class="intro">Switching between Pro and Custom opens Stripe\'s checkout for the new plan. Your current plan stays until that payment goes through, then ends at once, and its unused days are refunded to the card or account that paid for it.</p>'
+    subscribed && v.live && !want && between
+      ? `<p class="intro">Switching between ${esc(between)} opens Stripe's checkout for the new plan. Your current plan stays until that payment goes through, then ends at once, and its unused days are refunded to the card or account that paid for it.</p>`
       : "";
   const managed = v.live && v.managedPlans?.length
     ? ` ${esc(v.managedPlans.join(" and "))} ${v.managedPlans.length > 1 ? "are" : "is"} sold through Link, Stripe's merchant of record service: Link's name is on the receipt and on your card statement, it adds sales tax or VAT where it applies, and it answers questions about the payment.`
     : "";
   const custom =
-    plan.id === "custom"
+    PAID_PLANS.includes(plan) && entitled(plan, "custom_model") && !!v.billing.subscription_id
       ? `<p class="status">A person from GenClass emails ${a.email ? esc(a.email) : "you"} within 1 business day of your purchase to start training your classifier. You can also write to <a href="mailto:${esc(CONTACT)}">${esc(CONTACT)}</a>.</p>`
       : "";
   const test =
@@ -182,7 +210,7 @@ export function billingPage(nonce: string, v: BillingView): string {
 </section>
 ${notice}${test}
 <section class="blk" id="plans">
-  <div class="blk-h"><h2>Plans</h2><span class="aside">US dollars, billed monthly</span></div>
+  <div class="blk-h"><h2>Plans</h2>${PAID_PLANS.length ? '<span class="aside">US dollars, billed monthly</span>' : ""}</div>
   <div class="plans">${PLANS.map((p) => planColumn(v, p, plan)).join("")}</div>
   <p class="err" id="planerr" role="alert"></p>
   ${switchNote}
@@ -192,14 +220,18 @@ ${
   manage
     ? `<section class="blk" id="manage">
   <div class="blk-h"><h2>Manage billing</h2><span class="aside">On Stripe</span></div>
-  <p class="intro">Change your card, see and download invoices, or cancel. A cancelled plan stays until the end of the period you paid for. To switch between Pro and Custom, use the buttons under Plans.</p>
+  <p class="intro">Change your card, see and download invoices, or cancel. A cancelled plan stays until the end of the period you paid for.${between ? ` To switch between ${esc(between)}, use the buttons under Plans.` : ""}</p>
   <div class="acct-form"><button class="btn ghost" type="button" id="portal"><span>Manage billing</span></button></div>
   <p class="err" id="portalerr" role="alert"></p>
 </section>`
     : ""
 }
-<footer class="dfoot">Payments are handled by Stripe.${managed} GenClass stores your Stripe customer and subscription ids, the subscription's
-status and renewal date, and your plan; never card details. <a href="https://genclass.dev/privacy">Privacy</a> · <a href="https://genclass.dev/terms">Terms</a></footer>
+<footer class="dfoot">${
+    PAID_PLANS.length || manage
+      ? `Payments are handled by Stripe.${managed} GenClass stores your Stripe customer and subscription ids, the subscription's
+status and renewal date, and your plan; never card details. `
+      : ""
+  }<a href="https://genclass.dev/privacy">Privacy</a> · <a href="https://genclass.dev/terms">Terms</a></footer>
 </div>
 </div>
 <script type="application/json" id="cfg">${embed({ want })}</script>`;
@@ -217,12 +249,6 @@ status and renewal date, and your plan; never card details. <a href="https://gen
   });
   var pick = document.querySelector("[data-pick]");
   if (pick) pick.focus();
-  var trial = document.getElementById("trial");
-  if (trial) trial.addEventListener("click", function(){
-    var err = document.getElementById("planerr"); err.textContent = "";
-    gcBusy(trial, true, "Starting...");
-    gcPost("/api/billing/trial", {}).then(function(){ location.reload(); }, function(e){ err.textContent = gcWhy(e); gcBusy(trial, false); });
-  });
   var portal = document.getElementById("portal");
   if (portal) portal.addEventListener("click", function(){
     var err = document.getElementById("portalerr"); err.textContent = "";
@@ -235,7 +261,9 @@ status and renewal date, and your plan; never card details. <a href="https://gen
       if (++tries > 40) { clearInterval(timer); var m = document.getElementById("donemsg"); if (m) m.lastChild.textContent = " Stripe has not told us yet. Reload this page in a few minutes; if your plan still shows Free, email ${esc(CONTACT)}."; return; }
       fetch("/api/billing", { headers: { accept: "application/json" }, cache: "no-store", credentials: "same-origin" })
         .then(function(r){ return r.ok ? r.json() : null; })
-        .then(function(j){ if (j && j.plan && (cfg.want === "paid" ? j.plan !== "free" : j.plan === cfg.want)) { clearInterval(timer); location.reload(); } })
+        .then(function(j){
+          if (j && j.plan && (cfg.want === "paid" ? j.plan !== "free" : j.plan === cfg.want)) { clearInterval(timer); location.reload(); }
+        })
         .catch(function(){});
     }, 3000);
   }
@@ -258,7 +286,7 @@ export interface AppExtras {
   keep: number;
 }
 
-/** Everything the app page's plan-dependent sections show, read for one owned app (a grant or a trial gives Pro's). */
+/** Everything the app page's plan-dependent sections show, read for one owned app (a grant gives its plan's). */
 export async function appExtrasData(db: D1Like, env: Env, accountId: string, p: Project, now: Date): Promise<AppExtras> {
   const plan = await accountPlan(db, accountId, env, now);
   const projectId = p.id ?? "";
@@ -294,8 +322,8 @@ const EXTRA_CSS = `
 .paid .xf .f{flex:1 1 220px;min-width:0}
 .paid .xf .f.sm{flex:0 1 150px}
 .paid .xf label{display:block;font:500 12.5px var(--mono);color:var(--ink3);margin-bottom:6px}
-.paid .xf input,.paid .xf select{min-height:40px;width:100%;padding:0 10px;border-radius:8px;border:1px solid var(--rule2);background:var(--paper);color:var(--ink);font:14px var(--sans)}
-.paid .xf input:focus-visible,.paid .xf select:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.paid .xf input,.paid .xf select{min-height:40px;width:100%;padding:0 10px;border-radius:0;border:1px solid var(--line);background:var(--paper);color:var(--ink);font:14px var(--sans)}
+.paid .xf input:focus-visible,.paid .xf select:focus-visible{outline:1px solid var(--accent);outline-offset:1px}
 .paid .xf .btn{min-height:40px}
 .paid .err{font-size:14px;color:var(--warn);margin-top:8px}
 .paid .err:empty{display:none}
@@ -360,7 +388,7 @@ export function appExtrasHtml(nonce: string, d: AppExtras): { html: string; scri
   const ex = entitled(d.plan, "export");
   let forwarding: string;
   if (!fw) {
-    forwarding = `<p class="intro">On Pro and Custom, GenClass sends each new detection from this app to Sentry, PostHog, Datadog, Slack or your own webhook. It is sent from our server, so nothing changes in your app. ${SEE_PLANS}</p>`;
+    forwarding = `<p class="intro">On ${esc(plansWith("forwarding"))}, GenClass sends each new detection from this app to Sentry, PostHog, Datadog, Slack or your own webhook. It is sent from our server, so nothing changes in your app. ${SEE_PLANS}</p>`;
   } else {
     const byKind = new Map(d.destinations.map((x) => [x.kind, x]));
     const rows = KINDS.map((k) => {
@@ -384,7 +412,7 @@ ${rows}
 
   let exportHtml: string;
   if (!ex) {
-    exportHtml = `<p class="intro">On Pro and Custom you can download every event GenClass receives for this app from the day you upgrade, kept a year, as JSON Lines or CSV, or read it with an API key. ${SEE_PLANS}</p>`;
+    exportHtml = `<p class="intro">On ${esc(plansWith("export"))} you can download every event GenClass receives for this app from the day you upgrade, kept a year, as JSON Lines or CSV, or read it with an API key. ${SEE_PLANS}</p>`;
   } else {
     const keys = d.exportKeys.length
       ? `<div class="tablewrap"><table class="dt rows"><thead><tr><th>Export key</th><th>Created</th><th>Last used</th><th></th></tr></thead><tbody>${d.exportKeys
@@ -392,7 +420,7 @@ ${rows}
           .join("")}</tbody></table></div>`
       : '<p class="intro">No export keys yet.</p>';
     const curl = `curl -H "Authorization: Bearer gce_..." \\\n  "https://genclass.dev/api/account/projects/${d.projectId}/events?from=2026-10-01&to=2026-10-14&format=jsonl"`;
-    exportHtml = `<p class="intro">Every event GenClass received for this app while this account was on Pro or Custom, kept ${d.keep >= 365 ? "1 year" : `${d.keep} days`}: one JSON object per line as the collector stored it (the batch's session id, versions, time received, country and the event), or one CSV row per event.</p>
+    exportHtml = `<p class="intro">Every event GenClass received for this app${everyPlan("export") ? "" : ` while this account was on ${esc(plansWith("export", "or"))}`}, kept ${d.keep >= 365 ? "1 year" : `${d.keep} days`}: one JSON object per line as the collector stored it (the batch's session id, versions, time received, country and the event), or one CSV row per event.</p>
   <form class="xf" id="exf" novalidate>
     <div class="f sm"><label for="exfrom">From</label><input id="exfrom" type="date"></div>
     <div class="f sm"><label for="exto">To (inclusive)</label><input id="exto" type="date"></div>
@@ -410,12 +438,12 @@ ${rows}
   }
 
   const html = `<style nonce="${nonce}">${EXTRA_CSS}</style>
-<section class="blk paid" id="forwarding">
-  <div class="blk-h"><h2>Forwarding</h2><span class="aside">${fw ? "New detections, sent where you already look" : "Pro and Custom"}</span></div>
+<section class="blk paid" id="forwarding" data-v="forwarding">
+  <div class="blk-h"><h2>Forwarding</h2><span class="aside">${fw ? "New detections, sent where you already look" : esc(plansWith("forwarding"))}</span></div>
   ${forwarding}
 </section>
-<section class="blk paid" id="export">
-  <div class="blk-h"><h2>Export</h2><span class="aside">${ex ? "Every event, as a file or by API" : "Pro and Custom"}</span></div>
+<section class="blk paid" id="export" data-v="export">
+  <div class="blk-h"><h2>Export</h2><span class="aside">${ex ? "Every event, as a file or by API" : esc(plansWith("export"))}</span></div>
   ${exportHtml}
 </section>
 <script type="application/json" id="paidcfg">${embed({
@@ -423,6 +451,8 @@ ${rows}
     name: d.projectName,
     keep: d.keep,
     note: d.plan.id === "free" && d.live && d.plan.limits.history_days < 30 ? `The ${d.plan.name} plan shows ${d.plan.limits.history_days} days.` : null,
+    // the first plan that reaches a year, named in the note's link
+    year: `${PLANS.find((p) => p.limits.history_days >= 365)?.name ?? "A paid plan"} shows a year.`,
   })}</script>`;
 
   const script = `
@@ -446,7 +476,7 @@ ${rows}
     t.title = d.toLocaleString();
   });
   // the plan's ranges: a short note under the range buttons
-  if (C.note) document.querySelectorAll(".seg").forEach(function(s){ var p = el("p", "rnote", C.note + " "); var a = el("a", null, "Pro shows a year."); a.href = "/account/billing"; p.appendChild(a); s.parentNode.insertBefore(p, s.nextSibling); });
+  if (C.note) document.querySelectorAll(".seg").forEach(function(s){ var p = el("p", "rnote", C.note + " "); var a = el("a", null, C.year); a.href = "/account/billing"; p.appendChild(a); s.parentNode.insertBefore(p, s.nextSibling); });
   // forwarding
   var fwerr = document.getElementById("fwerr"), fwok = document.getElementById("fwok");
   document.querySelectorAll("form[data-kind]").forEach(function(f){

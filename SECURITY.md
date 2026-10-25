@@ -66,10 +66,41 @@ infrastructure we do not operate.
   each mode may change, the preconditions and undo of every action, and how `disable()` and `?genclass=off` restore
   the page. A unit test keeps it in sync with the code.
 - [packages/runtime/TELEMETRY.md](packages/runtime/TELEMETRY.md) and [PRIVACY.md](PRIVACY.md): what leaves the page.
-- [RELEASE.md](RELEASE.md#verifying-a-published-tarball): how to check that a published tarball was built from this
-  repository.
+- [Verifying a published tarball](#verifying-a-published-tarball) (below): how to check that a published tarball was
+  built from this repository.
 
 Recommended for production: keep the default `observe` mode until you have looked at what GenClass reports for your
 app; set `mode` explicitly (a URL parameter can then only lower it); keep payment, checkout and sign-in endpoints
 observe-only with `requests: { protect: protectPreset("payments", "auth") }`; self-host the model and onnxruntime-web
 behind a Content-Security-Policy (README, "Content-Security-Policy and self-hosting"); review `rt.audit()`.
+
+## Verifying a published tarball
+
+Anyone can check a published version against this repository. For a version published by the release workflow
+(`.github/workflows/release.yml`, from a `v*` tag, with npm provenance):
+
+```sh
+# 1. registry signatures and the provenance attestation (in any project that installed it)
+npm install @genclass/runtime@<version>
+npm audit signatures                    # counts packages with verified registry signatures and verified attestations
+npm view @genclass/runtime@<version> dist.attestations   # the provenance bundle URL
+# npmjs.com shows "Built and signed on GitHub Actions" with links to the workflow run, the commit and release.yml
+```
+
+The provenance names the repository, the workflow file, the tag and the commit SHA the tarball was built from. To
+compare the contents with that commit yourself (any published version, also the hand-published ones):
+
+```sh
+V=<version>
+mkdir -p /tmp/gc-verify && cd /tmp/gc-verify
+npm pack @genclass/runtime@$V                       # the published tarball, byte for byte
+npm view @genclass/runtime@$V dist.shasum dist.integrity gitHead
+shasum -a 1 genclass-runtime-$V.tgz                 # equals dist.shasum
+mkdir published && tar -xzf genclass-runtime-$V.tgz -C published
+git clone https://github.com/genclass-dev/GenClass-lib.git src && cd src
+git checkout v$V                                    # or the commit in the provenance / gitHead
+ONNXRUNTIME_NODE_INSTALL=skip npm ci --no-audit --no-fund
+npm run build -w @genclass/runtime
+cd packages/runtime && npm pack && mkdir ../../../rebuilt && tar -xzf genclass-runtime-$V.tgz -C ../../../rebuilt
+cd /tmp/gc-verify && diff -r published/package rebuilt/package && echo "same files, same contents"
+```

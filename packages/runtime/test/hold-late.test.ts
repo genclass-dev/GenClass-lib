@@ -5,8 +5,8 @@
 // held either. The first duplicate submit of every page load was lost that way.
 import { describe, expect, it } from "vitest";
 import { DeciderQueue } from "../src/decide/decider.js";
-import { HOLD_MIN_MS } from "../src/decide/policy.js";
-import type { Answer, EvaluateRequest } from "../src/types.js";
+import { HOLD_MAX_MS, HOLD_MIN_MS } from "../src/decide/policy.js";
+import type { Answer, EvaluateRequest, ModelStatus } from "../src/types.js";
 import { FakeClock, defaultScript, setup, type Setup } from "./helpers.js";
 
 /** Replace the scripted decider's evaluate with one that answers after `delay` ms of fake-clock time. */
@@ -55,6 +55,38 @@ describe("hold budget before the first decision (§8)", () => {
     const s = setup();
     s.decider.status = { state: "ready", model: "scripted", warmupMs: 400 };
     expect(s.rt.holdBudgetMs()).toBe(600);
+  });
+
+  it("WASM: sized to the warm second warm-up pass, not the cold first one, so the first duplicate submit is held", async () => {
+    // Half the train VM's CPU speed (genclass.dev double-click demo, 0.2.2 + model 0.2.0): the cold first pass took
+    // 800 ms for 434 tokens, a warm pass 125 ms; a real decision about the duplicate POST about 340 ms. 0.2.2 timed
+    // only the cold pass on WASM, and the first press of every page load was sent twice (0/20 caught).
+    const warm: ModelStatus = { state: "ready", model: "scripted", device: "wasm", warmupMs: 800, latency: { p50: 125, p90: 125, n: 0, tokensP50: 434, msPerToken: 0.288, source: "warmup" } };
+    const cold: ModelStatus = { ...warm, latency: { p50: 800, p90: 800, n: 0, tokensP50: 434, msPerToken: 1.843, source: "warmup" } };
+    const firstPress = async (status: ModelStatus) => {
+      const s = setup({ script: defaultScript({ request: { diagnosis: "duplicate", action: "coalesce" } }) });
+      s.decider.status = status;
+      const budget = s.rt.holdBudgetMs();
+      s.server.on("POST", "/api/orders", ({ n }) => ({ status: 201, body: { order: n }, latency: 1500 }));
+      slow(s, () => 340);
+      const out = await doubleSubmit(s, 90);
+      await s.clock.advance(3000);
+      return { budget, posts: s.server.hits.get("POST /api/orders"), out };
+    };
+    // ≈ 0.288 × 1,200 + 20 = 366 ms expected, × 1.5 = 549 ms budget: the second POST is held, answered at 340 ms and
+    // coalesced into the first
+    const now = await firstPress(warm);
+    expect(now.budget).toBe(549);
+    expect(now.posts).toBe(1);
+    expect(now.out).toEqual([
+      { status: 201, mark: null },
+      { status: 201, mark: "coalesced" },
+    ]);
+    // the cold pass as the latency (0.2.2): ≈ 2.2 s expected against the 800 ms ceiling, so the POST is not held
+    const before = await firstPress(cold);
+    expect(before.budget).toBe(HOLD_MAX_MS);
+    expect(before.posts).toBe(2);
+    expect(before.out.map((o) => o.mark)).toEqual([null, null]);
   });
 });
 

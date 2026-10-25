@@ -1,8 +1,8 @@
 // HTML for https://genclass.dev/start (get a token) and https://genclass.dev/dashboard/<secret> (the dashboard), and
 // the shell and dashboard the account pages (src/account-pages.ts) reuse: /account/apps/<id> is this dashboard in its
-// account mode (the account's apps in the sidebar, the Connect panel, stats from the account API). Dashboards come
-// with Pro: an app whose account has no plan, grant or trial gets the locked account mode (the key and the Connect
-// panel, a way to Pro, no stats); a locked private link is account-pages.ts lockedLinkPage.
+// account mode (the account's apps in the sidebar, the Connect panel, stats from the account API). Every plan includes
+// the dashboard (billing/plans.json); a plan file that left it out would give the locked account mode (the key and
+// the Connect panel, the plans, no stats), and a locked private link is account-pages.ts lockedLinkPage.
 // No external scripts; styles and fonts only from Google Fonts. Inline <script>/<style> run under a per-response CSP
 // nonce; dynamic text is inserted with textContent in scripts and escaped (esc) in server-rendered HTML.
 
@@ -39,7 +39,7 @@ export function securityHeaders(nonce: string, extra: Record<string, string> = {
     "cross-origin-opener-policy": "same-origin",
     "permissions-policy": "camera=(), microphone=(), geolocation=(), interest-cohort=()",
     "content-security-policy":
-      `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'nonce-${nonce}' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self'; ` +
+      `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'nonce-${nonce}' https://api.fontshare.com https://fonts.googleapis.com; font-src https://cdn.fontshare.com https://fonts.gstatic.com; connect-src 'self'; ` +
       `img-src 'self' data: https://genclass.dev; base-uri 'none'; form-action ${opts.account ? "'self'" : "'none'"}; frame-ancestors 'none'`,
     ...extra,
   };
@@ -50,147 +50,143 @@ export const esc = (s: string): string => s.replace(/[&<>"']/g, (c) => `&#${c.ch
 /** JSON safe to embed in <script type="application/json">. */
 export const embed = (v: unknown): string => JSON.stringify(v).replace(/</g, "\\u003c").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
 
-/**
- * The header lockup, as on genclass.dev: in light the site's own lockup image; in dark (which the site does not have)
- * the mark beside the name set in type, "gen" in the page ink and "class" in the brand green, so it stays readable.
- */
+/** The header logo, as on genclass.dev: the mark and the name set in type. */
 export const LOGO =
-  '<a class="logo" href="https://genclass.dev/" aria-label="GenClass home"><img class="lk" src="https://genclass.dev/brand/lockup-h.png?v=2" alt="" width="170" height="37">' +
-  '<span class="lkd" aria-hidden="true"><img src="https://genclass.dev/brand/mark-64.png" alt="" width="30" height="30"><span class="wm"><span>gen</span><span class="g">class</span></span></span></a>';
+  '<a class="logo" href="https://genclass.dev/"><img src="https://genclass.dev/brand/mark-64.png?v=2" alt="" width="24" height="24">GenClass</a>';
 
-const ICON =
-  "data:image/svg+xml," +
-  encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#0E1F4D"/><path d="M9 21l5-10 4 7 2-3 3 6" fill="none" stroke="#14B86A" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>');
+/** The site's own icons (site/public/brand, apple-touch-icon.png), so every genclass.dev page shows the same one. */
+const ICON_LINKS =
+  '<link rel="icon" href="https://genclass.dev/brand/mark-32.png?v=2" sizes="32x32" type="image/png">' +
+  '<link rel="icon" href="https://genclass.dev/brand/mark-64.png?v=2" sizes="64x64" type="image/png">' +
+  '<link rel="apple-touch-icon" href="https://genclass.dev/apple-touch-icon.png">';
 
-// The palette, type, buttons, header and focus ring of genclass.dev (site/src/css/base.css and components.css), light
-// values as the site has them. The site is light-only; the dark values are steps of the same hues on its night navy
-// (#0B1736, the site's code and console panels), each text colour at least 4.5:1 on --paper and --panel and each UI
-// colour (focus ring, input border, fills) at least 3:1. Light: --accent #08794A is the site's small green text,
-// --accent-x #0E9A58 its large green text, --accent-f #14B86A its green fills and buttons; --warn #C42A12 the
-// red-orange for small text (the site's --orange), --warn-f #F0451C its bug fills. --line is an input border at
-// 3:1 (the site's --rule2 is 1.6:1, fine for a ghost button whose text names it, not for an empty field).
+// The palette, type, buttons, header and focus ring of genclass.dev (site/src/css/base.css and components.css), with
+// the site's values: black ground, bone text, the GenClass mark's green and red-orange, square corners, 1px rules,
+// Satoshi for text and JetBrains Mono for code. Like the site, every page here is dark only, whatever the visitor's
+// system theme: no prefers-color-scheme rules and `color-scheme: dark`, so form controls and scrollbars are dark too.
+// The token names are the light design's (--paper is the page, --ink the text), so every rule keeps working. Text
+// colours are at least 4.5:1 on --paper, --panel and --code, UI colours (focus ring, input border, fills) at least
+// 3:1 (test/pages.test.ts measures them). --accent #2FD07F is the site's green for text, fills and buttons, with
+// --on-green #02140A on it; --warn #FF6B4A the red-orange for bug text (the site's --bad), --warn-f #FF5A36 its bug
+// fills; --accent-t and --warn-t are their tints on black. --line is an input border at 4:1 (the site's
+// --rule-strong is 2:1, fine for a divider, not for an empty field).
 const CSS = `
 :root{
-  --paper:#FFFFFF;--panel:#F5F8FB;--ink:#0E1F4D;--ink2:#3D4B6B;--ink3:#5A6684;--rule:#DFE4EC;--rule2:#C6CEDB;--line:#848FA6;
-  --accent:#08794A;--accent-x:#0E9A58;--accent-f:#14B86A;--accent-t:#DCF5E8;--warn:#C42A12;--warn-f:#F0451C;--warn-t:#FDE6E0;
-  --bar:#0E1F4D;--bar2:#14B86A;--bar3:#F0451C;--ink-h:#071331;--green-h:#0FA35D;--on-green:#0E1F4D;--head:rgba(255,255,255,.92);
-  --code:#0B1736;--codeink:#E8EDF8;
-  --lattice:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='41.569'%3E%3Cpath d='M0 .5H24M0 21.285H24M0 0L24 41.569M24 0L0 41.569' fill='none' stroke='rgba(14,31,77,.16)' stroke-width='1'/%3E%3C/svg%3E");
-  --display:"Outfit","Helvetica Neue",Arial,sans-serif;--sans:"Figtree","Helvetica Neue",Arial,sans-serif;
-  --mono:"Geist Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
-  color-scheme:light dark;
+  --paper:#000000;--panel:#0B0B0A;--ink:#F0F1E9;--ink2:#A0A196;--ink3:#88897F;--rule:#30312B;--rule2:#46463E;--line:#6E6F66;
+  --accent:#2FD07F;--accent-x:#2FD07F;--accent-f:#2FD07F;--accent-t:#06140D;--warn:#FF6B4A;--warn-f:#FF5A36;--warn-t:#1C0A06;
+  --bar:#A0A196;--bar2:#2FD07F;--bar3:#FF5A36;--ink-h:#FFFFFF;--green-h:#52DA95;--on-green:#02140A;--head:rgba(0,0,0,.75);
+  --code:#131311;--codeink:#F0F1E9;
+  --display:"Satoshi",ui-sans-serif,system-ui,sans-serif;--sans:"Satoshi",ui-sans-serif,system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  color-scheme:dark;
 }
-@media (prefers-color-scheme:dark){:root{
-  --paper:#0B1736;--panel:#13224A;--ink:#E8EDF8;--ink2:#C3CCE2;--ink3:#97A3C2;--rule:#26355E;--rule2:#3A4A75;--line:#6E7DA6;
-  --accent:#4FD08F;--accent-x:#4FD08F;--accent-f:#14B86A;--accent-t:#153925;--warn:#FF8A6B;--warn-f:#F0451C;--warn-t:#441F16;
-  --bar:#9DB2E8;--bar2:#3ED68A;--bar3:#F0451C;--ink-h:#FFFFFF;--green-h:#2FD07F;--on-green:#0B1736;--head:rgba(11,23,54,.92);
-  --code:#060E24;--codeink:#E8EDF8;
-  --lattice:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='41.569'%3E%3Cpath d='M0 .5H24M0 21.285H24M0 0L24 41.569M24 0L0 41.569' fill='none' stroke='rgba(232,237,248,.10)' stroke-width='1'/%3E%3C/svg%3E");
-}}
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--paper);color:var(--ink);font:15px/1.55 var(--sans);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
-html:has(header.top){scroll-padding-top:72px}
+html{background:var(--paper)}
+body{background:var(--paper);color:var(--ink);font:15px/1.55 var(--sans);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}
+::selection{background:var(--accent-f);color:var(--on-green)}
+html:has(header.top){scroll-padding-top:76px}
 a{color:inherit;text-underline-offset:3px}
-:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+:focus-visible{outline:1px solid var(--accent);outline-offset:3px}
 .wrap{max-width:1240px;margin:0 auto;padding:0 clamp(16px,4vw,40px)}
-header.top{position:sticky;top:0;z-index:20;background:var(--head);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-bottom:1px solid var(--rule)}
-header.top .wrap{display:flex;align-items:center;gap:22px;height:60px}
+header.top{position:sticky;top:0;z-index:20;background:var(--head);backdrop-filter:blur(24px) saturate(150%);-webkit-backdrop-filter:blur(24px) saturate(150%);border-bottom:1px solid var(--rule)}
+@media (prefers-reduced-transparency:reduce){header.top{background:var(--paper)}}
+header.top .wrap{display:flex;align-items:center;gap:22px;height:64px}
 body:has(.app) header.top .wrap{max-width:1360px}
-.logo{display:flex;align-items:center;flex:none;text-decoration:none}
-.logo .lk{height:37px;width:auto;display:block}
-.logo .lkd{display:none;align-items:center;gap:8px}
-.logo .lkd img{width:30px;height:30px;display:block}
-.logo .wm{font:700 27px/1 var(--display);letter-spacing:-.035em;color:var(--ink);padding-bottom:2px}
-.logo .wm .g{color:var(--accent-f)}
-@media (prefers-color-scheme:dark){.logo .lk{display:none}.logo .lkd{display:inline-flex}}
+.logo{display:flex;align-items:center;gap:10px;flex:none;font:500 17px var(--display);letter-spacing:-.02em;color:var(--ink);text-decoration:none}
+.logo img{width:24px;height:24px;display:block}
 header.top nav{margin-left:auto;display:flex;gap:22px;font-size:14px;color:var(--ink2);align-items:center}
 header.top nav a{text-decoration:none;white-space:nowrap}
-header.top nav a:not(.btn):hover,header.top nav .so button:hover{color:var(--ink)}
+header.top nav a:not(.btn):hover,header.top nav .so button:hover,header.top nav a[aria-current=page]{color:var(--ink)}
 header.top nav .btn{min-height:36px;font-size:14px;padding:0 14px}
 header.top nav form.so{display:contents}
 header.top nav .so button,button.lnk{background:none;border:0;padding:0;font:inherit;color:inherit;cursor:pointer;white-space:nowrap}
-@media (max-width:620px){header.top .wrap{gap:12px}header.top nav{gap:14px}header.top nav .hm{display:none}.logo .lk{height:30px}.logo .lkd img{width:26px;height:26px}.logo .wm{font-size:23px}}
+@media (max-width:620px){header.top .wrap{gap:12px}header.top nav{gap:14px}header.top nav .hm{display:none}}
 @media (max-width:420px){header.top nav .dc{display:none}}
-@media (max-width:360px){header.top .wrap{gap:10px}.logo .lk{height:26px}}
+@media (max-width:360px){header.top .wrap{gap:10px}}
 h1,h2,h3{font-family:var(--display);text-wrap:balance}
-h1{font-size:clamp(26px,4vw,40px);line-height:1.1;letter-spacing:-.03em;font-weight:700}
-h2{font-size:17px;letter-spacing:-.01em;font-weight:700;margin-bottom:10px}
+h1{font-size:clamp(26px,4vw,40px);line-height:1.15;letter-spacing:-.04em;font-weight:500}
+h2{font-size:17px;letter-spacing:-.015em;font-weight:500;margin-bottom:10px}
 p.lead{color:var(--ink2);font-size:16px;max-width:62ch;margin-top:10px}
 .muted{color:var(--ink3)}
 .small{font-size:13px}
 .mono{font-family:var(--mono)}
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border-radius:8px;font:500 15px/1 var(--sans);cursor:pointer;border:1px solid var(--ink);background:var(--ink);color:var(--paper);text-decoration:none;white-space:nowrap}
-.btn:hover{background:var(--ink-h);border-color:var(--ink-h)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border-radius:0;font:500 15px/1 var(--sans);cursor:pointer;border:1px solid var(--accent-f);background:var(--accent-f);color:var(--on-green);text-decoration:none;white-space:nowrap;transition:opacity .15s,border-color .15s,color .15s,transform .1s}
+.btn:hover{opacity:.9}
+.btn:active{transform:scale(.985)}
 .btn:disabled{opacity:.6;cursor:progress}
 .btn.green{background:var(--accent-f);border-color:var(--accent-f);color:var(--on-green)}
-.btn.green:hover{background:var(--green-h);border-color:var(--green-h)}
-.btn.ghost{background:transparent;color:var(--ink);border-color:var(--rule2)}
-.btn.ghost:hover{background:transparent;border-color:var(--ink)}
+.btn.green:hover{opacity:.9}
+.btn.ghost{background:transparent;color:var(--ink2);border-color:var(--rule2)}
+.btn.ghost:hover{opacity:1;background:transparent;color:var(--ink);border-color:var(--ink3)}
 .btn.sm{min-height:34px;padding:0 12px;font-size:13.5px}
 @media (max-width:620px){.btn.sm{min-height:44px}}
-input[type=text]{min-height:46px;padding:0 12px;border-radius:8px;border:1px solid var(--line);background:var(--paper);color:var(--ink);font:16px var(--sans);width:100%}
-input[type=text]:focus-visible{outline:2px solid var(--accent);outline-offset:0;border-color:var(--accent)}
+input[type=text]{min-height:46px;padding:0 12px;border-radius:0;border:1px solid var(--line);background:var(--paper);color:var(--ink);font:16px var(--sans);width:100%}
+input[type=text]:focus-visible{outline:1px solid var(--accent);outline-offset:0;border-color:var(--accent)}
 ::placeholder{color:var(--ink3);opacity:1}
-.card{background:var(--panel);border:1px solid var(--rule2);border-radius:16px;padding:clamp(16px,3vw,28px);min-width:0}
+.card{background:var(--panel);border:1px solid var(--rule);border-radius:0;padding:clamp(16px,3vw,28px);min-width:0}
 .grid{display:grid;gap:12px}
 .kpis{grid-template-columns:repeat(auto-fill,minmax(160px,1fr))}
 .cols{grid-template-columns:repeat(auto-fill,minmax(320px,1fr))}
 .charts{grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
 @media (max-width:420px){.cols{grid-template-columns:1fr}}
-.kpi .v{font-size:26px;font-weight:750;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.kpi .v{font-size:26px;font-weight:500;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
 .kpi .l{font-size:13px;color:var(--ink2)}
 .kpi .s{font-size:12px;color:var(--ink3);margin-top:2px}
-pre.code{background:var(--code);color:var(--codeink);border-radius:12px;padding:12px 14px;font:13px/1.6 var(--mono);overflow-x:auto;white-space:pre}
+pre.code{background:var(--code);color:var(--codeink);border-radius:0;padding:12px 14px;font:13px/1.6 var(--mono);overflow-x:auto;white-space:pre}
 .snip>*+*{margin-top:6px}
 .snip .between{align-items:center}
-.note{border:1px solid var(--rule2);border-left:3px solid var(--warn);background:var(--panel);padding:12px 16px;border-radius:10px;font-size:14px;color:var(--ink)}
+.note{border:1px solid var(--rule);border-left:3px solid var(--warn);background:var(--panel);padding:12px 16px;border-radius:0;font-size:14px;color:var(--ink)}
 .ok{border-left-color:var(--accent-f);background:var(--accent-t)}
-.pill{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--rule2);border-radius:999px;padding:3px 10px;font-size:13px;color:var(--ink2)}
+.pill{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--rule2);border-radius:0;padding:3px 10px;font:500 12px var(--mono);color:var(--ink2)}
 .pill .dot{width:8px;height:8px;border-radius:50%;background:var(--ink3)}
 .pill.live .dot{background:var(--accent-f)}
 .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
-.tabs{display:inline-flex;border:1px solid var(--rule2);border-radius:8px;overflow:hidden}
-.tabs button{border:0;background:transparent;color:var(--ink2);padding:7px 12px;font:600 13px var(--sans);cursor:pointer}
+.tabs{display:inline-flex;border:1px solid var(--rule2);border-radius:0;overflow:hidden}
+.tabs button{border:0;background:transparent;color:var(--ink2);padding:7px 12px;font:500 13px var(--sans);cursor:pointer}
 .tabs button[aria-pressed=true]{background:var(--ink);color:var(--paper)}
 .bars{list-style:none;display:grid;gap:6px}
 .bars li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;font-size:13px}
 .bars .k{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono)}
 .bars .n{font-variant-numeric:tabular-nums;color:var(--ink2)}
-.bars .track{grid-column:1/-1;height:6px;border-radius:2px;background:var(--rule)}
-.bars .fill{height:6px;border-radius:2px;background:var(--bar)}
+.bars .track{grid-column:1/-1;height:6px;border-radius:0;background:var(--rule)}
+.bars .fill{height:6px;border-radius:0;background:var(--bar)}
 .empty{color:var(--ink3);font-size:13px}
 .chart svg{width:100%;height:120px;display:block}
 .chart .axis{font-size:11px;color:var(--ink3);display:flex;justify-content:space-between;margin-top:4px}
 table{width:100%;border-collapse:collapse;font-size:13px}
 th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--rule);white-space:nowrap}
-th{color:var(--ink3);font-weight:600}
+th{color:var(--ink3);font:500 12px var(--mono);text-transform:uppercase;letter-spacing:.06em}
 td.mono{font-family:var(--mono)}
 .tablewrap{overflow-x:auto;padding-left:6px;margin-left:-6px}
 section{margin-top:22px}
-details summary{cursor:pointer;font-weight:700}
+details summary{cursor:pointer;font-weight:500}
 footer{margin:36px 0 28px;color:var(--ink3);font-size:13px}
 .hidden{display:none!important}
-.skip{position:absolute;left:12px;top:-60px;z-index:30;background:var(--ink);color:var(--paper);padding:10px 14px;border-radius:8px;font-size:14px;text-decoration:none}
+.skip{position:absolute;left:12px;top:-60px;z-index:30;background:var(--accent-f);color:var(--on-green);padding:10px 14px;border-radius:0;font-size:14px;text-decoration:none}
 .skip:focus{top:12px}
 [tabindex="-1"]:focus{outline:none}
 .field{display:grid;gap:6px;max-width:520px}
-.field label{font-size:14px;font-weight:600}
+.field label{font-size:14px;font-weight:500}
 .stack>*+*{margin-top:12px}
 .mt-xl{margin-top:44px}.mt-l{margin-top:28px}.mt-s{margin-top:12px}.big{font-size:16px}.brk{word-break:break-all}.h2l{font-size:20px}.between{justify-content:space-between;align-items:flex-end}.minw0{min-width:0}
 `;
 
 const SNIPPETS_JS = `
-function snippets(tok){
+// ep: this collector's own ingest URL when it is not genclass.dev's (a self-hosted collector, private mode). Then every
+// snippet names it, through window.GENCLASS_CONFIG or GenClass.init (a meta tag may only name same-origin URLs), and
+// the CLI's init, which makes its token at genclass.dev, is left out.
+function snippets(tok, ep){
+  var cfg = function(o){ return '<script>window.GENCLASS_CONFIG = { ' + o + 'telemetry: { endpoint: "' + ep + '" } };</' + 'script>'; };
   return [
     ["Easy: one script tag", "Paste into your HTML. GenClass starts itself and protects the whole app.",
-     '<script src="${CDN_SCRIPT}" data-token="' + tok + '"></' + 'script>'],
-    ["Easy: with a bundler", "A meta tag plus one import (npm i ${RUNTIME_PKG}).",
-     '<meta name="genclass" content="token=' + tok + '">\\n\\n// in your entry file\\nimport "@genclass/runtime/auto";'],
+     (ep ? cfg("") + "\\n" : "") + '<script src="${CDN_SCRIPT}" data-token="' + tok + '"></' + 'script>'],
+    ["Easy: with a bundler", ep ? "One line in your HTML head plus one import (npm i ${RUNTIME_PKG})." : "A meta tag plus one import (npm i ${RUNTIME_PKG}).",
+     ep ? "<!-- in your HTML <head> -->\\n" + cfg('token: "' + tok + '", ') + '\\n\\n// in your entry file\\nimport "@genclass/runtime/auto";'
+        : '<meta name="genclass" content="token=' + tok + '">\\n\\n// in your entry file\\nimport "@genclass/runtime/auto";'],
     ["Function-specific", "Protect only the functions you choose; the dashboard shows each by name.",
-     'import { GenClass, protect } from "@genclass/runtime";\\n\\nGenClass.init({ token: "' + tok + '", scope: "functions" });\\nconst save = protect("saveCart", saveCartImpl);'],
-    ["Automatic setup", "Run in your project folder: it detects your setup and wires GenClass (and a token) in for you.",
-     'npx ${RUNTIME_PKG} init']
-  ];
+     'import { GenClass, protect } from "@genclass/runtime";\\n\\nGenClass.init({ token: "' + tok + '", scope: "functions"' + (ep ? ', telemetry: { endpoint: "' + ep + '" }' : "") + ' });\\nconst save = protect("saveCart", saveCartImpl);']
+  ].concat(ep ? [] : [["Automatic setup", "Run in your project folder: it detects your setup and wires GenClass (and a token) in for you.",
+     'npx ${RUNTIME_PKG} init']]);
 }
 function gcSelect(node){
   try { var r = document.createRange(); r.selectNodeContents(node); var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r); return true; } catch (e) { return false; }
@@ -211,9 +207,9 @@ function copyBtn(getText, name, getNode){
   return b;
 }
 function el(tag, cls, text){ var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
-function renderSnippets(host, tok){
+function renderSnippets(host, tok, ep){
   host.textContent = "";
-  snippets(tok).forEach(function(s){
+  snippets(tok, ep || "").forEach(function(s){
     var box = el("div", "snip"), pre = el("pre", "code", s[2]);
     var head = el("div", "row between"); var h = el("h2", null, s[0]); h.style.marginBottom = "0";
     head.appendChild(h); head.appendChild(copyBtn(function(){ return s[2]; }, s[0], function(){ return pre; })); box.appendChild(head);
@@ -226,15 +222,23 @@ function renderSnippets(host, tok){
 export interface ShellOptions {
   /** Header links (HTML). Default: Home, Get a token, Docs, Sign in. */
   nav?: string;
-  /** No top header: the sign-in pages put the lockup at the top of their own column. */
+  /** No top header: the sign-in pages put the logo at the top of their own column. */
   bare?: boolean;
   /** An account page: the referrer policy `same-origin` (see securityHeaders), which the meta tag must repeat. */
   account?: boolean;
   /** The id the "Skip to content" link jumps to (default the <main> element; pages with a sidebar name their content). */
   skip?: string;
+  /**
+   * A sign-in page: the content in a column on the left, the self-healing sphere of genclass.dev/signin-mesh.js (the
+   * same backdrop as /admin's sign-in) on the right. The script is the site's, loaded under this page's nonce.
+   */
+  mesh?: boolean;
 }
 
-/** As on genclass.dev: plain links, then one compact ink button. Narrow screens drop Home (the lockup links there),
+/** genclass.dev's sign-in backdrop script; bump ?v= with site/public/signin-mesh.js (assets are cached immutably). */
+export const MESH_SCRIPT = "https://genclass.dev/signin-mesh.js?v=2";
+
+/** As on genclass.dev: plain links, then one compact green button. Narrow screens drop Home (the logo links there),
  * then Docs. */
 const DEFAULT_NAV =
   '<a class="hm" href="https://genclass.dev/">Home</a><a class="dc" href="https://genclass.dev/docs">Docs</a><a href="/login">Sign in</a><a class="btn" href="/start">Get a token</a>';
@@ -252,17 +256,19 @@ export function shell(nonce: string, title: string, body: string, script: string
 <meta name="robots" content="noindex, nofollow">
 <meta name="referrer" content="${opts.account ? "same-origin" : "no-referrer"}">
 <title>${esc(title)}</title>
-<link rel="icon" href="${ICON}">
-<link rel="preconnect" href="https://fonts.googleapis.com">
+${ICON_LINKS}
+<meta name="theme-color" content="#000000">
+<link rel="preconnect" href="https://cdn.fontshare.com" crossorigin>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=Figtree:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=satoshi@1&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap">
 <style nonce="${nonce}">${CSS}</style>
 </head>
-<body>
+<body${opts.mesh ? ' class="mesh"' : ""}>
 <a class="skip" href="#${esc(opts.skip ?? "main")}">Skip to content</a>
 ${header}<main class="wrap" id="main">${body}</main>
 <script nonce="${nonce}">${SNIPPETS_JS}${script}</script>
-</body>
+${opts.mesh ? `<canvas data-mesh aria-hidden="true"></canvas>\n<script nonce="${nonce}" src="${MESH_SCRIPT}" defer></script>\n` : ""}</body>
 </html>`;
 }
 
@@ -272,13 +278,13 @@ export const SIGNED_IN_NAV =
 
 // ------------------------------------------------------------------------------------------------- /start
 
-export function startPage(nonce: string, opts: { runtimeReady?: boolean } = {}): string {
+export function startPage(nonce: string, opts: { runtimeReady?: boolean; endpoint?: string | null } = {}): string {
   const notYet = opts.runtimeReady === true ? "" : `<p class="note small" id="notyet">${NOT_ON_NPM}</p>`;
   const body = `
 <section class="stack mt-xl">
   <h1>Get a token for your web app</h1>
   <p class="lead">One token per app. Add it to GenClass and every page load, detection and fix is collected for the
-  app's private dashboard. Dashboards come with Pro. Trials available.</p>
+  app's private dashboard. The dashboard is free.</p>
   <p class="muted small">To keep several apps in one place, <a href="/signup">create an account</a> or <a href="/login">sign in</a>.</p>
 </section>
 <section>
@@ -297,8 +303,7 @@ export function startPage(nonce: string, opts: { runtimeReady?: boolean } = {}):
   <div class="card stack">
     <h2>Your private dashboard link</h2>
     <div class="note"><strong>Save this link now.</strong> It is the only way back to your dashboard; we cannot recover it.
-    It opens the dashboard with Pro, and until then lets you add the app to your account and start a trial. Do not
-    commit it to code.</div>
+    It opens the dashboard, and lets you add the app to your account. Do not commit it to code.</div>
     <div class="row"><a id="dash" class="mono brk"></a><span id="dashc"></span></div>
     <div class="row"><a id="open" class="btn green" href="#">Open dashboard</a></div>
   </div>
@@ -323,7 +328,7 @@ See <a href="https://github.com/genclass-dev/GenClass-lib/blob/main/PRIVACY.md">
         var d = document.getElementById("dash"); d.textContent = j.dashboardUrl; d.href = j.dashboardUrl;
         document.getElementById("dashc").appendChild(copyBtn(function(){ return j.dashboardUrl; }, "dashboard link", function(){ return d; }));
         document.getElementById("open").href = j.dashboardUrl;
-        renderSnippets(document.getElementById("snips"), j.token);
+        renderSnippets(document.getElementById("snips"), j.token, ${JSON.stringify(opts.endpoint ?? "")});
         f.classList.add("hidden");
         var out = document.getElementById("out"); out.classList.remove("hidden"); out.scrollIntoView({ behavior: "smooth" });
       })
@@ -351,54 +356,52 @@ export function notFoundPage(nonce: string): string {
 // ---------------------------------------------------------------------------------------------- /dashboard
 // The per-app dashboard: a one-sentence summary, four tiles, problems over time by type, one card per kind of
 // problem (what it means, where it happened, how to fix it), pages, what GenClass did, model health, recent activity.
-// Chart colours come from genclass.dev's own hues, stepped into the chart lightness band: ink navy, the red-orange the
-// site uses for bugs, a sky blue, amber (the site's live-bug colour) and berry, in that order; dark mode has its own
-// steps of the same hues. No green, which the brand keeps for "GenClass fixed it". Validated with the dataviz skill's
-// validate_palette.js (adjacent pairs, as the stacks draw them) on 2026-10-13: light on #FFFFFF all checks pass, worst
-// CVD ΔE 20.0, normal-vision 31.3, amber 2.2:1 so the table view and legend carry it; dark on #0B1736 all pass, worst
-// CVD 15.3, normal-vision 19.2, every slot at least 3:1 (the palette it replaces: 16.3/19.6 light, 13.2/19.3 dark).
-// A bar draws only the types it has, so slots that are not palette neighbours can touch: in dark, t2 on t4 (stale on
-// slow, when failing endpoints is absent) is deutan ΔE 1.8 and normal-vision 13.7, and t1 on t3 normal-vision 9.7.
-// The 2px paper gap between segments, the legend, the hover breakdown and the table view carry identity there.
+// Chart colours come from genclass.dev's own hues, stepped into the dark chart lightness band (OKLCH L .48-.67): blue,
+// the red-orange the site uses for bugs, a sky blue, amber (the site's warning colour) and violet, in that order (dark
+// only, like the rest of the page). No green, which the brand keeps for "GenClass fixed it". Validated with the dataviz
+// skill's validate_palette.js (adjacent pairs, as the stacks draw them) on 2026-10-17: on #000000 and #0B0B0A all
+// checks pass, worst CVD ΔE 20.7 (deutan; tritan 7.3), normal-vision 24.8, every slot at least 3:1 on the surface (the
+// light palette it replaces, on #FFFFFF: 20.0/31.3).
+// A bar draws only the types it has, so slots that are not palette neighbours can touch; the 2px paper gap between
+// segments, the legend, the hover breakdown and the table view carry identity there.
 // Five problem types get a slot, the rest share "Other". Possible issues (the lower-confidence tier) are drawn hollow:
 // outlined bars in the muted ink (Fig. 2, one series, so no legend) and ring keys in the type's colour; never in the
 // confirmed counts.
 // Every dynamic string goes through textContent.
 
 export const DASH_CSS = `
-:root{--t1:#2B4FB0;--t2:#F0451C;--t3:#0F85B2;--t4:#EE9E10;--t5:#A63C72;--t0:#8A93A8;--grid:#E6EBF2}
-@media (prefers-color-scheme:dark){:root{--t1:#5780E6;--t2:#F0451C;--t3:#179FD4;--t4:#C68206;--t5:#C75B90;--t0:#6F7B98;--grid:#1E2D55}}
+:root{--t1:#3987E5;--t2:#E8552F;--t3:#2AA3C7;--t4:#C98500;--t5:#B964C9;--t0:#88897F;--grid:#1E1F1B}
 h1,h2,h3{letter-spacing:-.03em}
 .dh{margin-top:40px}
 .dh-top{display:flex;flex-wrap:wrap;gap:20px;justify-content:space-between;align-items:flex-end}
-.dh h1{font-size:clamp(30px,4.4vw,46px);font-weight:700;line-height:1.05}
+.dh h1{font-size:clamp(30px,4.4vw,46px);font-weight:500;line-height:1.05}
 .meta{font:12.5px var(--mono);color:var(--ink3);display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;margin-top:12px}
 .live{display:inline-flex;align-items:center;gap:7px;color:var(--ink2)}
 .live i{width:7px;height:7px;border-radius:50%;background:var(--ink3);display:inline-block}
 .live.on i{background:var(--accent-f)}
 .ctl{display:flex;gap:10px;align-items:center}
-.seg{display:inline-flex;border:1px solid var(--ink);border-radius:8px;overflow:hidden}
+.seg{display:inline-flex;border:1px solid var(--rule2);border-radius:0;overflow:hidden}
 .seg button{border:0;background:transparent;color:var(--ink);padding:8px 14px;font:500 13px var(--sans);cursor:pointer}
-.seg button+button{border-left:1px solid var(--ink)}
+.seg button+button{border-left:1px solid var(--rule2)}
 .seg button[aria-pressed=true]{background:var(--ink);color:var(--paper)}
 .summary{margin-top:24px;font-size:clamp(18px,2.1vw,21px);line-height:1.5;max-width:68ch}
-.summary b{font-weight:600}
-.statrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(150px,100%),1fr));border-top:1px solid var(--ink);margin-top:32px}
+.summary b{font-weight:500}
+.statrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(150px,100%),1fr));border-top:1px solid var(--rule2);margin-top:32px}
 .statrow>div{padding:18px 20px 20px 0;border-bottom:1px solid var(--rule);min-width:0}
 .statrow .k{font:500 12px var(--mono);color:var(--ink3)}
-.statrow .v{font:600 40px/1.05 var(--display);letter-spacing:-.03em;margin-top:10px;font-variant-numeric:tabular-nums}
+.statrow .v{font:500 40px/1.05 var(--display);letter-spacing:-.03em;margin-top:10px;font-variant-numeric:tabular-nums}
 .statrow .s{font-size:13.5px;color:var(--ink2);margin-top:6px}
 .blk{margin-top:60px}
-.blk-h{display:flex;flex-wrap:wrap;gap:6px 20px;align-items:baseline;justify-content:space-between;padding-bottom:12px;border-bottom:1px solid var(--ink)}
-.blk-h h2{font-size:22px;font-weight:700;margin:0}
+.blk-h{display:flex;flex-wrap:wrap;gap:6px 20px;align-items:baseline;justify-content:space-between;padding-bottom:12px;border-bottom:1px solid var(--rule2)}
+.blk-h h2{font-size:22px;font-weight:500;margin:0}
 .blk-h .aside{font-size:13.5px;color:var(--ink3)}
 .legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;color:var(--ink2);margin-top:14px}
 .legend span{display:inline-flex;align-items:center;gap:7px}
-.key{width:8px;height:8px;border-radius:2px;display:inline-block;flex:none}
+.key{width:8px;height:8px;border-radius:0;display:inline-block;flex:none}
 .key.ring{background:transparent;border:1.5px solid var(--ink3)}
 .poss-fig{margin-top:40px}
 .poss-h{display:flex;flex-wrap:wrap;gap:6px 20px;align-items:baseline;justify-content:space-between;padding-bottom:10px;border-bottom:1px solid var(--rule)}
-.poss-h h3{font:600 17px var(--sans);letter-spacing:-.01em}
+.poss-h h3{font:500 17px var(--sans);letter-spacing:-.01em}
 .poss-h .aside{font-size:13.5px;color:var(--ink3)}
 .poss-note{font-size:14px;color:var(--ink2);margin-top:12px;max-width:72ch}
 .find.poss .n{font-weight:500;color:var(--ink2)}
@@ -408,20 +411,20 @@ figcaption{font:12px var(--mono);color:var(--ink3);margin-top:12px}
 .plot{position:relative;margin-top:14px}
 .plot svg{display:block;width:100%;height:auto;overflow:visible}
 .plot text{font:12px var(--mono);fill:var(--ink3)}
-.tip{position:absolute;pointer-events:none;background:var(--paper);border:1px solid var(--ink);border-radius:8px;padding:9px 11px;font-size:13px;min-width:160px;z-index:2}
-.tip .t{font:600 13px var(--sans);margin-bottom:5px}
+.tip{position:absolute;pointer-events:none;background:var(--panel);border:1px solid var(--rule2);border-radius:0;padding:9px 11px;font-size:13px;min-width:160px;z-index:2}
+.tip .t{font:500 13px var(--sans);margin-bottom:5px}
 .tip .r{display:flex;align-items:center;gap:8px;justify-content:space-between}
 .tip .r span:first-child{display:inline-flex;align-items:center;gap:7px;color:var(--ink2)}
-.tip .r b{font-variant-numeric:tabular-nums;font-weight:600}
+.tip .r b{font-variant-numeric:tabular-nums;font-weight:500}
 .finds{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(330px,100%),1fr));column-gap:44px}
 .find{padding:24px 0;border-bottom:1px solid var(--rule);display:grid;gap:11px;align-content:start;min-width:0}
 .find .top{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
-.find h3{font:600 17px var(--sans);letter-spacing:-.01em;display:flex;align-items:center;gap:9px}
+.find h3{font:500 17px var(--sans);letter-spacing:-.01em;display:flex;align-items:center;gap:9px}
 .find .nw{text-align:right;white-space:nowrap}
-.find .n{font:600 30px/1 var(--display);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.find .n{font:500 30px/1 var(--display);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
 .find .share{display:block;font:12px var(--mono);color:var(--ink3);margin-top:4px}
 .find p{font-size:14.5px;color:var(--ink2)}
-.find p.fix b{color:var(--ink);font-weight:600}
+.find p.fix b{color:var(--ink);font-weight:500}
 .where{list-style:none;display:grid;gap:3px}
 .where li{display:flex;justify-content:space-between;gap:12px;font:13px var(--mono)}
 .where li code{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;font:inherit}
@@ -435,13 +438,13 @@ table.dt .num{text-align:right;font-variant-numeric:tabular-nums}
 table.dt td.route{font:13px var(--mono);max-width:240px;overflow:hidden;text-overflow:ellipsis}
 table.dt td.wide{width:45%}
 .mix{display:flex;gap:2px;height:6px}
-.mix i{display:block;height:6px;border-radius:1px;min-width:3px}
+.mix i{display:block;height:6px;border-radius:0;min-width:3px}
 .chip{display:inline-flex;align-items:center;gap:7px}
-.did-a{color:var(--accent);font-weight:600}
+.did-a{color:var(--accent);font-weight:500}
 dl.health{display:grid;grid-template-columns:minmax(150px,230px) minmax(0,1fr)}
 dl.health dt,dl.health dd{padding:15px 0;border-bottom:1px solid var(--rule)}
 dl.health dt{font:500 12.5px var(--mono);color:var(--ink3);padding-right:18px}
-dl.health .v{font:600 18px var(--display);letter-spacing:-.01em}
+dl.health .v{font:500 18px var(--display);letter-spacing:-.01em}
 dl.health .s{font-size:13.5px;color:var(--ink2);margin-top:3px}
 dl.health ul{list-style:none;margin-top:6px;display:grid;gap:2px;font:12.5px var(--mono);color:var(--ink2)}
 .ok-t{font:500 12.5px var(--mono);color:var(--accent);margin-left:8px}
@@ -449,31 +452,31 @@ dl.health ul{list-style:none;margin-top:6px;display:grid;gap:2px;font:12.5px var
 @media (max-width:560px){dl.health{grid-template-columns:1fr}dl.health dt{border-bottom:0;padding-bottom:0}}
 .quiet{padding:36px 0;color:var(--ink3);font-size:14.5px}
 details.more{border-top:1px solid var(--rule);padding:16px 0}
-details.more summary{font:600 15px var(--sans);cursor:pointer}
+details.more summary{font:500 15px var(--sans);cursor:pointer}
 .kv{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:20px 40px}
-.kv h2{font:600 14px var(--sans);margin-bottom:8px}
-.first{border-top:1px solid var(--ink);padding:22px 0;margin-top:32px;max-width:72ch}
+.kv h2{font:500 14px var(--sans);margin-bottom:8px}
+.first{border-top:1px solid var(--rule2);padding:22px 0;margin-top:32px;max-width:72ch}
 .first p{font-size:15px;color:var(--ink2)}
 .dfoot{margin:64px 0 36px;padding-top:18px;border-top:1px solid var(--rule);font-size:13px;color:var(--ink3);max-width:90ch}
 .dfoot a{color:var(--ink2)}
 main.wrap:has(.app){max-width:1360px}
 .app{display:grid;grid-template-columns:232px minmax(0,1fr);gap:0 48px;align-items:start}
-.side{position:sticky;top:61px;align-self:start;max-height:calc(100vh - 61px);overflow-y:auto;scrollbar-width:thin;padding:28px 24px 28px 16px;margin-left:-16px;border-right:1px solid var(--rule);min-height:calc(100vh - 61px)}
-.side .proj{font:600 15px var(--sans);letter-spacing:-.01em;overflow-wrap:anywhere}
+.side{position:sticky;top:65px;align-self:start;max-height:calc(100vh - 65px);overflow-y:auto;scrollbar-width:thin;padding:28px 24px 28px 16px;margin-left:-16px;border-right:1px solid var(--rule);min-height:calc(100vh - 65px)}
+.side .proj{font:500 15px var(--sans);letter-spacing:-.01em;overflow-wrap:anywhere}
 .side .proj small{display:block;font:12px var(--mono);color:var(--ink3);margin-top:4px;font-weight:400}
 .side .live{margin-top:10px;font:12px var(--mono)}
 .side .seg{margin-top:18px;display:flex;width:100%}
 .side .seg button{flex:1;padding:7px 4px;font-size:12.5px}
 .side .grp{font:500 11.5px var(--mono);color:var(--ink3);margin:26px 0 8px}
-.side nav a{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 10px;margin:0 -10px;border-radius:7px;font-size:14px;color:var(--ink2);text-decoration:none}
+.side nav a{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 10px;margin:0 -10px;border-radius:0;font-size:14px;color:var(--ink2);text-decoration:none}
 .side nav a:hover{color:var(--ink);background:var(--panel)}
-.side nav a[aria-current=true]{color:var(--accent);background:var(--accent-t);font-weight:600}
+.side nav a[aria-current=true]{color:var(--accent);background:var(--accent-t);font-weight:500}
 .side nav a[aria-current=true] span{color:var(--accent)}
 .side nav a span{font:12px var(--mono);color:var(--ink3);font-weight:400}
 .side .out a{display:block;font-size:13.5px;color:var(--ink2);text-decoration:none;padding:5px 0}
 .side .out a:hover{color:var(--ink)}
 .side .btn{width:100%;margin-top:14px}
-.side nav a[aria-current=page]{color:var(--ink);background:var(--panel);font-weight:600}
+.side nav a[aria-current=page]{color:var(--ink);background:var(--panel);font-weight:500}
 .side nav.apps a{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .side nav.apps a.new{color:var(--accent);font-weight:500}
 #period{display:contents}
@@ -490,13 +493,13 @@ main.wrap:has(.app){max-width:1360px}
 .connect .way{padding:22px 0;border-bottom:1px solid var(--rule);min-width:0;display:grid;grid-template-columns:minmax(0,1fr);gap:10px;align-content:start}
 .connect .way>*{min-width:0}
 .connect .eb{font:500 12.5px var(--mono);letter-spacing:.04em;text-transform:uppercase;color:var(--accent)}
-.connect h3{font:600 17px var(--sans);letter-spacing:-.01em}
+.connect h3{font:500 17px var(--sans);letter-spacing:-.01em}
 .connect .way p{font-size:14.5px;color:var(--ink2);max-width:62ch}
 .connect .sh{display:flex;justify-content:space-between;align-items:center;gap:10px;font:500 12px var(--mono);color:var(--ink3);margin-top:4px}
 .connect pre.code{white-space:pre-wrap;overflow-wrap:anywhere}
 .connect .cnote{margin-top:18px;padding:12px 0 12px 14px;border-left:3px solid var(--warn);font-size:14.5px;line-height:1.5;color:var(--ink2);max-width:80ch}
-.connect .cnote b{color:var(--warn);font-weight:600}
-.cstat{display:flex;align-items:center;gap:9px;padding:16px 0;font:500 13.5px var(--mono);color:var(--ink2);border-bottom:1px solid var(--ink)}
+.connect .cnote b{color:var(--warn);font-weight:500}
+.cstat{display:flex;align-items:center;gap:9px;padding:16px 0;font:500 13.5px var(--mono);color:var(--ink2);border-bottom:1px solid var(--rule2)}
 .cstat i{width:8px;height:8px;border-radius:50%;background:var(--ink3);flex:none;animation:gcpulse 1.6s ease-in-out infinite}
 .cstat.on{color:var(--accent)}
 .cstat.on i{background:var(--accent-f);animation:none}
@@ -505,18 +508,27 @@ main.wrap:has(.app){max-width:1360px}
 .connect .fine{font-size:13px;color:var(--ink3);margin-top:14px;max-width:90ch}
 @media (max-width:560px){.connect .keyrow{grid-template-columns:1fr}.connect .kn{grid-column:1}.connect .keyrow .k{padding-top:0;margin-bottom:6px}}
 .mainc{min-width:0;padding-bottom:20px}
-.trialn{font:500 12.5px var(--mono);color:var(--accent);margin-top:10px}
-.trialn a{color:var(--ink2)}
-.lock{margin-top:28px;padding:22px 0;border-top:1px solid var(--ink);border-bottom:1px solid var(--rule);max-width:72ch}
-.lock h2{font:700 clamp(22px,3vw,28px)/1.15 var(--display);letter-spacing:-.02em;margin:0}
+.lock{margin-top:28px;padding:22px 0;border-top:1px solid var(--rule2);border-bottom:1px solid var(--rule);max-width:72ch}
+.lock h2{font:500 clamp(22px,3vw,28px)/1.15 var(--display);letter-spacing:-.02em;margin:0}
 .lock p{font-size:16px;color:var(--ink2);margin-top:8px}
 .lock .acts{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
 .lock .err{font-size:14px;color:var(--warn);margin-top:10px}
 .lock .err:empty{display:none}
 .mainc .dh{margin-top:32px}
+/* views: the sidebar shows one view at a time (DASH_JS show()); without the script every section shows */
+.vh{display:none!important}
+.side nav.snav a{justify-content:flex-start}
+.side nav.snav a span{margin-left:auto}
+.snav a::before{content:"";width:16px;height:16px;flex:none;background:currentColor;opacity:.8;-webkit-mask:var(--ic) center/16px no-repeat;mask:var(--ic) center/16px no-repeat}
+.snav a[href="#top"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Crect x=%223%22 y=%223%22 width=%227%22 height=%229%22 rx=%221%22/%3E%3Crect x=%2214%22 y=%223%22 width=%227%22 height=%225%22 rx=%221%22/%3E%3Crect x=%2214%22 y=%2212%22 width=%227%22 height=%229%22 rx=%221%22/%3E%3Crect x=%223%22 y=%2216%22 width=%227%22 height=%225%22 rx=%221%22/%3E%3C/svg%3E")}.snav a[href="#found"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z%22/%3E%3Cpath d=%22M12 9v4M12 17h.01%22/%3E%3C/svg%3E")}.snav a[href="#where"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z%22/%3E%3Cpath d=%22M14 2v6h6M16 13H8M16 17H8M10 9H8%22/%3E%3C/svg%3E")}.snav a[href="#did"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z%22/%3E%3Cpath d=%22m9 12 2 2 4-4%22/%3E%3C/svg%3E")}.snav a[href="#recent-s"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M22 12h-4l-3 9L9 3l-3 9H2%22/%3E%3C/svg%3E")}.snav a[href="#visits"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M9 9l5 12 1.8-5.2L21 14z%22/%3E%3Cpath d=%22M7.2 2.2 8 5.1M5.1 8l-2.9-.8M14 4.1 12 6M6 12l-1.9 2%22/%3E%3C/svg%3E")}.snav a[href="#health-s"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M19 14c1.5-1.5 3-3.2 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.8 0-3 .5-4.5 2-1.5-1.5-2.7-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4 3 5.5l7 7z%22/%3E%3C/svg%3E")}.snav a[href="#setup"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M12 22v-5M9 8V2M15 8V2M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8z%22/%3E%3C/svg%3E")}.snav a[href="#connect"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M12 22v-5M9 8V2M15 8V2M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8z%22/%3E%3C/svg%3E")}.snav a[href="#forwarding"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22m22 2-7 20-4-9-9-4z%22/%3E%3Cpath d=%22M22 2 11 13%22/%3E%3C/svg%3E")}.snav a[href="#export"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3%22/%3E%3C/svg%3E")}
+.crumbs{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font:12.5px var(--mono);color:var(--ink3);margin-bottom:10px}
+.crumbs a{color:var(--ink2);text-decoration:none}
+.crumbs a:hover{color:var(--ink)}
+.dh .meta .btn{margin-left:4px}
+@media (pointer:coarse){header.top{background:var(--paper);backdrop-filter:none;-webkit-backdrop-filter:none}}
 @media (max-width:920px){
   .app{grid-template-columns:minmax(0,1fr)}
-  .side{position:sticky;top:61px;z-index:5;max-height:none;min-height:0;overflow:visible;padding:10px 0;margin-left:0;border-right:0;border-bottom:1px solid var(--rule);background:var(--paper);display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center}
+  .side{position:sticky;top:65px;z-index:5;max-height:none;min-height:0;overflow:visible;padding:10px 0;margin-left:0;border-right:0;border-bottom:1px solid var(--rule);background:var(--paper);display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center}
   .side .proj,.side .grp,.side .out,.side .live,.side .btn{display:none}
   .side .seg{margin-top:0;width:auto}
   .side .seg button{flex:none;padding:6px 10px}
@@ -900,6 +912,68 @@ const DASH_JS = `
     });
   }
 
+  // ---------- interaction analytics (runtime \`interactions\` events: only apps that turned them on)
+  function dur(ms){
+    var s = Math.round((ms || 0) / 1000);
+    if (s < 60) return s + " s";
+    if (s < 3600) return Math.floor(s / 60) + " min" + (s % 60 ? " " + (s % 60) + " s" : "");
+    return (s / 3600).toFixed(1) + " h";
+  }
+  function pairs(list){ return (list || []).map(function(x){ var i = x.key.indexOf("\\t"); return i < 0 ? null : { route: x.key.slice(0, i), key: x.key.slice(i + 1), count: x.count }; }).filter(Boolean); }
+  function ixTable(host, list, head, empty){
+    host.textContent = "";
+    if (!list.length) { host.appendChild(el("p", "quiet", empty)); return; }
+    var max = list[0].count || 1, tb = el("table", "dt"), hd = el("thead"), hr = el("tr");
+    hr.appendChild(el("th", null, "Page")); hr.appendChild(el("th", null, "Element")); hr.appendChild(el("th", "num", head)); hr.appendChild(el("th", null, ""));
+    hd.appendChild(hr); tb.appendChild(hd); var body = el("tbody");
+    list.slice(0, 10).forEach(function(x){
+      var tr = el("tr"), rc = el("td", "route", x.route); rc.title = x.route; tr.appendChild(rc);
+      var kc = el("td", "route", x.key); kc.title = x.key; tr.appendChild(kc);
+      tr.appendChild(el("td", "num", fmt(x.count)));
+      var td = el("td", "wide"), mix = el("div", "mix"), i = el("i"); i.style.width = (100 * x.count / max) + "%"; i.style.background = "var(--accent-f)"; mix.appendChild(i); td.appendChild(mix); tr.appendChild(td);
+      body.appendChild(tr);
+    });
+    tb.appendChild(body); host.appendChild(tb);
+  }
+  function visits(S){
+    var B = S.breakdowns, T0 = S.totals, views = T0.ix_views || 0, on = views > 0 || (B.ix_click || []).length > 0;
+    ["visits", "clicks", "nav-visits"].forEach(function(id){ var e = document.getElementById(id); if (e) e.classList.toggle("hidden", !on); });
+    if (!on) return;
+    var dl = el("dl", "health"), prev = (S.previous || {}).ix_views;
+    row(dl, "Page views", fmt(views), typeof prev === "number" && prev ? (views >= prev ? "+" : "") + share(views - prev, prev) + " on the previous period" : "page loads and in-app route changes");
+    row(dl, "Time on page", views ? dur((T0.ix_engaged_ms || 0) / views) : "-", "average engaged time per view: the tab visible, at most 30 s after the last input");
+    row(dl, "Clicks", fmt(T0.ix_click || 0), views ? (Math.round(10 * (T0.ix_click || 0) / views) / 10) + " per view" : "");
+    row(dl, "Rage clicks", fmt(T0.ix_rage || 0), "3 or more clicks on one element within a second", T0.ix_rage ? ["bad", "worth a look"] : ["ok", "none"]);
+    row(dl, "Dead clicks", fmt(T0.ix_dead || 0), "a link or button that changed nothing within a second", T0.ix_dead ? ["bad", "worth a look"] : ["ok", "none"]);
+    var sumh = document.getElementById("ixsum"); sumh.textContent = ""; sumh.appendChild(dl);
+    sumh.appendChild(el("figcaption", null, "Unique visitors are not counted: GenClass stores no visitor id, so two page loads by one person cannot be linked."));
+    var eng = map(B.ix_engaged_ms), reach = {};
+    pairs(B.ix_scroll).forEach(function(x){ (reach[x.route] = reach[x.route] || {})[x.key] = x.count; });
+    var host = document.getElementById("ixpages"); host.textContent = "";
+    var list = (B.ix_views || []).slice().sort(function(a, b){ return b.count - a.count; });
+    if (!list.length) return;
+    var tb = el("table", "dt"), hd = el("thead"), hr = el("tr");
+    ["Page", "Views", "Time on page", "Read half", "Read to the end"].forEach(function(h, i){ hr.appendChild(el("th", i ? "num" : null, h)); });
+    hd.appendChild(hr); tb.appendChild(hd); var body = el("tbody");
+    list.slice(0, 12).forEach(function(x){
+      var tr = el("tr"), rc = el("td", "route", x.key); rc.title = x.key; tr.appendChild(rc);
+      var r = reach[x.key] || {};
+      tr.appendChild(el("td", "num", fmt(x.count)));
+      tr.appendChild(el("td", "num", x.count ? dur((eng[x.key] || 0) / x.count) : "-"));
+      tr.appendChild(el("td", "num", share(Math.min(r["50"] || 0, x.count), x.count)));
+      tr.appendChild(el("td", "num", share(Math.min(r["100"] || 0, x.count), x.count)));
+      body.appendChild(tr);
+    });
+    tb.appendChild(body); host.appendChild(tb);
+    host.appendChild(el("figcaption", null, "Table 4. Pages by views. Read half / to the end: the share of views whose viewport reached 50 % / 100 % of the page height."));
+    ixTable(document.getElementById("ixclicks"), pairs(B.ix_click), "Clicks", "No clicks recorded in this period.");
+    var flags = pairs(B.ix_rage).map(function(x){ return { route: x.route, key: x.key + "  (rage)", count: x.count }; })
+      .concat(pairs(B.ix_dead).map(function(x){ return { route: x.route, key: x.key + "  (dead)", count: x.count }; }))
+      .sort(function(a, b){ return b.count - a.count; });
+    ixTable(document.getElementById("ixflags"), flags, "Clicks", "No rage or dead clicks in this period.");
+    document.getElementById("c-visits").textContent = fmt(views);
+  }
+
   function render(S){
     var live = !!S.lastEvent, st = document.getElementById("status");
     st.classList.toggle("on", live);
@@ -909,7 +983,7 @@ const DASH_JS = `
     document.getElementById("content").classList.toggle("hidden", !live);
     var per = document.getElementById("period"); if (per) per.classList.toggle("hidden", !live);
     if (!live) { var ins = document.getElementById("install"); if (ins) ins.open = true; return; }
-    summary(S); tiles(S); trend(S); possibleTrend(S); cards(S); possibleCards(S); pages(S); acted(S); health(S); recent(S); advanced(S);
+    summary(S); tiles(S); trend(S); possibleTrend(S); cards(S); possibleCards(S); pages(S); acted(S); health(S); recent(S); visits(S); advanced(S);
     var B2 = S.breakdowns, T2 = S.totals;
     document.getElementById("c-trend").textContent = fmt(T2.detections);
     document.getElementById("c-found").textContent = String((B2.detect_diagnosis || []).filter(function(x){ return x.key !== "expected"; }).length);
@@ -919,28 +993,46 @@ const DASH_JS = `
 
   document.getElementById("pname").textContent = P.name;
   document.getElementById("sname").textContent = P.name;
+  var crumb = document.getElementById("crumb"); if (crumb) crumb.textContent = P.name;
+  // Views: each sidebar link opens one view (the sections marked data-v with it); the header stays. The hash names
+  // the link, so a view can be linked to and the back button works. While an app waits for its first event the view
+  // is Connect.
   (function(){
+    var VIEW = { top: "overview", trend: "overview", found: "problems", where: "pages", did: "pages", "recent-s": "activity", visits: "visitors", "health-s": "health", connect: "connect", setup: "setup", forwarding: "forwarding", "export": "export" };
     var links = [].slice.call(document.querySelectorAll(".snav a"));
-    links.forEach(function(a){ a.addEventListener("click", function(){
-      if (a.getAttribute("href") === "#setup") { var d = document.getElementById("install"); if (d) d.open = true; }
-      if (a.getAttribute("href") === "#connect") { var cn = document.getElementById("connect"); if (cn) cn.classList.remove("hidden"); }
-    }); });
-    if (!("IntersectionObserver" in window)) return;
-    var vis = {};
-    var io = new IntersectionObserver(function(es){
-      es.forEach(function(e){ vis[e.target.id] = e.isIntersecting ? e.intersectionRatio : 0; });
-      var best = null, br = 0; Object.keys(vis).forEach(function(k){ if (vis[k] > br) { br = vis[k]; best = k; } });
-      // while an app waits for its first event the section links are hidden: the heading counts as Connect
-      var per = document.getElementById("period"); if (best === "top" && per && per.classList.contains("hidden")) best = "connect";
-      if (best) links.forEach(function(a){ a.setAttribute("aria-current", String(a.getAttribute("href") === "#" + best)); });
-    }, { rootMargin: "-10% 0px -55% 0px", threshold: [0, 0.2, 0.5, 1] });
-    ["connect", "top", "trend", "found", "where", "did", "health-s", "recent-s", "setup"].forEach(function(id){ var e = document.getElementById(id); if (e) io.observe(e); });
+    var parts = [].slice.call(document.querySelectorAll("[data-v]"));
+    function show(id, jump){
+      var v = VIEW[id];
+      if (!v || !parts.some(function(s){ return s.getAttribute("data-v") === v; })) return false;
+      if (id === "setup") { var d = document.getElementById("install"); if (d) d.open = true; }
+      if (id === "connect") { var cn = document.getElementById("connect"); if (cn) cn.classList.remove("hidden"); }
+      parts.forEach(function(s){ s.classList.toggle("vh", s.getAttribute("data-v") !== v); });
+      var cur = links.filter(function(a){ return a.getAttribute("href") === "#" + id; })[0] || links.filter(function(a){ return VIEW[a.getAttribute("href").slice(1)] === v; })[0];
+      links.forEach(function(a){ a.setAttribute("aria-current", String(a === cur)); });
+      // the breadcrumb ends with the view's name (the link's label, without its count)
+      var cv = document.getElementById("crumbv");
+      if (cv) cv.textContent = cur && v !== "overview" ? " / " + (cur.firstChild && cur.firstChild.nodeType === 3 ? cur.firstChild.nodeValue : cur.textContent).trim() : "";
+      if (jump) { var t = document.getElementById(id); if (id === "did" && t) t.scrollIntoView(); else window.scrollTo(0, 0); }
+      return true;
+    }
+    function go(e, id){
+      if (!show(id, true)) return;
+      if (e) e.preventDefault();
+      try { history.replaceState(null, "", "#" + id); } catch (x) {}
+    }
+    links.concat([].slice.call(document.querySelectorAll("a[data-goto]"))).forEach(function(a){
+      a.addEventListener("click", function(e){ go(e, a.getAttribute("data-goto") || a.getAttribute("href").slice(1)); });
+    });
+    window.addEventListener("hashchange", function(){ show(location.hash.slice(1), true); });
+    var per = document.getElementById("period");
+    var first = location.hash.slice(1);
+    if (!show(first, false)) show(per && per.classList.contains("hidden") ? "connect" : "top", false);
   })();
   document.title = P.name + " | GenClass dashboard";
   if (document.getElementById("ptok")) {
     document.getElementById("ptok").textContent = P.token;
     document.getElementById("ptokc").appendChild(copyBtn(function(){ return P.token; }, "token", function(){ return document.getElementById("ptok"); }));
-    renderSnippets(document.getElementById("snips"), P.token);
+    renderSnippets(document.getElementById("snips"), P.token, P.endpoint || "");
   }
   var btn = document.getElementById("refresh");
   function load(){
@@ -1010,20 +1102,9 @@ const CONNECT_JS = `
   document.addEventListener("visibilitychange", tick);
 })();`;
 
-// The locked account mode's one button: start the account's trial, then reload (the dashboard opens).
-const LOCK_JS = `
-(function(){
-  var b = document.getElementById("trial"); if (!b) return;
-  var err = document.getElementById("lockerr");
-  b.addEventListener("click", function(){
-    err.textContent = ""; b.disabled = true; b.textContent = "Starting...";
-    fetch("/api/billing/trial", { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json", accept: "application/json" }, body: "{}" })
-      .then(function(r){ return r.json().catch(function(){ return {}; }).then(function(j){ if (!r.ok) throw new Error((j && j.error) || ("HTTP " + r.status)); }); })
-      .then(function(){ location.reload(); }, function(e){ var m = e.message || "something went wrong"; err.textContent = m.charAt(0).toUpperCase() + m.slice(1) + "."; b.disabled = false; b.textContent = "Start a trial"; });
-  });
-})();`;
-
 export interface DashboardOptions {
+  /** This collector's own ingest URL when it is self-hosted (ownEndpoint): the snippets name it. */
+  endpoint?: string | null;
   /** Owned-app mode (/account/apps/<id>): the account's apps in the sidebar, the Connect panel, account stats API. */
   account?: { apps: { id: string; name: string }[]; current: string; email: string | null };
   /** The project's id (account mode). */
@@ -1044,12 +1125,10 @@ export interface DashboardOptions {
   /** Account mode: plan-dependent sections (forwarding, export; src/billing-pages.ts) and their script. */
   extra?: { html: string; script: string };
   /**
-   * Account mode, locked: the account has no plan, grant or trial (dashboards come with Pro). The page keeps the app's
-   * key and the Connect panel and offers the trial (until it was used) or the plans; no stats are loaded.
+   * Account mode, locked: the account's plan has no dashboard (a plan file without it; none today). The page keeps
+   * the app's key and the Connect panel and links the plans; no stats are loaded.
    */
-  locked?: { trialUsed: boolean };
-  /** Account mode, on the trial: whole days left, said here and nowhere else. */
-  trialDaysLeft?: number;
+  locked?: boolean;
 }
 
 const RANGE_LABELS: Record<string, string> = { "24h": "24 h", "7d": "7 days", "30d": "30 days", "90d": "90 days", "1y": "1 year" };
@@ -1069,18 +1148,33 @@ function rangeButtons(ranges: string[]): string {
 /** More apps than this and the sidebar lists only the current one, with a link to all of them. */
 const SIDEBAR_APPS = 4;
 
-function connectPanel(token: string, connected: boolean, runtimeReady: boolean): string {
+/**
+ * This collector's own ingest URL when it is not genclass.dev's: a collector self-hosted from wrangler.selfhost.toml
+ * (private mode), or `wrangler dev`. Its snippets then name it, or the pages would send to genclass.dev.
+ */
+export function ownEndpoint(env: { DASHBOARD_ORIGIN?: string; AUTH_ORIGIN?: string }): string | null {
+  const o = (env.DASHBOARD_ORIGIN || env.AUTH_ORIGIN || "").trim().replace(/\/+$/, "");
+  return /^https?:\/\/[^/\s"'<>]+$/.test(o) && o !== "https://genclass.dev" ? `${o}/v1/events` : null;
+}
+
+function connectPanel(token: string, connected: boolean, runtimeReady: boolean, endpoint: string | null = null): string {
   const t = esc(token);
-  const init = `import { GenClass } from "@genclass/runtime";\n\nGenClass.init({ token: "${token}" });`;
-  const tag = `<script src="${CDN_SCRIPT}" data-token="${token}"></script>`;
-  const meta = `<meta name="genclass" content="token=${token}">\n\n// in your entry file\nimport "@genclass/runtime/auto";`;
+  // a self-hosted collector's endpoint goes in GenClass.init or window.GENCLASS_CONFIG (a meta tag may only name
+  // same-origin URLs, src/cdn/config.ts)
+  const ep = endpoint ? `, telemetry: { endpoint: "${endpoint}" }` : "";
+  const cfg = (o: string) => `<script>window.GENCLASS_CONFIG = { ${o}telemetry: { endpoint: "${endpoint}" } };</script>`;
+  const init = `import { GenClass } from "@genclass/runtime";\n\nGenClass.init({ token: "${token}"${ep} });`;
+  const tag = `${endpoint ? `${cfg("")}\n` : ""}<script src="${CDN_SCRIPT}" data-token="${token}"></script>`;
+  const meta = endpoint
+    ? `<!-- in your HTML <head> -->\n${cfg(`token: "${token}", `)}\n\n// in your entry file\nimport "@genclass/runtime/auto";`
+    : `<meta name="genclass" content="token=${token}">\n\n// in your entry file\nimport "@genclass/runtime/auto";`;
   let n = 0;
   const snip = (label: string, name: string, code: string) => {
     const id = `csnip${++n}`;
     return `<div><div class="sh"><span>${label}</span><button class="btn sm ghost" type="button" data-copy="${esc(code)}" data-target="${id}" aria-label="Copy ${name}">Copy</button></div><pre class="code" id="${id}" tabindex="0" aria-label="${esc(label)}">${esc(code)}</pre></div>`;
   };
   const notYet = runtimeReady ? "" : `<p class="cnote" id="cnote">${NOT_ON_NPM} So this line keeps waiting.</p>`;
-  return `<section class="connect${connected ? " hidden" : ""}" id="connect" aria-labelledby="connect-h">
+  return `<section class="connect${connected ? " hidden" : ""}" id="connect" data-v="connect" aria-labelledby="connect-h">
   <div class="blk-h"><h2 id="connect-h">Connect this app</h2><span class="aside">Needs @genclass/runtime ${KEY_RUNTIME} or later</span></div>
   ${notYet}
   <div class="keyrow">
@@ -1090,18 +1184,22 @@ function connectPanel(token: string, connected: boolean, runtimeReady: boolean):
   </div>
   <p class="cstat" id="cstatus" aria-live="polite"><i></i><span id="cstatust">Waiting for the first event from this app</span></p>
   <div class="ways">
-    <div class="way">
+    ${
+      endpoint
+        ? ""
+        : `<div class="way">
       <div class="eb">1 · Run in your project</div>
       <h3>Sign in from the terminal</h3>
       ${snip("In the app's folder", "the login command", `npx ${RUNTIME_PKG} login`)}
       <p>Signs you in and connects the app in that folder: you pick this app, it shows the change to your files, and writes the key after you agree.</p>
-    </div>
+    </div>`
+    }
     <div class="way">
-      <div class="eb">2 · Or add the key yourself</div>
+      <div class="eb">${endpoint ? "Add the key and this collector's endpoint" : "2 · Or add the key yourself"}</div>
       <h3>Paste one of these</h3>
       ${snip("In code", "the init code", init)}
       ${snip("Script tag", "the script tag", tag)}
-      ${snip("Meta tag, with a bundler", "the meta tag", meta)}
+      ${snip(endpoint ? "With a bundler" : "Meta tag, with a bundler", endpoint ? "the bundler setup" : "the meta tag", meta)}
     </div>
   </div>
   <p class="fine">The key needs @genclass/runtime ${KEY_RUNTIME} or later: 0.2.x does not send it. Events arrive in batches every 10 seconds.
@@ -1115,13 +1213,17 @@ export function dashboardPage(
   opts: DashboardOptions = {},
 ): string {
   const acct = opts.account;
-  if (acct && opts.locked) return lockedDashboardPage(nonce, project, { ...opts, account: acct, locked: opts.locked });
+  if (acct && opts.locked) return lockedDashboardPage(nonce, project, { ...opts, account: acct });
   const waiting = !!acct && !project.lastEvent;
-  const data = acct ? { ...project, id: opts.id, firstEvent: opts.firstEvent ?? null, statsUrl: `/api/account/projects/${opts.id}/stats`, account: true } : project;
+  const data = acct
+    ? { ...project, id: opts.id, firstEvent: opts.firstEvent ?? null, statsUrl: `/api/account/projects/${opts.id}/stats`, account: true }
+    : opts.endpoint
+      ? { ...project, endpoint: opts.endpoint }
+      : project;
   const apps = acct ? accountApps(acct) : "";
   const setup = acct
     ? ""
-    : `<section class="blk" id="setup"><details class="more" id="install"><summary>Setup: your token and install snippets</summary>
+    : `<section class="blk" id="setup" data-v="setup"><details class="more" id="install"><summary>Setup: your token and install snippets</summary>
   <div class="row small mt-s"><span class="muted">Token</span><code id="ptok" class="mono brk"></code><span id="ptokc"></span></div>
   ${opts.runtimeReady === true ? "" : `<p class="note small mt-s">${NOT_ON_NPM}</p>`}
   <p class="muted small mt-s">The token needs @genclass/runtime ${KEY_RUNTIME} or later. ${LOCAL_HOSTS}</p>
@@ -1141,30 +1243,33 @@ export function dashboardPage(
   </div>
   <div class="grp">This period</div>
   <nav class="snav" id="snav" aria-label="Sections">
-    <a href="#top">Overview</a>
-    <a href="#trend">Problems found <span id="c-trend"></span></a>
-    <a href="#found">What it found <span id="c-found"></span></a>
+    <a href="#top">Overview <span id="c-trend"></span></a>
+    <a href="#found">Problems <span id="c-found"></span></a>
     <a href="#where">Pages <span id="c-pages"></span></a>
-    <a href="#did">What GenClass did <span id="c-did"></span></a>
+    <a href="#did">Actions <span id="c-did"></span></a>
+    <a href="#recent-s">Activity</a>
+    <a href="#visits" id="nav-visits" class="hidden">Visitors <span id="c-visits"></span></a>
     <a href="#health-s">Health</a>
-    <a href="#recent-s">Recent activity</a>
     ${acct ? "" : '<a href="#setup">Setup</a>'}
   </nav>`;
-  const side = acct
-    ? `<div class="grp">Setup</div>
-  <nav class="snav" id="cnav" aria-label="Setup"><a href="#connect"${waiting ? ' aria-current="true"' : ""}>Connect</a></nav>
-  <div id="period"${waiting ? ' class="hidden"' : ""}>
-  ${sections}
-  </div>
-  ${apps}`
-    : `${sections}
-  <div class="grp">Elsewhere</div>
+  const help = `<div class="grp">Help</div>
   <div class="out">
+    <a href="https://genclass.dev/docs/dashboard">Dashboard guide</a>
     <a href="https://genclass.dev/docs">Docs</a>
     <a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md">What is collected</a>
     ${report}
     <a href="https://discord.gg/kN9kRnFtZm">Discord</a>
   </div>`;
+  const side = acct
+    ? `<div class="grp">Setup</div>
+  <nav class="snav" id="cnav" aria-label="Setup"><a href="#connect"${waiting ? ' aria-current="true"' : ""}>Connect</a>${opts.extra ? '<a href="#forwarding">Forwarding</a><a href="#export">Export</a>' : ""}</nav>
+  <div id="period"${waiting ? ' class="hidden"' : ""}>
+  ${sections}
+  </div>
+  ${apps}
+  ${help}`
+    : `${sections}
+  ${help}`;
   const body = `
 <script type="application/json" id="project">${embed(data)}</script>
 <style nonce="${nonce}">${DASH_CSS}</style>
@@ -1176,18 +1281,18 @@ export function dashboardPage(
 </aside>
 <div class="mainc" id="mc" tabindex="-1">
 <section class="dh" id="top">
+  <nav class="crumbs" aria-label="Breadcrumb">${acct ? '<a href="/account">Apps</a>' : "<span>Private link</span>"}<span aria-hidden="true">/</span><span id="crumb"></span><span id="crumbv"></span></nav>
   <h1 id="pname"></h1>
-  <div class="meta"><span id="updated"></span><button class="btn ghost sm" id="refresh" type="button">Refresh</button></div>
-  ${acct && opts.trialDaysLeft ? `<p class="trialn" id="trialn">Pro trial: ${opts.trialDaysLeft === 1 ? "last day" : `${opts.trialDaysLeft} days left`}. <a href="/account/billing">See plans</a></p>` : ""}
-  <p class="summary" id="summary"></p>
+  <div class="meta"><span id="updated"></span><button class="btn ghost sm" id="refresh" type="button">Refresh</button>${acct ? '<a class="btn sm" href="#connect" data-goto="connect">Connect</a>' : ""}<a class="btn ghost sm" href="https://genclass.dev/docs/dashboard">Dashboard guide</a></div>
+  <p class="summary" id="summary" data-v="overview"></p>
 </section>
-${acct ? connectPanel(project.token, !!project.lastEvent, opts.runtimeReady === true) : ""}
-<section id="nodata" class="first hidden"><p>No data yet. Add the snippet under Setup to your app, load a page, and come back in a minute.
+${acct ? connectPanel(project.token, !!project.lastEvent, opts.runtimeReady === true, opts.endpoint ?? null) : ""}
+<section id="nodata" class="first hidden" data-v="overview"><p>No data yet. Add the snippet under Setup to your app, load a page, and come back in a minute.
 Events arrive in batches every 10 seconds and when a tab is hidden. The token needs @genclass/runtime ${KEY_RUNTIME} or later; earlier
 versions ignore it. ${LOCAL_HOSTS} Your deployed site sends by default.</p></section>
 <div id="content" class="hidden">
-<div class="statrow" id="tiles"></div>
-<section class="blk" id="trend">
+<div class="statrow" id="tiles" data-v="overview"></div>
+<section class="blk" id="trend" data-v="overview">
   <div class="blk-h"><h2>Problems found</h2><span class="aside" id="trendn"></span></div>
   <figure>
     <div class="legend" id="legend"></div>
@@ -1201,7 +1306,7 @@ versions ignore it. ${LOCAL_HOSTS} Your deployed site sends by default.</p></sec
   </figure>
   <details class="more"><summary>Table view</summary><div id="trendtable" class="mt-s"></div></details>
 </section>
-<section class="blk" id="found">
+<section class="blk" id="found" data-v="problems">
   <div class="blk-h"><h2>What GenClass found</h2><span class="aside">Each kind of problem, where it happened and how to fix it</span></div>
   <div class="finds" id="issues"></div>
   <p class="quiet hidden" id="issuesempty">No problems found in this period.</p>
@@ -1211,26 +1316,36 @@ versions ignore it. ${LOCAL_HOSTS} Your deployed site sends by default.</p></sec
     <div class="finds" id="possible"></div>
   </div>
 </section>
-<section class="blk two" id="where">
+<section class="blk two" id="where" data-v="pages">
   <div><div class="blk-h"><h2>Pages</h2><span class="aside">Table 1. Pages with the most problems</span></div><div id="pages"></div></div>
   <div id="did"><div class="blk-h"><h2>What GenClass did</h2><span class="aside">Table 2. Actions it took</span></div><div id="acted"></div></div>
 </section>
-<section class="blk" id="health-s">
+<section class="blk" id="health-s" data-v="health">
   <div class="blk-h"><h2>Health</h2><span class="aside">Whether GenClass could watch your pages at all</span></div>
   <div id="health"></div>
 </section>
-<section class="blk" id="recent-s">
+<section class="blk" id="recent-s" data-v="activity">
   <div class="blk-h"><h2>Recent activity</h2><span class="aside">Table 3. The latest 50 detections and interventions</span></div>
   <div class="tablewrap"><table class="dt"><thead><tr><th>Time</th><th>Page / function</th><th>What</th><th class="num">Confidence</th><th>GenClass</th><th>Mode</th></tr></thead>
   <tbody id="recent"></tbody></table></div>
   <p class="quiet hidden" id="recent0">Nothing detected in this period.</p>
 </section>
-<section class="blk"><details class="more"><summary>All breakdowns</summary><div class="kv mt-s" id="adv"></div></details></section>
+<section class="blk hidden" id="visits" data-v="visitors">
+  <div class="blk-h"><h2>How visitors use this app</h2><span class="aside">Interaction analytics, for apps that turn them on</span></div>
+  <div id="ixsum"></div>
+  <div id="ixpages" class="mt-l"></div>
+</section>
+<section class="blk two hidden" id="clicks" data-v="visitors">
+  <div><div class="blk-h"><h2>Most clicked</h2><span class="aside">Table 5. Elements by clicks</span></div><div id="ixclicks"></div></div>
+  <div><div class="blk-h"><h2>Rage and dead clicks</h2><span class="aside">Table 6. Where clicks went nowhere</span></div><div id="ixflags"></div></div>
+</section>
+<section class="blk" data-v="health"><details class="more"><summary>All breakdowns</summary><div class="kv mt-s" id="adv"></div></details></section>
 </div>
 ${setup}
 ${opts.extra?.html ?? ""}
 <footer class="dfoot">This page shows counts only: the kind of problem, the page route, confidence, what GenClass did and how fast it
-decided. No text from your pages, no IP addresses and no user agents are stored. Data is kept ${(opts.keepDays ?? 90) >= 365 ? "1 year" : `${opts.keepDays ?? 90} days`} (hourly detail 48 hours). ${privacy}</footer>
+decided, and, for apps that turn on interaction analytics, page views, time on page, scroll depth and clicks per element (named by a
+selector or a name the app gave it, never its text). No text from your pages, no IP addresses and no user agents are stored. Data is kept ${(opts.keepDays ?? 90) >= 365 ? "1 year" : `${opts.keepDays ?? 90} days`} (hourly detail 48 hours). ${privacy}</footer>
 </div>
 </div>`;
   return shell(
@@ -1256,19 +1371,18 @@ function accountApps(acct: NonNullable<DashboardOptions["account"]>): string {
 }
 
 /**
- * /account/apps/<id> for an account without a plan, grant or trial: the app's name, "Dashboards come with Pro" with
- * the trial (until it was used) and the plans, then the Connect panel (connecting is free: the app's data is collected
- * so the dashboard starts with it). No stats are fetched.
+ * /account/apps/<id> for an account whose plan has no dashboard (a plan file without it; none today): the app's name,
+ * the plans, then the Connect panel (connecting is free: the app's data is collected so the dashboard starts with it).
+ * No stats are fetched.
  */
 function lockedDashboardPage(
   nonce: string,
   project: { name: string; token: string; created: string; lastEvent: string | null },
-  opts: DashboardOptions & { account: NonNullable<DashboardOptions["account"]>; locked: { trialUsed: boolean } },
+  opts: DashboardOptions & { account: NonNullable<DashboardOptions["account"]> },
 ): string {
   const data = { ...project, id: opts.id, firstEvent: opts.firstEvent ?? null, account: true, locked: true };
-  const used = opts.locked.trialUsed;
   const privacy = opts.privateLink
-    ? "This app also has the private dashboard link it had before it joined your account; with Pro, anyone with that link can see its stats. You can turn the link off on your <a href=\"/account#apps\">account page</a>."
+    ? "This app also has the private dashboard link it had before it joined your account; once its plan has the dashboard, anyone with that link can see its stats. You can turn the link off on your <a href=\"/account#apps\">account page</a>."
     : "Only you can open this page, while signed in.";
   const body = `
 <script type="application/json" id="project">${embed(data)}</script>
@@ -1285,14 +1399,13 @@ function lockedDashboardPage(
   <h1 id="pname">${esc(project.name)}</h1>
 </section>
 <section class="lock" id="lock" aria-labelledby="lock-h">
-  <h2 id="lock-h">Dashboards come with Pro.</h2>
-  <p>${used ? "Your trial has ended." : "Trials available."}</p>
-  <div class="acts">${used ? "" : '<button class="btn green" type="button" id="trial">Start a trial</button>'}<a class="btn ${used ? "green" : "ghost"}" href="/account/billing">See plans</a></div>
-  <p class="err" id="lockerr" role="alert"></p>
+  <h2 id="lock-h">This app's plan has no dashboard.</h2>
+  <p>Pick a plan to open it.</p>
+  <div class="acts"><a class="btn green" href="/account/billing">See plans</a></div>
 </section>
-${connectPanel(project.token, false, opts.runtimeReady === true)}
+${connectPanel(project.token, false, opts.runtimeReady === true, opts.endpoint ?? null)}
 <footer class="dfoot">${privacy} <a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md">What is collected</a> · <a href="/account">All apps</a></footer>
 </div>
 </div>`;
-  return shell(nonce, `${project.name} | GenClass dashboard`, body, CONNECT_JS + LOCK_JS, { nav: SIGNED_IN_NAV, account: true, skip: "mc" });
+  return shell(nonce, `${project.name} | GenClass dashboard`, body, CONNECT_JS, { nav: SIGNED_IN_NAV, account: true, skip: "mc" });
 }

@@ -13,7 +13,7 @@ prevent, stale responses, races, duplicate requests, inconsistent state and fail
 One line, first in `<head>` or first in your entry file:
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@0.3.0-beta.0"></script>
+<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@0.3.0-beta.1"></script>
 ```
 
 ```ts
@@ -35,7 +35,7 @@ generic facts about each write, request and response, and asks a small GenClass 
 The model runs in the browser (WebGPU or WASM, in a Web Worker). It answers two questions: what is happening, and
 which available action is best. There is no list of known bugs in the code.
 
-**Status: `@genclass/runtime@0.3.0-beta.0` (npm `beta` dist-tag: `npm install @genclass/runtime@beta`; the stable
+**Status: `@genclass/runtime@0.3.0-beta.1` (npm `beta` dist-tag: `npm install @genclass/runtime@beta`; the stable
 line is `0.2.x`) with model `@genclass/runtime-model@0.2.0`.** Observe by default; `guard` is
 opt-in; `heal` is experimental. Measured false-intervention and recall rates are under
 [Measured behaviour](#measured-behaviour). AI coding agents: start at [AGENTS.md](AGENTS.md).
@@ -71,6 +71,30 @@ The package is **ESM only** (no `require`). Jest users need `transformIgnorePatt
   [self-hosting](packages/runtime/README.md#content-security-policy-and-self-hosting) and
   [`loadIf`](packages/runtime/README.md#costs) in the package README.
 
+### New: your coding agent can see the race, replay it, and prove the fix
+
+`@genclass/mcp` (unreleased) is an MCP server for Claude Code and other coding agents. Your app's development build
+connects to it with one line, and the agent gets every click, request, the order the responses arrived and what they
+wrote, uncaught errors with the click and request behind them, and the on-device model's detections. It can run your
+steps again with the network answering in different orders (and slower) to find what depends on timing, replay the
+exact order that broke, and write a Playwright test that fails until the fix is in. Everything stays on your machine.
+
+```bash
+claude mcp add genclass -- npx -y @genclass/mcp
+```
+
+```ts
+import { GenClass } from "@genclass/runtime";
+import { connectAgent } from "@genclass/runtime/agent";
+
+const rt = GenClass.init();
+if (import.meta.env.DEV) connectAgent(rt); // development builds only
+```
+
+On a real page in headless Chromium, it found a stale-results race in 5 of 6 reordered runs of a page that never
+showed it on the developer's fast backend, with no false report on the fixed page ([AGENT.md](docs/runtime/AGENT.md),
+[RESULTS.md](docs/runtime/RESULTS.md) section 16).
+
 ### New in 0.3.0: app dashboards and `protect()`
 
 In `0.3.0-beta.0` (`@beta` on npm): `0.2.x` ignores `token` and has no `protect()` export (an import of it fails),
@@ -85,11 +109,11 @@ export const submitOrder = protect("checkout submit", (cart) => fetch("/api/orde
 ```
 
 - **Token and dashboard.** A token (`gc_` plus 22 letters and digits, public) groups your app's diagnostics under a
-  private dashboard link (`https://genclass.dev/dashboard/...`). Dashboards come with Pro (trials available): the link
-  shows the stats once the app is in an account with Pro or a trial, and until then leads there. Get one at
-  [genclass.dev/start](https://genclass.dev/start), or let `init` create it after you approve its diff. Or keep the
-  dashboards in an optional genclass.dev account: `npx @genclass/runtime@beta login` signs in from the terminal (device
-  flow) and connects the app in the current folder; `connect`, `whoami` and `logout` do the rest. The
+  private dashboard link (`https://genclass.dev/dashboard/...`). The dashboard is free for every app, with or
+  without an account.
+  Get one at [genclass.dev/start](https://genclass.dev/start), or let `init` create it after you approve its diff. Or
+  keep the dashboards in an optional genclass.dev account: `npx @genclass/runtime@beta login` signs in from the
+  terminal (device flow) and connects the app in the current folder; `connect`, `whoami` and `logout` do the rest. The
   dashboard fills from deployed pages with telemetry on. Local and private hosts (`localhost`, `*.local`, `*.test`,
   private networks) do not send by default; `telemetry: true` or any telemetry options object (`telemetry: { ... }`)
   is an explicit opt-in that sends from them too, with the token. Data is kept for 90 days.
@@ -139,7 +163,7 @@ export const submitOrder = protect("checkout submit", (cart) => fetch("/api/orde
 
 ## Measured behaviour
 
-> **`@genclass/runtime@0.3.0-beta.0` with the model `@genclass/runtime-model@0.2.0`.** The model and the situation
+> **`@genclass/runtime@0.3.0-beta.1` with the model `@genclass/runtime-model@0.2.0`.** The model and the situation
 > text it reads (`situation-v2.3`) are the same as in 0.2.x; the numbers below were measured with them.
 >
 > - **Runtime:** works and is unit-tested (situation format tag `situation-v2.3`). Install with
@@ -178,6 +202,7 @@ export const submitOrder = protect("checkout submit", (cart) => fetch("/api/orde
 - **The measured visual checks send nothing** (new in `0.3.0`): their findings stay in the page (the console, `rt.checks()`, your own sinks).
 - **The situation text the model read is sent only if you opt in** with `GenClass.init({ telemetry: { include: { situation: true } } })`. It is redacted by field meaning, but can still contain route names with query strings, short error messages and short field values; read [TELEMETRY.md](packages/runtime/TELEMETRY.md) before enabling it.
 - **Opt out:** `GenClass.init({ telemetry: false })`, `?genclass=no-telemetry`, `localStorage.setItem("genclass.telemetry", "off")`; browsers sending Global Privacy Control are never collected.
+- **Interaction analytics are off unless the app turns them on** (`analytics: true` with the app's token, new in `0.3.0-beta.1`): per page view the route, engaged time, scroll depth, and clicks, rage clicks and dead clicks per element, the element named from markup, never its text. No visitor id, nothing stored on the device, every opt-out above applies, and they never feed a decision. Where analytics need consent (EU, EEA, UK), start them after consent with `runtime.analytics.start()`. See [TELEMETRY.md](packages/runtime/TELEMETRY.md#interaction-analytics).
 - **With a token** (`0.3.0`: `token` option, `data-token`, `token=` in the meta tag), each batch also carries
   your app's public token, so the same diagnostics also show on your app's private dashboard (whoever holds its link
   can open it), and decisions about `protect()`ed functions carry the function's name (`fn`, the label you chose).
@@ -228,6 +253,7 @@ All numbers are on held-out data, with each recall reported next to its false-in
 | path | what |
 |---|---|
 | [`packages/runtime`](packages/runtime) | `@genclass/runtime`, the library. Observers, causality, stores and adapters, learned baselines/relations/profiles, facts, triage, policy gate, actions, model host (Web Worker, ONNX Runtime Web on WebGPU/WASM), devtools overlay. [README](packages/runtime/README.md) · [CHANGELOG](packages/runtime/CHANGELOG.md) |
+| [`packages/mcp`](packages/mcp) | `@genclass/mcp` (unreleased), the MCP server for coding agents: pages connect through `@genclass/runtime/agent`; the agent gets findings in causal order, replays, explore verdicts and generated regression tests ([AGENT.md](docs/runtime/AGENT.md)). [README](packages/mcp/README.md) |
 | [`packages/playwright`](packages/playwright) | `@genclass/playwright` (unreleased), a Playwright reporter: reads what the GenClass fixture flagged per test (`test-results/genclass/*.json`) and writes one markdown report for the pull request, with the evidence line and what reproduced across seeds. [README](packages/playwright/README.md) |
 | [`packages/runtime-model`](packages/runtime-model) | `@genclass/runtime-model`, the default model package (data only; `files/` is gitignored and filled at release time) and its [model card](packages/runtime-model/MODEL_CARD.md) |
 | [`sim`](sim) | Training-data simulator: random apps run on the real runtime in a deterministic virtual world, labelled by counterfactual outcomes |
@@ -235,7 +261,7 @@ All numbers are on held-out data, with each recall reported next to its false-in
 | [`training`](training) | Vocabulary pruning, curriculum (`curriculum/rt.py` mirrors the runtime's renderer), multi-node CPU training on Azure, int8 ONNX export, evaluation ([EVAL.md](training/EVAL.md)) |
 | [`demos`](demos) | Six demo apps (typeahead, autosave, checkout, flaky dashboard, live kanban, real-time decisions) with a Service Worker chaos backend and Playwright trials; [`bench/heal`](bench/heal) runs them per mode, [`bench/visual`](bench/visual) measures the visual checks on them |
 | [`compat`](compat), [`templates`](templates) | Framework compatibility matrix (7 apps, 15 data layers, every mode; [RESULTS.md](compat/RESULTS.md)) and starter templates with the one line |
-| [`docs/runtime`](docs/runtime) | [Results](docs/runtime/RESULTS.md) · [Architecture](docs/runtime/ARCHITECTURE.md) · [Build contract](docs/runtime/CONTRACT.md) · [API](docs/runtime/API.md) · [Threat model](docs/runtime/THREAT-MODEL.md) |
+| [`docs/runtime`](docs/runtime) | [Results](docs/runtime/RESULTS.md) · [Coding agents](docs/runtime/AGENT.md) · [Architecture](docs/runtime/ARCHITECTURE.md) · [Build contract](docs/runtime/CONTRACT.md) · [API](docs/runtime/API.md) · [Threat model](docs/runtime/THREAT-MODEL.md) |
 | [`telemetry-worker`](telemetry-worker), [`site`](site) | The diagnostics collector (Cloudflare Worker) and the genclass.dev site |
 | [`research`](research) | Earlier GenClass/Jev research (voice-control Chrome extension, the `jev_local` encoder and server, classifier benchmarks); the training scripts still use `jev_local` ([README](research/README.md)) |
 | [`AGENTS.md`](AGENTS.md), [`CONTRIBUTING.md`](CONTRIBUTING.md) | How to work in this repository |

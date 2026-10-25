@@ -1,9 +1,8 @@
-// Shared by the paid-plan tests (billing, forward, export): an env over node:sqlite with an R2 stand-in that keeps the
-// bytes, signed-in accounts made through the real passkey routes, apps, batches through the real collector, a fake
-// Stripe API, and Stripe-signed webhook deliveries.
+// Shared by the paid-plan tests (billing, forward, export, locked, plans): an env over node:sqlite with an R2 stand-in that keeps
+// the bytes, signed-in accounts made through the real email and password sign-up, apps, batches through the real
+// collector, a fake Stripe API, and Stripe-signed webhook deliveries.
 import { expect } from "vitest";
 import { handle, type Env, type HandleOptions } from "../src/collector.js";
-import { makeAuthenticator } from "./authenticator.mjs";
 import { d1 } from "./d1.js";
 
 export const ORIGIN = "https://genclass.dev";
@@ -66,13 +65,12 @@ export async function call(env: Env, method: string, path: string, o: CallOpts =
   return handle(new Request(`${ORIGIN}${path}`, { method, headers, body }), env, { now: () => clock, fetch: o.fetch });
 }
 
-/** A new account signed in with a passkey: its session cookie and id. */
+/** The password the helper accounts sign up with. */
+export const PASSWORD = "correct horse battery staple";
+
+/** A new account, signed up with an email and a password (no passkey): its session cookie and id. */
 export async function signedIn(env: Env, email = "ada@example.com") {
-  const auth = await makeAuthenticator(-7);
-  const o = await call(env, "POST", "/api/auth/passkey/register/options", { body: { email } });
-  const opts = (await o.json()) as any;
-  const credential = await auth.register(opts.publicKey);
-  const res = await call(env, "POST", "/api/auth/passkey/register/verify", { body: { id: opts.id, credential } });
+  const res = await call(env, "POST", "/api/auth/password/signup", { body: { email, password: PASSWORD } });
   expect(res.status).toBe(200);
   const v = res.headers.getSetCookie().find((c) => c.startsWith("__Host-gc_session="))!.split(";")[0]!;
   const account = ((await res.json()) as any).account as { id: string; email: string };
@@ -143,12 +141,12 @@ const formObject = (form: URLSearchParams, prefix: string): Record<string, strin
 export const expands = (url: URL): string[] => [...url.searchParams.entries()].filter(([k]) => /^expand\[\d*\]$/.test(k)).map(([, v]) => v);
 
 /**
- * The shared Stripe account's Billing Portal configurations: Polar Parts' default one, another of Polar Parts', and
+ * The shared Stripe account's Billing Portal configurations: the other business's default one, another of the other business's, and
  * GenClass's (metadata genclass=1), as scripts/stripe-setup.mjs leaves them. The worker reads GenClass's by the id in
  * STRIPE_PORTAL_CONFIGURATION (GENCLASS_PORTAL) and lists none.
  */
 export const PORTAL_CONFIGS = [
-  { id: "bpc_polardefault1", object: "billing_portal.configuration", is_default: true, active: true, metadata: {} },
+  { id: "bpc_otherdefault1", object: "billing_portal.configuration", is_default: true, active: true, metadata: {} },
   { id: "bpc_other00001", object: "billing_portal.configuration", is_default: false, active: true, metadata: {} },
   { id: "bpc_genclass01", object: "billing_portal.configuration", is_default: false, active: true, metadata: { genclass: "1" } },
 ];
@@ -158,7 +156,7 @@ export const GENCLASS_PORTAL = "bpc_genclass01";
  * A fake fetch for api.stripe.com (and any other URL, recorded and answered 200 unless `answer` says otherwise; `answer`
  * runs first for every request, so a test can refuse a DELETE, fail a refund or watch the database at that moment). It
  * keeps customers (`customers`: created with their form fields, fetched by id, 404 resource_missing for any other id;
- * a subscription fetched with expand customer gets the stored one, or one with no metadata, like a Polar Parts
+ * a subscription fetched with expand customer gets the stored one, or one with no metadata, like a the other business
  * customer), subscriptions (`subs`, listed by customer; expand latest_invoice, or data.latest_invoice on the list,
  * swaps in the stored invoice, and a subscription stored without latest_invoice reads as one whose latest invoice is
  * paid with nothing due), invoices (`invoices`, listed by customer, subscription and status, newest first; a paid one
@@ -177,6 +175,8 @@ export function fakeStripe(o: { answer?: (url: URL, init: RequestInit) => Respon
   const refunds = new Map<string, Record<string, any>>();
   const refundKeys = new Map<string, Record<string, any>>();
   const charges = new Map<string, Record<string, any>>();
+  const paymentIntents = new Map<string, Record<string, any>>();
+  const piKeys = new Map<string, Response>();
   const portal: Record<string, any>[] = PORTAL_CONFIGS.map((c) => ({ ...c, metadata: { ...c.metadata } }));
   /** A subscription's latest invoice as an expansion returns it. */
   const latest = (sub: Record<string, any>) =>
@@ -204,7 +204,7 @@ export function fakeStripe(o: { answer?: (url: URL, init: RequestInit) => Respon
     if (method === "GET" && p === "/v1/prices") {
       // GenClass's two prices, with their products expanded (the worker asks for data.product)
       const key = url.searchParams.get("lookup_keys[0]");
-      return ok({ data: key === "genclass_pro_monthly" || key === "genclass_custom_monthly" ? [price(key)] : [] });
+      return ok({ data: key && KNOWN_PRICES[key] ? [price(key)] : [] });
     }
     const cus = /^\/v1\/customers\/([^/]+)$/.exec(p);
     if (method === "GET" && cus) {
@@ -286,11 +286,39 @@ export function fakeStripe(o: { answer?: (url: URL, init: RequestInit) => Respon
       return c ? ok(c) : ok({ error: { code: "resource_missing", message: "No such configuration" } }, 404);
     }
     if (method === "POST" && p === "/v1/billing_portal/sessions") return ok({ url: "https://billing.stripe.com/p/session/test_000001" });
+    // PaymentIntents (GenClass makes none since it dropped the trial's $1 card check; kept for tests that check so): a payment method whose id contains "declined" (any case) is
+    // declined, one with "authRequired" asks for authentication, any other holds the amount; the same idempotency key gets the
+    // same answer again, as Stripe gives it
+    if (method === "POST" && p === "/v1/payment_intents") {
+      const key = headers["idempotency-key"];
+      if (key && piKeys.has(key)) return piKeys.get(key)!.clone();
+      const pm = form!.get("payment_method") ?? "";
+      const id = `pi_test${String(paymentIntents.size + 1).padStart(6, "0")}`;
+      const pi = { id, object: "payment_intent", amount: Number(form!.get("amount")), currency: form!.get("currency"), customer: form!.get("customer"), payment_method: pm, capture_method: form!.get("capture_method"), status: "requires_capture", metadata: formObject(form!, "metadata") };
+      const res = /declined/i.test(pm)
+        ? ok({ error: { type: "card_error", code: "card_declined", decline_code: "insufficient_funds", message: "Your card has insufficient funds.", payment_intent: { ...pi, status: "requires_payment_method" } } }, 402)
+        : /authRequired/i.test(pm)
+          ? ok({ error: { type: "card_error", code: "authentication_required", message: "This payment requires authentication.", payment_intent: { ...pi, status: "requires_payment_method" } } }, 402)
+          : (paymentIntents.set(id, pi), ok(pi));
+      if (key) piKeys.set(key, res.clone());
+      return res;
+    }
+    const pic = /^\/v1\/payment_intents\/([^/]+)(\/cancel)?$/.exec(p);
+    if (pic) {
+      const pi = paymentIntents.get(decodeURIComponent(pic[1]!));
+      if (!pi) return ok({ error: { code: "resource_missing", message: "No such payment_intent" } }, 404);
+      if (method === "POST" && pic[2]) {
+        if (pi.status === "canceled") return ok({ error: { code: "payment_intent_unexpected_state", message: "This PaymentIntent's status is canceled." } }, 400);
+        pi.status = "canceled";
+      }
+      return ok(pi);
+    }
     const sub = /^\/v1\/subscriptions\/([^/]+)$/.exec(p);
     if (sub) {
       const s = subs.get(decodeURIComponent(sub[1]!));
       if (!s) return ok({ error: { message: "No such subscription" } }, 404);
       if (method === "DELETE") s.status = "canceled";
+      if (method === "POST") s.metadata = { ...(s.metadata ?? {}), ...formObject(form!, "metadata") };
       if (method === "GET") {
         const out: Record<string, any> = { ...s };
         if (expands(url).includes("customer")) {
@@ -298,6 +326,10 @@ export function fakeStripe(o: { answer?: (url: URL, init: RequestInit) => Respon
           out.customer = customers.get(id) ?? { id, object: "customer", metadata: {} };
         }
         if (expands(url).includes("latest_invoice")) out.latest_invoice = latest(s);
+        // a payment method id containing "bank" is a bank account; any other, a card
+        if (expands(url).includes("default_payment_method") && typeof s.default_payment_method === "string") {
+          out.default_payment_method = { id: s.default_payment_method, object: "payment_method", type: /bank/.test(s.default_payment_method) ? "us_bank_account" : "card" };
+        }
         return ok(out);
       }
       return ok(s);
@@ -308,14 +340,22 @@ export function fakeStripe(o: { answer?: (url: URL, init: RequestInit) => Respon
   const genclassCustomer = (id: string, accountId: string, email = "ada@example.com") => {
     customers.set(id, { id, object: "customer", email, description: "GenClass account", metadata: { genclass: "1", genclass_account: accountId } });
   };
-  return { fetch, calls, other, customers, subs, sessions, invoices, refunds, charges, portal, genclassCustomer };
+  return { fetch, calls, other, customers, subs, sessions, invoices, refunds, charges, paymentIntents, portal, genclassCustomer };
 }
+
+/** The GenClass prices the fake Stripe knows by lookup key: the fixture's (Pro, Custom) and the real plans' (Individual). */
+const KNOWN_PRICES: Record<string, { plan: string; id: string }> = {
+  genclass_pro_monthly: { plan: "pro", id: "price_pro000001" },
+  genclass_custom_monthly: { plan: "custom", id: "price_custom0001" },
+  genclass_individual_monthly: { plan: "individual", id: "price_indiv00001" },
+};
 
 /** A price as a subscription fetched with its products expanded shows it: GenClass's carry product metadata genclass_plan. */
 export function price(lookupKey: string | null, o: { id?: string; plan?: string | null; product?: string } = {}) {
-  const plan = o.plan !== undefined ? o.plan : lookupKey === "genclass_custom_monthly" ? "custom" : lookupKey === "genclass_pro_monthly" ? "pro" : null;
-  const id = o.id ?? (lookupKey === "genclass_custom_monthly" ? "price_custom0001" : lookupKey === "genclass_pro_monthly" ? "price_pro000001" : "price_x000001");
-  return { id, object: "price", lookup_key: lookupKey, product: { id: o.product ?? (plan ? `genclass_${plan}` : "prod_polar00001"), object: "product", metadata: plan ? { genclass_plan: plan } : {} } };
+  const known = lookupKey ? KNOWN_PRICES[lookupKey] : undefined;
+  const plan = o.plan !== undefined ? o.plan : (known?.plan ?? null);
+  const id = o.id ?? known?.id ?? "price_x000001";
+  return { id, object: "price", lookup_key: lookupKey, product: { id: o.product ?? (plan ? `genclass_${plan}` : "prod_other00001"), object: "product", metadata: plan ? { genclass_plan: plan } : {} } };
 }
 
 /** A GenClass subscription as Stripe API 2025-03-31 returns it (the period end on the item; prices' products expanded). */

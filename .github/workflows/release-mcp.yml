@@ -1,0 +1,129 @@
+name: Release MCP
+
+# Publishes @genclass/mcp to npm from a tag `mcp-v<version>` whose version equals packages/mcp/package.json (e.g.
+# mcp-v0.1.0), with npm provenance, the same way release.yml publishes @genclass/runtime.
+# Authentication: npm trusted publishing (OIDC, `id-token: write`); no npm token is stored in the repository.
+#
+# Owner setup:
+# - First version only: npm configures trusted publishing from a package's own settings page, so the package must exist
+#   before this workflow can publish it. Run this workflow once (push the tag): it builds, tests and uploads the tarball
+#   as the `mcp-tarball` artifact, and its publish step fails without a trusted publisher. Publish that exact tarball
+#   once from your own npm login (`npm publish genclass-mcp-<version>.tgz --access public`), then on npmjs.com:
+#   @genclass/mcp → Settings → Trusted publishing → GitHub Actions: organization genclass-dev, repository GenClass-lib,
+#   workflow filename release-mcp.yml, environment npm-publish. Later versions publish from here.
+# - The npm-publish GitHub environment (shared with release.yml) asks its reviewers to approve each run.
+# - After a release: `mcp-publisher publish` (packages/mcp/server.json) lists it in the official MCP Registry.
+#
+# The server is useful only with a runtime that has the agent entry (@genclass/runtime >= 0.3.0-beta.1,
+# `@genclass/runtime/agent`); release that first (release.yml).
+
+on:
+  push:
+    tags: ["mcp-v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-mcp-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: "@genclass/mcp: verify, build, test, publish with provenance"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: npm-publish
+    permissions:
+      contents: read
+      id-token: write # OIDC token for npm trusted publishing and the provenance attestation
+    env:
+      ONNXRUNTIME_NODE_INSTALL: skip
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+          cache: npm
+
+      # trusted publishing needs npm >= 11.5.1 (Node 22 ships npm 10)
+      - name: npm 11
+        run: npm install -g npm@11 && npm --version
+
+      - name: The tag names the package version
+        run: |
+          TAG="${GITHUB_REF_NAME#mcp-v}"
+          PKG=$(node -p "require('./packages/mcp/package.json').version")
+          echo "tag $TAG, package.json $PKG"
+          test "$TAG" = "$PKG"
+          grep -q "\"$PKG\"" packages/mcp/src/http.ts
+          grep -q "\"version\": \"$PKG\"" packages/mcp/server.json
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - name: Typecheck
+        run: npm run typecheck -w @genclass/mcp
+
+      - name: Build
+        run: |
+          npm run build -w @genclass/runtime
+          npm run build -w @genclass/mcp
+
+      - name: Unit tests
+        working-directory: packages/mcp
+        run: npx vitest run
+
+      - name: Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: The agent loop end to end
+        run: node packages/mcp/test/e2e/race.e2e.mjs
+
+      - name: Pack
+        id: pack
+        working-directory: packages/mcp
+        run: |
+          FILE=$(npm pack --silent | tail -1)
+          echo "file=$FILE" >> "$GITHUB_OUTPUT"
+          sha512sum "$FILE"
+          tar -tzf "$FILE" | sort > "$FILE.files.txt"
+          cat "$FILE.files.txt"
+          # the tarball holds the built server, its command, the plugin and the registry entry; no tests or sources
+          grep -q "package/dist/cli.js" "$FILE.files.txt"
+          grep -q "package/bin/genclass-mcp.mjs" "$FILE.files.txt"
+          ! grep -q "package/test/" "$FILE.files.txt"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mcp-tarball
+          path: |
+            packages/mcp/${{ steps.pack.outputs.file }}
+            packages/mcp/${{ steps.pack.outputs.file }}.files.txt
+          if-no-files-found: error
+
+      - name: Publish with provenance
+        working-directory: packages/mcp
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          case "$VERSION" in
+            *-*) DIST_TAG=$(echo "${VERSION#*-}" | cut -d. -f1) ;;
+            *) DIST_TAG=latest ;;
+          esac
+          npm publish "${{ steps.pack.outputs.file }}" --provenance --access public --tag "$DIST_TAG"
+
+      - name: Verify the registry signature and provenance
+        run: |
+          VERSION=$(node -p "require('./packages/mcp/package.json').version")
+          mkdir -p "$RUNNER_TEMP/verify" && cd "$RUNNER_TEMP/verify"
+          npm init -y > /dev/null
+          for i in $(seq 1 40); do npm view "@genclass/mcp@$VERSION" version --prefer-online && break; sleep 20; done
+          for i in $(seq 1 10); do npm install --no-audit --no-fund --ignore-scripts "@genclass/mcp@$VERSION" && break; sleep 30; done
+          for i in $(seq 1 20); do npm audit signatures && break; echo "attestations not served yet, retry $i"; sleep 30; done
+          # the published command answers an MCP initialize on stdio
+          printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"ci","version":"1"}}}' \
+            | GENCLASS_STATE_DIR=none timeout 10 npx --no-install genclass-mcp | head -1 | grep -q '"serverInfo":{"name":"genclass"'

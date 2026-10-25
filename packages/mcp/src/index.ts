@@ -1,0 +1,16 @@
+// @genclass/mcp: GenClass for coding agents (docs/runtime/AGENT.md). The command (bin/genclass-mcp.mjs) is what agents
+// run; these exports are for embedding the bridge in another tool and for tests.
+
+export { Store, mergeOrder, replaySpecOf } from "./store.js";
+export type { StoreOptions, FindingEvent } from "./store.js";
+export { startBridge, probeBridge, callBridge, devOrigin, VERSION } from "./http.js";
+export type { Bridge, BridgeOptions } from "./http.js";
+export { makeApi, analytics } from "./api.js";
+export type { Api } from "./api.js";
+export { McpServer, PROTOCOL_VERSIONS } from "./mcp.js";
+export { TOOLS, INSTRUCTIONS, callTool, setupText } from "./tools.js";
+export { serve, channelEvent } from "./server.js";
+export { compareRuns, scenarioOf } from "./compare.js";
+export { regressionTest, locator, actionLines, parseTarget } from "./testgen.js";
+export { clean, q } from "./text.js";
+export * from "./types.js";

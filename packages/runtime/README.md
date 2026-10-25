@@ -19,7 +19,7 @@ runtime has no list of known bugs: triage picks the situations, the model decide
 **One line covers the whole app.** First in `<head>`:
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@0.3.0-beta.0"></script>
+<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@0.3.0-beta.1"></script>
 ```
 
 (pin the version: the unversioned URL may serve an older release from the CDN cache) or first in your entry file (any bundler; Next.js: `instrumentation-client.ts`):
@@ -48,7 +48,7 @@ GenClass at a few functions instead of the whole app. See [Your dashboard](#your
 > browsers sending Global Privacy Control are never collected. Details: [Privacy and telemetry](#privacy-and-telemetry)
 > and [TELEMETRY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md).
 
-> **Status: `0.3.0-beta.0` (npm `beta` dist-tag: `npm install @genclass/runtime@beta`; the stable line is `0.2.x`),
+> **Status: `0.3.0-beta.1` (npm `beta` dist-tag: `npm install @genclass/runtime@beta`; the stable line is `0.2.x`),
 > with model `@genclass/runtime-model@0.2.0`.**
 >
 > - **The model loads by default.** A default `GenClass.init()` loads `@genclass/runtime-model@0.2.0` (10.2 MB q8,
@@ -78,7 +78,7 @@ Questions, bug reports and false detections: [GitHub Issues](https://github.com/
 
 ## Contents
 
-[Install](#install) · [Function-specific: protect()](#function-specific-protect) · [Your dashboard](#your-dashboard) ·
+[Install](#install) · [Your coding agent](#your-coding-agent-replay-and-explore) · [Function-specific: protect()](#function-specific-protect) · [Your dashboard](#your-dashboard) ·
 [Automatic state discovery](#automatic-state-discovery) ·
 [Why it's an easy yes](#why-its-an-easy-yes-measured) · [Modes](#modes) ·
 [What it looks for](#what-it-looks-for) · [Visual and CSS checks](#visual-and-css-checks-new-in-030) ·
@@ -117,8 +117,8 @@ newer data (search.results). (stale, 0.97; discard 0.98)
 In production these lines print in your users' browsers. From `0.3.0` you can send them to your own endpoint or your
 log shipper as well: `npx @genclass/runtime@beta init --sink webhook:/genclass`, or `data-sink="webhook:/genclass"` on
 the script tag ([See it where you already look](#see-it-where-you-already-look)). Forwarding to Sentry, PostHog or
-Datadog is not part of the free runtime; on Pro, the GenClass collector forwards detections to them once you turn it on
-([genclass.dev/pricing](https://genclass.dev/pricing)).
+Datadog is not part of the runtime; on every genclass.dev plan, Free included, the GenClass collector forwards detections
+to them once you turn it on ([genclass.dev/pricing](https://genclass.dev/pricing)).
 
 ## Install
 
@@ -150,7 +150,7 @@ to `https://genclass.dev/api/projects`, writes the token it gets back into what 
 ```
   Your dashboard  https://genclass.dev/dashboard/...
   Keep this link private; it is the only way to open your dashboard.
-  The dashboard needs Pro (trials available); the link shows how to start one.
+  The dashboard is free; the link opens it.
   Saved in .genclass.local (added to .gitignore).
 ```
 
@@ -242,7 +242,7 @@ It exposes `window.GenClass`, discovers the app's state like the import does, an
 Runtime Web and the overlay on demand from the same version on the CDN. `data-mode` takes `observe` (the default), `guard` or `heal`; `data-devtools="local"` shows the
 overlay only on localhost; `data-manual` skips the automatic `GenClass.init()`. Since `0.3.0`: `data-token="gc_..."`
 (your app's token), `data-scope="functions"` and `window.GenClass.protect`. Pin a version in production
-(`https://cdn.jsdelivr.net/npm/@genclass/runtime@0.3.0-beta.0`); the plain-HTML path of `init` writes a pinned
+(`https://cdn.jsdelivr.net/npm/@genclass/runtime@0.3.0-beta.1`); the plain-HTML path of `init` writes a pinned
 jsDelivr URL with SRI.
 
 **4. By hand:**
@@ -265,6 +265,37 @@ The unscoped `genclass-runtime` alias is deprecated; use `@genclass/runtime`.
 
 **ESM only.** The package ships ES modules (no `require`). Jest users need a `transformIgnorePatterns` entry that lets
 `@genclass/runtime` be transformed, for example `["/node_modules/(?!@genclass/runtime)"]`.
+
+## Your coding agent: replay and explore
+
+A race depends on the network's timing, so it rarely shows on your fast machine and never in a test where mocked APIs
+answer in order. `@genclass/runtime/agent` connects your development build to `@genclass/mcp`, an MCP server for
+Claude Code and other coding agents, and lets the agent:
+
+- **see what happened, in order:** clicks, requests, the order their responses were delivered, the state each one
+  wrote, errors with the click and request behind them, and this runtime's detections;
+- **replay** the exact delivery order that produced a bug, on any machine, before the fix (reproduced) and after it
+  (not reproduced);
+- **explore**: run the same steps with overlapping responses delivered in different seeded orders, optionally slower,
+  and report what ends differently from the run where responses came back in order;
+- **keep the proof:** a generated Playwright test that sets the same order and fails while the bug is there.
+
+```bash
+claude mcp add genclass -- npx -y @genclass/mcp
+```
+
+```ts
+import { GenClass } from "@genclass/runtime";
+import { connectAgent } from "@genclass/runtime/agent";
+
+const rt = GenClass.init();
+if (import.meta.env.DEV) connectAgent(rt); // development builds only
+```
+
+`connectAgent` is its own entry (no first-load cost), runs only on pages served from your machine, talks only to a
+loopback address, and holds a response only when you or your agent set a schedule (each at most 1.5 s beyond its
+emulated delay; never changed; protected requests never). Without one it only records (a page load's first responses
+wait for the bridge's hello, at most 0.6 s). Design and measurements: [AGENT.md](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/AGENT.md).
 
 ## Function-specific: protect()
 
@@ -338,8 +369,8 @@ where GenClass acts.
 **New in `0.3.0`** (`0.2.x` ignores a token and has no `login`, `connect`, `whoami` or `logout`). Each
 web app gets a **project key** (token: `gc_` + 22 letters and digits) that groups its diagnostics on a dashboard at
 genclass.dev. The key is public: it ships in your page and can only add telemetry to its app. Keep the dashboards in
-a GenClass account, or use one private link per app without an account. The dashboard needs Pro (trials available):
-until the app's account has Pro or a trial, its data is collected and the dashboard stays locked.
+a GenClass account, or use one private link per app without an account. The dashboard is free for every app, with
+90 days of history, and so is your own classifier, which GenClass trains on your app ([pricing](https://genclass.dev/pricing)).
 
 **With an account:**
 
@@ -350,8 +381,8 @@ npx @genclass/runtime@beta whoami    # your account and its apps
 npx @genclass/runtime@beta logout    # end the CLI session
 ```
 
-`login` prints a code and opens `https://genclass.dev/login/device`, where you sign in (Google or GitHub, plus your
-passkey if your account has one) and approve that code. It waits until you do (Ctrl-C stops it and saves nothing), then saves the CLI
+`login` prints a code and opens `https://genclass.dev/login/device`, where you sign in (Google, your email and password, or GitHub,
+plus your passkey if your account has one) and approve that code. It waits until you do (Ctrl-C stops it and saves nothing), then saves the CLI
 session in `~/.config/genclass/credentials.json` (`$XDG_CONFIG_HOME/genclass/`; Windows `%APPDATA%\genclass\`),
 readable only by you. `--no-browser` prints the link without opening a browser (it works from any device).
 Inside an app's folder, `login` then asks whether to connect that app; `connect` does that step alone:
@@ -400,7 +431,10 @@ existing dashboard" on your account page).
 console warning and is ignored.
 
 **What it shows:** decisions, detections by diagnosis, actions taken, top routes and protected functions,
-model load, backend (WebGPU or WASM) and latency, runtime and model versions, and recent detections.
+model load, backend (WebGPU or WASM) and latency, runtime and model versions, and recent detections. With
+`analytics: true` (new in `0.3.0-beta.1`, off by default), also how visitors use the app: page views, time on page and
+scroll depth per page, the most clicked elements, and rage and dead clicks ([Privacy and telemetry](#privacy-and-telemetry)).
+Put `data-genclass-name="pricing-cta"` on an element to give it a readable name there.
 
 **What it needs:** telemetry on (the default with `GenClass.init()` in a browser) on a deployed host. Local hosts
 (`localhost`, `*.local`, `*.test`, private networks) do not send by default, so a page there does not feed the
@@ -826,8 +860,8 @@ intervention, undo, breaker trip and runtime error to your own side as well: one
 for a log shipper (`console-json`), batched POSTs to an endpoint you own (`webhook`), or a function or `{ send }` object
 of yours. The records go only where you point them. The console default does not change.
 
-**Sentry, PostHog and Datadog.** Forwarding findings to those tools is not part of the free runtime. On Pro, the
-GenClass collector forwards detections to them (or Slack, or a signed webhook) once you turn it on in the dashboard
+**Sentry, PostHog and Datadog.** Forwarding findings to those tools is not part of the runtime. On every
+genclass.dev plan, Free included, the GenClass collector forwards detections to them (or Slack, or a signed webhook) once you turn it on in the dashboard
 ([genclass.dev/pricing](https://genclass.dev/pricing)). The runtime itself has no adapter for them. A page config that still names `sentry`, `posthog` or `datadog` gets one console warning that says
 so, and nothing is loaded or sent for those names; `init --sink sentry` stops with a usage error that says the same.
 
@@ -839,7 +873,7 @@ npx @genclass/runtime@beta init --sink webhook:/genclass   # or console-json; re
 
 ```html
 <meta name="genclass" content="sink=webhook:/genclass+console-json">     <!-- + joins names: commas separate the meta keys -->
-<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@0.3.0-beta.0" data-sink="webhook:/genclass,console-json"></script>
+<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@0.3.0-beta.1" data-sink="webhook:/genclass,console-json"></script>
 <script>window.GENCLASS_CONFIG = { sinks: ["webhook:https://collector.example/genclass"] };</script>
 ```
 
@@ -1204,6 +1238,7 @@ GenClass.init({ model: { baseUrl: "/genclass-model/", ortWasmPaths: "/genclass-m
 - **Anonymous diagnostics are on by default** with `GenClass.init()` in a browser, except on local and private hosts (`localhost`, `*.localhost`, `*.local`, `*.test`, `127.0.0.1`, `::1`, private IP ranges) (`0.2.1` sends from local hosts too, by mistake; fixed in `0.2.2`, see the CHANGELOG), in Node/SSR, and in `createRuntime()`. They go to the GenClass maintainers' collector ([`telemetry-worker/`](https://github.com/genclass-dev/GenClass-lib/tree/main/telemetry-worker), a Cloudflare Worker writing to a private R2 bucket) and are used to improve the model.
 - **By default no text from your page is sent.** Sent: a random per-page session id, versions, mode, device class, the app's hostname and id-normalised path (from `0.3.0` a segment with an `@`, such as an e-mail address, is `:id` too), and per decision (every detection and every decision whose diagnosis is not `expected`, every action and veto; of the routine ones, one in four and at most 200 per page load; counts are exact; `0.2.2` and earlier send every decision) the trigger, the diagnosis and its confidence, the action and gate, the outcome and latency. The collector stores no IP address or user agent. One console notice per page says it is on.
 - **The measured visual checks send nothing** (new in `0.3.0`): their findings stay in the page (the console, `rt.checks()`, your own sinks).
+- **Interaction analytics are off unless you turn them on** (new in `0.3.0-beta.1`): `GenClass.init({ token, analytics: true })` also sends, per page view, the route, engaged time, scroll depth and clicks, rage clicks and dead clicks per element, for your dashboard. Elements are named from markup (`data-genclass-name`, `data-testid`, an id, a link's target, class names, a short path), never their text; nothing is stored on the device and no visitor id exists. They need the token and telemetry on, every opt-out above turns them off, and they never feed a decision or the model. Where analytics need consent (the EU, EEA and UK), leave them off and call `runtime.analytics.start()` after consent. Details: [TELEMETRY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md#interaction-analytics).
 - **The situation text the model read is sent only if you opt in** with `GenClass.init({ telemetry: { include: { situation: true } } })`. It is redacted by field meaning, but can still contain route names with query strings, short error messages and short field values; read [TELEMETRY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md) before enabling it.
 - **Opt out:** `GenClass.init({ telemetry: false })`, `?genclass=no-telemetry`, `localStorage.setItem("genclass.telemetry", "off")`; browsers sending Global Privacy Control are never collected.
 - **With a token** (`0.3.0`: `token` option, `data-token`, `token=` in the meta tag), each batch also carries

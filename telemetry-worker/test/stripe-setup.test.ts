@@ -1,15 +1,20 @@
-import { beforeAll, describe, expect, it } from "vitest";
+import { fileURLToPath } from "node:url";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { planForPrice } from "../src/plans.js";
 import { STRIPE_VERSION, WEBHOOK_EVENTS } from "../src/stripe.js";
 
-// scripts/stripe-setup.mjs against a fake Stripe account that also holds another business's objects (Polar Parts'
+// scripts/stripe-setup.mjs against a fake Stripe account that also holds another business's objects (the other business's
 // products, prices, webhook endpoint, default Billing Portal configuration and another, non-default, one), as
-// daybot.ca's shared account did. GenClass now has an account of its own; the script still must create, find and edit
-// only GenClass's own objects, never change anything else, and never touch account-wide settings.
+// a shared account would. GenClass now has an account of its own; the script still must create, find and edit
+// only GenClass's own objects, never change anything else, and never touch account-wide settings. The real plans sell
+// nothing on the site, so the script runs on the plans as they were on 2026-10-21 (test/fixtures/plans-individual.json,
+// one paid plan, Individual), named by GENCLASS_PLANS_FILE; the worker's planForPrice reads the same file.
+vi.mock("../../billing/plans.json", async () => ({ default: (await import("./fixtures/plans-individual.json")).default }));
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let setup: any;
 beforeAll(async () => {
+  process.env.GENCLASS_PLANS_FILE = fileURLToPath(new URL("./fixtures/plans-individual.json", import.meta.url));
   setup = await import("../../scripts/stripe-setup.mjs");
 });
 
@@ -27,25 +32,25 @@ function fields(body: string): Obj {
 }
 const meta = (f: Obj): Obj => Object.fromEntries(Object.entries(f).flatMap(([k, v]) => (/^metadata\[(.+)\]$/.test(k) ? [[/^metadata\[(.+)\]$/.exec(k)![1]!, v]] : [])));
 
-/** A fake shared Stripe account: Polar Parts' objects in it, and whatever the script creates. */
+/** A fake shared Stripe account: the other business's objects in it, and whatever the script creates. */
 function account() {
-  const products = new Map<string, Obj>([["prod_polar0000001", { id: "prod_polar0000001", object: "product", name: "Snow tires", active: true, metadata: { sku: "PP-TIRE" }, statement_descriptor: "POLAR PARTS" }]]);
+  const products = new Map<string, Obj>([["prod_other0000001", { id: "prod_other0000001", object: "product", name: "Snow tires", active: true, metadata: { sku: "OS-TIRE" }, statement_descriptor: "OTHER PARTS" }]]);
   const prices = new Map<string, Obj>([
-    ["price_polar0000001", { id: "price_polar0000001", object: "price", product: "prod_polar0000001", lookup_key: "polar_tires_monthly", active: true, unit_amount: 18900, currency: "cad", recurring: { interval: "month" }, metadata: {} }],
+    ["price_other0000001", { id: "price_other0000001", object: "price", product: "prod_other0000001", lookup_key: "other_tires_monthly", active: true, unit_amount: 18900, currency: "cad", recurring: { interval: "month" }, metadata: {} }],
   ]);
   const endpoints = new Map<string, Obj>([
-    ["we_polar0000001", { id: "we_polar0000001", object: "webhook_endpoint", url: "https://polarparts.ca/api/stripe/webhook", description: "Polar Parts orders", enabled_events: ["*"], status: "enabled", metadata: {} }],
+    ["we_other0000001", { id: "we_other0000001", object: "webhook_endpoint", url: "https://other-store.example/api/stripe/webhook", description: "Other Store orders", enabled_events: ["*"], status: "enabled", metadata: {} }],
   ]);
   const portal = new Map<string, Obj>([
-    ["bpc_polardefault1", { id: "bpc_polardefault1", object: "billing_portal.configuration", is_default: true, active: true, metadata: {}, business_profile: { headline: "Polar Parts" } }],
-    // Polar Parts' own API-made configuration (one per storefront, say): not the default, and not GenClass's
-    ["bpc_polarstore01", { id: "bpc_polarstore01", object: "billing_portal.configuration", is_default: false, active: true, metadata: { storefront: "winter" }, business_profile: { headline: "Polar Parts winter store" } }],
+    ["bpc_otherdefault1", { id: "bpc_otherdefault1", object: "billing_portal.configuration", is_default: true, active: true, metadata: {}, business_profile: { headline: "the other business" } }],
+    // the other business's own API-made configuration (one per storefront, say): not the default, and not GenClass's
+    ["bpc_otherstore01", { id: "bpc_otherstore01", object: "billing_portal.configuration", is_default: false, active: true, metadata: { storefront: "winter" }, business_profile: { headline: "the other business winter store" } }],
   ]);
-  const customers = new Map<string, Obj>([["cus_polar0000001", { id: "cus_polar0000001", email: "ada@example.com", metadata: {} }]]);
+  const customers = new Map<string, Obj>([["cus_other0000001", { id: "cus_other0000001", email: "ada@example.com", metadata: {} }]]);
   const calls: { method: string; url: URL; body: Obj }[] = [];
   let n = 0;
   const snapshot = () =>
-    JSON.stringify({ p: products.get("prod_polar0000001"), pr: prices.get("price_polar0000001"), w: endpoints.get("we_polar0000001"), c: portal.get("bpc_polardefault1"), s: portal.get("bpc_polarstore01"), cu: [...customers.values()] });
+    JSON.stringify({ p: products.get("prod_other0000001"), pr: prices.get("price_other0000001"), w: endpoints.get("we_other0000001"), c: portal.get("bpc_otherdefault1"), s: portal.get("bpc_otherstore01"), cu: [...customers.values()] });
   const ok = (j: unknown, status = 200) => new Response(JSON.stringify(j), { status, headers: { "content-type": "application/json" } });
   const missing = (what: string) => ok({ error: { code: "resource_missing", message: `No such ${what}` } }, 404);
   const fetch = async (input: string, init: RequestInit = {}) => {
@@ -154,11 +159,11 @@ async function run(a: ReturnType<typeof account>, o: { key?: string; argv?: stri
   return { out: out.join("\n"), secrets, calls, writes: calls.filter((c) => c.method !== "GET") };
 }
 
-/** No request names a Polar Parts object, lists products or prices, or reads a customer or the default portal. */
+/** No request names a the other business object, lists products or prices, or reads a customer or the default portal. */
 function onlyGenClass(calls: { method: string; url: URL; body: Obj }[]) {
   for (const c of calls) {
     const text = `${c.method} ${c.url} ${JSON.stringify(c.body)}`;
-    for (const x of ["polar", "Polar", "PP-", "bpc_polardefault1", "bpc_polarstore01", "winter", "cus_"]) expect(text, text).not.toContain(x);
+    for (const x of ["_other", "Other Store", "OS-", "bpc_otherdefault1", "bpc_otherstore01", "winter", "cus_"]) expect(text, text).not.toContain(x);
     expect(c.url.pathname.startsWith("/v1/customers"), text).toBe(false);
     if (c.method === "GET" && c.url.pathname === "/v1/products") throw new Error(`listed every product: ${text}`);
     if (c.method === "GET" && c.url.pathname === "/v1/prices") expect(c.url.searchParams.get("lookup_keys[0]")!.startsWith("genclass_"), text).toBe(true);
@@ -167,8 +172,8 @@ function onlyGenClass(calls: { method: string; url: URL; body: Obj }[]) {
   }
 }
 
-describe("scripts/stripe-setup.mjs on the shared Stripe account (daybot.ca, also Polar Parts)", () => {
-  it("first run: two GenClass products, their prices, one endpoint, one portal configuration; nothing of Polar Parts' read or changed", async () => {
+describe("scripts/stripe-setup.mjs on the shared Stripe account (shared with another business)", () => {
+  it("first run: GenClass Individual and its price, one endpoint, one portal configuration; nothing of the other business's read or changed", async () => {
     const a = account();
     const before = a.snapshot();
     const r = await run(a);
@@ -176,38 +181,35 @@ describe("scripts/stripe-setup.mjs on the shared Stripe account (daybot.ca, also
     onlyGenClass(r.calls);
     expect(r.calls.some((c) => c.method === "DELETE")).toBe(false);
 
-    // products: GenClass's ids, metadata, statement descriptor and tax codes (Pro's is eligible for Managed Payments:
-    // SaaS, business use; Custom's is custom software, business use, which is not)
-    expect(a.products.get("genclass_pro")).toMatchObject({ name: "GenClass Pro", statement_descriptor: "GENCLASS", tax_code: "txcd_10103001", metadata: { genclass: "1", genclass_plan: "pro" } });
-    expect(a.products.get("genclass_custom")).toMatchObject({ name: "GenClass Custom", statement_descriptor: "GENCLASS", tax_code: "txcd_10203001", metadata: { genclass: "1", genclass_plan: "custom" } });
-    expect(a.products.size).toBe(3);
-    // prices under GenClass's lookup keys, which the worker reads as the plans
-    const made = [...a.prices.values()].filter((x) => x.id !== "price_polar0000001");
-    expect(made.map((x) => [x.lookup_key, x.product, x.unit_amount, x.currency, x.recurring.interval])).toEqual([
-      ["genclass_pro_monthly", "genclass_pro", 9900, "usd", "month"],
-      ["genclass_custom_monthly", "genclass_custom", 59900, "usd", "month"],
-    ]);
-    for (const x of made) expect(planForPrice({ ...x, product: a.products.get(x.product) })?.id).toBe(x.lookup_key === "genclass_pro_monthly" ? "pro" : "custom");
+    // the one product of a plan priced above 0 (Free costs nothing, Enterprise is agreed by email): GenClass's id,
+    // metadata, statement descriptor and tax code (custom software, business use: a person trains the classifier)
+    expect(a.products.get("genclass_individual")).toMatchObject({ name: "GenClass Individual", statement_descriptor: "GENCLASS", tax_code: "txcd_10203001", metadata: { genclass: "1", genclass_plan: "individual" } });
+    expect(a.products.size).toBe(2);
+    expect(a.products.has("genclass_enterprise")).toBe(false);
+    // its price under GenClass's lookup key, which the worker reads as the plan
+    const made = [...a.prices.values()].filter((x) => x.id !== "price_other0000001");
+    expect(made.map((x) => [x.lookup_key, x.product, x.unit_amount, x.currency, x.recurring.interval])).toEqual([["genclass_individual_monthly", "genclass_individual", 2900, "usd", "month"]]);
+    for (const x of made) expect(planForPrice({ ...x, product: a.products.get(x.product) })?.id).toBe("individual");
 
     // one webhook endpoint: GenClass's URL and description, the worker's events and API version only
-    const ours = [...a.endpoints.values()].filter((w) => w.id !== "we_polar0000001");
+    const ours = [...a.endpoints.values()].filter((w) => w.id !== "we_other0000001");
     expect(ours).toHaveLength(1);
     expect(ours[0]).toMatchObject({ url: setup.WEBHOOK_URL, description: "GenClass billing", enabled_events: WEBHOOK_EVENTS, api_version: STRIPE_VERSION, metadata: { genclass: "1" } });
     expect(setup.WEBHOOK_URL).toBe("https://genclass.dev/api/billing/webhook");
-    // one portal configuration of GenClass's own: metadata, headline, no plan switch; Polar Parts' untouched
-    const configs = [...a.portal.values()].filter((c) => !c.id.startsWith("bpc_polar"));
+    // one portal configuration of GenClass's own: metadata, headline, no plan switch; the other business's untouched
+    const configs = [...a.portal.values()].filter((c) => !c.id.startsWith("bpc_other"));
     expect(configs).toHaveLength(1);
     const f = configs[0]!.form as Obj;
     expect(configs[0]).toMatchObject({ is_default: false, metadata: { genclass: "1" } });
     expect(f["business_profile[headline]"]).toMatch(/GenClass/);
-    // switching between Pro and Custom is a new Checkout: a Managed Payments subscription cannot take the Custom price
+    // switching between paid plans is a new Checkout: a Managed Payments subscription cannot take another plan's price
     expect(f["features[subscription_update][enabled]"]).toBe("false");
     expect(Object.keys(f).some((k) => /^features\[subscription_update\]\[(products|default_allowed_updates|proration_behavior)/.test(k))).toBe(false);
     expect(Object.keys(f).some((k) => /is_default/.test(k))).toBe(false);
     // a buyer may change the email and tax id of their GenClass customer, never an address (GenClass needs none)
     const updates = Object.entries(f).filter(([k]) => /^features\[customer_update\]\[allowed_updates\]\[\d+\]$/.test(k)).map(([, v]) => v);
     expect(updates).toEqual(["email", "tax_id"]);
-    // Polar Parts' configurations were listed (to find GenClass's) but never written
+    // the other business's configurations were listed (to find GenClass's) but never written
     expect(r.calls.filter((c) => c.method === "POST" && c.url.pathname.startsWith("/v1/billing_portal/configurations/")).map((c) => c.url.pathname)).toEqual([]);
 
     // the webhook secret went to wrangler under the test-mode name and was never printed; the configuration's id
@@ -219,27 +221,28 @@ describe("scripts/stripe-setup.mjs on the shared Stripe account (daybot.ca, also
     expect(r.out).not.toContain(r.secrets[0]![1]);
 
     // no account-wide setting is changed by the script; the owner's dashboard steps for GenClass's own account are
-    // printed instead, and the Polar Parts checks of the shared account are gone
-    expect(r.out).toMatch(/Settings, Managed Payments: accept the terms and turn it on/);
+    // printed instead, and the the other business checks of the shared account are gone
+    expect(r.out).not.toMatch(/Managed Payments: accept/);
     expect(r.out).toMatch(/Smart Retries on, failed-payment emails on, and when all retries for a payment fail,\s+cancel the subscription/);
     expect(r.out).toMatch(/past due for 14 days/);
     expect(r.out).toMatch(/receipts for successful payments on/);
     expect(r.out).toMatch(/Settings, Branding/);
     expect(r.out).toMatch(/Stripe Tax: the head office address, and threshold monitoring on/);
-    expect(r.out).toMatch(/Switch to Custom: a second Checkout/);
-    expect(r.out).not.toMatch(/Polar Parts/);
+    expect(r.out).toMatch(/choose Upgrade to Individual and pay with card 4242 4242 4242 4242/);
+    expect(r.out).not.toMatch(/\bPro\b|Custom\b|trial/);
+    expect(r.out).not.toMatch(/the other business/);
     expect(r.out).toMatch(/SELECT COUNT\(\*\) AS n FROM accounts WHERE stripe_customer_id IS NOT NULL OR subscription_id IS NOT NULL/);
   });
 
   it("a second run changes nothing but rewriting its own portal configuration; --dry-run only reads", async () => {
     const a = account();
     await run(a);
-    const config = [...a.portal.keys()].find((id) => !id.startsWith("bpc_polar"));
+    const config = [...a.portal.keys()].find((id) => !id.startsWith("bpc_other"));
     const again = await run(a);
     expect(again.writes.map((c) => `${c.method} ${c.url.pathname}`)).toEqual([`POST /v1/billing_portal/configurations/${config}`]);
     // its id is stored again (the worker may have lost it); no new webhook secret
     expect(again.secrets).toEqual([["STRIPE_PORTAL_CONFIGURATION_TEST", config]]);
-    expect(again.out).toMatch(/product GenClass Pro: genclass_pro, unchanged/);
+    expect(again.out).toMatch(/product GenClass Individual: genclass_individual, unchanged/);
     expect(again.out).toMatch(/webhook endpoint we_gc\d+: unchanged/);
     const fresh = account();
     const dry = await run(fresh, { argv: ["--dry-run"] });
@@ -247,46 +250,50 @@ describe("scripts/stripe-setup.mjs on the shared Stripe account (daybot.ca, also
     expect(dry.secrets).toEqual([]);
     onlyGenClass(dry.calls);
     expect(dry.out).toMatch(/would store its id as STRIPE_PORTAL_CONFIGURATION_TEST/);
-    expect(dry.out).toMatch(/would create product GenClass Pro \(genclass_pro, statement descriptor GENCLASS, tax code txcd_10103001\)/);
+    expect(dry.out).toMatch(/would create product GenClass Individual \(genclass_individual, statement descriptor GENCLASS, tax code txcd_10203001\)/);
     expect(dry.out).toMatch(/would create GenClass's Billing Portal configuration/);
   });
 
   it("a product whose tax code differs gets plans.json's; an expanded tax code that matches is left alone", async () => {
     const a = account();
     await run(a);
-    a.products.get("genclass_pro")!.tax_code = "txcd_10000000";
-    a.products.get("genclass_custom")!.tax_code = { id: "txcd_10203001", object: "tax_code" };
+    // an expanded tax code that matches is left alone
+    a.products.get("genclass_individual")!.tax_code = { id: "txcd_10203001", object: "tax_code" };
+    const same = await run(a);
+    expect(same.writes.filter((c) => c.url.pathname.startsWith("/v1/products"))).toEqual([]);
+    expect(same.out).toMatch(/product GenClass Individual: genclass_individual, unchanged/);
+    // another one gets plans.json's
+    a.products.get("genclass_individual")!.tax_code = "txcd_10000000";
     const r = await run(a);
     onlyGenClass(r.calls);
-    expect(r.writes.filter((c) => c.url.pathname.startsWith("/v1/products")).map((c) => [c.url.pathname, c.body.tax_code])).toEqual([["/v1/products/genclass_pro", "txcd_10103001"]]);
-    expect(a.products.get("genclass_pro")!.tax_code).toBe("txcd_10103001");
-    expect(r.out).toMatch(/update product GenClass Pro \(genclass_pro, tax code txcd_10103001\)/);
-    expect(r.out).toMatch(/product GenClass Custom: genclass_custom, unchanged/);
+    expect(r.writes.filter((c) => c.url.pathname.startsWith("/v1/products")).map((c) => [c.url.pathname, c.body.tax_code])).toEqual([["/v1/products/genclass_individual", "txcd_10203001"]]);
+    expect(a.products.get("genclass_individual")!.tax_code).toBe("txcd_10203001");
+    expect(r.out).toMatch(/update product GenClass Individual \(genclass_individual, tax code txcd_10203001\)/);
   });
 
   it("a price change retires the old price under a genclass_ key, so its subscribers keep their plan", async () => {
     const a = account();
     await run(a);
-    const old = [...a.prices.values()].find((x) => x.lookup_key === "genclass_pro_monthly")!;
+    const old = [...a.prices.values()].find((x) => x.lookup_key === "genclass_individual_monthly")!;
     old.unit_amount = 4900; // as if plans.json had said US$49 when it was made
     const r = await run(a);
     onlyGenClass(r.calls);
-    expect(old).toMatchObject({ active: false, lookup_key: `genclass_pro_monthly_retired_${old.id}` });
-    const current = [...a.prices.values()].find((x) => x.lookup_key === "genclass_pro_monthly")!;
-    expect(current).toMatchObject({ unit_amount: 9900, product: "genclass_pro", active: true });
-    expect(planForPrice({ ...old, product: a.products.get("genclass_pro") })?.id).toBe("pro");
-    // Polar Parts' price is never archived
-    expect(a.prices.get("price_polar0000001")!.active).toBe(true);
+    expect(old).toMatchObject({ active: false, lookup_key: `genclass_individual_monthly_retired_${old.id}` });
+    const current = [...a.prices.values()].find((x) => x.lookup_key === "genclass_individual_monthly")!;
+    expect(current).toMatchObject({ unit_amount: 2900, product: "genclass_individual", active: true });
+    expect(planForPrice({ ...old, product: a.products.get("genclass_individual") })?.id).toBe("individual");
+    // the other business's price is never archived
+    expect(a.prices.get("price_other0000001")!.active).toBe(true);
   });
 
   it("--new-webhook replaces only GenClass's endpoint (its exact URL and description); live mode stores the live secret", async () => {
     const a = account();
     await run(a, { key: "sk_live_fake" });
-    const first = [...a.endpoints.keys()].find((id) => id !== "we_polar0000001")!;
+    const first = [...a.endpoints.keys()].find((id) => id !== "we_other0000001")!;
     const r = await run(a, { key: "sk_live_fake", argv: ["--new-webhook"] });
     onlyGenClass(r.calls);
     expect(r.calls.filter((c) => c.method === "DELETE").map((c) => c.url.pathname)).toEqual([`/v1/webhook_endpoints/${first}`]);
-    expect(a.endpoints.has("we_polar0000001")).toBe(true);
+    expect(a.endpoints.has("we_other0000001")).toBe(true);
     expect([...a.endpoints.values()].filter((w) => w.url === setup.WEBHOOK_URL)).toHaveLength(1);
     expect(r.secrets.map(([name]) => name)).toEqual(["STRIPE_WEBHOOK_SECRET", "STRIPE_PORTAL_CONFIGURATION"]);
     expect(r.out).not.toMatch(/Revenue recovery, Retries: set/);
@@ -303,41 +310,41 @@ describe("scripts/stripe-setup.mjs on the shared Stripe account (daybot.ca, also
 
   it("a product with GenClass's id but not its metadata, or a GenClass lookup key on another product, stops the script unchanged", async () => {
     const a = account();
-    a.products.set("genclass_pro", { id: "genclass_pro", name: "Someone else's", active: true, metadata: {} });
-    await expect(run(a)).rejects.toThrow(/a product with the id genclass_pro exists without metadata genclass_plan=pro/);
+    a.products.set("genclass_individual", { id: "genclass_individual", name: "Someone else's", active: true, metadata: {} });
+    await expect(run(a)).rejects.toThrow(/a product with the id genclass_individual exists without metadata genclass_plan=individual/);
     expect(a.calls.filter((c) => c.method !== "GET")).toEqual([]);
-    expect(a.products.get("genclass_pro")).toEqual({ id: "genclass_pro", name: "Someone else's", active: true, metadata: {} });
+    expect(a.products.get("genclass_individual")).toEqual({ id: "genclass_individual", name: "Someone else's", active: true, metadata: {} });
 
     const b = account();
-    b.prices.get("price_polar0000001")!.lookup_key = "genclass_pro_monthly";
-    await expect(run(b)).rejects.toThrow(/the lookup key genclass_pro_monthly is on price price_polar0000001 of product prod_polar0000001/);
+    b.prices.get("price_other0000001")!.lookup_key = "genclass_individual_monthly";
+    await expect(run(b)).rejects.toThrow(/the lookup key genclass_individual_monthly is on price price_other0000001 of product prod_other0000001/);
     expect(b.calls.filter((c) => c.method !== "GET")).toEqual([]);
-    expect(b.prices.get("price_polar0000001")).toMatchObject({ active: true, lookup_key: "genclass_pro_monthly" });
+    expect(b.prices.get("price_other0000001")).toMatchObject({ active: true, lookup_key: "genclass_individual_monthly" });
   });
 
   it("an earlier run's product (an id Stripe chose) is found by its metadata; the default portal configuration is never used", async () => {
     const a = account();
-    a.products.set("prod_earlier00001", { id: "prod_earlier00001", name: "GenClass Pro", description: "old", active: true, metadata: { genclass_plan: "pro" } });
+    a.products.set("prod_earlier00001", { id: "prod_earlier00001", name: "GenClass Individual", description: "old", active: true, metadata: { genclass_plan: "individual" } });
     // the account's default configuration carrying GenClass's metadata (copied by hand, say) is still not GenClass's
-    a.portal.get("bpc_polardefault1")!.metadata = { genclass: "1" };
-    const before = JSON.stringify(a.portal.get("bpc_polardefault1"));
+    a.portal.get("bpc_otherdefault1")!.metadata = { genclass: "1" };
+    const before = JSON.stringify(a.portal.get("bpc_otherdefault1"));
     const r = await run(a);
-    expect(a.products.has("genclass_pro")).toBe(false);
-    expect(a.products.get("prod_earlier00001")).toMatchObject({ statement_descriptor: "GENCLASS", metadata: { genclass: "1", genclass_plan: "pro" } });
-    expect([...a.prices.values()].find((x) => x.lookup_key === "genclass_pro_monthly")!.product).toBe("prod_earlier00001");
-    expect(JSON.stringify(a.portal.get("bpc_polardefault1"))).toBe(before);
-    expect(r.calls.some((c) => c.url.pathname.includes("bpc_polardefault1"))).toBe(false);
-    expect([...a.portal.values()].filter((c) => !c.is_default && !c.id.startsWith("bpc_polar"))).toHaveLength(1);
+    expect(a.products.has("genclass_individual")).toBe(false);
+    expect(a.products.get("prod_earlier00001")).toMatchObject({ statement_descriptor: "GENCLASS", metadata: { genclass: "1", genclass_plan: "individual" } });
+    expect([...a.prices.values()].find((x) => x.lookup_key === "genclass_individual_monthly")!.product).toBe("prod_earlier00001");
+    expect(JSON.stringify(a.portal.get("bpc_otherdefault1"))).toBe(before);
+    expect(r.calls.some((c) => c.url.pathname.includes("bpc_otherdefault1"))).toBe(false);
+    expect([...a.portal.values()].filter((c) => !c.is_default && !c.id.startsWith("bpc_other"))).toHaveLength(1);
   });
 
-  it("a Polar Parts configuration that is not the default is read in the list but never adopted or written", async () => {
+  it("a the other business configuration that is not the default is read in the list but never adopted or written", async () => {
     const a = account();
-    const before = JSON.stringify(a.portal.get("bpc_polarstore01"));
+    const before = JSON.stringify(a.portal.get("bpc_otherstore01"));
     await run(a);
     const r = await run(a);
-    expect(JSON.stringify(a.portal.get("bpc_polarstore01"))).toBe(before);
-    expect(r.calls.some((c) => c.method !== "GET" && c.url.pathname.includes("bpc_polarstore01"))).toBe(false);
-    expect(r.secrets.map(([, v]) => v)).not.toContain("bpc_polarstore01");
+    expect(JSON.stringify(a.portal.get("bpc_otherstore01"))).toBe(before);
+    expect(r.calls.some((c) => c.method !== "GET" && c.url.pathname.includes("bpc_otherstore01"))).toBe(false);
+    expect(r.secrets.map(([, v]) => v)).not.toContain("bpc_otherstore01");
   });
 
   it("when wrangler cannot store the configuration's id, the script stops and prints the command to set it", async () => {

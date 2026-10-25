@@ -569,3 +569,37 @@ Design, every check, threshold and exclusion: [VISUAL.md](VISUAL.md). Code: `pac
   global; session sampling hashes the session id.
 - **Telemetry.** None. Counts per check kind and route are a proposal (VISUAL.md section 10) that needs the owner's
   approval of the exact fields; selectors, element text, colours and URLs are never sent.
+
+## 15. Interaction analytics (added 2026-10-18; owner approved the design 2026-10-17)
+
+[ANALYTICS.md](ANALYTICS.md). Telemetry counts for the app's own dashboard, not a detector:
+
+- **Opt-in.** Off unless the app sets `analytics: true` (or calls `rt.analytics.start()`), and only while telemetry is
+  on with the app's token or a custom endpoint. Every telemetry opt-out and Global Privacy Control turn it off.
+- **Never model input (section 0 rules 1 and 2).** Its own passive listeners in a lazy chunk (`src/analytics/`); it
+  never calls `rt.user`, `rt.emit` or `rt.op`, never writes to the event log, and nothing it computes reaches a
+  situation, a fact, the gate or the model. Rage and dead clicks are counts with fixed thresholds, never a diagnosis
+  and never a reason to act. In every mode it only reads.
+- **What is sent.** `interactions` events per page view: the route, engaged time, scroll milestones, clicks, rage and
+  dead clicks per element key built from markup only (never element text). No visitor id, nothing stored on the
+  device. The maintainers use them only for the app's dashboard and export, never for model training or evaluation.
+- **Determinism (section 0 rule 3).** All timing uses the injected `Clock`; no randomness.
+
+## 16. The coding-agent link (added 2026-10-19; owner to confirm before merge)
+
+`@genclass/runtime/agent` (`src/agent/`, design: `docs/runtime/AGENT.md`) connects a development page to a local MCP
+server for coding agents (`packages/mcp`). It is a test harness, outside "observe never holds, delays or changes
+anything" (section 13), on these terms:
+
+- **Opt-in, development only.** It runs only after an explicit `connectAgent(rt)` call, which apps make from a
+  development-only branch; it is its own entry (never in the first-load bundle) and is inert on pages not served from
+  the developer's machine (localhost, 127.x, [::1], `*.localhost`) unless `anyHost` is set.
+- **Holds, bounded.** With a delivery schedule (set by the developer, their agent or a test) it holds fetch/XHR
+  responses, each at most its emulated delay plus `maxHoldMs`; without one it holds only a page load's first responses
+  until the bridge's hello, at most `helloTimeoutMs`; `hold: false` disables every hold. Responses are never changed,
+  dropped or invented. Protected requests and routes in mode "off" are never held unless `holdProtected` is set.
+- **Facts, not decisions.** Its recording (requests by key, delivery order, writes, errors, the `overwrote-newer` and
+  `identical-in-flight` witnesses, snapshots) never feeds the model, situations, the gate or the event log, and it
+  maps no fact to a diagnosis or an action. Model-visible text is unchanged (`situation-v2.3`).
+- **Nothing leaves the machine.** It talks only to a loopback URL; telemetry is unchanged.
+- **Determinism (section 0 rule 3).** Timing uses the injected `Clock`; schedules are hashes of a seed and a request key.

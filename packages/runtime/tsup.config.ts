@@ -90,10 +90,14 @@ const SINK_ENTRIES = {
 // inlines dynamic imports in IIFE output, which would put the whole chunk in the script tag: the stub's
 // `import("./index.js")` stays external there (never called: src/cdn/global.ts registers a loader that fetches
 // dist/visual/index.js from the script's base URL, as for the devtools overlay).
+// The interaction analytics chunk (dist/analytics/index.js, docs/runtime/ANALYTICS.md) is kept out the same way.
 const visualExternal = {
   name: "genclass-visual-external",
   setup(build: { onResolve(o: { filter: RegExp }, cb: (a: { path: string; importer: string }) => { path: string; external: boolean } | undefined): void }) {
-    build.onResolve({ filter: /^\.\/index\.js$/ }, (args) => (args.importer.endsWith(`${sep}visual${sep}start.ts`) ? { path: "./visual/index.js", external: true } : undefined));
+    build.onResolve({ filter: /^\.\/index\.js$/ }, (args) => {
+      for (const dir of ["visual", "analytics"]) if (args.importer.endsWith(`${sep}${dir}${sep}start.ts`)) return { path: `./${dir}/index.js`, external: true };
+      return undefined;
+    });
   },
 };
 
@@ -133,9 +137,14 @@ export default defineConfig([
       // measured visual checks: the lazy chunk (one file, no static imports) and the public checkPage entry
       "visual/index": "src/visual/index.ts",
       visual: "src/visual/entry.ts",
+      // interaction analytics: the lazy chunk (one file, no static imports), loaded only when an app turns them on
+      "analytics/index": "src/analytics/index.ts",
+      // the coding-agent link (docs/runtime/AGENT.md): one file, no static imports of runtime code (only types), so it
+      // shares no chunk with the first load; apps import it from a development-only branch
+      agent: "src/agent/index.ts",
     },
     format: ["esm"],
-    dts: { entry: { index: "src/index.ts", auto: "src/auto.ts", "auto/observe": "src/cdn/auto-observe.ts", "auto/guard": "src/cdn/auto-guard.ts", "auto/heal": "src/cdn/auto-heal.ts", "adapters/react": "src/adapters/react.ts", "adapters/redux": "src/adapters/redux.ts", "adapters/zustand": "src/adapters/zustand.ts", "devtools/index": "src/devtools/index.ts", discover: "src/discover/entry.ts", visual: "src/visual/entry.ts", ...SINK_ENTRIES } },
+    dts: { entry: { index: "src/index.ts", auto: "src/auto.ts", "auto/observe": "src/cdn/auto-observe.ts", "auto/guard": "src/cdn/auto-guard.ts", "auto/heal": "src/cdn/auto-heal.ts", "adapters/react": "src/adapters/react.ts", "adapters/redux": "src/adapters/redux.ts", "adapters/zustand": "src/adapters/zustand.ts", "devtools/index": "src/devtools/index.ts", discover: "src/discover/entry.ts", visual: "src/visual/entry.ts", agent: "src/agent/index.ts", ...SINK_ENTRIES } },
     target: "es2022",
     platform: "browser",
     splitting: true,

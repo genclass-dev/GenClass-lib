@@ -24,10 +24,6 @@ packages/runtime-model/files/
 
 # demos: the search demo city index is source code, not data
 !demos/src/server/data/
-# the site's data files (site/src/data/README.md): visual.json is rendered into genclass.dev
-!site/src/data/
-# VISUAL_DATA=site/src/data/visual.sample.json builds here (made-up numbers), never into site/public/
-site/.preview/
 
 # internal working notes (never published)
 internal/
@@ -38,3 +34,7 @@ internal/
 # visual bench (bench/visual): harness bundle and work directories
 bench/visual/.out/
 bench/visual/.work/
+
+# @genclass/mcp e2e: generated regression test
+packages/mcp/test/e2e/.gen/
+.genclass/

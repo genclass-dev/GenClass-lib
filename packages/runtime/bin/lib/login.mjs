@@ -41,8 +41,8 @@ export const USAGE = `Usage:
   genclass-runtime logout
 
 login    signs this computer in to your GenClass account. It prints a code and a link to
-         https://genclass.dev/login/device and opens it in your browser; you sign in there (Google, GitHub
-         or a passkey) and approve the code. The CLI session is saved, readable only by you, in
+         https://genclass.dev/login/device and opens it in your browser; you sign in there (Google, email
+         and password, GitHub or a passkey) and approve the code. The CLI session is saved, readable only by you, in
          ~/.config/genclass/credentials.json ($XDG_CONFIG_HOME/genclass; Windows: %APPDATA%\\genclass).
          Inside an app's folder it then asks whether to connect that app.
 connect  connects the app in this folder to your account: pick one of your apps, or create one named after
@@ -393,7 +393,7 @@ async function login(o) {
     out();
     return 1;
   }
-  out(`  Open this link, sign in (Google, GitHub or a passkey) and approve the code:`);
+  out(`  Open this link, sign in (Google, email and password, GitHub or a passkey) and approve the code:`);
   out(`    ${c.bold(c.cyan(dev.verification_uri_complete))}`);
   out();
   row("Code", `${c.bold(dev.user_code)} ${c.gray("(check that the page shows the same code)")}`);

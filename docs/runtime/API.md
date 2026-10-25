@@ -66,6 +66,16 @@ is on. `token` and `scope` are fixed when GenClass starts: on a runtime already 
 `GenClass.init({ token, scope })` is ignored with one console warning (set them in `window.GENCLASS_CONFIG`, the meta
 tag or `data-token` / `data-scope`).
 
+**Interaction analytics** (0.3.0-beta.1; [ANALYTICS.md](ANALYTICS.md)). Off by default. `analytics: true` with a
+`token` (or a custom `telemetry.endpoint`) also sends `interactions` telemetry events for the app's dashboard: per
+page view the route, engaged time, scroll milestones, and clicks, rage clicks and dead clicks per element key (built
+from markup: `data-genclass-name`, `data-testid`, a stable id, a link's target, stable classes, a short structural
+path; never element text). Every telemetry opt-out and Global Privacy Control turn them off; without a token
+`analytics: true` warns once and records nothing. They run in a lazy chunk (`dist/analytics/index.js`), outside the
+event log: nothing reaches a situation, a decision or the model. `rt.analytics.start()` / `stop()` turn them on and
+off later (consent; `stop()` drops the counts not sent yet). Also `data-analytics="on"`, `analytics=on` in the meta
+tag, `window.GENCLASS_CONFIG.analytics`. Schema: [TELEMETRY.md](../../packages/runtime/TELEMETRY.md#interaction-analytics).
+
 ## Options
 
 ```ts
@@ -111,6 +121,8 @@ interface InitOptions {
                                                         // automatic state discovery: default on in @genclass/runtime/auto* and the script tag,
                                                         // off in GenClass.init / createRuntime (there it needs import "@genclass/runtime/discover" first)
   token?: string;                                       // (0.3.0) app token, gc_ + 22 letters/digits: groups telemetry under your private dashboard
+  analytics?: boolean;                                  // (0.3.0-beta.1) [false] interaction analytics for the app's dashboard: page views, engaged time,
+                                                        // scroll depth, clicks, rage and dead clicks per element key; needs telemetry and the token
   scope?: "app" | "functions";                          // (0.3.0) ["app"]; "functions": decisions and standing questions only for activity inside protect()ed functions (rt.ask() still answered)
 
   // batch 12 (docs/runtime/OPTIONS-SPEC.md); defaults in brackets
@@ -458,6 +470,7 @@ rt.checks(n?): CheckFinding[]      // the last measured visual check findings (a
 rt.checkNow(): Promise<CheckFinding[]> // run a measured visual check pass now (loads the checks if needed) and resolve with what it confirmed
 rt.setMode(mode); rt.pause(); rt.resume(); rt.destroy()
 rt.telemetry?: { enabled; reason?; endpoint?; sessionId?; flush(): Promise<void> } // reason when off: option, headless, url, localStorage, gpc, sampled-out, kill-switch, disabled, ...
+rt.analytics?: { enabled; reason?; start(): boolean; stop(): void } // interaction analytics (0.3.0-beta.1); reason when off: option, telemetry-off, no-token, stopped, error
 ```
 
 `pause()` stops consulting the model (everything proceeds unchanged, tracing continues); `destroy()` uninstalls
@@ -612,8 +625,8 @@ overlay uses it), so debugging tools never become causes in situations.
 ### See it where you already look
 
 0.3.0 (CHANGELOG): the adapters, the `@genclass/runtime/sinks` exports, sinks by name and `init --sink` are not
-in `0.2.x`. The free runtime has no Sentry, PostHog or Datadog adapter. On Pro, the GenClass collector forwards
-detections to those tools once you turn it on (https://genclass.dev/pricing).
+in `0.2.x`. The runtime has no Sentry, PostHog or Datadog adapter. On every genclass.dev plan, Free included, the GenClass
+collector forwards detections to those tools once you turn it on (https://genclass.dev/pricing).
 
 `sinks` receive a `SinkRecord` per report (OPTIONS-SPEC §4.11): `kind`, `id`, `ts`, `sessionId`, `tags`, `mode`,
 `sampled`, `diagnosis`, `p`, `detection` (kind `detection`: `"likely"`, or `"possible"` for a sink with
@@ -894,8 +907,10 @@ Subpath exports: `@genclass/runtime/react` (`useGenClassState(name, initial, opt
 `@genclass/runtime/sinks` (`consoleJson`, `webhook`; 0.3.0) and one subpath per adapter,
 `@genclass/runtime/sinks/{console-json,webhook}` (each also its default export; see "See it where you already
 look"; there is no Sentry, PostHog or Datadog adapter in the free runtime), `@genclass/runtime/visual`
-(`checkPage(options?)`, the measured visual checks without a runtime; 0.3.0). They are documented with their source. To
-integrate another state library use:
+(`checkPage(options?)`, the measured visual checks without a runtime; 0.3.0). They are documented with their source.
+The devtools overlay is in genclass.dev's black design whatever the page's theme (`theme: "dark"`, the default since
+0.3.0; `"light"` is the same design on white, `"auto"` follows `prefers-color-scheme`). To integrate another state
+library use:
 
 ```ts
 rt.adapter<T>(name: string, io: { get(): T; set?(v: T): void; subscribe?(fn: () => void): () => void }, opts?): {
@@ -903,6 +918,61 @@ rt.adapter<T>(name: string, io: { get(): T; set?(v: T): void; subscribe?(fn: () 
   dispose(): void;
 }
 ```
+
+## Coding agents: `@genclass/runtime/agent`
+
+Design: [AGENT.md](AGENT.md). Development builds only; one file with no imports of runtime code, so it adds nothing to
+the first load. Pairs with the `@genclass/mcp` server.
+
+```ts
+import { connectAgent } from "@genclass/runtime/agent";
+
+connectAgent(runtime, opts?: {
+  url?: string;              // the bridge, loopback only (default __GENCLASS_AGENT_URL__, else http://127.0.0.1:47357)
+  schedule?: ScheduleSpec | string;  // this page load's schedule; default __GENCLASS_SCHEDULE__, then ?genclass-schedule=,
+                                     // then the bridge's answer to hello
+  anyHost?: boolean;         // also on pages not served from this machine (LAN, *.local; default false: inert there)
+  settleMs?: number;         // quiet time before a snapshot (default 400)
+  dom?: boolean;             // page text and form values in snapshots (default true)
+  helloTimeoutMs?: number;   // how long a page load's first responses wait for the bridge's hello (default 600)
+  hold?: boolean;            // false: never hold, even with a schedule (default true)
+  holdProtected?: boolean;   // also hold requests.protect and mode-"off" routes (default false: recorded, never held)
+}): AgentConnection;
+
+interface ScheduleSpec {
+  order: "natural" | "fifo" | "seeded" | "given";
+  seed?: number;             // seeded: the seed (also seeds delay)
+  given?: string[];          // given: request keys ("GET /api/search#3") in delivery order
+  focus?: string[];          // seeded: signatures delivered after every overlapping response
+  delay?: { minMs: number; maxMs: number };   // extra latency per response, hashed from seed and key
+  maxHoldMs?: number;        // default 1500, beyond the response's own delay: then delivered, and the run is marked forced
+  gapMs?: number;            // default 30: time between two releases
+}
+
+interface AgentConnection {
+  readonly url: string;
+  readonly reason: string | null;    // "not-dev-host" | "not-loopback" | "no-runtime" | "disconnected" | null
+  readonly connected: boolean;       // the bridge answered hello
+  readonly run: string | null;       // the bridge's id for this page load
+  readonly schedule: ScheduleSpec | null;
+  readonly settled: boolean;         // at a quiet point
+  recorded(): RecordedSchedule;      // { schema: "genclass-schedule/1", route, spec, steps, order, forced, truncated }
+  witnesses(): Witness[];            // overwrote-newer and identical-in-flight facts
+  errors(): ErrorRec[];              // uncaught errors with stack and causal chain
+  snapshot(): Snapshot;              // store fields, page text, form values, requests per signature
+  whenSettled(timeoutMs?: number): Promise<boolean>;
+  disconnect(): void;                // deliver anything held, restore the runtime
+}
+```
+
+Connected only on pages served from this machine (localhost, 127.x, [::1], `*.localhost`) unless `anyHost` (then the
+bridge needs the exact origin in `GENCLASS_AGENT_ORIGINS`).
+Without a schedule only a page load's first responses wait for the bridge's hello (`helloTimeoutMs`); a response counts
+as delivered when the app receives it. Also exported: `parseSpec(v)` (a schedule from a URL form, `"fifo"`,
+`"seeded:7"`, `"given:[...]"`, or JSON), `hash32`,
+`AGENT_SCHEMA` (`"genclass-agent/1"`), `SCHEDULE_SCHEMA` (`"genclass-schedule/1"`), `DEFAULT_AGENT_URL`,
+`isLoopbackUrl`, `isDevHost`. While connected, the page has `window.__GENCLASS_AGENT__` (the connection), which
+generated regression tests read.
 
 ## Types
 

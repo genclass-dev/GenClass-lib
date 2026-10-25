@@ -83,9 +83,13 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
   // above (107.74 / 99.71 KB): 108.25 / 100.13 KB, script tag 128.56 KB (CI run 38676978903). The checks themselves
   // are a lazy chunk (dist/visual/index.js, asserted below); the CI visual-browser job measures the stub's growth over
   // release/0.3.0 exactly (test/first-load-size.mjs, fails at 0.6 KB). The limits are those sizes plus 0.05 / 0.07 KB
-  // (docs/runtime/RESULTS.md sections 10 and 13). Both
-  // sizes are printed before either is asserted.
-  const LIMIT_KB: Record<string, number> = { "auto.js": 108.3, "index.js": 100.2 };
+  // (docs/runtime/RESULTS.md sections 10 and 13). Interaction analytics (docs/runtime/ANALYTICS.md, branch
+  // feat/interaction-analytics, limits approved by the owner 2026-10-18): the first-load stub (src/analytics/start.ts,
+  // runtime.analytics with start()/stop(), the telemetry client's `pre` hook, the analytics page-config key) adds about
+  // 0.29 KB to /auto and 0.27 KB to the main entry over main (108.25 / 100.13 KB; 108.53 / 100.40 KB with it, measured
+  // with test/first-load-size.mjs on the train VM, 2026-10-18); the recording itself is a lazy chunk (dist/analytics/index.js, asserted below). The
+  // limits are the measured sizes plus 0.05 / 0.07 KB, as before. Both sizes are printed before either is asserted.
+  const LIMIT_KB: Record<string, number> = { "auto.js": 108.6, "index.js": 100.48 };
   it("first-load cost of /auto and the main entry, minified + gzip: under the limits", async () => {
     const { build } = await import("esbuild");
     const uses: Record<string, string> = { "auto.js": "", "index.js": "GenClass.init({});" };
@@ -148,6 +152,8 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
       // the measured visual checks stay out of first load: only the stub is there (VISUAL.md section 13)
       for (const marker of VISUAL_MARKERS) expect(code, `${entry}: ${marker}`).not.toContain(marker);
       expect(code, entry).toContain("genclass-visual");
+      // interaction analytics stay out of first load too: only the stub (ANALYTICS.md section 2)
+      for (const marker of ANALYTICS_MARKERS) expect(code, `${entry}: ${marker}`).not.toContain(marker);
     }
   });
 
@@ -165,6 +171,23 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
     expect(code).toContain("sinks/"); // the adapters' path on the CDN (dist/sinks/<name>.js)
     expect(code).toContain("https://genclass.dev/pricing"); // the one warning for sentry / posthog / datadog by name
     expect(gz).toBeGreaterThan(0);
+  });
+
+  // strings only the interaction analytics chunk has (src/analytics/index.ts)
+  const ANALYTICS_MARKERS = ["Interaction analytics are on", "data-genclass-name"];
+
+  it("interaction analytics are one lazy file (dist/analytics/index.js) the script tag loads by URL", async () => {
+    const { readFileSync } = await import("node:fs");
+    const chunk = readFileSync(join(DIST, "analytics", "index.js"), "utf8");
+    for (const marker of ANALYTICS_MARKERS) expect(chunk).toContain(marker);
+    // no static import of a shared chunk: the script-tag build loads this file alone from its base URL
+    expect(chunk).not.toMatch(/^\s*import\s[^;]*?from\s*["']\.{1,2}\//m);
+    expect(chunk).not.toMatch(/^\s*import\s*["']\.{1,2}\//m);
+    for (const f of ["genclass.global.js", "genclass.global.min.js"]) {
+      const g = readFileSync(join(DIST, f), "utf8");
+      for (const marker of ANALYTICS_MARKERS) expect(g, `${f}: ${marker}`).not.toContain(marker);
+      expect(g, f).toContain("analytics/index.js");
+    }
   });
 
   // strings only the visual chunk has (src/visual/report.ts, src/visual/checks/text.ts)

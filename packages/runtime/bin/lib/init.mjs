@@ -58,9 +58,9 @@ remove   takes out exactly what init added (the lines and blocks marked "${MARK}
   --token <gc_...> use this app token (no network). By default, on a new setup and only once you
                    approve the changes (or pass --yes), init creates one at genclass.dev (sending
                    package.json's name), writes it into what it adds, and saves the token and your
-                   private dashboard link in ${LOCAL_FILE} (the dashboard needs Pro; trials
-                   available). Signed in (\`login\`), init first asks
-                   whether the new app goes into your GenClass account instead (--yes: it does)
+                   private dashboard link in ${LOCAL_FILE} (the dashboard is free). Signed in
+                   (\`login\`), init first asks whether the new app goes into your GenClass
+                   account instead (--yes: it does)
   --no-token       no token, no network (no dashboard; you can add one later: ${START_URL})
   --no-telemetry   turn off GenClass's anonymous diagnostics (on by default; see TELEMETRY.md and
                    PRIVACY.md). Written as an option file (genclass.config.ts/js, imported right before
@@ -686,7 +686,7 @@ function dashboardNotice(tk, cwd, applied, remind = false, saved = null) {
     const link = tk.created?.dashboardUrl ?? tk.app?.dashboard_url ?? hostUrl("/account");
     out(`  ${c.bold("Your dashboard")}  ${c.bold(c.cyan(link))}`);
     out(`  ${c.gray(`In your GenClass account (${accountLabel(tk.account?.account)}): sign in at genclass.dev to open it.`)}`);
-    out(`  ${c.gray(`The dashboard needs Pro (trials available): ${hostUrl("/account/trial")}`)}`);
+    out(`  ${c.gray("The dashboard is free.")}`);
     out(`  ${c.gray("It fills once your deployed app runs with telemetry on. Local hosts (localhost, *.local, *.test, private")}`);
     out(`  ${c.gray("networks) do not send by default (telemetry: true opts them in), and visitors who opt out or send")}`);
     out(`  ${c.gray("Global Privacy Control are not counted.")}`);
@@ -699,7 +699,7 @@ function dashboardNotice(tk, cwd, applied, remind = false, saved = null) {
   if (tk.created && saved?.error) err(`  ${c.yellow(sym.warn)} Could not write ${LOCAL_FILE} (${saved.error}): copy the link below now.`);
   out(`  ${c.bold("Your dashboard")}  ${c.bold(c.cyan(link))}`);
   out(`  ${c.yellow("Keep this link private; it is the only way to open your dashboard.")}`);
-  out(`  ${c.gray("The dashboard needs Pro (trials available); the link shows how to start one.")}`);
+  out(`  ${c.gray("The dashboard is free; the link opens it.")}`);
   if (tk.created && saved && !saved.error) out(`  ${c.gray(`Saved in ${LOCAL_FILE}${SAVED_WHERE[saved.gitignore] ?? ""}.`)}`);
   else if (tk.local) out(`  ${c.gray(`(from ${LOCAL_FILE})`)}`);
   out(`  ${c.gray("It fills once your deployed app runs with telemetry on. Local hosts (localhost, *.local, *.test, private")}`);

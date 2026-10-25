@@ -1,6 +1,6 @@
 # GenClass Runtime: privacy policy
 
-_Last updated: 2026-10-14._
+_Last updated: 2026-10-22._
 
 This policy covers the diagnostics that `@genclass/runtime` (from `0.1.0-beta.3`) sends to its maintainers. It does not
 cover the website or app that uses GenClass; that site has its own privacy policy.
@@ -39,6 +39,15 @@ object; version 0.2.1 sent from those hosts by default, by mistake, fixed in 0.2
 - **Names of protected functions, only if the site set a token** (from runtime 0.3.0): the name the developer gave a
   function wrapped with `protect()`, on the decisions about what that function caused. A name that looks like data
   (an e-mail address, a URL, 4 or more digits in a row, a long hex id) is sent as `[redacted]`.
+- **How visitors use the site, only if the website's developer turned on interaction analytics** (`analytics: true`
+  with a token; from runtime 0.3.0-beta.1, off by default): for each page view, the page's path (as above), how long
+  the page was visible and in use (at most 30 seconds after the last mouse, key, scroll or touch input), how far down
+  the page the visitor scrolled (25, 50, 75 or 100 %), and how many times each element was clicked, clicked 3 or more
+  times within a second, or clicked without anything changing on the page. An element is named from the page's code
+  (a name the developer gave it, an id, a link's address on the same site, the other site's address only, class names
+  or its position on the page), never by its text. We do not collect what visitors type, where the mouse was, the
+  order of clicks, or anything that links one page load to another. We use this data only to show it on that
+  website's dashboard and in its export, never to train or evaluate the model.
 
 We do **not** store IP addresses, browser user-agent strings or cookies, and the runtime sets no cookies. Each page
 load gets a random session ID that is not saved anywhere.
@@ -50,9 +59,9 @@ works on their own site. We do not sell the data, use it for advertising, or try
 
 ## Dashboards for website owners
 
-A website owner can get a private dashboard link for their site's token. While the site's app is in an account with
-Pro or a trial, whoever holds that link can see aggregated diagnostics for that site (counts of decisions, detections, possible detections and actions, the site's hostnames,
-routes, the names the developer gave to protected functions, model speed, versions) and a list of recent detections
+A website owner can get a private dashboard link for their site's token. Whoever holds that link can see aggregated diagnostics for that site (counts of decisions, detections, possible detections and actions, the site's hostnames,
+routes, the names the developer gave to protected functions, model speed, versions; with interaction analytics on,
+page views, time on page, scroll depth and clicks per page and element) and a list of recent detections
 (time, route or function name, diagnosis, action). Dashboards do not show the situation text. Data from browsers that opted out or
 send Global Privacy Control never reaches a dashboard.
 
@@ -68,10 +77,16 @@ An account is optional: GenClass, its diagnostics and the private dashboard link
 creates one (at genclass.dev/signup, or with `npx @genclass/runtime login`, runtime 0.3.0-beta.0 and later) can keep
 their apps in one place. An account stores:
 
-- **An email address:** as Google returned it when you sign in with Google, or as you typed it when signing up with a
-  passkey (offered only when Google and GitHub sign-in are not available; we do not verify it), together with whether
-  it is verified (only Google can mark it verified). We use
-  it only for notices about your account. A GitHub sign-in stores no email.
+- **An email address:** as Google returned it when you sign in with Google, or as you typed it (trimmed and
+  lowercased) when you sign up with an email and a password or add a password to your account, together with whether
+  it is verified (only Google can mark it verified; we do not verify a typed address). A typed address is also your
+  username. We use it only for notices about your account. A GitHub sign-in stores no email.
+- **Your password, if you set one,** only as a salted one-way hash (PBKDF2-HMAC-SHA256, 600,000 iterations; the
+  password itself is never stored or logged), with when it was set and last used, and how many wrong passwords were
+  entered for the account in a row and when (to slow down guessing).
+- **Browsers where your password was right:** a one-way hash of a random cookie value, when it was first and last
+  used, and its wrong passwords in a row, so that browser can still sign in while someone elsewhere enters wrong
+  passwords. Forgotten when you change your password, when you delete your account, or after 400 days unused.
 - **Your passkeys' public keys** and, for each, when it was added and last used and how the browser said it connects
   (for example "this device"). The private key never leaves your device.
 - **Your Google account id** (the OpenID `sub`) if you sign in with Google, and **your GitHub user id and login** if
@@ -79,47 +94,48 @@ their apps in one place. An account stores:
 - **Your sign-in sessions:** for the browser and for each terminal you signed in with the CLI, a one-way hash of the
   session secret, when it was created, last used and expires, when it last used a passkey, and the name the CLI gave
   itself (such as "genclass-runtime 0.3.0").
-- **Your trial:** when it started and when it ends, if you start one.
 - **The apps you own:** which of the records above (token, name, times) belong to your account, and whether an
   app's private dashboard link still opens it.
 
-Nothing else: no password, no IP address, no browser fingerprint, no tracking cookies. The only cookies are the
-session cookie, set when you sign in, and short-lived cookies (10 minutes at most) that keep a Google or GitHub
-sign-in, and the passkey step after it, tied to your browser. Sessions end after 30 days in the browser and 90 days for the CLI, or when you sign out
+Nothing else: no readable password, no IP address, no browser fingerprint, no tracking cookies. The only cookies are
+the session cookie, set when you sign in, the device cookie (`__Host-gc_device`, 400 days), set when your password is
+right, and short-lived cookies (10 minutes at most) that keep a Google or GitHub sign-in, and the passkey step after
+a password, Google or GitHub, tied to your browser. Sessions end after 30 days in the browser and 90 days for the CLI, or when you sign out
 or revoke them on your account page. To delete your account, choose Delete account on your account page while
-signed in: the account, its passkeys and its sessions are deleted at once, apps created in the account are deleted
+signed in: the account, its password, its passkeys and its sessions are deleted at once, apps created in the account are deleted
 with their stats, and apps that still have a private dashboard link leave the account and keep working through that
 link. If you cannot sign in any more, write to the contact below from an address Google has verified for that
-account; an account id or an unverified email alone is not enough, because both can be known to others.
+account, or, if you forgot your password, from the address you sign in with (GenClass cannot email a reset link
+yet); an account id alone is not enough, because it can be known to others.
 
 ## Paid plans, payments and Stripe
 
-The Pro and Custom plans are paid through Stripe, which processes payments for us. When you upgrade, we send Stripe
+No plan is sold on genclass.dev today: Free costs nothing and includes your own classifier, and Enterprise is agreed by
+email. A paid plan (the Individual plan was one until 22 October 2026) is paid through Stripe, which processes payments
+for us. When you upgrade, we send Stripe
 your account's email (if it has one) and your GenClass account id, and you type your card or other payment details
 into Stripe's own checkout page: they go to Stripe and never reach GenClass. Stripe handles them under its own privacy
 policy (stripe.com/privacy) and keeps your invoices and receipts, which you can see under Manage billing on your
-billing page. When GenClass sells Pro through Stripe Managed Payments, Stripe is the merchant of record for Pro
-purchases: it sells Pro to you through Link, its checkout service, so Link's name is on your Pro receipts and card
-statement, and Stripe handles the sales tax and payment support. To work out the tax, its checkout page asks for your
-name and billing address, which Stripe keeps and GenClass does not store.
+billing page.
 
 GenClass stores only your Stripe customer id, your subscription id, the subscription's status and renewal or end date,
-and your plan. Never card numbers, bank details or billing addresses. When someone buys the Custom plan we also keep a
-record of the purchase (account id, email, subscription id, time) so that a person from GenClass can write to them
+and your plan. Never card numbers, bank details or billing addresses. For a purchase of the Individual plan we also keep a
+record of the purchase (account id, email, subscription id, time) so that a person from GenClass can write to the buyer
 to start the work.
 
-**Forwarding** is off unless an account on a paid plan turns it on for one of its apps. Then, for each new detection
+**Forwarding** is off unless an account turns it on for one of its apps. Then, for each new detection
 from that app, GenClass sends a short record to the services that account chose (Sentry, PostHog, Datadog, Slack or
 its own webhook URL): the kind of problem, the model's confidence, what triggered the check, the page path, the
 runtime and model versions, the time and a link to the app's dashboard. Never text from the page. Those services
 handle the records under their own terms with the account owner. The keys and URLs for them are stored encrypted.
 
-**Export** lets an account on a paid plan download, or read with an export key, the events GenClass received for its
-own apps, as stored. Export keys are stored as one-way hashes.
+**Export** lets an account download, or read with an export key, the events GenClass received for its own apps, as
+stored. Export keys are stored as one-way hashes.
 
-For apps on a paid plan, the dashboard data and the stored events are kept for 1 year instead of 90 days, and for 30
-days after the paid period ends; then they are deleted as for every other app. Deleting your account cancels a paid
-plan at once and deletes the forwarding settings, export keys and stored copies made for your apps; Stripe keeps its
+For apps on a plan with a year of history (Enterprise, and the Individual plan while it was paid for), the dashboard
+data and the stored events are kept for 1 year instead of 90 days: for Individual, also for 30 days after the paid
+period ends; for Enterprise, until the agreement ends. Then they are deleted as for every other app. Deleting your
+account cancels a paid plan at once and deletes the forwarding settings, export keys and stored copies made for your apps; Stripe keeps its
 own records of past payments as the law requires.
 
 ## Where it goes and how long we keep it

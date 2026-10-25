@@ -20,6 +20,7 @@ GenClass wraps and what each action does), [SECURITY.md](../../SECURITY.md) (rep
 - [T7. A wrong action on a correct app](#t7-a-wrong-action-on-a-correct-app)
 - [T8. Configuration by URL, storage and meta tags](#t8-configuration-by-url-storage-and-meta-tags)
 - [T9. Cached and shared responses](#t9-cached-and-shared-responses)
+- [T10. The coding-agent bridge](#t10-the-coding-agent-bridge)
 - [Residual risks, in one list](#residual-risks-in-one-list)
 - [Recommended production setup](#recommended-production-setup)
 
@@ -89,7 +90,7 @@ gate, or run hostile code.
   ([README](../../packages/runtime/README.md#content-security-policy-and-self-hosting)). The script-tag build pins
   every URL it loads later to its own version ([cdn/config.ts](../../packages/runtime/src/cdn/config.ts)).
 - The release workflow (`.github/workflows/release.yml`) builds from a tag and publishes with npm provenance once the
-  owner has configured npm trusted publishing; [RELEASE.md](../../RELEASE.md#verifying-a-published-tarball) shows how to
+  owner has configured npm trusted publishing; [SECURITY.md](../../SECURITY.md#verifying-a-published-tarball) shows how to
   check a tarball against the repository.
 
 **Residual.**
@@ -268,6 +269,40 @@ requests ([observe/cache.ts](../../packages/runtime/src/observe/cache.ts), [obse
 without a page load, a heal-mode `serve_cached` could answer a GET with the previous user's cached response. Protect
 account and sign-in endpoints (`protectPreset("auth")`), `policy.deny: ["serve_cached"]`, or reload on sign-out.
 
+## T10. The coding-agent bridge
+
+`@genclass/mcp` runs a bridge on the developer's machine (127.0.0.1:47357) that pages with `connectAgent`
+(`@genclass/runtime/agent`, development builds) send their recording to, and that a coding agent reads through MCP
+tools ([AGENT.md](AGENT.md) section 6).
+
+- **A public website, a router or a captive portal planting findings for the agent.** A page on any site can send a
+  CORS "simple" POST to a loopback address. The bridge accepts page traffic only with an `Origin` on this machine
+  (localhost, 127.x, [::1], `*.localhost`) or listed exactly in `GENCLASS_AGENT_ORIGINS`; `*.test`, LAN, `*.local` and
+  `*.internal` pages (DNS names a hostile network can point anywhere), `null` and missing origins get 403. DNS rebinding (a public name resolving to 127.0.0.1) is
+  refused by the `Host` check (it must be the loopback address and port).
+- **Another page rewriting a run's evidence** (a replay's verdict, an explore run's final state). A run's events are
+  accepted only from the origin that registered it, with the token it got at hello.
+- **A page or another user driving the agent API (arming replays, clearing findings, reading them).** `/v1/api`
+  refuses any request with an `Origin` and requires `x-genclass-api: 1` (a browser cannot send it cross-origin without
+  a preflight, which the bridge refuses) and the bridge's token, readable only by the user who started it
+  (`~/.genclass/bridge-<port>.token`, mode 0600).
+- **Prompt injection through recorded data.** Whoever controls a page's text or an API's response controls the strings
+  the bridge records (error messages, values, page lines). The bridge validates and caps every field, strips control
+  characters, ANSI escapes, bidi overrides and invisible characters (tag characters, variation selectors), prints
+  page strings JSON-quoted (in titles, channel events and the prompt hook too) under headers that say they are
+  recorded data, re-validates its own state file on load, and the server's instructions tell the agent they are never
+  instructions. Residual: a model may still be
+  swayed by quoted text; keep the agent's own permissions as they are for any untrusted input.
+- **Code injection into generated tests.** Page strings enter a generated Playwright test only as JSON string literals.
+- **A development page on another device of the network.** Its `connectAgent` is inert there (not this machine's
+  host), and would talk to its own device's loopback anyway.
+- **Running in production by mistake.** The link is a separate entry imported from a development-only branch; on any
+  page not served from the developer's machine it is inert unless `anyHost: true`, and it only ever talks to a loopback
+  URL.
+- **Files.** The bridge writes its state directory (`state.json`, a `.gitignore` inside it, the hook's cursor) with
+  fresh temporary names and mode 0600, never through a planted link, and its token file; `init` merges into
+  `.mcp.json` and `.claude/settings.json` and refuses to rewrite a file it cannot parse.
+
 ## Residual risks, in one list
 
 1. Same-origin scripts have full access to GenClass and its data (as to the rest of the page).
@@ -284,6 +319,8 @@ account and sign-in endpoints (`protectPreset("auth")`), `policy.deny: ["serve_c
 9. `serve_cached` ignores cookies (cross-user responses in a long-lived SPA session, heal only).
 10. Telemetry and sink routes keep path segments that are neither id-like nor hold an `@` (usernames, names, search
     terms in the path); app tokens are public, so anyone can post forged batches to an app's dashboard (T5).
+11. The coding-agent bridge shows the agent text recorded from development pages; quoting and the server's
+    instructions reduce, but cannot remove, the chance that a model follows instructions inside that text (T10).
 
 ## Recommended production setup
 

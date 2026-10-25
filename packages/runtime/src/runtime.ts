@@ -2,6 +2,7 @@
 
 import type {
   TelemetryStatus,
+  AnalyticsStatus,
   ActionContext,
   ActionDef,
   AdapterHandle,
@@ -381,6 +382,8 @@ export class RuntimeImpl implements Runtime {
   vis: VisualStub | null = null;
   /** runtime.telemetry (set by createRuntime). */
   telemetry?: TelemetryStatus;
+  /** runtime.analytics (set by createRuntime; src/analytics/start.ts). */
+  analytics?: AnalyticsStatus;
   private plugins = new Map<Plugin, { cleanup?: () => void }>();
   private customActions: ActionDef[] = [];
   private standing: StandingQuestion[] = [];
@@ -2278,12 +2281,12 @@ export class RuntimeImpl implements Runtime {
    * (its last evaluation timed out): holding would only add latency.
    */
   /**
-   * The model's latency before any real decision: the warm pass timed after the pipelines compiled (WebGPU compiles
-   * on the first pass, so the first pass alone would read as seconds and the first salient request after load would
-   * never be held), else the warm-up pass itself. The warm pass is a small situation, so its time alone under-states
-   * a real decision by about 2.5× (61 ms vs 172 ms on genclass.dev); a budget derived from it expired before the first
-   * answer, which was then dropped unseen. Scale it by the per-token cost to a typical situation when the host
-   * reports one.
+   * The model's latency before any real decision: the second, warm warm-up pass (the first is cold on every device:
+   * WebGPU compiles its pipelines and would read as seconds; on WASM its per-token cost was 4-7x a real decision's,
+   * which kept the first salient request after load from being held on CPUs a little slower than the train VM's),
+   * else the warm-up pass itself. The warm pass is a small situation, so its time alone under-states a real decision by about 2.5× (61 ms
+   * vs 172 ms on genclass.dev); a budget derived from it expired before the first answer, which was then dropped
+   * unseen. Scale it by the per-token cost to a typical situation when the host reports one.
    */
   private warmLatency(): number {
     return typicalLatency(this.decider?.status);

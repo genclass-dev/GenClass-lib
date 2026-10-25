@@ -12,6 +12,10 @@
 //   `summary.counts.possibleDetections`. Their own metrics (possible, possible_*), exact like detections, never in
 //   detections or detect_diagnosis. The worker never derives the tier from decision records: what the dashboard lists
 //   is what the page's console listed.
+// - Interaction analytics (runtime `interactions` events, docs/runtime/ANALYTICS.md; only from apps that turned them on):
+//   page views, engaged time, scroll milestones, and clicks, rage clicks and dead clicks per page and element key, as
+//   ix_* counters with their own per-batch budget (MAX_IX_COUNTERS), so they never crowd out the diagnostics counters.
+//   The runtime sends deltas, so they are plain counters like routes: a repeated batch is skipped as a whole.
 // - Retention (daily cron): daily counters and recent rows 90 days, hourly counters 48 hours, summary state 2 days.
 
 export const TOKEN_RE = /^gc_[A-Za-z0-9]{22}$/;
@@ -22,6 +26,8 @@ export const RECENT_CAP = 500;
 export const RETENTION_DAYS = 90;
 /** Distinct counters one batch may touch (bounds D1 writes per batch). */
 export const MAX_COUNTERS = 300;
+/** Distinct interaction analytics counters one batch may touch, on top of MAX_COUNTERS. */
+export const MAX_IX_COUNTERS = 200;
 /** Page-load state is kept this long after its last batch (retention); a page load quiet for longer starts a baseline. */
 export const SESSION_KEEP_MS = 2 * 86_400_000;
 const KEY_MAX = 120;
@@ -197,11 +203,12 @@ const latencyBucket = (ms: number): string => LATENCY_BUCKETS.find(([max]) => ms
 
 class Counters {
   readonly m = new Map<string, number>();
+  constructor(private readonly cap = MAX_COUNTERS) {}
   add(metric: string, key: string | undefined = "", n = 1): void {
     if (!(n > 0) || !Number.isFinite(n)) return;
     const k = `${metric}\u0000${key ?? ""}`;
     const prev = this.m.get(k);
-    if (prev === undefined && this.m.size >= MAX_COUNTERS) return;
+    if (prev === undefined && this.m.size >= this.cap) return;
     this.m.set(k, (prev ?? 0) + n);
   }
 }
@@ -324,9 +331,51 @@ export function summaryValues(e: Ev): SummaryValues {
   return { seq: seqOf(e.seq) ?? 0, at: num(e.at) ?? 0, values };
 }
 
+// Interaction analytics (`interactions` events): what one event may add. The runtime sends at most 50 element keys
+// for clicks and 20 each for rage and dead clicks; anything beyond these bounds is not a real page.
+const IX_KEYS = 60;
+const IX_MAX_COUNT = 10_000;
+const IX_MAX_MS = 86_400_000;
+const IX_MILESTONES = new Set([25, 50, 75, 100]);
+const IX_FIELDS: [string, string][] = [
+  ["clicks", "ix_click"],
+  ["rage", "ix_rage"],
+  ["dead", "ix_dead"],
+];
+const chars = (s: string, n: number): string => [...s].slice(0, n).join("");
+
+/**
+ * One `interactions` event into ix_* counters (key "" is the total; the route, or route TAB element key, the
+ * breakdown): ix_views (a view's first event), ix_engaged_ms, ix_scroll (route TAB milestone), ix_click, ix_rage,
+ * ix_dead. Element keys are selectors and names from the page's markup, never its text (the runtime builds them).
+ */
+function interactions(ix: Counters, e: Ev): void {
+  const route = chars(str(e.route) ?? "(unknown)", 100);
+  if (e.start === true) {
+    ix.add("ix_views");
+    ix.add("ix_views", route);
+  }
+  const ms = num(e.engagedMs);
+  if (ms !== undefined && ms > 0 && ms <= IX_MAX_MS) {
+    ix.add("ix_engaged_ms", "", ms);
+    ix.add("ix_engaged_ms", route, ms);
+  }
+  if (Array.isArray(e.scroll)) for (const m of new Set(e.scroll)) if (IX_MILESTONES.has(m as number)) ix.add("ix_scroll", `${route}\t${m}`);
+  for (const [field, metric] of IX_FIELDS) {
+    for (const [k, v] of Object.entries(obj(e[field])).slice(0, IX_KEYS)) {
+      const n = num(v);
+      const el = chars(k.trim(), KEY_MAX);
+      if (n === undefined || n <= 0 || n > IX_MAX_COUNT || !el) continue;
+      ix.add(metric, "", n);
+      ix.add(metric, `${route}\t${el}`, n);
+    }
+  }
+}
+
 /** Pure part of the aggregation: event counters, recent rows and exact-metric contributions for one batch (exported for tests). */
-export function summarize(batch: AggBatch): { counters: Counters; recent: RecentRow[]; exact: Contribution[]; seqs: number[]; summary?: SummaryValues } {
+export function summarize(batch: AggBatch): { counters: Counters; ix: Counters; recent: RecentRow[]; exact: Contribution[]; seqs: number[]; summary?: SummaryValues } {
   const c = new Counters();
+  const ix = new Counters(MAX_IX_COUNTERS);
   const recent: RecentRow[] = [];
   const exact: Contribution[] = [];
   const seqs: number[] = [];
@@ -442,6 +491,9 @@ export function summarize(batch: AggBatch): { counters: Counters; recent: Recent
         if (!summary || (num(e.seq) ?? 0) >= prevSeq) summary = e;
         break;
       }
+      case "interactions":
+        interactions(ix, e);
+        break;
     }
   }
 
@@ -463,7 +515,7 @@ export function summarize(batch: AggBatch): { counters: Counters; recent: Recent
       acted,
     });
   }
-  return { counters: c, recent: recent.slice(-100), exact, seqs, summary: summary ? summaryValues(summary) : undefined };
+  return { counters: c, ix, recent: recent.slice(-100), exact, seqs, summary: summary ? summaryValues(summary) : undefined };
 }
 
 /**
@@ -637,7 +689,7 @@ function upserts(db: D1Like, table: "daily" | "hourly", col: "day" | "hour", tok
  * nothing: read the state again and retry that part alone (the event counters are never written twice).
  */
 export async function aggregate(db: D1Like, token: string, batch: AggBatch, now: Date): Promise<void> {
-  const { counters, recent, exact, seqs, summary } = summarize(batch);
+  const { counters, ix, recent, exact, seqs, summary } = summarize(batch);
   const iso = now.toISOString();
   const day = dayKey(now);
   const hour = hourKey(now);
@@ -645,6 +697,8 @@ export async function aggregate(db: D1Like, token: string, batch: AggBatch, now:
   const plain: D1Stmt[] = [
     ...upserts(db, "daily", "day", token, day, counters),
     ...upserts(db, "hourly", "hour", token, hour, counters),
+    ...upserts(db, "daily", "day", token, day, ix),
+    ...upserts(db, "hourly", "hour", token, hour, ix),
     db.prepare("UPDATE projects SET last_event = ?1, first_event = COALESCE(first_event, ?1) WHERE token = ?2").bind(iso, token),
   ];
   for (const r of recent) {
@@ -693,7 +747,7 @@ export async function aggregate(db: D1Like, token: string, batch: AggBatch, now:
 /** 90d and 1y: account dashboards on a plan with that much history (src/plans.ts); link dashboards use RANGES. */
 export type Range = "24h" | "7d" | "30d" | "90d" | "1y";
 export const RANGES: Range[] = ["24h", "7d", "30d"];
-const SERIES_METRICS = ["sessions", "decisions", "detections", "acted", "possible"];
+const SERIES_METRICS = ["sessions", "decisions", "detections", "acted", "possible", "ix_views"];
 
 export interface Stats {
   name: string;
@@ -704,16 +758,16 @@ export interface Stats {
   from: string;
   generated: string;
   totals: Record<string, number>;
-  /** Top 25 keys per metric (200 for the type x page metrics `detect_issue` and `possible_issue`). */
+  /** Top 25 keys per metric (200 for the type x page metrics `detect_issue` and `possible_issue`, and the ix_* ones). */
   breakdowns: Record<string, { key: string; count: number }[]>;
   /** Distinct keys per metric in the period, before the top-N cut (e.g. how many pages had a problem). */
   distinct: Record<string, number>;
-  /** Per bucket; `possible` is the lower-confidence tier, never part of `detections`. */
-  series: { bucket: string; sessions: number; decisions: number; detections: number; acted: number; possible: number }[];
+  /** Per bucket; `possible` is the lower-confidence tier, never part of `detections`; `ix_views` the page views counted by interaction analytics. */
+  series: { bucket: string; sessions: number; decisions: number; detections: number; acted: number; possible: number; ix_views: number }[];
   /** Detections per bucket by diagnosis (the dashboard's stacked timeline). */
   typeSeries: { bucket: string; counts: Record<string, number> }[];
   /** The same totals over the period just before this one (deltas). */
-  previous: { sessions: number; detections: number; acted: number };
+  previous: { sessions: number; detections: number; acted: number; ix_views: number };
   recent: Record<string, unknown>[];
 }
 
@@ -741,7 +795,7 @@ export async function stats(db: D1Like, p: Project, range: Range, now: Date): Pr
       .bind(p.token, hourly ? new Date(now.getTime() - 86_400_000).toISOString() : `${from}T00:00:00.000Z`),
     db.prepare(`SELECT ${col} AS b, key, SUM(count) AS c FROM ${table} WHERE token = ? AND ${col} >= ? AND metric = 'detect_diagnosis' GROUP BY ${col}, key`).bind(p.token, from),
     db
-      .prepare(`SELECT metric, SUM(count) AS c FROM ${table} WHERE token = ? AND ${col} >= ? AND ${col} < ? AND key = '' AND metric IN ('sessions', 'detections', 'acted') GROUP BY metric`)
+      .prepare(`SELECT metric, SUM(count) AS c FROM ${table} WHERE token = ? AND ${col} >= ? AND ${col} < ? AND key = '' AND metric IN ('sessions', 'detections', 'acted', 'ix_views') GROUP BY metric`)
       .bind(p.token, prevFrom, from),
   ]);
   const rows = (r: unknown) => ((r as { results?: Record<string, unknown>[] })?.results ?? []) as Record<string, unknown>[];
@@ -761,7 +815,7 @@ export async function stats(db: D1Like, p: Project, range: Range, now: Date): Pr
     distinct[metric] = list.length;
     sums[metric] = list.reduce((s, x) => s + x.count, 0);
     list.sort((a, b) => b.count - a.count || a.key.localeCompare(b.key));
-    list.splice(metric === "detect_issue" || metric === "possible_issue" ? 200 : 25);
+    list.splice(metric === "detect_issue" || metric === "possible_issue" || metric.startsWith("ix_") ? 200 : 25);
   }
   const sumOf = (m: string) => sums[m] ?? 0;
   totals.latencyAvgMs = totals.latency_ms_n ? Math.round(totals.latency_ms_sum! / totals.latency_ms_n) : 0;
@@ -778,7 +832,7 @@ export async function stats(db: D1Like, p: Project, range: Range, now: Date): Pr
     breakdowns.latency_bucket.sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key));
   }
 
-  const byBucket = new Map(buckets.map((b) => [b, { bucket: b, sessions: 0, decisions: 0, detections: 0, acted: 0, possible: 0 }]));
+  const byBucket = new Map(buckets.map((b) => [b, { bucket: b, sessions: 0, decisions: 0, detections: 0, acted: 0, possible: 0, ix_views: 0 }]));
   for (const r of rows(series)) {
     const s = byBucket.get(String(r.b));
     if (s && SERIES_METRICS.includes(String(r.metric))) (s as Record<string, unknown>)[String(r.metric)] = Number(r.c) || 0;
@@ -789,7 +843,7 @@ export async function stats(db: D1Like, p: Project, range: Range, now: Date): Pr
     const s = byType.get(String(r.b));
     if (s) s.counts[String(r.key ?? "")] = (s.counts[String(r.key ?? "")] ?? 0) + (Number(r.c) || 0);
   }
-  const previous = { sessions: 0, detections: 0, acted: 0 };
+  const previous = { sessions: 0, detections: 0, acted: 0, ix_views: 0 };
   for (const r of rows(prev)) {
     const m = String(r.metric) as keyof typeof previous;
     if (m in previous) previous[m] = Number(r.c) || 0;

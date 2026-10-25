@@ -1,10 +1,79 @@
 # Changelog
 
-## 0.3.0-beta.1 (unreleased)
+## 0.3.0-beta.1 (2026-10-22)
 
-- **CLI copy: the dashboard needs Pro (trials available).** genclass.dev's dashboards now come with Pro; `init`'s
-  dashboard notice and help, the top-level help and the README say so next to the private dashboard link (a link
-  made by 0.3.0-beta.0's `init` opens a page that leads to a trial). No runtime code and no model-visible text
+The second 0.3.0 prerelease, on the `beta` dist-tag (`latest` stays 0.2.2). It adds the coding-agent link
+(`@genclass/runtime/agent`, used by `@genclass/mcp` 0.1.0) and carries everything below since 0.3.0-beta.0. No
+model-visible text changed (`situation-v2.3`); the default model is still `@genclass/runtime-model@0.2.0`.
+
+
+- **Coding agents: record, replay and explore (`@genclass/runtime/agent`, new; [docs/runtime/AGENT.md](../../docs/runtime/AGENT.md)).**
+  `connectAgent(rt)` in an app's development build connects the page to `@genclass/mcp`, a local MCP server for
+  Claude Code and other coding agents. It records the run (user actions; requests by key, `GET /api/search#3`; the
+  order their responses were delivered; state writes; errors with their stack and causal chain; two happens-before
+  facts as witnesses: a response that overwrote newer data, identical requests in flight from two separate clicks) and
+  snapshots the app's state at quiet points. With a schedule (`fifo`, `seeded`, `given`, set by the agent, a test's
+  `__GENCLASS_SCHEDULE__` or `?genclass-schedule=`) it delivers responses in that order, optionally slower: the same
+  responses, unchanged, each held at most `maxHoldMs` (1.5 s), so a race shows up on a fast machine and replays
+  exactly. Without a schedule it holds only a page load's first responses until the bridge's hello (at most 0.6 s);
+  `hold: false` turns every hold off; protected requests are never held (unless `holdProtected`). Only on pages served from the developer's
+  machine by default; it talks only to a loopback address; it is its own entry (`dist/agent.js`, no imports), so the
+  first load stays within its limits (108.54 / 100.40 KB).
+  It wraps the runtime's delivery gate and request ignore list while connected and restores both on `disconnect()`;
+  nothing it records reaches a situation, a decision, the event log or the model (no model-visible text changed,
+  `situation-v2.3`), and telemetry is unchanged. INTERCEPTION.md, THREAT-MODEL.md (T10), API.md, CONTRACT.md §16,
+  RESULTS.md section 16.
+- **Fix: a reused XHR object could get the next request's response early.** When the app aborted an XHR whose
+  completion listeners the runtime held for a delivery decision (guard or heal) and sent a new request on the same
+  object, releasing the old, held delivery ran the listeners queued for the new request before its own decision. The
+  release now checks that it still belongs to the request it was made for (`src/observe/xhr.ts`). No model-visible
+  text changed. Found by the coding-agent link's review.
+- **The devtools overlay is in genclass.dev's black design.** `@genclass/runtime/devtools` (and `devtools: true`) now
+  uses the site's black ground and raised panels, bone text, the mark's green for what GenClass changed and
+  red-orange for the bugs it catches, amber for warnings, square corners and 1px rules without shadows, and the
+  current GenClass mark (drawn inline, no image request). It is black by default whatever the page's or the OS's
+  theme: `theme` defaulted to `"auto"` before and now defaults to `"dark"`; `"light"` gives the same design on white
+  and `"auto"` still follows `prefers-color-scheme`. Type is the system UI font and a system mono stack: the overlay
+  no longer names Inter or JetBrains Mono, so a page that declares either as a web font no longer downloads it for
+  the overlay. The tab row scrolls sideways instead of hiding Expectations and Now past the panel's edge, and the
+  header no longer clips the name. Every view, control and string is the same; no model-visible text changed.
+- **Interaction analytics, off by default (`analytics: true`; [docs/runtime/ANALYTICS.md](../../docs/runtime/ANALYTICS.md)).**
+  An app that sets `analytics: true` with its token also sends `interactions` telemetry events for its dashboard: per
+  page view, the route, engaged time (the tab visible, at most 30 s after the last input), scroll depth milestones
+  (25 / 50 / 75 / 100 %), and clicks, rage clicks (3 within 1 s on one element) and dead clicks (a link or button
+  after which nothing changed within 1 s) per element key. Keys are built from markup only (`data-genclass-name`,
+  `data-testid`, a stable id, a link's target, stable class names, a short structural path), never element text;
+  nothing is stored on the device and no visitor id exists. Needs telemetry and the token (or a custom endpoint);
+  every telemetry opt-out and Global Privacy Control turn it off; `runtime.analytics` reports it and its `start()` /
+  `stop()` turn it on after consent and off again. The recording is a lazy chunk (`dist/analytics/index.js`, loaded
+  only when an app turns analytics on) with its own passive listeners, outside the event log: no model-visible text
+  changed (`situation-v2.3`), and nothing reaches a situation, a decision or the model. First-load cost of the stub:
+  about 0.29 KB gzip on `/auto` and 0.27 KB on the main entry (TELEMETRY.md "Interaction analytics", README "Privacy
+  and telemetry", API.md, INTERCEPTION.md).
+- **CLI copy: the dashboard is free.** genclass.dev's dashboard is free for every app (every plan in
+  `billing/plans.json` includes it, with analytics, export and forwarding; there is no trial): `init`'s dashboard
+  notice and help, the top-level help and the README say so next to the private dashboard link. A link made by
+  0.3.0-beta.0's `init` opens the dashboard. No runtime code and no model-visible text changed.
+- **Docs: your own classifier is free; the Individual plan is gone.** genclass.dev has two plans, Free and Enterprise
+  (`billing/plans.json`): Free now includes the classifier GenClass trains on your app's traffic, bug reports or
+  labelled examples and ships as a private model your runtime loads, and nothing is sold on the site. The README's
+  dashboard section and TELEMETRY.md's retention note say so. No runtime code and no model-visible text changed.
+- **CLI copy: `login` lists email and password sign-in.** genclass.dev accounts also sign in with an email and a
+  password now; `login`'s help, the line it prints with the link, and the README say "Google, email and password,
+  GitHub or a passkey". The device flow is unchanged (the browser half signs in; the CLI only polls).
+- **Fix: on WASM, the first salient request of a page load was not held on CPUs a little slower than the train
+  VM's.** The model's warm-up timed a second, warm pass only on WebGPU (where the first compiles pipelines); on WASM
+  `status.latency` came from the first, cold pass. The runtime's estimate before any measured decision (that pass's
+  per-token cost × 1,200 tokens + 20 ms) then came to 4-7x a real decision (0.2.2, model 0.2.0, Chromium on the train
+  VM): 711 ms against about 160 ms at the VM's speed, 2.0-2.5 s against about 340 ms at half of it. A request is held only when the estimate fits the hold budget (at most 800 ms automatically), so in guard
+  and heal the first duplicate submit of every page load went through on a CPU about 15% slower than the VM's. The
+  warm-up now times a second pass on every device: `status.latency` comes from it, `status.warmupMs` is still the
+  first, cold pass. A load on WASM takes one more warm-up pass (a ~430-token situation, warm). No model-visible text
+- **Release notes: the npm registry's empty `readme` field.** Since 0.3.0-beta.0 went to `beta`, the registry's
+  top-level `readme` for the package (`npm view @genclass/runtime readme`) is empty: the registry empties it on every
+  publish to a tag other than `latest` and fills it again on the next `latest` publish, as it does for react,
+  typescript, next and vitest. The npm and jsDelivr package pages are not affected; they show each version's full
+  README. `.github/workflows/release.yml` now says so. No package contents, runtime code or model-visible text
   changed.
 
 ## 0.3.0-beta.0 (unreleased)
