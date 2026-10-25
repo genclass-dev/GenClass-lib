@@ -161,15 +161,44 @@ describe("mcp: tools against a live bridge", () => {
     const finals = ["react!", "react!", "reac!", "react!"];
     for (const v of finals) {
       const p = await page(port, "/search");
-      await p.send([{ t: "steps", steps: [act(0, "type", 'searchbox "Search"', "react")], order: [] }, { t: "snapshot", snapshot: snap({ "search.results": v }) }]);
+      await p.send([{ t: "steps", steps: [act(0, "type", 'searchbox "Search"', "react")], order: [] }, { t: "snapshot", snapshot: snap({ "search.results": v }, [`Results for ${v.slice(0, -1)}`]) }]);
     }
     const r = await call(c, "genclass_explore", { action: "report" });
+    expect(r.text).toContain("Compared: 2 of 2 reordered run(s) against two baselines.");
     expect(r.text).toContain("RACE: 1 of 2 reordered run(s)");
+    expect(r.text).toContain('page text only in this run: "Results for reac"');
     expect(r.text).toContain('state "search.results": baseline "react!", this run "reac!"');
     expect(r.text).toContain("Race finding(s): f1");
     const ex = await call(c, "genclass_explain", { id: "f1" });
     expect(ex.text).toContain("seeded 1");
-    expect(ex.text).toContain('toBe("react!")');
+    expect(ex.text).toContain('toContain("Results for react")');
+  });
+
+  it("explore report: store values that differ while the page is the same are internal state, not a race; 0 compared says so", async () => {
+    const { c, port } = await start();
+    await call(c, "genclass_explore", { action: "start", runs: 2, route: "/list" });
+    const ids = ["req_aaaa", "req_bbbb", "req_cccc", "req_aaaa"];
+    for (let i = 0; i < 4; i++) {
+      const p = await page(port, "/list");
+      // a cache's own bookkeeping: the request id that fulfilled the query depends on the order; the page does not
+      await p.send([{ t: "steps", steps: [act(0, "click", 'link "Next page"')], order: [] }, { t: "snapshot", snapshot: snap({ "redux.api.queries.list(2).requestId": i < 2 ? "req_aaaa" : ids[i], "redux.api.queries.list(2).status": '"fulfilled"' }, ["Page 2", "Item 11"]) }]);
+    }
+    const r = await call(c, "genclass_explore", { action: "report" });
+    expect(r.text).toContain("No race found: none of the 2 compared reordered run(s)");
+    expect(r.text).toContain("Internal state only (not a race by this check): 1 of 2");
+    expect(r.text).not.toContain("RACE:");
+    expect(r.text).not.toContain("Race finding(s)");
+    expect((await call(c, "genclass_findings")).text).toContain("No findings match");
+    // a session whose reordered loads all did other steps than the baselines: nothing was compared, and it says so
+    await call(c, "genclass_explore", { action: "start", runs: 1, route: "/x" });
+    for (let i = 0; i < 3; i++) {
+      const p = await page(port, "/x");
+      await p.send([{ t: "steps", steps: i < 2 ? [act(0, "click", 'button "A"')] : [act(0, "type", 'input "B"', "b")], order: [] }, { t: "snapshot", snapshot: snap({}) }]);
+    }
+    const r2 = await call(c, "genclass_explore", { action: "report" });
+    expect(r2.text).toContain("Compared: 0 of 1 reordered run(s)");
+    expect(r2.text).toContain("No verdict: 0 reordered runs were compared in this group");
+    expect(r2.text).not.toContain("No race found");
   });
 
   it("pushes a channel event for a new finding", async () => {

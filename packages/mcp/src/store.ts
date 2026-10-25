@@ -13,7 +13,7 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { compareRuns, endedDifferently, scenarioOf, settledAfterActs, stateValue, type GroupReport, type RunDiff } from "./compare.js";
+import { compareRuns, endedDifferently, sameScenario, sameValue, settledAfterActs, shownField, stateValue, type FieldDiff, type GroupReport, type RunDiff } from "./compare.js";
 import { clean, pathShape, q, shape, sigOf } from "./text.js";
 import type { ExploreSession, Finding, FindingKind, ReplayArm, Run, ScheduleSpec, Step } from "./types.js";
 import * as V from "./validate.js";
@@ -432,9 +432,10 @@ export class Store {
   }
 
   /**
-   * Compare an explore session's runs; a group with two baselines and a run that ended differently (or, failing that,
-   * an older response that overwrote newer data along the way) becomes (or refreshes) a race finding. A run already
-   * counted for a finding is not counted again when the same session is reported twice.
+   * Compare an explore session's runs; a group with two baselines and a run whose difference reached the page (its
+   * text, form values, requests or errors) becomes (or refreshes) a race finding. Differences in store values only, and
+   * overwrites a later response repaired, are reported in the groups but make no finding. A run already counted for a
+   * finding is not counted again when the same session is reported twice.
    */
   reportExplore(id?: string): { session: ExploreSession; groups: GroupReport[]; findings: Finding[] } | null {
     const x = id ? this.explores.get(id) : this.latestExplore();
@@ -444,16 +445,20 @@ export class Store {
     const findings: Finding[] = [];
     const counted = new Set(x.counted ?? []);
     for (const g of groups) {
-      if (!g.diffs.length || g.insufficientBaselines) continue;
-      const d = g.diffs.find(endedDifferently) ?? g.diffs[0];
+      if (g.insufficientBaselines) continue;
+      const races = g.diffs.filter((y) => y.tier === "visible");
+      const d = races[0];
+      if (!d) continue;
       const run = this.runs.get(d.run);
       if (!run) continue;
-      const kindOfDiff = d.fields.length ? `fields:${d.fields.map((f) => f.name).sort().join(",")}` : d.errors.length ? `error:${shape(d.errors[0])}` : d.textOnlyBaseline.length || d.textOnlyRun.length ? "text" : `witness:${d.witnesses[0] ?? ""}`;
-      const key = `race|${g.route}|${g.scenario.slice(0, 600)}|${kindOfDiff}`;
+      // keyed by what the page showed or sent (store values that differ along with it are evidence, not identity)
+      const shown = d.fields.filter(shownField);
+      const kindOfDiff = shown.length ? `fields:${shown.map((f) => f.name).sort().join(",")}` : d.errors.length ? `error:${shape(d.errors[0])}` : "text";
+      const key = `race|${g.route}|${g.scenarioKey.slice(0, 600)}|${kindOfDiff}`;
       const replay: ScheduleSpec = run.schedule ? { ...run.schedule } : { order: "given", given: run.order.slice() };
       delete replay.id;
       delete replay.label;
-      const evidence = { session: x.id, scenario: g.scenario, baselines: g.baselines, noise: g.noise, ...d, endedDifferently: endedDifferently(d), failingRuns: g.diffs.map((y) => ({ run: y.run, label: y.label, endedDifferently: endedDifferently(y) })), of: g.runs - g.baselines.length };
+      const evidence = { session: x.id, scenario: g.scenario, baselines: g.baselines, noise: g.noise, ...d, endedDifferently: endedDifferently(d), failingRuns: races.map((y) => ({ run: y.run, label: y.label, endedDifferently: endedDifferently(y) })), of: g.compared };
       const existing = this.byKey.get(key);
       if (existing && counted.has(`${run.id}|${key}`)) {
         const f = this.findings.get(existing);
@@ -508,7 +513,7 @@ export class Store {
     const runs = [...this.runs.values()].filter((r) => r.assignment?.kind === "replay" && r.assignment.ref === f.id);
     const ev = f.evidence as Record<string, unknown>;
     const results = runs.map((r) => {
-      const scenarioMatches = !!orig && scenarioOf(orig) === scenarioOf(r);
+      const scenarioMatches = !!orig && sameScenario(orig, r);
       const origActs = orig ? orig.steps.some((s) => s.k === "act") : false;
       const acted = r.steps.some((s) => s.k === "act");
       let reproduced: boolean | null = null;
@@ -701,10 +706,12 @@ function loadFinding(v: unknown): Finding | null {
 
 /** A race finding's title, by what differed (page strings quoted). */
 function raceTitle(d: RunDiff): string {
-  if (d.fields.length) return `The final state depends on response order: ${d.fields.slice(0, 2).map((f) => `${f.where === "requests" ? "requests to" : f.where} ${q(f.name, 60)} (${q(f.baseline, 40)} in request order, ${q(f.run, 40)} under ${q(d.label, 30)})`).join("; ")}`;
+  const shown = d.fields.filter(shownField);
+  if (shown.length) return `The final state depends on response order: ${shown.slice(0, 2).map((f) => `${f.where === "requests" ? "requests to" : f.where} ${q(f.name, 60)} (${q(f.baseline, 40)} in request order, ${q(f.run, 40)} under ${q(d.label, 30)})`).join("; ")}`;
   if (d.errors.length) return `An error depends on response order: ${q(d.errors[0], 120)} under ${q(d.label, 30)}, not in request order`;
   if (d.textOnlyRun.length) return `The page depends on response order: it shows ${q(d.textOnlyRun[0], 80)} under ${q(d.label, 30)}, not in request order`;
   if (d.textOnlyBaseline.length) return `The page depends on response order: it no longer shows ${q(d.textOnlyBaseline[0], 80)} under ${q(d.label, 30)}`;
+  if (d.fields.length) return `The final state depends on response order: ${d.fields.slice(0, 2).map((f) => `${f.where} ${q(f.name, 60)} (${q(f.baseline, 40)} in request order, ${q(f.run, 40)} under ${q(d.label, 30)})`).join("; ")}`;
   const w = d.witnesses[0] ?? "";
   if (w.startsWith("identical-in-flight")) return `The same request was sent twice under ${q(d.label, 30)}, not in request order (the final state matched the baseline): ${q(w, 160)}`;
   return `An older response overwrote newer data under ${q(d.label, 30)} (the final state matched the baseline; users would see it flicker): ${q(w, 160)}`;
@@ -713,13 +720,16 @@ function raceTitle(d: RunDiff): string {
 /** Does a replay run show the race finding's difference again? From the evidence of the failing run. */
 function raceVerdict(ev: Record<string, unknown>, r: Run): { reproduced: boolean | null; note: string } {
   const snap = r.snapshot!;
-  const fields = (ev.fields as { where: string; name: string; baseline: string; run: string }[] | undefined) ?? [];
+  const all = (ev.fields as { where: string; name: string; baseline: string; run: string }[] | undefined) ?? [];
   const val = (d: { where: string; name: string }) => (d.where === "state" ? stateValue(snap.state, d.name) : d.where === "field" ? snap.fields?.[d.name] : snap.requests[d.name] !== undefined ? String(snap.requests[d.name]) : undefined) ?? "(absent)";
-  if (fields.length) {
-    const same = fields.every((d) => val(d) === d.run);
-    const fixed = fields.every((d) => val(d) === d.baseline);
+  const byValues = (fields: typeof all): { reproduced: boolean | null; note: string } => {
+    const same = fields.every((d) => sameValue(val(d), d.run));
+    const fixed = fields.every((d) => sameValue(val(d), d.baseline));
     return same ? { reproduced: true, note: "ended with the same wrong values as the failing run" } : fixed ? { reproduced: false, note: "ended with the values of the request-order baseline" } : { reproduced: null, note: `ended with other values: ${fields.map((d) => `${clean(d.name, 40)} = ${q(val(d), 40)}`).join(", ")}` };
-  }
+  };
+  // what the page showed or sent decides; store values only for a finding that has nothing else
+  const shownFields = all.filter((d) => shownField(d as FieldDiff));
+  if (shownFields.length) return byValues(shownFields);
   const errors = (ev.errors as string[] | undefined) ?? [];
   if (errors.length) {
     const hit = errors.some((m) => r.errors.some((e) => shape(e.message) === shape(m)));
@@ -729,9 +739,13 @@ function raceVerdict(ev: Record<string, unknown>, r: Run): { reproduced: boolean
   const onlyRun = (ev.textOnlyRun as string[] | undefined) ?? [];
   const onlyBase = (ev.textOnlyBaseline as string[] | undefined) ?? [];
   if (onlyRun.length || onlyBase.length) {
-    const wrong = onlyRun.some((l) => shown.has(l)) || (onlyBase.length > 0 && !onlyBase.every((l) => shown.has(l)));
-    return { reproduced: wrong, note: wrong ? "the page shows the failing run's text again" : "the page shows the baseline's text" };
+    const again = onlyRun.some((l) => shown.has(l));
+    const missing = onlyBase.filter((l) => !shown.has(l));
+    if (again || (!onlyRun.length && missing.length === onlyBase.length)) return { reproduced: true, note: "the page shows the failing run's text again" };
+    if (!missing.length) return { reproduced: false, note: "the page shows the baseline's text" };
+    return { reproduced: null, note: `the page shows neither the failing run's text nor all of the baseline's (missing ${q(missing[0], 60)})` };
   }
+  if (all.length) return byValues(all);
   const wits = (ev.witnesses as string[] | undefined) ?? [];
   if (wits.length) {
     const have = new Set(r.witnesses.map((w) => `${w.kind} ${pathShape(w.subject)} by ${sigOf(w.by)}`));

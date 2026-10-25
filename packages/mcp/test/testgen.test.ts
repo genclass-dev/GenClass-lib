@@ -69,9 +69,13 @@ describe("testgen (AGENT.md §5.3)", () => {
     expect(onlyRun).toContain('shape(e.message) === "TypeError: x is undefined at N"');
     const nothing = regressionTest(finding("race", { fields: [], textOnlyBaseline: [], textOnlyRun: [], errors: [], witnesses: [] }), run([]), { order: "seeded", seed: 3 })!;
     expect(nothing).toContain('expect(false, "GenClass could not derive a generic assertion');
-    const base = regressionTest(finding("race", { fields: [{ where: "state", name: "search.results", baseline: "2 items", run: "1 item" }], textOnlyBaseline: ["Results for react"], textOnlyRun: [], errors: [], witnesses: [] }), run([]), { order: "seeded", seed: 3 })!;
-    expect(base).toContain('expect(snap.state["search.results"], "as with responses in request order").toBe("2 items");');
+    // what the page showed decides; store values that differed along with it (often a cache's bookkeeping) and
+    // witnesses are not asserted, so the test passes once the page is right
+    const base = regressionTest(finding("race", { fields: [{ where: "field", name: "Search", baseline: "react", run: "reac" }, { where: "state", name: "api.queries.search.requestId", baseline: "a1", run: "b2" }], textOnlyBaseline: ["Results for react"], textOnlyRun: [], errors: [], witnesses: ["overwrote-newer api.provided.List by GET /api/search"] }), run([]), { order: "seeded", seed: 3 })!;
+    expect(base).toContain('expect(snap.fields?.["Search"], "as with responses in request order").toBe("react");');
     expect(base).toContain('expect(snap.text, "the page shows what it shows with responses in request order").toContain("Results for react");');
+    expect(base).not.toContain("requestId");
+    expect(base).not.toContain("api.provided");
   });
 
   it("a race on fresh record ids asserts the records' values; a field only the failing run had must be absent", () => {

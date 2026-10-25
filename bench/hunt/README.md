@@ -71,9 +71,49 @@ GENCLASS_APP_URL=http://127.0.0.1:4778 npx playwright test --config bench/hunt/r
 
 The committed reports are in `results/e2e-*/`; RESULTS.md section 20 has the counts.
 
-## A real app: Strapi 5.59.0 (`results/sample/`)
+## A real app: Strapi 5.59.0 (`results/sample/`, `results/strapi-search/`)
 
-A section filled in from the committed runs (see the end of this file's history if it is missing).
+The same command on an app this repository does not own: a fresh `npx create-strapi@latest --example` (sqlite, the
+example content types and data; the npm release, not a git checkout), its admin served by `strapi develop`, logged in
+through `scenarios/strapi-login.mjs`. 6 seeded orders, `--slow 600`, about 3 minutes per scenario.
+
+`results/sample/` is the generic `typeahead.mjs` on the author picker of an article's edit page (a relation search that
+asks the server as you type: `--param input='input[name="author"]' --param word=dav --param delay=400`). What GenClass
+said, and what held up:
+
+- **React and Redux state was discovered**: 300 state fields in every snapshot, the cap, so the comparison covered page
+  text and form values in full and the first 300 state paths.
+- **The typeahead has no race.** In seed 1 GenClass delivered the answer for "da" after the answer for "dav" (the
+  older response last), and the picker still ended on the baselines' "David Doe": Strapi keeps each search's results
+  under its own query. All 4 compared orders ended with the baselines' state. Without GenClass, `plain.mjs` with only
+  the "da" request answered 2 s late: the same end state in 2 of 2 runs (`plain-search.txt`).
+- **The page's load depends on the order.** In 2 of 6 seeded orders (seeds 2 and 3) `GET /admin/users/me/permissions`
+  was delivered after the content manager's own init responses, and the page stayed on "You don't have the
+  permissions to access that content" (path `/admin/content-manager/403`) with no editor to type in. GenClass cannot
+  compare those loads (no recorded actions, so no baseline in their group); the report lists them with the page's
+  text. Without GenClass, only the permissions response answered 2.5 s late: the same screen in 2 of 2 runs
+  (`plain-permissions.txt`). Whether a late permissions response is a timing users meet, and whether the admin should
+  recover once it arrives, is for Strapi's maintainers; it has not been reported upstream from here, and the mechanism
+  was not traced in their code.
+- **The race finding is a flicker on page-load state.** GenClass's verdict reads "RACE (along the way only): 4 of 4
+  compared orders overwrote newer data, all ended right": older load responses wrote React and Redux state
+  (`EditViewPage.state2` by `GET /content-manager/init`, `redux.admin_app` by the settings response) after newer writes.
+  The replay recorded the same overwrite again; the generated test passed in the hunt's own run and failed on that
+  witness 10 of 10 times when repeated afterwards (`test-repeat.txt`), so the overwrite depends on render timing as well
+  as the order. Nothing a user sees differed.
+- **101 `stale-write` witnesses** on the store's injected reducers, listed as facts, the first three explained in full.
+
+`results/strapi-search/` is `scenarios/strapi-search.mjs` (two searches in a row on the article list, each applied with
+Enter): the same 403 page on seeds 2 and 3; the 4 compared orders ended with the baselines' table, 2 of them after the
+first search's response wrote `redux.adminApi.provided.Document.ALL_LIST`, RTK Query's cache-tag bookkeeping, over
+the second's (replay reproduced; the generated test fails on that witness). The table never showed the older results.
+
+The samples are there to show what reports on a real app look like, weak findings included. They are not bug reports;
+"Using a result publicly" says what one needs. One more thing they showed about GenClass itself: under an auth-like
+store name the runtime redacts a random id only when it happens to contain a digit, so about 3% of runs show
+`AuthProvider.external1.requestId` raw while the baselines show it redacted, and the explore compare reports that as a
+race (seen in an earlier run of this sample; its replay said "not reproduced"). The fix belongs in
+`packages/mcp/src/compare.ts`, outside this harness.
 
 ## How to write a scenario
 

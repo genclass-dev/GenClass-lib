@@ -28,7 +28,7 @@ false-intervention rate next to each recall figure.
 | [Package README](../../packages/runtime/README.md) | What does it do, and how do I install and use it? | current (0.3.0) | [/docs](https://genclass.dev/docs), [npm](https://www.npmjs.com/package/@genclass/runtime) |
 | [FAQ](../../FAQ.md) | Short answers to the common questions, with links to the details | current | |
 | [INSTALL.md](INSTALL.md) | Every `init` and `remove` flag, the app token, the tested project setups | reference (0.3.0) | |
-| [DASHBOARD.md](DASHBOARD.md) | How do I see my app's reports on genclass.dev, and what do `login`, `connect`, `whoami` and `logout` do? | reference (0.3.0) | [/docs/dashboard](https://genclass.dev/docs/dashboard) |
+| [DASHBOARD.md](DASHBOARD.md) | How do I see my app's reports on genclass.dev, and what do `login`, `connect`, `whoami`, `logout` and `dashboard` do? | reference (0.3.0) | [/docs/dashboard](https://genclass.dev/docs/dashboard) |
 | [SINKS.md](SINKS.md) | How do I send reports to my own logging (the sink record format and the two adapters)? | reference (0.3.0) | |
 | [API.md](API.md) | Every export, option, event, action and type | reference | [/docs/api](https://genclass.dev/docs/api) |
 | [OPTIONS-SPEC.md](OPTIONS-SPEC.md) | Why each configuration option exists and how the options combine | design spec, built | [/docs/options](https://genclass.dev/docs/options) |

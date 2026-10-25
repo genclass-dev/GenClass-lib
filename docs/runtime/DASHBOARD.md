@@ -1,7 +1,7 @@
 # Your GenClass dashboard and the account commands
 
 How an app's diagnostics reach a dashboard at genclass.dev: the app token (project key), the private dashboard link,
-GenClass accounts, the CLI's `login`, `connect`, `whoami` and `logout`, and the `.genclass.local` file. For
+GenClass accounts, the CLI's `login`, `connect`, `whoami`, `logout` and `dashboard`, and the `.genclass.local` file. For
 `@genclass/runtime` 0.3.0 (`0.3.0-beta.0` on the npm `beta` dist-tag); `0.2.x` ignores a token and has none of these
 commands. What is sent is in [TELEMETRY.md](../../packages/runtime/TELEMETRY.md); the privacy policy for the
 diagnostics and for accounts (what is collected and stored, how long it is kept, your rights) is
@@ -42,6 +42,16 @@ write cannot lose it. init asks git whether the file is ignored; if not, it adds
 leaves the file and that line alone. Never paste the link from it into code, docs, commits or pull requests: anyone
 with the link sees the app's stats. `connect` reads it to add that dashboard to your account, and sends the link only
 to the host it belongs to.
+
+## How do I print my dashboard link again?
+
+```bash
+npx @genclass/runtime@beta dashboard   # print the link to this app's dashboard (--open: open it in your browser)
+```
+
+New in `0.3.0-beta.2`. `dashboard` reads the private link in `.genclass.local` without contacting anything; signed
+in, it finds the app in your account (one `GET /api/me`), or lists your apps' links. `init`'s notice, `whoami` and
+`login` point to the dashboards too.
 
 ## How do I keep my dashboards in an account?
 
@@ -97,8 +107,8 @@ new app goes into your account instead of getting a private link (`--yes`: it do
 Nothing until you run one of these commands (or approve `init`'s changes). `init` creates a dashboard only after you
 approve its diff (it sends the `name` from `package.json`). `login` asks genclass.dev for a sign-in code with
 `client_name: "genclass-runtime <version>"` (the approval page shows that name and your account page lists the
-session under it), and polls until you approve it, then reads your account's apps. `whoami` and `connect` read your
-account's apps; creating an app sends its name, and adding an existing dashboard sends its link from
+session under it), and polls until you approve it, then reads your account's apps. `whoami`, `connect` and (signed
+in, without a private link here) `dashboard` read your account's apps; creating an app sends its name, and adding an existing dashboard sends its link from
 `.genclass.local`. `logout` ends the CLI session. The account requests carry
 `user-agent: genclass-runtime-cli/<version>`.
 
@@ -137,5 +147,6 @@ nothing else changes about what is sent. Without a token neither is sent.
 ## Which version do I need?
 
 The token option, `scope`, `protect()` and the `login`, `connect`, `whoami` and `logout` commands are in `0.3.0`
-(first as `0.3.0-beta.0`, see the [CHANGELOG](../../packages/runtime/CHANGELOG.md)). A key needs `@genclass/runtime`
-`0.3.0-beta.0` or later in your app.
+(first as `0.3.0-beta.0`, see the [CHANGELOG](../../packages/runtime/CHANGELOG.md)); `dashboard` from
+`0.3.0-beta.2`. A key needs `@genclass/runtime` `0.3.0-beta.0` or later in your app. A dashboard opens on every plan,
+whichever runtime version sends to it.

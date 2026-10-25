@@ -323,6 +323,134 @@ describe("agent: recording and witnesses (AGENT.md §2)", () => {
   });
 });
 
+describe("agent: snapshots and witnesses that do not depend on arrival order (AGENT.md §2)", () => {
+  /** A discovered Redux-like cache: 30 queries of 3 fields each (90 store fields), tagged as discovery tags it. */
+  function cache(s: Setup, name: string, source = "redux") {
+    const q = Object.fromEntries(Array.from({ length: 30 }, (_, i) => [`q${i}`, { status: "fulfilled", requestId: `req${i}`, data: { n: i } }]));
+    s.rt.atom(name, q);
+    s.rt.internals.hub.get(name)!.source = source;
+  }
+
+  it("a snapshot takes registered stores, then component state, then other discovered stores, shallowest first, and says what its budget left out", async () => {
+    const keysOf = async (first: boolean) => {
+      const s = setup({ mode: undefined });
+      bridge(s);
+      const c = connectAgent(s.rt, { schedule: "natural" });
+      // the same stores, created (and so listed) in two different orders
+      const app = () => s.rt.atom("app", { page: 2, filter: { q: "react" } });
+      const list = () => {
+        s.rt.atom("List.state0", { open: true });
+        s.rt.internals.hub.get("List.state0")!.source = "react";
+      };
+      if (first) {
+        app();
+        list();
+      }
+      for (let k = 0; k < 12; k++) cache(s, `cache${k}`);
+      if (!first) {
+        list();
+        app();
+      }
+      await s.clock.advance(10);
+      return c.snapshot();
+    };
+    const a = await keysOf(true);
+    const b = await keysOf(false);
+    expect(Object.keys(a.state)).toEqual(Object.keys(b.state));
+    expect(Object.keys(a.state)).toHaveLength(1000);
+    expect(Object.keys(a.state).slice(0, 4)).toEqual(["app.page", "app.filter.q", "List.state0.open", "cache0.q0.requestId"]);
+    expect(a.stateTotal).toBe(3 + 12 * 90);
+    expect(a.stateLeft).toBe(3 + 12 * 90 - 1000);
+    // the deepest fields of the last caches are what the budget left out
+    expect(a.state["cache9.q29.data.n"]).toBeUndefined();
+    expect(a.state["cache11.q29.status"]).toBeDefined();
+  });
+
+  it("a snapshot within its budget says nothing was left out", async () => {
+    const s = setup({ mode: undefined });
+    bridge(s);
+    const c = connectAgent(s.rt, { schedule: "natural" });
+    s.rt.atom("app", { page: 2 });
+    await s.clock.advance(10);
+    const snap = c.snapshot();
+    expect(snap.state).toEqual({ "app.page": "2" });
+    expect(snap.stateLeft).toBeUndefined();
+    expect(snap.stateTotal).toBeUndefined();
+  });
+
+  it("the page's last snapshot is not sent again as it unloads (the bridge keeps the quiet one)", async () => {
+    const s = setup({ mode: undefined, extraGlobal: { addEventListener: undefined } });
+    const b = bridge(s);
+    const c = connectAgent(s.rt, { schedule: "natural", settleMs: 100 });
+    s.rt.atom("app", { page: 2 });
+    await s.clock.advance(1000);
+    expect(c.settled).toBe(true);
+    c.disconnect();
+    await s.clock.advance(1000);
+    const end = b.events.find((e) => e.t === "end");
+    expect(end).toMatchObject({ t: "end", settled: true });
+    expect(end!.snapshot).toBeUndefined();
+    expect(b.events.filter((e) => e.t === "snapshot")).toHaveLength(1);
+  });
+
+  it("a response that only re-sorts a list of cache keys put nothing older over newer: no witness", async () => {
+    const s = setup({ mode: undefined });
+    bridge(s);
+    const c = connectAgent(s.rt, { schedule: "natural" });
+    // a cache's bookkeeping: each fulfilled query moves its key to the end of the tag's list
+    const st = s.rt.atom("api", { provided: ["list(2)", "list(1)"], last: "" });
+    s.server.on("GET", "/api/list", ({ url }) => ({ body: { page: url.searchParams.get("page") }, latency: url.searchParams.get("page") === "1" ? 400 : 40 }));
+    const get = (page: string, rewrite: boolean) =>
+      s.rt.user({ kind: "click", target: `link "Page ${page}"` }, () => {
+        void (async () => {
+          const r = await s.fetch(`/api/list?page=${page}`);
+          await r.json();
+          st.set((v) => ({ ...v, provided: rewrite ? [`other(${page})`] : [...v.provided.filter((k) => k !== `list(${page})`), `list(${page})`] }));
+        })();
+      });
+    get("1", false); // older, slow
+    await s.clock.advance(20);
+    get("2", false); // newer, fast: moves list(2) to the end
+    await s.clock.advance(2000);
+    expect(st.get().provided).toEqual(["list(2)", "list(1)"]);
+    expect(c.witnesses()).toEqual([]);
+    // the same race where the older response replaces the list: an overwrite, recorded
+    get("1", true);
+    await s.clock.advance(20);
+    get("2", true);
+    await s.clock.advance(2000);
+    expect(c.witnesses().map((w) => `${w.kind} ${w.subject} by ${w.by}`)).toEqual(["overwrote-newer api.provided by GET /api/list#3"]);
+  });
+
+  it("a field the store's layout re-cut (the store grew past its field budget elsewhere) was not overwritten: no witness", async () => {
+    const s = setup({ mode: undefined });
+    bridge(s);
+    const c = connectAgent(s.rt, { schedule: "natural" });
+    const st = s.rt.atom("app", { items: {} as Record<string, Record<string, number>>, cfg: { flag: false, mode: "a" } });
+    s.server.on("GET", "/api/items", { body: {}, latency: 400 });
+    s.server.on("GET", "/api/flag", { body: {}, latency: 40 });
+    s.rt.user({ kind: "click", target: 'button "Load"' }, () => {
+      void (async () => {
+        await (await s.fetch("/api/items")).json();
+        // the older response fills the items: 31 records of 7 fields push the store past 200 fields, so the hub
+        // lays `cfg` out as one field from now on (cfg.flag and cfg.mode are gone as fields, cfg appears)
+        st.set((v) => ({ ...v, items: Object.fromEntries(Array.from({ length: 31 }, (_, i) => [`k${i}`, { a: i, b: i, c: i, d: i, e: i, f: i, g: i }])) }));
+      })();
+    });
+    await s.clock.advance(20);
+    s.rt.user({ kind: "click", target: 'button "Flag"' }, () => {
+      void (async () => {
+        await (await s.fetch("/api/flag")).json();
+        st.set((v) => ({ ...v, cfg: { ...v.cfg, flag: true } }));
+      })();
+    });
+    await s.clock.advance(2000);
+    expect(st.get().cfg.flag).toBe(true);
+    expect(s.rt.internals.hub.leaf("app.cfg")).toBeDefined();
+    expect(c.witnesses()).toEqual([]);
+  });
+});
+
 describe("agent: the bridge link (AGENT.md §4)", () => {
   it("hello registers the page; the bridge's schedule applies; responses before the reply wait for it", async () => {
     const s = setup({ mode: undefined });

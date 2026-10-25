@@ -200,36 +200,36 @@ describe("store: explore (AGENT.md §5.1)", () => {
     expect(rep.findings).toEqual([]);
   });
 
-  it("a race on records with fresh ids replays by the records' values", () => {
+  it("a race on records with fresh ids: compared by the records' values, and its replay by what the page shows", () => {
     const s = new Store();
     const x = s.armExplore({ runs: 1 });
     const ids = ["aK3x", "Q9pz", "Zt7m"];
     const vals = ["Buy milk", "Buy milk", "Buy mil"];
     for (let i = 0; i < 3; i++) {
       const r = load(s, "/todos");
-      r.send([{ t: "steps", steps: [act(0, "click", 'button "Add"')], order: [] }, { t: "snapshot", snapshot: snap({ [`todos.entities.${ids[i]}.title`]: vals[i] }) }]);
+      r.send([{ t: "steps", steps: [act(0, "click", 'button "Add"')], order: [] }, { t: "snapshot", snapshot: snap({ [`todos.entities.${ids[i]}.title`]: vals[i] }, [vals[i]]) }]);
     }
     const f = s.reportExplore(x.id)!.findings[0];
     expect((f.evidence.fields as { name: string }[])[0].name).toBe("todos.entities.*.title");
+    expect(f.evidence.textOnlyRun).toEqual(["Buy mil"]);
     s.armReplay(f.id);
     const r = load(s, "/todos");
-    r.send([{ t: "steps", steps: [act(0, "click", 'button "Add"')], order: [] }, { t: "snapshot", snapshot: snap({ "todos.entities.Mm2b.title": "Buy milk" }) }]);
+    r.send([{ t: "steps", steps: [act(0, "click", 'button "Add"')], order: [] }, { t: "snapshot", snapshot: snap({ "todos.entities.Mm2b.title": "Buy milk" }, ["Buy milk"]) }]);
     expect(s.replayResult(f.id)!.results[0]).toMatchObject({ reproduced: false });
   });
 
-  it("a witness-only difference is reported as what it is, and its replay checks the witness", () => {
+  it("an overwrite a later response repaired is reported along the way, not as a race (the witness keeps its own finding)", () => {
     const s = new Store();
     const x = s.armExplore({ runs: 1 });
     for (let i = 0; i < 3; i++) {
       const r = load(s);
       r.send([{ t: "steps", steps: [typeReact], order: [] }, ...(i === 2 ? [{ t: "witness", witness: witness() }] : []), { t: "snapshot", snapshot: snap({ "search.results": "react!" }) }]);
     }
-    const f = s.reportExplore(x.id)!.findings[0];
-    expect(f.title).toContain("the final state matched the baseline");
-    s.armReplay(f.id);
-    const r = load(s);
-    r.send([{ t: "steps", steps: [typeReact], order: [] }, { t: "snapshot", snapshot: snap({ "search.results": "react!" }) }]);
-    expect(s.replayResult(f.id)!.results[0]).toMatchObject({ reproduced: false });
+    const rep = s.reportExplore(x.id)!;
+    expect(rep.findings).toEqual([]);
+    expect(rep.groups[0].diffs).toHaveLength(1);
+    expect(rep.groups[0].diffs[0]).toMatchObject({ tier: "transient", witnesses: ["overwrote-newer search.results by GET /api/search"] });
+    expect(s.ranked().map((f) => f.kind)).toEqual(["stale-write"]);
   });
 
   it("a page whose hello reply came too late gives its explore slot back", () => {

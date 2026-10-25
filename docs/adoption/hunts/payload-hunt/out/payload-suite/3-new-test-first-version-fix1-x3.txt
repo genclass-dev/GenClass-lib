@@ -1,0 +1,4 @@
+  ✓  1 [chromium] › test/fields/collections/Relationship/e2e.spec.ts:851:3 › relationship › should not request related documents again while their batch is pending (6.0s)
+  ✓  2 [chromium] › test/fields/collections/Relationship/e2e.spec.ts:851:3 › relationship › should not request related documents again while their batch is pending (5.8s)
+  ✓  3 [chromium] › test/fields/collections/Relationship/e2e.spec.ts:851:3 › relationship › should not request related documents again while their batch is pending (5.6s)
+  3 passed (33.1s)

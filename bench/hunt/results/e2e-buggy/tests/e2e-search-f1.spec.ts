@@ -13,7 +13,7 @@ test("/: the final state does not depend on response order (GenClass f1)", async
   expect(await page.evaluate(() => !!(window as any).__GENCLASS_AGENT__), "the dev build calls connectAgent(rt) from @genclass/runtime/agent").toBe(true);
   await page.evaluate(() => (window as any).__GENCLASS_AGENT__.whenSettled(15000));
   await page.getByLabel("Search", { exact: true }).or(page.getByPlaceholder("Search", { exact: true })).or(page.getByTitle("Search", { exact: true })).or(page.locator("[name=\"Search\"], [id=\"Search\"]")).first().fill("");
-  await page.getByLabel("Search", { exact: true }).or(page.getByPlaceholder("Search", { exact: true })).or(page.getByTitle("Search", { exact: true })).or(page.locator("[name=\"Search\"], [id=\"Search\"]")).first().pressSequentially("react", { delay: 86 });
+  await page.getByLabel("Search", { exact: true }).or(page.getByPlaceholder("Search", { exact: true })).or(page.getByTitle("Search", { exact: true })).or(page.locator("[name=\"Search\"], [id=\"Search\"]")).first().pressSequentially("react", { delay: 84 });
   await page.evaluate(() => (window as any).__GENCLASS_AGENT__.whenSettled(15000));
   const witnesses = await page.evaluate(() => (window as any).__GENCLASS_AGENT__.witnesses());
   const errors = await page.evaluate(() => (window as any).__GENCLASS_AGENT__.errors());

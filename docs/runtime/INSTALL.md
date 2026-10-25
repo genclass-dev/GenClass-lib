@@ -9,7 +9,7 @@ attributes, `GenClass.init()`, and the projects `init` was tested on. For `@genc
 
 While `0.3.0` is in beta, every npm and npx command here names the `@beta` dist-tag. Without it you get the stable
 `0.2.x` (`0.2.2` was npm `latest` on 2026-10-22; `npm view @genclass/runtime dist-tags` shows them now), whose
-runtime ignores a token and whose CLI has no `login`, `connect`, `whoami`, `logout`, `--token` or `--sink`. Both
+runtime ignores a token and whose CLI has no `login`, `connect`, `whoami`, `logout`, `dashboard`, `--token` or `--sink`. Both
 lines load model `@genclass/runtime-model@0.2.0` by default.
 
 Pin the script tag's version (`https://cdn.jsdelivr.net/npm/@genclass/runtime@0.3.0-beta.0`): the unversioned URL
@@ -68,7 +68,7 @@ Content-Security-Policy (`next.config` headers, a proxy or middleware, a `<meta 
 | `--keep-package` | remove | leave `@genclass/runtime` installed (by default `remove` uninstalls it if nothing else imports it) |
 
 `npx @genclass/runtime@beta init --help` prints the same list except `--strategy` (Next.js only). The account
-commands (`login`, `connect`, `whoami`, `logout`) and their flags are in [DASHBOARD.md](DASHBOARD.md); `fetch-model`
+commands (`login`, `connect`, `whoami`, `logout`, `dashboard`) and their flags are in [DASHBOARD.md](DASHBOARD.md); `fetch-model`
 and `info` are under [Content-Security-Policy and self-hosting](../../packages/runtime/README.md#content-security-policy-and-self-hosting).
 
 ### What does `init` edit, and what does `remove` delete?
@@ -109,7 +109,13 @@ New in `0.3.0`; `init` in `0.2.x` creates no token. On a new setup, once you app
   Saved in .genclass.local (added to .gitignore).
 ```
 
-From `0.3.0-beta.1`, `init` also prints "The dashboard is free; the link opens it." after the second line.
+From `0.3.0-beta.1`, `init` also says after the second line that the dashboard is free; from `0.3.0-beta.2` that
+reads:
+
+```
+  Free for every app: what GenClass found, on which pages, and what it did, and (with analytics: true)
+  how visitors use each page. Print this link again any time: npx @genclass/runtime dashboard
+```
 
 The link is saved in `.genclass.local` (with the token) before init writes anything else, so a failed write cannot
 lose it. init asks git whether that file is ignored; if not, it adds it to the project's `.gitignore` (inside a git

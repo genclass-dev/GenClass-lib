@@ -59,7 +59,7 @@ Or with no build step, first in `<head>`:
 - **Pin the version in the script tag**, as above: the unversioned URL serves `latest`, and the CDN cache may serve an
   older release.
 - **Keep `@beta` while `0.3.0` is in beta.** Without it npm installs the stable `0.2.x`, whose CLI has no `login`,
-  `connect`, `whoami`, `logout` or `--sink` and whose runtime ignores a token.
+  `connect`, `whoami`, `logout`, `dashboard` or `--sink` and whose runtime ignores a token.
 - **ESM only** (no `require`). Jest users need a `transformIgnorePatterns` entry that lets `@genclass/runtime` be
   transformed.
 
@@ -172,7 +172,7 @@ export const submitOrder = protect("checkout submit", (cart) => fetch("/api/orde
   an account. Get a token at [genclass.dev/start](https://genclass.dev/start), or let `init` create it after you
   approve its diff. To keep dashboards in an optional genclass.dev account, `npx @genclass/runtime@beta login` signs in
   from the terminal (device flow) and connects the app in the current folder; `connect`, `whoami` and `logout` do the
-  rest. The dashboard fills from deployed pages with telemetry on. Local and private hosts (`localhost`, `*.local`,
+  rest, and `npx @genclass/runtime@beta dashboard` prints an app's link again (from `0.3.0-beta.2`). The dashboard fills from deployed pages with telemetry on. Local and private hosts (`localhost`, `*.local`,
   `*.test`, private networks) do not send by default; `telemetry: true` or any telemetry options object is an
   explicit opt-in that sends from them too, with the token. Data is kept for 90 days (a year on Enterprise). Details:
   [docs/runtime/DASHBOARD.md](docs/runtime/DASHBOARD.md).

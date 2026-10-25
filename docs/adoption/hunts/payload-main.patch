@@ -1,0 +1,182 @@
+diff --git a/packages/ui/src/elements/Table/RelationshipProvider/index.tsx b/packages/ui/src/elements/Table/RelationshipProvider/index.tsx
+index 71ac2304..e7b46b0c 100644
+--- a/packages/ui/src/elements/Table/RelationshipProvider/index.tsx
++++ b/packages/ui/src/elements/Table/RelationshipProvider/index.tsx
+@@ -50,13 +50,31 @@ export const RelationshipProvider: React.FC<{ readonly children?: React.ReactNod
+   const locale = currentLocale?.code
+   const prevLocale = useRef(locale)
+ 
++  // IDs whose request is still in flight, per collection, with the batch that requested them. A requested document
++  // stays `null` until its response arrives, and `documents` changes while it is pending (more cells mount, another
++  // collection's batch comes back), so without this the pending IDs would be requested again on every one of those
++  // changes.
++  const inFlightIDs = useRef<Record<string, Map<string, object>>>({})
++  // The latest documents: for one run after a response has been applied, the debounced copy can still show its IDs as
++  // `null`, when they are no longer in flight.
++  const latestDocuments = useRef(documents)
++
++  useEffect(() => {
++    latestDocuments.current = documents
++  }, [documents])
++
+   const loadRelationshipDocs = useCallback(
+     (reloadAll = false) => {
+       Object.entries(debouncedDocuments).forEach(async ([slug, docs]) => {
+         const idsToLoad: (number | string)[] = []
++        const inFlight = inFlightIDs.current[slug] ?? new Map<string, object>()
++        inFlightIDs.current[slug] = inFlight
+ 
+         Object.entries(docs).forEach(([id, value]) => {
+-          if (value === null || reloadAll) {
++          if (
++            (value === null && latestDocuments.current[slug]?.[id] === null && !inFlight.has(id)) ||
++            reloadAll
++          ) {
+             idsToLoad.push(id)
+           }
+         })
+@@ -94,26 +112,41 @@ export const RelationshipProvider: React.FC<{ readonly children?: React.ReactNod
+ 
+           const query = `?${params.toString()}&${qs.stringify({ select })}`
+ 
+-          const result = await fetch(`${url}${query}`, {
+-            credentials: 'include',
+-            headers: {
+-              'Accept-Language': i18n.language,
+-            },
+-          })
+-
+-          if (result.ok) {
+-            const json = await result.json()
+-            if (json.docs) {
+-              dispatchDocuments({
+-                type: 'ADD_LOADED',
+-                docs: json.docs,
+-                idsToLoad,
+-                relationTo: slug,
+-              })
++          const batch = {}
++          idsToString.forEach((id) => inFlight.set(id, batch))
++
++          try {
++            const result = await fetch(`${url}${query}`, {
++              credentials: 'include',
++              headers: {
++                'Accept-Language': i18n.language,
++              },
++            })
++
++            if (result.ok) {
++              const json = await result.json()
++              if (json.docs) {
++                dispatchDocuments({
++                  type: 'ADD_LOADED',
++                  docs: json.docs,
++                  idsToLoad,
++                  relationTo: slug,
++                })
++              }
++            } else {
++              dispatchDocuments({ type: 'ADD_LOADED', docs: [], idsToLoad, relationTo: slug })
+             }
+-          } else {
+-            dispatchDocuments({ type: 'ADD_LOADED', docs: [], idsToLoad, relationTo: slug })
++          } catch (error) {
++            // the IDs stay `null`: released below, they are requested again on the next change
++            console.error('Error loading relationship documents', error) // eslint-disable-line no-console
+           }
++
++          // a later batch (a locale change) may have taken an ID over: release only this batch's own
++          idsToString.forEach((id) => {
++            if (inFlight.get(id) === batch) {
++              inFlight.delete(id)
++            }
++          })
+         }
+       })
+     },
+diff --git a/test/fields/collections/Relationship/e2e.spec.ts b/test/fields/collections/Relationship/e2e.spec.ts
+index d8cb7e9a..85ddb179 100644
+--- a/test/fields/collections/Relationship/e2e.spec.ts
++++ b/test/fields/collections/Relationship/e2e.spec.ts
+@@ -704,6 +704,80 @@ describe('relationship', () => {
+     await expect(firstOptionLabel).toHaveText('Seeded text document')
+   })
+ 
++  test('should not request related documents again while their batch is pending', async () => {
++    // a row related to a second collection, so the list view loads two batches
++    const {
++      docs: [arrayDoc],
++    } = await payload.find({ collection: 'array-fields' })
++    await createRelationshipFieldDoc({ relationTo: 'array-fields', value: arrayDoc!.id })
++
++    const requestedIDs: string[] = []
++    let heldSlug: string | undefined
++    let releaseHeldBatch: () => void = () => {}
++    const heldBatch = new Promise<void>((resolve) => {
++      releaseHeldBatch = resolve
++    })
++
++    // The list view's relationship cells load their documents in one batch per collection
++    // (`?where[id][in]=...`). Hold the first collection's batch while the other ones answer: the
++    // documents in the held batch must not be requested a second time in the meantime.
++    await page.route(
++      (requestURL) => requestURL.searchParams.has('where[id][in]'),
++      async (route) => {
++        const requestURL = new URL(route.request().url())
++        const slug = requestURL.pathname.split('/').pop()
++
++        for (const id of (requestURL.searchParams.get('where[id][in]') ?? '').split(',')) {
++          requestedIDs.push(`${slug}:${id}`)
++        }
++
++        heldSlug ??= slug
++
++        if (slug === heldSlug) {
++          await heldBatch
++        }
++
++        await route.continue()
++      },
++    )
++
++    try {
++      const otherBatchResponse = page.waitForResponse((response) => {
++        const responseURL = new URL(response.url())
++        return (
++          heldSlug !== undefined &&
++          responseURL.searchParams.has('where[id][in]') &&
++          !responseURL.pathname.endsWith(`/${heldSlug}`)
++        )
++      })
++
++      await page.goto(url.list)
++      await expect(page.locator(tableRowLocator).first()).toBeVisible()
++
++      // another collection's batch has answered while the held one is pending, and the provider's
++      // debounced loader (100 ms) has run again
++      await otherBatchResponse
++      await wait(500)
++
++      const heldBatchResponse = page.waitForResponse((response) => {
++        const responseURL = new URL(response.url())
++        return (
++          responseURL.pathname.endsWith(`/${heldSlug}`) &&
++          responseURL.searchParams.has('where[id][in]')
++        )
++      })
++
++      releaseHeldBatch()
++      await heldBatchResponse
++      await wait(500)
++
++      expect(requestedIDs).toHaveLength(new Set(requestedIDs).size)
++    } finally {
++      releaseHeldBatch()
++      await page.unrouteAll({ behavior: 'ignoreErrors' })
++    }
++  })
++
+   test('should allow filtering by relationship field / equals', async () => {
+     const textDoc = await createTextFieldDoc()
+     await createRelationshipFieldDoc({ relationTo: 'text-fields', value: textDoc.id })

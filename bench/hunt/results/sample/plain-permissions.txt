@@ -1,73 +1,18 @@
 
 == run 1 (reference, no delay): 
-{
-  "query": "bug",
-  "urlQuery": "bug",
-  "main": [
-    "Back",
-    "Article",
-    "Learn more on our documentation",
-    "Create new entry",
-    "1 entry found",
-    "Search for Article",
-    "Clear",
-    "Filters",
-    "View settings",
-    "ID",
-    "TITLE",
-    "DESCRIPTION",
-    "SLUG",
-    "STATUS",
-    "3",
-    "A bug is becoming a meme on the internet",
-    "How a bug on MySQL is becoming a meme on the internet",
-    "a-bug-is-becoming-a-meme-on-the-internet",
-    "Draft",
-    "Row actions"
-  ]
-}
-
-== run 2 (delayed: GET /admin/users/me/permissions +2500 ms): DIFFERENT end state from the reference
-the steps could not be done: locator.click: Timeout 60000ms exceeded.
-page text at the end:
 [
-  "Skip to content",
-  "Strapi DashboardWorkplace",
-  "Home",
-  "Content Manager",
-  "Media Library",
-  "Content-Type Builder",
-  "Deploy",
-  "Marketplace",
-  "Settings",
-  "HH",
-  "Hunt Harness",
-  "Content Manager",
-  "COLLECTION TYPES",
-  "4",
-  "Article",
-  "Author",
-  "Category",
-  "User",
-  "SINGLE TYPES",
-  "2",
-  "About",
-  "Global",
-  "Content Manager",
-  "Learn more on our documentation",
-  "You don't have the permissions to access that content",
-  "The schemas have been successfully loaded"
+  "David Doe",
+  "Create a relation"
 ]
-{
-  "query": null,
-  "urlQuery": null,
-  "main": [
-    "You don't have the permissions to access that content"
-  ]
-}
+
+== run 2 (reference, no delay): 
+[
+  "David Doe",
+  "Create a relation"
+]
 
 == run 3 (delayed: GET /admin/users/me/permissions +2500 ms): DIFFERENT end state from the reference
-the steps could not be done: locator.click: Timeout 60000ms exceeded.
+the steps could not be done: locator.waitFor: Timeout 30000ms exceeded.
 page text at the end:
 [
   "Skip to content",
@@ -97,16 +42,10 @@ page text at the end:
   "You don't have the permissions to access that content",
   "The schemas have been successfully loaded"
 ]
-{
-  "query": null,
-  "urlQuery": null,
-  "main": [
-    "You don't have the permissions to access that content"
-  ]
-}
+[]
 
 == run 4 (delayed: GET /admin/users/me/permissions +2500 ms): DIFFERENT end state from the reference
-the steps could not be done: locator.click: Timeout 60000ms exceeded.
+the steps could not be done: locator.waitFor: Timeout 30000ms exceeded.
 page text at the end:
 [
   "Skip to content",
@@ -136,12 +75,6 @@ page text at the end:
   "You don't have the permissions to access that content",
   "The schemas have been successfully loaded"
 ]
-{
-  "query": null,
-  "urlQuery": null,
-  "main": [
-    "You don't have the permissions to access that content"
-  ]
-}
+[]
 
-3 of 3 delayed run(s) ended differently from the reference, with no GenClass on the page.
+2 of 2 delayed run(s) ended differently from the two reference runs (which agree), with no GenClass on the page.

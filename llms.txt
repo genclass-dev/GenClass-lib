@@ -14,7 +14,7 @@ This file indexes the Markdown sources in the GenClass-lib repository, for `@gen
 ## Install and use
 
 - [INSTALL.md](https://raw.githubusercontent.com/genclass-dev/GenClass-lib/main/docs/runtime/INSTALL.md): every `init` and `remove` flag, the app token, the import, the script tag and the tested project setups
-- [DASHBOARD.md](https://raw.githubusercontent.com/genclass-dev/GenClass-lib/main/docs/runtime/DASHBOARD.md): app dashboards on genclass.dev and the `login`, `connect`, `whoami` and `logout` commands
+- [DASHBOARD.md](https://raw.githubusercontent.com/genclass-dev/GenClass-lib/main/docs/runtime/DASHBOARD.md): app dashboards on genclass.dev and the `login`, `connect`, `whoami`, `logout` and `dashboard` commands
 - [SINKS.md](https://raw.githubusercontent.com/genclass-dev/GenClass-lib/main/docs/runtime/SINKS.md): sending reports to your own logging or endpoint, and the record format
 - [API.md](https://raw.githubusercontent.com/genclass-dev/GenClass-lib/main/docs/runtime/API.md): every export, option, event, action and type
 - [OPTIONS-SPEC.md](https://raw.githubusercontent.com/genclass-dev/GenClass-lib/main/docs/runtime/OPTIONS-SPEC.md): why each configuration option exists and how the options combine

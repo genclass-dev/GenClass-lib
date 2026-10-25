@@ -338,7 +338,8 @@ observing with no download and no worker.
   [TELEMETRY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md#interaction-analytics).
 - **The measured visual checks send nothing**, and sinks send only where you point them.
 - **The CLI** contacts genclass.dev only for the command you run: `init` creates a dashboard only after you approve
-  its diff (it sends `package.json`'s `name`); `login`, `connect`, `whoami` and `logout` talk to your account
+  its diff (it sends `package.json`'s `name`); `login`, `connect`, `whoami`, `logout` and, signed in without a private
+  link in the folder, `dashboard` talk to your account
   ([DASHBOARD.md](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/DASHBOARD.md#what-does-the-cli-send-to-genclassdev)).
 - **Privacy policy** for the diagnostics and for genclass.dev accounts (what is collected, how long it is kept, your
   rights): [PRIVACY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/PRIVACY.md).
@@ -534,7 +535,8 @@ writes), the meta tag or the script tag.
 **New in `0.3.0`** (`0.2.x` ignores a token). Each web app gets a public **project key** (token: `gc_` + 22 letters and
 digits) that groups its diagnostics on a dashboard at genclass.dev, kept in a GenClass account (the CLI's `login`,
 then `connect`, `whoami`, `logout`) or behind one private link per app (anyone with the link can open it), which
-`init` saves in `.genclass.local`. The dashboard is free for every app, with 90 days of history (1 year on
+`init` saves in `.genclass.local` and `npx @genclass/runtime@beta dashboard` prints again (from `0.3.0-beta.2`;
+`--open` opens it). The dashboard is free for every app, with 90 days of history (1 year on
 Enterprise), and so is your own classifier, which a person from GenClass trains on your app's traffic, bug reports or
 labelled examples once you ask ([pricing](https://genclass.dev/pricing)). It needs telemetry on and a deployed host:
 local hosts do not send by default. Pass a key with `GenClass.init({ token })`, `data-token`, `token=` in the meta tag
@@ -801,7 +803,8 @@ GenClass.init({ model: { baseUrl: "/genclass-model/", ortWasmPaths: "/genclass-m
   `https://genclass.dev` to `connect-src`, or pass `telemetry: false`. A blocked page stops after 3 failed requests.
 - A webhook sink on another origin needs that origin in `connect-src`.
 
-CLI: `init`, `remove`, `login`, `connect`, `whoami`, `logout`, `fetch-model <dir>` (self-hosting) and `info <dir>`;
+CLI: `init`, `remove`, `login`, `connect`, `whoami`, `logout`, `dashboard`, `fetch-model <dir>` (self-hosting) and
+`info <dir>`;
 `npx @genclass/runtime@beta --help` lists them, and `init --help` and `login --help` give every flag (Next.js-only
 `--strategy`: INSTALL.md).
 

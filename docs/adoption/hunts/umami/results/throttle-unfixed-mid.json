@@ -1,0 +1,120 @@
+{
+  "app": "http://localhost:3000",
+  "at": "2026-10-25T00:01:53.641Z",
+  "results": [
+    {
+      "latency": 200,
+      "page": "websites",
+      "typed": "shop stu",
+      "trials": 10,
+      "lost": 10,
+      "values": [
+        "shopstu",
+        "shopstu",
+        "shopstu",
+        "shopstu",
+        "shopstu",
+        "shopstu",
+        "shopstu",
+        "shopstu",
+        "shopstu",
+        "shopstu"
+      ]
+    },
+    {
+      "latency": 200,
+      "page": "users",
+      "typed": "anna_sto",
+      "trials": 10,
+      "lost": 10,
+      "values": [
+        "annasto",
+        "annasto",
+        "annasto",
+        "annasto",
+        "annasto",
+        "annasto",
+        "annasto",
+        "annasto",
+        "annasto",
+        "annasto"
+      ]
+    },
+    {
+      "latency": 250,
+      "page": "websites",
+      "typed": "shop stu",
+      "trials": 10,
+      "lost": 10,
+      "values": [
+        "shopstu",
+        "shopstu",
+        "shopstu",
+        "shopstu",
+        "shopstu",
+        "shopstu",
+        "shopstu",
+        "shopstu",
+        "shopstu",
+        "shopstu"
+      ]
+    },
+    {
+      "latency": 250,
+      "page": "users",
+      "typed": "anna_sto",
+      "trials": 10,
+      "lost": 10,
+      "values": [
+        "annasto",
+        "annasto",
+        "annasto",
+        "annasto",
+        "annasto",
+        "annasto",
+        "annasto",
+        "annasto",
+        "annasto",
+        "annasto"
+      ]
+    },
+    {
+      "latency": 300,
+      "page": "websites",
+      "typed": "shop stu",
+      "trials": 10,
+      "lost": 10,
+      "values": [
+        "shoptu",
+        "shoptu",
+        "shopstu",
+        "shoptu",
+        "shoptu",
+        "shoptu",
+        "shoptu",
+        "shoptu",
+        "shopstu",
+        "shoptu"
+      ]
+    },
+    {
+      "latency": 300,
+      "page": "users",
+      "typed": "anna_sto",
+      "trials": 10,
+      "lost": 10,
+      "values": [
+        "annato",
+        "annasto",
+        "annato",
+        "annato",
+        "annato",
+        "annasto",
+        "annasto",
+        "annasto",
+        "annato",
+        "annato"
+      ]
+    }
+  ]
+}

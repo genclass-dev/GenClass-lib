@@ -44,6 +44,30 @@ function timerDelay(name: string): number {
   return m ? Number(m[1]) * (m[2] === "s" ? 1000 : 1) : 0;
 }
 
+/**
+ * Paths of one write that the store's flattening re-cut: a path changed together with one of its ancestors or
+ * descendants (fields are disjoint, so one of them existed only before the write and the other only after). That
+ * happens when an object crosses the hub's limits (more than 32 keys, or a store past 200 fields, src/state/fields.ts):
+ * its fields become one, or one becomes its fields, whatever wrote elsewhere in the store. A re-cut path's "change" is
+ * how GenClass lays the store out, not data the write put there, so it is never compared as an overwrite.
+ */
+function recut(paths: string[]): Set<string> {
+  const set = new Set(paths);
+  const out = new Set<string>();
+  for (const p of paths) {
+    let i = p.lastIndexOf(".");
+    while (i > 0) {
+      const up = p.slice(0, i);
+      if (set.has(up)) {
+        out.add(p);
+        out.add(up);
+      }
+      i = up.lastIndexOf(".");
+    }
+  }
+  return out;
+}
+
 /** One user action (a typing burst is one action with its final value). */
 export interface ActStep {
   k: "act";
@@ -254,7 +278,10 @@ export class Recorder {
     if (Array.isArray(d.summary)) s.summary = (d.summary as string[]).slice(0, 3).map((x) => String(x).slice(0, 160));
     this.push(s);
     // a response's chain, while it is still that response's (not a late timer or interval it scheduled)
-    if (net && !d.user && !backfill && e.t - (net.end ?? net.start) <= CHAIN_WINDOW_MS) for (const p of all.slice(0, MAX_PATHS_CHECKED)) this.checkOverNewer(net, p, e.t);
+    if (net && !d.user && !backfill && e.t - (net.end ?? net.start) <= CHAIN_WINDOW_MS) {
+      const cut = recut(all);
+      for (const p of all.slice(0, MAX_PATHS_CHECKED)) if (!cut.has(p)) this.checkOverNewer(net, p, e.t);
+    }
   }
 
   /**
@@ -272,12 +299,18 @@ export class Recorder {
 
   /**
    * Since `x` started, did a newer operation (started after x, outside x's chain) or the user write `path`? The same
-   * relation as the runtime's writtenOver (src/runtime.ts) and the "newer data" facts.
+   * relation as the runtime's writtenOver (src/runtime.ts) and the "newer data" facts, except that a write that only
+   * reorders the field's elements or entries is not an overwrite here (the runtime's own facts are unchanged).
    */
   private checkOverNewer(x: OpRec, path: string, t: number): void {
     if (x.genclass || this.witnesses.length >= MAX_WITNESSES) return;
     const id = `${x.id}|${path}`;
     if (this.seenWitness.has(id)) return;
+    // a write that only reordered the field's elements (the same multiset) or entries (the same keys and values) put
+    // nothing older in place of anything newer: a list of cache keys re-sorted by arrival, not an overwrite
+    const f = this.rt.hub.field(path);
+    const delta = f?.hist[f.hist.length - 1]?.delta;
+    if (delta !== undefined && (delta.startsWith("o:") || delta === "c:")) return;
     const log = this.rt.hub.logSince(path, x.startSeq);
     // the newest qualifying write before this one
     for (let i = log.length - 1; i >= 0; i--) {
@@ -308,7 +341,6 @@ export class Recorder {
       if (ba !== undefined) wit.byAct = ba;
       const oa = this.actOf(w);
       if (oa !== undefined) wit.overAct = oa;
-      const f = this.rt.hub.field(path);
       const h = f?.hist[f.hist.length - 1];
       if (h) wit.change = `${this.redact(path, h.before)} → ${this.redact(path, h.after)}`.slice(0, 200);
       this.addWitness(wit);

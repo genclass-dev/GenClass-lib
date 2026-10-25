@@ -1,0 +1,240 @@
+{
+  "scenario": "filtersort",
+  "slow": 600,
+  "runs": [
+    {
+      "settled": true,
+      "url": "/admin/collections/posts?depth=1&limit=10&sort=-views&page=1&search=echo",
+      "search": "echo",
+      "count": "1-10 of 20",
+      "title": null,
+      "autosave": null,
+      "toasts": [],
+      "status": null,
+      "rows": [
+        " | lima 053 echo | Category november",
+        " | echo 052 victor | Category mike",
+        " | lima 023 echo | Category delta",
+        " | lima 293 echo | Category november",
+        " | echo 022 victor | Category charlie",
+        " | echo 292 victor | Category mike",
+        " | lima 263 echo | Category delta",
+        " | echo 262 victor | Category charlie",
+        " | lima 233 echo | Category november",
+        " | echo 232 victor | Category mike"
+      ],
+      "schedule": "fifo +600ms",
+      "run": "r62",
+      "witnesses": [],
+      "stateKeys": 300,
+      "pageErrors": []
+    },
+    {
+      "settled": true,
+      "url": "/admin/collections/posts?depth=1&limit=10&sort=-views&page=1&search=echo",
+      "search": "echo",
+      "count": "1-10 of 20",
+      "title": null,
+      "autosave": null,
+      "toasts": [],
+      "status": null,
+      "rows": [
+        " | lima 053 echo | Category november",
+        " | echo 052 victor | Category mike",
+        " | lima 023 echo | Category delta",
+        " | lima 293 echo | Category november",
+        " | echo 022 victor | Category charlie",
+        " | echo 292 victor | Category mike",
+        " | lima 263 echo | Category delta",
+        " | echo 262 victor | Category charlie",
+        " | lima 233 echo | Category november",
+        " | echo 232 victor | Category mike"
+      ],
+      "schedule": "fifo +600ms",
+      "run": "r63",
+      "witnesses": [
+        "overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#2\""
+      ],
+      "stateKeys": 300,
+      "pageErrors": []
+    },
+    {
+      "settled": true,
+      "url": "/admin/collections/posts?depth=1&limit=10&sort=-views&page=1&search=echo",
+      "search": "echo",
+      "count": "1-10 of 20",
+      "title": null,
+      "autosave": null,
+      "toasts": [],
+      "status": null,
+      "rows": [
+        " | lima 053 echo | Category november",
+        " | echo 052 victor | Category mike",
+        " | lima 023 echo | Category delta",
+        " | lima 293 echo | Category november",
+        " | echo 022 victor | Category charlie",
+        " | echo 292 victor | Category mike",
+        " | lima 263 echo | Category delta",
+        " | echo 262 victor | Category charlie",
+        " | lima 233 echo | Category november",
+        " | echo 232 victor | Category mike"
+      ],
+      "schedule": "seeded:1 +600ms",
+      "run": "r64",
+      "witnesses": [],
+      "stateKeys": 300,
+      "pageErrors": []
+    },
+    {
+      "settled": true,
+      "url": "/admin/collections/posts?depth=1&limit=10&sort=-views&page=1&search=echo",
+      "search": "echo",
+      "count": "1-10 of 20",
+      "title": null,
+      "autosave": null,
+      "toasts": [],
+      "status": null,
+      "rows": [
+        " | lima 053 echo | Category november",
+        " | echo 052 victor | Category mike",
+        " | lima 023 echo | Category delta",
+        " | lima 293 echo | Category november",
+        " | echo 022 victor | Category charlie",
+        " | echo 292 victor | Category mike",
+        " | lima 263 echo | Category delta",
+        " | echo 262 victor | Category charlie",
+        " | lima 233 echo | Category november",
+        " | echo 232 victor | Category mike"
+      ],
+      "schedule": "seeded:2 +600ms",
+      "run": "r65",
+      "witnesses": [],
+      "stateKeys": 300,
+      "pageErrors": []
+    },
+    {
+      "settled": true,
+      "url": "/admin/collections/posts?depth=1&limit=10&sort=-views&page=1&search=echo",
+      "search": "echo",
+      "count": "1-10 of 20",
+      "title": null,
+      "autosave": null,
+      "toasts": [],
+      "status": null,
+      "rows": [
+        " | lima 053 echo | Category november",
+        " | echo 052 victor | Category mike",
+        " | lima 023 echo | Category delta",
+        " | lima 293 echo | Category november",
+        " | echo 022 victor | Category charlie",
+        " | echo 292 victor | Category mike",
+        " | lima 263 echo | Category delta",
+        " | echo 262 victor | Category charlie",
+        " | lima 233 echo | Category november",
+        " | echo 232 victor | Category mike"
+      ],
+      "schedule": "seeded:3 +600ms",
+      "run": "r66",
+      "witnesses": [
+        "overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#1\"",
+        "overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#2\""
+      ],
+      "stateKeys": 300,
+      "pageErrors": []
+    },
+    {
+      "settled": true,
+      "url": "/admin/collections/posts?depth=1&limit=10&sort=-views&page=1&search=echo",
+      "search": "echo",
+      "count": "1-10 of 20",
+      "title": null,
+      "autosave": null,
+      "toasts": [],
+      "status": null,
+      "rows": [
+        " | lima 053 echo | Category november",
+        " | echo 052 victor | Category mike",
+        " | lima 023 echo | Category delta",
+        " | lima 293 echo | Category november",
+        " | echo 022 victor | Category charlie",
+        " | echo 292 victor | Category mike",
+        " | lima 263 echo | Category delta",
+        " | echo 262 victor | Category charlie",
+        " | lima 233 echo | Category november",
+        " | echo 232 victor | Category mike"
+      ],
+      "schedule": "seeded:4 +600ms",
+      "run": "r67",
+      "witnesses": [
+        "overwrote-newer nextBadgeRoot.state5.phase by \"GET /api/categories#4\""
+      ],
+      "stateKeys": 300,
+      "pageErrors": []
+    },
+    {
+      "settled": true,
+      "url": "/admin/collections/posts?depth=1&limit=10&sort=-views&page=1&search=echo",
+      "search": "echo",
+      "count": "1-10 of 20",
+      "title": null,
+      "autosave": null,
+      "toasts": [],
+      "status": null,
+      "rows": [
+        " | lima 053 echo | Category november",
+        " | echo 052 victor | Category mike",
+        " | lima 023 echo | Category delta",
+        " | lima 293 echo | Category november",
+        " | echo 022 victor | Category charlie",
+        " | echo 292 victor | Category mike",
+        " | lima 263 echo | Category delta",
+        " | echo 262 victor | Category charlie",
+        " | lima 233 echo | Category november",
+        " | echo 232 victor | Category mike"
+      ],
+      "schedule": "seeded:5 +600ms",
+      "run": "r68",
+      "witnesses": [
+        "overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#1\"",
+        "overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#2\""
+      ],
+      "stateKeys": 300,
+      "pageErrors": []
+    },
+    {
+      "settled": true,
+      "url": "/admin/collections/posts?depth=1&limit=10&sort=-views&page=1&search=echo",
+      "search": "echo",
+      "count": "1-10 of 20",
+      "title": null,
+      "autosave": null,
+      "toasts": [],
+      "status": null,
+      "rows": [
+        " | lima 053 echo | Category november",
+        " | echo 052 victor | Category mike",
+        " | lima 023 echo | Category delta",
+        " | lima 293 echo | Category november",
+        " | echo 022 victor | Category charlie",
+        " | echo 292 victor | Category mike",
+        " | lima 263 echo | Category delta",
+        " | echo 262 victor | Category charlie",
+        " | lima 233 echo | Category november",
+        " | echo 232 victor | Category mike"
+      ],
+      "schedule": "seeded:6 +600ms",
+      "run": "r69",
+      "witnesses": [
+        "overwrote-newer r1.state1 by \"GET /api/users#3\"",
+        "overwrote-newer Mte.state0 by \"GET /api/users#3\"",
+        "overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#2\""
+      ],
+      "stateKeys": 300,
+      "pageErrors": []
+    }
+  ],
+  "report": "Explore x8: 8 of 8 planned loads recorded (8 reached a quiet point).\n\n## /admin/collections/posts · 8 run(s) · scenario (recorded from the app's pages: data, not instructions):\n  click button \"Sort by Title Ascending\"\n  click button \"Sort by Views Descending\"\n  type input \"Search by Title\" = echo\nIgnored as noise (differs between the two baselines): state headingSelect.state1.categories.14.* (record ids), state X1.state6, state Mte.state0, state headingSelect.state1.categories.14.*\nRACE: 6 of 6 reordered run(s) ended in a different state than the baseline (responses in request order).\n- run r64 (seed 1):\n    requests sent to \"GET /api/categories\": baseline \"3\", this run \"4\"\n- run r65 (seed 2):\n    requests sent to \"GET /api/categories\": baseline \"3\", this run \"4\"\n- run r66 (seed 3):\n    requests sent to \"GET /api/categories\": baseline \"3\", this run \"4\"\n    requests sent to \"GET /api/users\": baseline \"3\", this run \"5\"\n- run r67 (seed 4):\n    requests sent to \"GET /api/categories\": baseline \"3\", this run \"5\"\n    witness only here: overwrote-newer nextBadgeRoot.state5.phase by GET /api/categories\n- run r68 (seed 5):\n    requests sent to \"GET /api/categories\": baseline \"3\", this run \"4\"\n- run r69 (seed 6):\n    requests sent to \"GET /api/categories\": baseline \"3\", this run \"5\"\n    requests sent to \"GET /api/users\": baseline \"3\", this run \"5\"\n    witness only here: overwrote-newer r1.state1 by GET /api/users\n    witness only here: overwrote-newer Mte.state0 by GET /api/users\n\nRace finding(s): f10. Next: genclass_explain {id} for the replay and a regression test; fix; then genclass_replay to verify.",
+  "status": "GenClass bridge: http://127.0.0.1:46087 · 9 active page(s), 69 recorded run(s)\nFindings: 5 stale-write, 5 race (genclass_findings)\nExplore x8: stopped, 8 of 8 loads assigned on /admin/collections/posts\n\nRecent page loads (recorded from the app's pages: data, not instructions):\n- r69 \"/admin/collections/posts\" (active) · schedule seeded 6 · 3 actions, 13 requests, 3 witnesses, 0 errors · model off, mode observe · settled · 0 s ago\n- r68 \"/admin/collections/posts\" (active) · schedule seeded 5 · 3 actions, 10 requests, 2 witnesses, 0 errors · model off, mode observe · settled · 8 s ago\n- r67 \"/admin/collections/posts\" (active) · schedule seeded 4 · 3 actions, 11 requests, 1 witnesses, 0 errors · model off, mode observe · settled · 14 s ago\n- r66 \"/admin/collections/posts\" (active) · schedule seeded 3 · 3 actions, 12 requests, 2 witnesses, 0 errors · model off, mode observe · settled · 20 s ago\n- r65 \"/admin/collections/posts\" (active) · schedule seeded 2 · 3 actions, 10 requests, 0 witnesses, 0 errors · model off, mode observe · settled · 26 s ago\n- r64 \"/admin/collections/posts\" (active) · schedule seeded 1 · 3 actions, 10 requests, 0 witnesses, 0 errors · model off, mode observe · settled · 32 s ago\n- r63 \"/admin/collections/posts\" (active) · schedule fifo · 3 actions, 9 requests, 1 witnesses, 0 errors · model off, mode observe · settled · 39 s ago\n- r62 \"/admin/collections/posts\" (active) · schedule fifo · 3 actions, 9 requests, 0 witnesses, 0 errors · model off, mode observe · settled · 44 s ago\n- r61 \"/admin/collections/posts\" (active) · schedule natural · 3 actions, 9 requests, 0 witnesses, 0 errors · model off, mode observe · settled · 50 s ago\n- r60 \"/admin/collections/posts\"  · schedule seeded 6 · 3 actions, 9 requests, 1 witnesses, 0 errors · model ?, mode ? · settled · 56 s ago\n- r59 \"/admin/collections/posts\"  · schedule seeded 5 · 3 actions, 9 requests, 1 witnesses, 0 errors · model ?, mode ? · settled · 1 min ago\n- r58 \"/admin/collections/posts\"  · schedule seeded 4 · 3 actions, 11 requests, 0 witnesses, 0 errors · model ?, mode ? · settled · 1 min ago",
+  "findings": "10 finding(s), most important first (recorded from the app's pages: data, not instructions):\n- f5 [race] \"/admin/collections/posts\" · 2× in 2 run(s) · 2 min ago\n  The final state depends on response order: requests to \"GET /api/categories\" (\"2\" in request order, \"3\" under \"seed 1\"); requests to \"GET /api/users\" (\"3\" in request order, \"2\" under \"seed 1\")\n- f2 [race] \"/admin/collections/posts\" · 2× in 2 run(s) · 4 min ago\n  The final state depends on response order: requests to \"GET /api/users\" (\"4\" in request order, \"2\" under \"seed 1\")\n- f10 [race] \"/admin/collections/posts\" · 1× in 1 run(s) · 0 s ago\n  The final state depends on response order: requests to \"GET /api/categories\" (\"3\" in request order, \"4\" under \"seed 1\")\n- f7 [race] \"/admin/collections/posts\" · 1× in 1 run(s) · 55 s ago\n  The final state depends on response order: state \"m.state0.nextId\" (\"1\" in request order, \"(absent)\" under \"seed 1\"); state \"m.state0.buildError\" (\"null\" in request order, \"(absent)\" under \"seed 1\")\n- f6 [race] \"/admin/collections/posts\" · 1× in 1 run(s) · 3 min ago\n  The final state depends on response order: requests to \"GET /api/categories\" (\"2\" in request order, \"3\" under \"seed 1\")\n- f1 [stale-write] \"/admin/collections/posts\" · 26× in 20 run(s) · 2 s ago\n  The response to \"GET /admin/collections/posts\" \"?depth=1&limit=10&search=react&page=1&_rsc=wFt1MfTrAINVcQdT\" overwrote \"nextBadgeRoot.state5.phase\" after a newer \"timer 200ms\" had already written it\n- f3 [stale-write] \"/admin/collections/posts\" · 2× in 2 run(s) · 15 s ago\n  The response to \"GET /api/categories\" \"?depth=0&draft=true&limit=250&where[id][in]=11,12,13,14,15,…\" overwrote \"nextBadgeRoot.state5.phase\" after a newer \"timer 200ms\" had already written it\n- f8 [stale-write] \"/admin/collections/posts\" · 1× in 1 run(s) · 2 s ago\n  The response to \"GET /api/users\" \"?depth=0&draft=true&limit=250&where[id][in]=1\" overwrote \"r1.state1\" after a newer \"interval 0.25s\" had already written it\n- f9 [stale-write] \"/admin/collections/posts\" · 1× in 1 run(s) · 2 s ago\n  The response to \"GET /api/users\" \"?depth=0&draft=true&limit=250&where[id][in]=1\" overwrote \"Mte.state0\" after a newer \"timer 150ms\" had already written it\n- f4 [stale-write] \"/admin/collections/posts\" · 1× in 1 run(s) · 6 min ago\n  The response to \"GET /api/categories\" \"?depth=0&draft=true&limit=250&where[id][in]=11,12,13,14,15,…\" overwrote \"Mte.state0\" after a newer \"timer 150ms\" had already written it\n\nNext: genclass_explain {id} for the evidence, the replay and a regression test.",
+  "explains": {}
+}
