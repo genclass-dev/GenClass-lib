@@ -521,6 +521,20 @@ main.wrap:has(.app){max-width:1360px}
 .side nav.snav a span{margin-left:auto}
 .snav a::before{content:"";width:16px;height:16px;flex:none;background:currentColor;opacity:.8;-webkit-mask:var(--ic) center/16px no-repeat;mask:var(--ic) center/16px no-repeat}
 .snav a[href="#top"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Crect x=%223%22 y=%223%22 width=%227%22 height=%229%22 rx=%221%22/%3E%3Crect x=%2214%22 y=%223%22 width=%227%22 height=%225%22 rx=%221%22/%3E%3Crect x=%2214%22 y=%2212%22 width=%227%22 height=%229%22 rx=%221%22/%3E%3Crect x=%223%22 y=%2216%22 width=%227%22 height=%225%22 rx=%221%22/%3E%3C/svg%3E")}.snav a[href="#found"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z%22/%3E%3Cpath d=%22M12 9v4M12 17h.01%22/%3E%3C/svg%3E")}.snav a[href="#where"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z%22/%3E%3Cpath d=%22M14 2v6h6M16 13H8M16 17H8M10 9H8%22/%3E%3C/svg%3E")}.snav a[href="#did"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z%22/%3E%3Cpath d=%22m9 12 2 2 4-4%22/%3E%3C/svg%3E")}.snav a[href="#recent-s"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M22 12h-4l-3 9L9 3l-3 9H2%22/%3E%3C/svg%3E")}.snav a[href="#visits"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M9 9l5 12 1.8-5.2L21 14z%22/%3E%3Cpath d=%22M7.2 2.2 8 5.1M5.1 8l-2.9-.8M14 4.1 12 6M6 12l-1.9 2%22/%3E%3C/svg%3E")}.snav a[href="#health-s"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M19 14c1.5-1.5 3-3.2 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.8 0-3 .5-4.5 2-1.5-1.5-2.7-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4 3 5.5l7 7z%22/%3E%3C/svg%3E")}.snav a[href="#setup"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M12 22v-5M9 8V2M15 8V2M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8z%22/%3E%3C/svg%3E")}.snav a[href="#connect"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M12 22v-5M9 8V2M15 8V2M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8z%22/%3E%3C/svg%3E")}.snav a[href="#forwarding"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22m22 2-7 20-4-9-9-4z%22/%3E%3Cpath d=%22M22 2 11 13%22/%3E%3C/svg%3E")}.snav a[href="#export"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3%22/%3E%3C/svg%3E")}
+.snav a[href="#loop"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M20 12a8 8 0 1 1-2.3-5.7%22/%3E%3Cpath d=%22M20 3v5h-5%22/%3E%3C/svg%3E")}
+/* the closed loop (Fig. 3): an SVG the script builds from the stats; one row per problem kind, the shared chain on the right */
+.loop-lead,.loop-foot{font-size:14.5px;color:var(--ink2);max-width:80ch;margin-top:14px}
+.flowwrap{overflow-x:auto;margin-top:18px}
+.flow{display:block;width:100%;min-width:760px;height:auto;font-family:var(--sans)}
+.flow rect.node{fill:var(--panel);stroke:var(--rule)}
+.flow rect.node.gate{stroke:var(--warn)}
+.flow rect.node.quiet{stroke-dasharray:4 3}
+.flow .nt{font:500 14px var(--sans);fill:var(--ink)}
+.flow .nb{font:12px var(--sans);fill:var(--ink2)}
+.flow .col{font:500 11px var(--mono);fill:var(--ink3);letter-spacing:.06em}
+.flow .edge{fill:none;stroke:var(--ink3);stroke-width:1.2}
+.flow .edge.dim{stroke-dasharray:5 4}
+.flow marker path{fill:var(--ink3)}
 .crumbs{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font:12.5px var(--mono);color:var(--ink3);margin-bottom:10px}
 .crumbs a{color:var(--ink2);text-decoration:none}
 .crumbs a:hover{color:var(--ink)}
@@ -974,6 +988,76 @@ const DASH_JS = `
     document.getElementById("c-visits").textContent = fmt(views);
   }
 
+  // ---------- the closed loop (Fig. 3): this app's problems, what the agent does with each, the shared fix, prove, ship
+  var STEPS = {
+    stale: function(r){ return "genclass_explore with focus on the request behind " + r + ": the same steps, its responses delivered later; genclass_replay of the stale order: reproduced. The generated test asserts the newest query's results stay."; },
+    duplicate: function(r){ return "genclass_replay of the double click on " + r + "; the identical-in-flight witness names both requests. The generated test asserts one request per click."; },
+    conflict: function(r){ return "genclass_explore reorders the overlapping writes on " + r + "; the overwrote-newer witness names the field. The generated test asserts the newer value stays."; },
+    failing: function(r){ return "genclass_analytics local: the failure streak and p95 of the endpoint behind " + r + "; genclass_explore with slow_ms shows what the page does while it fails. The test asserts the visible error state."; },
+    transient: function(r){ return "genclass_analytics local: when the endpoint behind " + r + " fails once; genclass_explore with slow_ms. The test asserts the retry and what the user sees."; },
+    slow: function(r){ return "genclass_analytics local: p95 and the slow runs behind " + r + "; genclass_explore with slow_ms for what the page shows while it waits."; },
+    inconsistent: function(r){ return "genclass_explore on " + r + "; the relation that broke (a count against its list) is the generated test's assertion."; },
+    overload: function(r){ return "genclass_analytics local: the hot request rate on " + r + "; the generated test asserts the request count once the trigger is debounced."; }
+  };
+  function stepFor(k, r){ return (STEPS[k] || function(x){ return "genclass_explain on the finding from " + x + ", then genclass_replay of the recorded order; the generated test asserts what the operation normally writes."; })(r); }
+  function wrapText(t, max){
+    var words = String(t).split(" "), lines = [], cur = "";
+    words.forEach(function(w){ if ((cur + " " + w).trim().length > max && cur) { lines.push(cur); cur = w; } else cur = (cur + " " + w).trim(); });
+    if (cur) lines.push(cur); return lines;
+  }
+  function node(g, x, y, w, h, cls, title, lines, color, data){
+    var r = svg("rect", { x: x, y: y, width: w, height: h, rx: 2, "class": "node" + (cls ? " " + cls : "") }); g.appendChild(r);
+    if (color) g.appendChild(svg("rect", { x: x, y: y, width: 4, height: h, fill: color }));
+    var t = svg("text", { x: x + 14, y: y + 20, "class": "nt" }); t.textContent = title; g.appendChild(t);
+    var body = svg("text", { x: x + 14, y: y + 38, "class": "nb" });
+    lines.slice(0, 5).forEach(function(l, i){ var ts = svg("tspan", { x: x + 14, dy: i ? 13.5 : 0 }); ts.textContent = l; body.appendChild(ts); });
+    g.appendChild(body);
+    if (data) for (var k in data) r.setAttribute("data-" + k, data[k]);
+    return r;
+  }
+  function edge(g, d, dim){ g.appendChild(svg("path", { d: d, "class": "edge" + (dim ? " dim" : ""), "marker-end": "url(#fa)" })); }
+  function loop(S){
+    var B = S.breakdowns, T0 = S.totals, prev = S.previous || {}, host = document.getElementById("loopsvg"); if (!host) return;
+    host.textContent = "";
+    var byIssue = issues(B), recentBy = {};
+    (S.recent || []).forEach(function(r){ if (r.kind === "detect" && r.diagnosis && r.route) { var m = recentBy[r.diagnosis] = recentBy[r.diagnosis] || {}; m[r.route] = (m[r.route] || 0) + 1; } });
+    var list = (B.detect_diagnosis || []).filter(function(x){ return x.key !== "expected"; }).slice(0, 5);
+    var n = Math.max(list.length, 1), R = 118, NH = 102, W = 1000, obsY = n * R + 28, H = Math.max(obsY + 72, 3 * R) + 8;
+    host.setAttribute("viewBox", "0 0 " + W + " " + H);
+    var defs = svg("defs"), m = svg("marker", { id: "fa", viewBox: "0 0 10 10", refX: "9", refY: "5", markerWidth: "7", markerHeight: "7", orient: "auto-start-reverse" });
+    m.appendChild(svg("path", { d: "M0 0L10 5L0 10z" })); defs.appendChild(m); host.appendChild(defs);
+    var g = svg("g"); host.appendChild(g);
+    ["What broke", "What your agent does with it", "Then, for every fix"].forEach(function(t, i){ var c = svg("text", { x: [0, 370, 740][i], y: 12, "class": "col" }); c.textContent = t.toUpperCase(); g.appendChild(c); });
+    if (!list.length) {
+      node(g, 0, 24, 300, NH, "quiet", "Nothing broke in this period", ["GenClass watched " + plural(T0.sessions || 0, "page load", "page loads") + " and found no problem."], null, { s: "problem", k: "none" });
+      node(g, 370, 24, 300, NH, "quiet", "Nothing to hand to an agent", ["Keep watching; a new problem shows here first."], null, { s: "agent", k: "none" });
+      edge(g, "M300 75 H370");
+    }
+    list.forEach(function(x, i){
+      var y = 24 + i * R, t = T(x.key), color = colorOf(slotOf(x.key));
+      var where = (byIssue[x.key] || []).slice().sort(function(a, b2){ return b2.count - a.count; });
+      if (!where.length && recentBy[x.key]) where = Object.keys(recentBy[x.key]).map(function(r){ return { route: r, count: recentBy[x.key][r] }; }).sort(function(a, b2){ return b2.count - a.count; });
+      var pages = where.slice(0, 2).map(function(w2){ return w2.route + " (" + fmt(w2.count) + ")"; }).join(", ");
+      var lines = wrapText(t.what || "", 46).slice(0, 2); if (pages) lines.push("on " + pages);
+      node(g, 0, y, 300, NH, null, t.name + ": " + fmt(x.count), lines, color, { s: "problem", k: x.key });
+      var top = where.length ? where[0].route : "the page";
+      node(g, 370, y, 300, NH, null, "Reproduce, then write the test", wrapText(stepFor(x.key, top), 46).slice(0, 5), null, { s: "agent", k: x.key });
+      edge(g, "M300 " + (y + 51) + " H370");
+      edge(g, "M670 " + (y + 51) + " C 705 " + (y + 51) + ", 705 75, 740 75");
+    });
+    node(g, 740, 24, 260, NH, null, "Fix", wrapText("The agent edits the code with the evidence in causal order from genclass_explain.", 40), null, { s: "fix" });
+    node(g, 740, 24 + R, 260, NH, null, "Prove", wrapText("Replay after the fix: not reproduced. @genclass/playwright posts the report on the pull request.", 40), null, { s: "prove" });
+    node(g, 740, 24 + 2 * R, 260, NH, "gate", "Ship: a person decides", wrapText("Reads the test and the report, merges, deploys. Nothing merges itself.", 40), "var(--warn)", { s: "ship" });
+    edge(g, "M870 " + (24 + NH) + " V " + (24 + R)); edge(g, "M870 " + (24 + R + NH) + " V " + (24 + 2 * R));
+    var d = (T0.detections || 0) - (prev.detections || 0);
+    var trend = prev.detections || T0.detections ? "Problems " + (d < 0 ? "down " + fmt(-d) : d > 0 ? "up " + fmt(d) : "unchanged") + " vs " + PREV[range] + (d < 0 ? ": a fix is holding, or traffic fell." : ".") : "Nothing to compare with yet.";
+    node(g, 0, obsY, 300, 64, "quiet", "Observe: " + plural(T0.sessions || 0, "page load", "page loads") + " watched", [fmt(T0.decisions || 0) + " decisions, all made on the device.", trend], null, { s: "observe" });
+    edge(g, "M870 " + (24 + 2 * R + NH) + " V " + (obsY + 32) + " H 300", true);
+    var lbl = svg("text", { x: 320, y: obsY + 28, "class": "nb" }); lbl.textContent = "then this list shrinks"; g.appendChild(lbl);
+    edge(g, "M150 " + obsY + " V " + (24 + (n - 1) * R + NH + 8));
+    var foot = document.getElementById("loop-foot");
+    if (foot) foot.textContent = "What the agent found, replayed and fixed stays on the developer's machine today; reporting it here is the next step. Connect an agent: npx -y @genclass/mcp@0.1.0 init in the project and connectAgent(rt) in the dev build. As a service, GenClass runs the loop for your developers, hosted or inside your network.";
+  }
   function render(S){
     var live = !!S.lastEvent, st = document.getElementById("status");
     st.classList.toggle("on", live);
@@ -983,7 +1067,7 @@ const DASH_JS = `
     document.getElementById("content").classList.toggle("hidden", !live);
     var per = document.getElementById("period"); if (per) per.classList.toggle("hidden", !live);
     if (!live) { var ins = document.getElementById("install"); if (ins) ins.open = true; return; }
-    summary(S); tiles(S); trend(S); possibleTrend(S); cards(S); possibleCards(S); pages(S); acted(S); health(S); recent(S); visits(S); advanced(S);
+    summary(S); tiles(S); trend(S); possibleTrend(S); cards(S); possibleCards(S); pages(S); acted(S); health(S); loop(S); recent(S); visits(S); advanced(S);
     var B2 = S.breakdowns, T2 = S.totals;
     document.getElementById("c-trend").textContent = fmt(T2.detections);
     document.getElementById("c-found").textContent = String((B2.detect_diagnosis || []).filter(function(x){ return x.key !== "expected"; }).length);
@@ -998,7 +1082,7 @@ const DASH_JS = `
   // the link, so a view can be linked to and the back button works. While an app waits for its first event the view
   // is Connect.
   (function(){
-    var VIEW = { top: "overview", trend: "overview", found: "problems", where: "pages", did: "pages", "recent-s": "activity", visits: "visitors", "health-s": "health", connect: "connect", setup: "setup", forwarding: "forwarding", "export": "export" };
+    var VIEW = { top: "overview", trend: "overview", found: "problems", where: "pages", did: "pages", "recent-s": "activity", visits: "visitors", "health-s": "health", loop: "loop", connect: "connect", setup: "setup", forwarding: "forwarding", "export": "export" };
     var links = [].slice.call(document.querySelectorAll(".snav a"));
     var parts = [].slice.call(document.querySelectorAll("[data-v]"));
     function show(id, jump){
@@ -1250,6 +1334,7 @@ export function dashboardPage(
     <a href="#recent-s">Activity</a>
     <a href="#visits" id="nav-visits" class="hidden">Visitors <span id="c-visits"></span></a>
     <a href="#health-s">Health</a>
+    <a href="#loop">Loop</a>
     ${acct ? "" : '<a href="#setup">Setup</a>'}
   </nav>`;
   const help = `<div class="grp">Help</div>
@@ -1340,6 +1425,12 @@ versions ignore it. ${LOCAL_HOSTS} Your deployed site sends by default.</p></sec
   <div><div class="blk-h"><h2>Rage and dead clicks</h2><span class="aside">Table 6. Where clicks went nowhere</span></div><div id="ixflags"></div></div>
 </section>
 <section class="blk" data-v="health"><details class="more"><summary>All breakdowns</summary><div class="kv mt-s" id="adv"></div></details></section>
+<section class="blk" id="loop" data-v="loop" aria-labelledby="loop-h">
+  <div class="blk-h"><h2 id="loop-h">Closed-loop development</h2><span class="aside">Fig. 3. What broke on this app, and what your agent does with each</span></div>
+  <p class="loop-lead">Each problem GenClass found in this period, the steps your coding agent takes on it through <a href="https://genclass.dev/docs/mcp">@genclass/mcp</a>, and the three steps every fix shares. A person ships; the loop closes when this list shrinks.</p>
+  <div class="flowwrap"><svg class="flow" id="loopsvg" role="img" aria-labelledby="loop-h"></svg></div>
+  <p class="loop-foot" id="loop-foot"></p>
+</section>
 </div>
 ${setup}
 ${opts.extra?.html ?? ""}
