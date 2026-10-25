@@ -444,7 +444,7 @@ What it did not see, and what that cost:
 
 ## 13. Time spent
 
-About 1 hour 20 minutes of wall-clock time in one session, 23:24 to about 00:45 UTC (2026-10-24/25), with the
+About 1 hour 10 minutes of wall-clock time in one session, 23:24 to about 00:35 UTC (2026-10-24/25), with the
 long runs in the background while the next step was written:
 
 | UTC | step |
@@ -454,7 +454,7 @@ long runs in the background while the next step was written:
 | 23:34 to 23:45 | the 12-session matrix on the broken build (the regression test and the fix written meanwhile) |
 | 23:46 to 00:01 | evidence session (explain, replay), Umami's Playwright test on the broken build, throttled trials |
 | 00:02 to 00:27 | rebuild with the patch (53 s), the Playwright test, the 12-session matrix and throttled trials on the fixed build, `tsc`, lint |
-| 00:27 to 00:45 | the report, the patch file, the issue draft, the PR |
+| 00:27 to 00:35 | the report, the patch file, the issue draft, the PR (the report was mostly written during the runs) |
 
 ## 14. Reproducing
 
