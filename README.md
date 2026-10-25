@@ -138,7 +138,7 @@ steps again with the network answering in different orders (and slower) to find 
 exact order that broke, and write a Playwright test that fails until the fix is in. Everything stays on your machine.
 
 ```bash
-claude mcp add genclass -- npx -y @genclass/mcp
+claude mcp add genclass -- npx -y @genclass/mcp@0.1.0
 ```
 
 ```ts
@@ -390,7 +390,8 @@ CI ([.github/workflows/ci.yml](.github/workflows/ci.yml), Node 22) runs on pushe
 - `telemetry-worker`: the collector's unit tests.
 
 `@genclass/playwright` has its own workflow,
-[.github/workflows/playwright-reporter.yml](.github/workflows/playwright-reporter.yml); it never blocks `ci.yml`. The
+[.github/workflows/playwright-reporter.yml](.github/workflows/playwright-reporter.yml) (typecheck, build, unit tests
+and the fixture's end-to-end check in Chromium); it never blocks `ci.yml`. The
 visual bench, [.github/workflows/visual-measure.yml](.github/workflows/visual-measure.yml), runs on manual dispatch
 and on pushes that change `bench/visual/` on the `wave2/visual` branch, never on pull requests, because it loads
 public sites.
@@ -416,9 +417,11 @@ a new tag and regenerated data (`training/curriculum/rt.py` mirrors the renderer
 | [`packages/runtime`](packages/runtime) | `@genclass/runtime`, the library: observers, causality, stores and adapters, learned baselines, relations and profiles, facts, triage, policy gate, actions, model host (Web Worker, ONNX Runtime Web on WebGPU or WASM), measured visual checks, devtools overlay. [README](packages/runtime/README.md) · [CHANGELOG](packages/runtime/CHANGELOG.md) |
 | [`packages/runtime-model`](packages/runtime-model) | `@genclass/runtime-model`, the default model package (data only; `files/` is gitignored and filled at release time) and its [model card](packages/runtime-model/MODEL_CARD.md) |
 | [`packages/mcp`](packages/mcp) | `@genclass/mcp` (unreleased), the MCP server for coding agents: pages connect through `@genclass/runtime/agent`; the agent gets findings in causal order, replays, explore verdicts and generated regression tests ([AGENT.md](docs/runtime/AGENT.md)). [README](packages/mcp/README.md) |
-| [`packages/playwright`](packages/playwright) | `@genclass/playwright` (unreleased), a Playwright reporter: reads what the GenClass fixture flagged per test (`test-results/genclass/*.json`) and writes one markdown report for the pull request. [README](packages/playwright/README.md) |
+| [`packages/playwright`](packages/playwright) | `@genclass/playwright` (unreleased), GenClass for Playwright: a fixture that puts the runtime on every page under test (observe mode, seeded network chaos with `page.route`, the model skipped by default) and writes one race file per test, and a reporter that turns those files into one markdown report for the pull request, with the evidence line and what reproduced across seeds. [README](packages/playwright/README.md) |
+| [`packages/nuxt`](packages/nuxt), [`packages/astro`](packages/astro) | `@genclass/nuxt` and `@genclass/astro` (unreleased): the runtime as a Nuxt module and as an Astro integration, one line in the framework's config, with options for the mode, the token, telemetry and the devtools overlay; browser only. [Nuxt README](packages/nuxt/README.md) · [Astro README](packages/astro/README.md) |
+| [`packages/sv`](packages/sv) | `@genclass/sv` (unreleased), a community add-on for the Svelte CLI: `npx sv add @genclass` sets up GenClass in a SvelteKit app (the dependency, its import first in `src/hooks.client`, the devtools overlay in development). [README](packages/sv/README.md) |
 | [`docs/runtime`](docs/runtime) | [Docs index](docs/runtime/README.md) · [Results](docs/runtime/RESULTS.md) · [Coding agents](docs/runtime/AGENT.md) · [API](docs/runtime/API.md) · [Architecture](docs/runtime/ARCHITECTURE.md) · [Build contract](docs/runtime/CONTRACT.md) · [Threat model](docs/runtime/THREAT-MODEL.md) |
-| [`compat`](compat), [`templates`](templates) | Framework compatibility matrix (7 apps, 15 data layers, every mode; [RESULTS.md](compat/RESULTS.md)) and starter templates with the one line |
+| [`compat`](compat), [`templates`](templates) | Framework compatibility matrix (7 apps, 15 data layers, every mode; [RESULTS.md](compat/RESULTS.md)) and eight starter templates with the one line (React + Vite, Next.js, Vue + Vite, SvelteKit, Astro, Nuxt, React Router, Angular; [templates/README.md](templates/README.md)) |
 | [`demos`](demos), [`bench`](bench) | Six demo apps (typeahead, autosave, checkout, flaky dashboard, live kanban, real-time decisions) with a Service Worker chaos backend and Playwright trials; [`bench/heal`](bench/heal) runs them per mode, [`bench/visual`](bench/visual) measures the visual checks |
 
 <details>

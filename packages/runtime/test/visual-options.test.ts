@@ -107,6 +107,7 @@ describe("InitOptions.visual resolution (VISUAL.md 7)", () => {
       ["http:", "intranet", ""],
       ["https:", "app.corp.internal", ""],
       ["http:", "nas.local", ""],
+      ["capacitor:", "localhost", "8100"], // a loopback name and a port, but not http(s)
     ])
       expect(startVisual(runtime(fakeWindow({ protocol, host, port })).rt, undefined, true)?.setting, `${protocol}//${host}:${port}`).toBe("local");
     // ?genclass-visual=on turns report-only checks on for a public host
@@ -122,6 +123,10 @@ describe("InitOptions.visual resolution (VISUAL.md 7)", () => {
     };
     for (const h of ["http://localhost:5173/", "https://localhost:3000/", "http://127.0.0.1:8080/", "http://[::1]:3000/", "http://app.localhost:3000/", "http://myapp.test/", "https://myapp.test:8443/"]) expect(devHost(u(h)), h).toBe(true);
     for (const h of ["http://localhost/", "https://localhost/", "capacitor://localhost/", "http://tauri.localhost/", "file:///index.html", "http://192.168.1.20:5173/", "http://intranet:8080/", "https://app.corp.internal/", "http://printer.local/", "https://shop.example.com/", "http://test.example.com/"])
+      expect(devHost(u(h)), h).toBe(false);
+    // look-alikes that pin each part of the test: "test" not as the last label, a loopback name followed by more
+    // labels, 127.0.0.1 and [::1] without a port, a loopback name with a port under a scheme other than http(s)
+    for (const h of ["https://app.testrail.io/", "https://shop.test.example.com/", "http://localhost.example.com:8080/", "http://127.0.0.1.nip.io:8080/", "http://127.0.0.1/", "http://[::1]/", "capacitor://localhost:8100/", "ws://localhost:8080/"])
       expect(devHost(u(h)), h).toBe(false);
     expect(devHost(undefined)).toBe(false);
   });

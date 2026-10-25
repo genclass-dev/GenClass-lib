@@ -40,7 +40,7 @@ const rel = (f: string) => relative(SRC, f).split("\\").join("/");
 describe("visual checks stay out of the model's path (AGENTS.md rule 2 exception, VISUAL.md 13)", () => {
   it("src/visual imports only types from the runtime; the chunk imports only src/visual", () => {
     const FIRST_LOAD: Record<string, string[]> = {
-      "visual/start.ts": ["../observe/dom-user.js", "../telemetry/config.js", "../util.js", "./registry.js", "./index.js"],
+      "visual/start.ts": ["../devhost.js", "../observe/dom-user.js", "../telemetry/config.js", "../util.js", "./registry.js", "./index.js"],
       "visual/entry.ts": ["../clock.js", "./index.js"],
       "visual/registry.ts": [],
     };

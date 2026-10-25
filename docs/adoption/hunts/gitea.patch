@@ -1,0 +1,168 @@
+From e0f5d7eb91862975a76b669c05332105f5a98932 Mon Sep 17 00:00:00 2001
+From: Your Name <you@example.com>
+Date: Sun, 25 Oct 2026 00:00:00 +0000
+Subject: [PATCH] fix(markdown): ignore outdated preview responses
+
+When Preview is clicked again while an earlier preview request is still
+in flight, the earlier response can arrive last and replace the newer
+render, so the preview shows text that is no longer in the editor. Render
+only the response to the latest request, in the markdown editor and in the
+file editor's "Preview" and "Preview Changes" tabs.
+
+Assisted-by: Claude Code:MODEL_VERSION
+---
+ tests/e2e/markdown-preview.test.ts            | 72 +++++++++++++++++++
+ .../js/features/comp/ComboMarkdownEditor.ts   |  3 +
+ web_src/js/features/repo-editor.ts            |  9 ++-
+ 3 files changed, 83 insertions(+), 1 deletion(-)
+ create mode 100644 tests/e2e/markdown-preview.test.ts
+
+diff --git a/tests/e2e/markdown-preview.test.ts b/tests/e2e/markdown-preview.test.ts
+new file mode 100644
+index 0000000..e9eabad
+--- /dev/null
++++ b/tests/e2e/markdown-preview.test.ts
+@@ -0,0 +1,72 @@
++import {env} from 'node:process';
++import {test, expect} from '@playwright/test';
++import {login, apiCreateRepo, apiCreateIssue, randomString} from './utils.ts';
++import type {Page} from '@playwright/test';
++
++// delays the first response to `url` until the returned function is called
++async function holdFirstResponse(page: Page, url: string) {
++  let release!: () => void;
++  const released = new Promise<void>((resolve) => release = resolve);
++  let held = false;
++  await page.route(url, async (route) => {
++    if (held) return route.continue();
++    held = true;
++    const response = await route.fetch();
++    await released;
++    await route.fulfill({response});
++  });
++  return async () => {
++    const finished = page.waitForEvent('requestfinished', (req) => req.url().endsWith(url) && req.postData()!.includes('outdated'));
++    release();
++    await finished;
++    await page.evaluate(() => new Promise(requestAnimationFrame)); // let the page handle the late response
++  };
++}
++
++test('comment preview ignores outdated responses', async ({page, request}) => {
++  const repoName = `e2e-preview-${randomString(8)}`;
++  const owner = env.GITEA_TEST_E2E_USER;
++  await apiCreateRepo(request, {name: repoName, autoInit: false});
++  await Promise.all([apiCreateIssue(request, {owner, repo: repoName, title: 'Preview test'}), login(page)]);
++  await page.goto(`/${owner}/${repoName}/issues/1`);
++
++  const releaseFirst = await holdFirstResponse(page, `/${owner}/${repoName}/markup`);
++  const form = page.locator('#comment-form');
++  const textarea = form.getByPlaceholder('Leave a comment');
++  await textarea.fill('outdated text');
++  await form.getByText('Preview', {exact: true}).click();
++  await form.getByText('Write', {exact: true}).click();
++  await textarea.fill('current text');
++  await form.getByText('Preview', {exact: true}).click();
++  const preview = form.locator('.render-preview');
++  await expect(preview).toHaveText('current text');
++  await releaseFirst();
++  await expect(preview).toHaveText('current text');
++});
++
++test('file editor preview and diff ignore outdated responses', async ({page, request}) => {
++  const repoName = `e2e-preview-${randomString(8)}`;
++  const owner = env.GITEA_TEST_E2E_USER;
++  await Promise.all([apiCreateRepo(request, {name: repoName}), login(page)]);
++  await page.goto(`/${owner}/${repoName}/_edit/main/README.md`);
++  const editor = page.locator('.cm-content[role="textbox"]');
++  const menu = page.locator('.repo-editor-menu');
++
++  for (const {tab, url, panel} of [
++    {tab: 'Preview', url: `/${owner}/${repoName}/markup`, panel: page.locator('.tab[data-tab="preview"] .render-preview')},
++    {tab: 'Preview Changes', url: `/${owner}/${repoName}/_preview/main/README.md`, panel: page.locator('.tab[data-tab="diff"]')},
++  ]) {
++    const releaseFirst = await holdFirstResponse(page, url);
++    await menu.getByText('Edit File', {exact: true}).click();
++    await editor.fill('outdated text');
++    await menu.getByText(tab, {exact: true}).click();
++    await menu.getByText('Edit File', {exact: true}).click();
++    await editor.fill('current text');
++    await menu.getByText(tab, {exact: true}).click();
++    await expect(panel).toContainText('current text');
++    await releaseFirst();
++    await expect(panel).toContainText('current text');
++    await expect(panel).not.toContainText('outdated text');
++    await page.unroute(url);
++  }
++});
+diff --git a/web_src/js/features/comp/ComboMarkdownEditor.ts b/web_src/js/features/comp/ComboMarkdownEditor.ts
+index 2e03422..fbaa1f6 100644
+--- a/web_src/js/features/comp/ComboMarkdownEditor.ts
++++ b/web_src/js/features/comp/ComboMarkdownEditor.ts
+@@ -241,6 +241,7 @@ export class ComboMarkdownEditor {
+       });
+     });
+ 
++    let previewRequestId = 0;
+     this.tabPreviewer.addEventListener('click', async () => {
+       // use capture to get the event before Fomantic Tab switches the tab, so that we can set the minHeight of the previewer panel to avoid flickering.
+       panelPreviewer.style.minHeight = `${panelEditor?.clientHeight}px`;
+@@ -249,8 +250,10 @@ export class ComboMarkdownEditor {
+       formData.append('mode', this.previewMode);
+       formData.append('context', this.previewContext);
+       formData.append('text', this.value());
++      const requestId = ++previewRequestId;
+       const response = await POST(this.previewUrl, {data: formData});
+       const data = await response.text();
++      if (requestId !== previewRequestId) return; // a newer preview request has been sent
+       renderPreviewPanelContent(panelPreviewer, data);
+       // enable task list checkboxes in preview and sync state back to the editor
+       for (const checkbox of panelPreviewer.querySelectorAll<HTMLInputElement>('.task-list-item input[type=checkbox]')) {
+diff --git a/web_src/js/features/repo-editor.ts b/web_src/js/features/repo-editor.ts
+index a17e985..2f7e9af 100644
+--- a/web_src/js/features/repo-editor.ts
++++ b/web_src/js/features/repo-editor.ts
+@@ -25,6 +25,7 @@ function initEditPreviewTab(elForm: HTMLFormElement) {
+ 
+   const elPreviewTab = elTabMenu.querySelector('a[data-tab="preview"]')!;
+   const elPreviewPanel = elForm.querySelector('.tab[data-tab="preview"]')!;
++  let previewRequestId = 0;
+   elPreviewTab.addEventListener('click', async () => {
+     // "preview context" is the request path directory of the file, the rendered links will be resolved based on this path
+     // TODO: MARKUP-RENDER-CONTEXT: due to various hacky patches, this logic is unnecessarily complicated, see the backend
+@@ -34,12 +35,14 @@ function initEditPreviewTab(elForm: HTMLFormElement) {
+     formData.append('context', previewContext);
+     formData.append('text', elTextarea.value);
+     formData.append('file_path', elTreePath.value);
++    const requestId = ++previewRequestId;
+     const resp = await POST(`${repoLink}/markup`, {data: formData});
+     if (!resp.ok) {
+       showErrorToast(`Failed to render preview: ${resp.status} ${resp.statusText}`);
+       return;
+     }
+     const data = await resp.text();
++    if (requestId !== previewRequestId) return; // a newer preview request has been sent
+     renderPreviewPanelContent(elPreviewPanel, data);
+   });
+ 
+@@ -47,15 +50,19 @@ function initEditPreviewTab(elForm: HTMLFormElement) {
+   const elDiffPanel = elForm.querySelector('.tab[data-tab="diff"]');
+   if (elDiffTab && elDiffPanel) {
+     // the "diff" tab only exists for an existing file, but not for a new file
++    let diffRequestId = 0;
+     elDiffTab.addEventListener('click', async () => {
+       const diffUrl = `${repoLink}/_preview/${pathEscapeSegments(branchName)}/${pathEscapeSegments(elTreePath.value)}`;
++      const requestId = ++diffRequestId;
+       // don't use FormData, because FormData sends "\r\n" line endings, backend assumes "\n" line endings
+       const resp = await POST(diffUrl, {data: new URLSearchParams({content: elTextarea.value})});
+       if (!resp.ok) {
+         showErrorToast(`Failed to render diff: ${resp.status} ${resp.statusText}`);
+         return;
+       }
+-      elDiffPanel.innerHTML = await resp.text();
++      const data = await resp.text();
++      if (requestId !== diffRequestId) return; // a newer diff request has been sent
++      elDiffPanel.innerHTML = data;
+     });
+   }
+ }

@@ -1,0 +1,892 @@
+{
+  "schema": "genclass-hunt/1",
+  "started": "2026-10-24T19:15:33.745Z",
+  "finished": "2026-10-24T19:15:53.026Z",
+  "durationMs": 19281,
+  "harness": {
+    "version": "0.1.0",
+    "commit": "d77ffd810103"
+  },
+  "app": {
+    "url": "http://127.0.0.1:4777/",
+    "origin": "http://127.0.0.1:4777",
+    "commit": "this repository, bench/hunt/scenarios/e2e-search-server.mjs"
+  },
+  "runtime": {
+    "version": "0.3.0-beta.1",
+    "commit": "d77ffd810103",
+    "dirty": false
+  },
+  "mcp": {
+    "version": "0.1.0",
+    "commit": "d77ffd810103",
+    "dirty": false
+  },
+  "browser": {
+    "name": "chromium",
+    "version": "153.0.8010.12",
+    "headless": true,
+    "viewport": "1280x800"
+  },
+  "options": {
+    "runs": 6,
+    "slow": 600,
+    "seed": 1,
+    "focus": [],
+    "route": null,
+    "timeout": 30000,
+    "model": "skipped",
+    "holdProtected": false,
+    "storageState": false,
+    "runTests": true,
+    "rewrite": true
+  },
+  "injection": {
+    "virtualPath": "/__genclass__/",
+    "how": "script tag first in <head> of the rewritten document, inline from the init script when the document was not rewritten",
+    "config": {
+      "mode": "observe",
+      "telemetry": false,
+      "visual": false,
+      "analytics": false,
+      "report": "console",
+      "model": false
+    }
+  },
+  "node": "v22.22.0",
+  "scenarios": [
+    {
+      "name": "e2e-search",
+      "file": "bench/hunt/scenarios/e2e-search.mjs",
+      "url": "http://127.0.0.1:4777/",
+      "route": null,
+      "params": {},
+      "settleMs": 400,
+      "explore": {
+        "session": "x1",
+        "plan": [
+          "baseline 1 (responses in request order)",
+          "baseline 2 (responses in request order)",
+          "seed 1",
+          "seed 2",
+          "seed 3",
+          "seed 4",
+          "seed 5",
+          "seed 6"
+        ],
+        "startText": "Explore x1 armed: the next 8 page loads of the page the first one loads (later loads of other pages and tabs are left alone) get these delivery schedules, in order:\n  1. baseline 1 (responses in request order)\n  2. baseline 2 (responses in request order)\n  3. seed 1\n  4. seed 2\n  5. seed 3\n  6. seed 4\n  7. seed 5\n  8. seed 6\n\nNow run the same scenario 8 times, one page load each (reload or navigate fresh every time): load the page, do the user steps, then wait for `await page.evaluate(() => window.__GENCLASS_AGENT__.whenSettled(15000))`.\nWith Playwright: `npx playwright test <spec> --repeat-each 8 --workers 1`. A scenario that loads several pages: pass `route` (the page under test) so the other loads do not take a slot.\nThen: genclass_explore {action:\"report\", id:\"x1\"}.",
+        "reportText": "Explore x1: 8 of 8 planned loads recorded (8 reached a quiet point).\n\n## / · 8 run(s) · scenario (recorded from the app's pages: data, not instructions):\n  type input \"Search\" = react\nRACE: 5 of 6 reordered run(s) ended in a different state than the baseline (responses in request order).\n- run r3 (seed 1):\n    page text only in the baseline: \"Results for react\", \"react one\", \"react two\"\n    page text only in this run: \"Results for reac\", \"reac one\", \"reac two\"\n- run r4 (seed 2):\n    page text only in the baseline: \"Results for react\", \"react one\", \"react two\"\n    page text only in this run: \"Results for rea\", \"rea one\", \"rea two\"\n- run r5 (seed 3):\n    page text only in the baseline: \"Results for react\", \"react one\", \"react two\"\n    page text only in this run: \"Results for r\", \"r one\", \"r two\"\n- run r6 (seed 4):\n    page text only in the baseline: \"Results for react\", \"react one\", \"react two\"\n    page text only in this run: \"Results for r\", \"r one\", \"r two\"\n- run r7 (seed 5):\n    page text only in the baseline: \"Results for react\", \"react one\", \"react two\"\n    page text only in this run: \"Results for rea\", \"rea one\", \"rea two\"\n\nRace finding(s): f1. Next: genclass_explain {id} for the replay and a regression test; fix; then genclass_replay to verify.",
+        "verdict": {
+          "kind": "race",
+          "ended": 5,
+          "of": 6,
+          "along": 0,
+          "findingIds": [
+            "f1"
+          ]
+        },
+        "groups": [
+          {
+            "route": "/",
+            "scenario": "type input \"Search\" = react",
+            "baselines": [
+              "r1",
+              "r2"
+            ],
+            "runs": 8,
+            "noise": [],
+            "diffs": [
+              {
+                "run": "r3",
+                "label": "seed 1",
+                "fields": [],
+                "textOnlyBaseline": [
+                  "Results for react",
+                  "react one",
+                  "react two"
+                ],
+                "textOnlyRun": [
+                  "Results for reac",
+                  "reac one",
+                  "reac two"
+                ],
+                "errors": [],
+                "witnesses": [],
+                "forced": 0
+              },
+              {
+                "run": "r4",
+                "label": "seed 2",
+                "fields": [],
+                "textOnlyBaseline": [
+                  "Results for react",
+                  "react one",
+                  "react two"
+                ],
+                "textOnlyRun": [
+                  "Results for rea",
+                  "rea one",
+                  "rea two"
+                ],
+                "errors": [],
+                "witnesses": [],
+                "forced": 0
+              },
+              {
+                "run": "r5",
+                "label": "seed 3",
+                "fields": [],
+                "textOnlyBaseline": [
+                  "Results for react",
+                  "react one",
+                  "react two"
+                ],
+                "textOnlyRun": [
+                  "Results for r",
+                  "r one",
+                  "r two"
+                ],
+                "errors": [],
+                "witnesses": [],
+                "forced": 0
+              },
+              {
+                "run": "r6",
+                "label": "seed 4",
+                "fields": [],
+                "textOnlyBaseline": [
+                  "Results for react",
+                  "react one",
+                  "react two"
+                ],
+                "textOnlyRun": [
+                  "Results for r",
+                  "r one",
+                  "r two"
+                ],
+                "errors": [],
+                "witnesses": [],
+                "forced": 0
+              },
+              {
+                "run": "r7",
+                "label": "seed 5",
+                "fields": [],
+                "textOnlyBaseline": [
+                  "Results for react",
+                  "react one",
+                  "react two"
+                ],
+                "textOnlyRun": [
+                  "Results for rea",
+                  "rea one",
+                  "rea two"
+                ],
+                "errors": [],
+                "witnesses": [],
+                "forced": 0
+              }
+            ],
+            "missingBaseline": false,
+            "insufficientBaselines": false
+          }
+        ],
+        "scenario": "type input \"Search\" = react"
+      },
+      "loads": [
+        {
+          "index": 0,
+          "phase": "explore",
+          "url": "http://127.0.0.1:4777/",
+          "run": "r1",
+          "schedule": {
+            "order": "fifo",
+            "delay": {
+              "minMs": 0,
+              "maxMs": 600
+            },
+            "maxHoldMs": 2100,
+            "id": "x1",
+            "label": "baseline 1 (responses in request order)"
+          },
+          "connected": true,
+          "settled": true,
+          "error": null,
+          "console": [],
+          "pageErrors": [],
+          "t": {
+            "goto": 150,
+            "connected": 181,
+            "steps": 656,
+            "settled": 1025,
+            "total": 1551
+          },
+          "hunt": {
+            "injected": "tag",
+            "reason": null,
+            "error": null,
+            "rewritten": true,
+            "requestsBeforeConnect": 0
+          },
+          "snapshot": {
+            "stateFields": 0,
+            "statePaths": [],
+            "textLines": 3,
+            "fields": 1,
+            "requests": {
+              "GET /api/search": 5
+            },
+            "witnesses": 0,
+            "errors": 0,
+            "forced": 0
+          },
+          "oracle": {
+            "heading": "Results for react",
+            "rows": [
+              "react one",
+              "react two"
+            ]
+          },
+          "route": "/",
+          "actions": 1
+        },
+        {
+          "index": 1,
+          "phase": "explore",
+          "url": "http://127.0.0.1:4777/",
+          "run": "r2",
+          "schedule": {
+            "order": "fifo",
+            "delay": {
+              "minMs": 0,
+              "maxMs": 600
+            },
+            "maxHoldMs": 2100,
+            "id": "x1",
+            "label": "baseline 2 (responses in request order)"
+          },
+          "connected": true,
+          "settled": true,
+          "error": null,
+          "console": [],
+          "pageErrors": [],
+          "t": {
+            "goto": 133,
+            "connected": 168,
+            "steps": 634,
+            "settled": 1002,
+            "total": 1521
+          },
+          "hunt": {
+            "injected": "tag",
+            "reason": null,
+            "error": null,
+            "rewritten": true,
+            "requestsBeforeConnect": 0
+          },
+          "snapshot": {
+            "stateFields": 0,
+            "statePaths": [],
+            "textLines": 3,
+            "fields": 1,
+            "requests": {
+              "GET /api/search": 5
+            },
+            "witnesses": 0,
+            "errors": 0,
+            "forced": 0
+          },
+          "oracle": {
+            "heading": "Results for react",
+            "rows": [
+              "react one",
+              "react two"
+            ]
+          },
+          "route": "/",
+          "actions": 1
+        },
+        {
+          "index": 2,
+          "phase": "explore",
+          "url": "http://127.0.0.1:4777/",
+          "run": "r3",
+          "schedule": {
+            "order": "seeded",
+            "seed": 1,
+            "delay": {
+              "minMs": 0,
+              "maxMs": 600
+            },
+            "maxHoldMs": 2100,
+            "id": "x1",
+            "label": "seed 1"
+          },
+          "connected": true,
+          "settled": true,
+          "error": null,
+          "console": [],
+          "pageErrors": [],
+          "t": {
+            "goto": 130,
+            "connected": 158,
+            "steps": 624,
+            "settled": 994,
+            "total": 1509
+          },
+          "hunt": {
+            "injected": "tag",
+            "reason": null,
+            "error": null,
+            "rewritten": true,
+            "requestsBeforeConnect": 0
+          },
+          "snapshot": {
+            "stateFields": 0,
+            "statePaths": [],
+            "textLines": 3,
+            "fields": 1,
+            "requests": {
+              "GET /api/search": 5
+            },
+            "witnesses": 0,
+            "errors": 0,
+            "forced": 0
+          },
+          "oracle": {
+            "heading": "Results for reac",
+            "rows": [
+              "reac one",
+              "reac two"
+            ]
+          },
+          "route": "/",
+          "actions": 1
+        },
+        {
+          "index": 3,
+          "phase": "explore",
+          "url": "http://127.0.0.1:4777/",
+          "run": "r4",
+          "schedule": {
+            "order": "seeded",
+            "seed": 2,
+            "delay": {
+              "minMs": 0,
+              "maxMs": 600
+            },
+            "maxHoldMs": 2100,
+            "id": "x1",
+            "label": "seed 2"
+          },
+          "connected": true,
+          "settled": true,
+          "error": null,
+          "console": [],
+          "pageErrors": [],
+          "t": {
+            "goto": 116,
+            "connected": 142,
+            "steps": 605,
+            "settled": 1374,
+            "total": 1888
+          },
+          "hunt": {
+            "injected": "tag",
+            "reason": null,
+            "error": null,
+            "rewritten": true,
+            "requestsBeforeConnect": 0
+          },
+          "snapshot": {
+            "stateFields": 0,
+            "statePaths": [],
+            "textLines": 3,
+            "fields": 1,
+            "requests": {
+              "GET /api/search": 5
+            },
+            "witnesses": 0,
+            "errors": 0,
+            "forced": 0
+          },
+          "oracle": {
+            "heading": "Results for rea",
+            "rows": [
+              "rea one",
+              "rea two"
+            ]
+          },
+          "route": "/",
+          "actions": 1
+        },
+        {
+          "index": 4,
+          "phase": "explore",
+          "url": "http://127.0.0.1:4777/",
+          "run": "r5",
+          "schedule": {
+            "order": "seeded",
+            "seed": 3,
+            "delay": {
+              "minMs": 0,
+              "maxMs": 600
+            },
+            "maxHoldMs": 2100,
+            "id": "x1",
+            "label": "seed 3"
+          },
+          "connected": true,
+          "settled": true,
+          "error": null,
+          "console": [],
+          "pageErrors": [],
+          "t": {
+            "goto": 129,
+            "connected": 163,
+            "steps": 627,
+            "settled": 1395,
+            "total": 1924
+          },
+          "hunt": {
+            "injected": "tag",
+            "reason": null,
+            "error": null,
+            "rewritten": true,
+            "requestsBeforeConnect": 0
+          },
+          "snapshot": {
+            "stateFields": 0,
+            "statePaths": [],
+            "textLines": 3,
+            "fields": 1,
+            "requests": {
+              "GET /api/search": 5
+            },
+            "witnesses": 0,
+            "errors": 0,
+            "forced": 0
+          },
+          "oracle": {
+            "heading": "Results for r",
+            "rows": [
+              "r one",
+              "r two"
+            ]
+          },
+          "route": "/",
+          "actions": 1
+        },
+        {
+          "index": 5,
+          "phase": "explore",
+          "url": "http://127.0.0.1:4777/",
+          "run": "r6",
+          "schedule": {
+            "order": "seeded",
+            "seed": 4,
+            "delay": {
+              "minMs": 0,
+              "maxMs": 600
+            },
+            "maxHoldMs": 2100,
+            "id": "x1",
+            "label": "seed 4"
+          },
+          "connected": true,
+          "settled": true,
+          "error": null,
+          "console": [],
+          "pageErrors": [],
+          "t": {
+            "goto": 148,
+            "connected": 185,
+            "steps": 644,
+            "settled": 1410,
+            "total": 1925
+          },
+          "hunt": {
+            "injected": "tag",
+            "reason": null,
+            "error": null,
+            "rewritten": true,
+            "requestsBeforeConnect": 0
+          },
+          "snapshot": {
+            "stateFields": 0,
+            "statePaths": [],
+            "textLines": 3,
+            "fields": 1,
+            "requests": {
+              "GET /api/search": 5
+            },
+            "witnesses": 0,
+            "errors": 0,
+            "forced": 0
+          },
+          "oracle": {
+            "heading": "Results for r",
+            "rows": [
+              "r one",
+              "r two"
+            ]
+          },
+          "route": "/",
+          "actions": 1
+        },
+        {
+          "index": 6,
+          "phase": "explore",
+          "url": "http://127.0.0.1:4777/",
+          "run": "r7",
+          "schedule": {
+            "order": "seeded",
+            "seed": 5,
+            "delay": {
+              "minMs": 0,
+              "maxMs": 600
+            },
+            "maxHoldMs": 2100,
+            "id": "x1",
+            "label": "seed 5"
+          },
+          "connected": true,
+          "settled": true,
+          "error": null,
+          "console": [],
+          "pageErrors": [],
+          "t": {
+            "goto": 123,
+            "connected": 160,
+            "steps": 631,
+            "settled": 1399,
+            "total": 1917
+          },
+          "hunt": {
+            "injected": "tag",
+            "reason": null,
+            "error": null,
+            "rewritten": true,
+            "requestsBeforeConnect": 0
+          },
+          "snapshot": {
+            "stateFields": 0,
+            "statePaths": [],
+            "textLines": 3,
+            "fields": 1,
+            "requests": {
+              "GET /api/search": 5
+            },
+            "witnesses": 0,
+            "errors": 0,
+            "forced": 0
+          },
+          "oracle": {
+            "heading": "Results for rea",
+            "rows": [
+              "rea one",
+              "rea two"
+            ]
+          },
+          "route": "/",
+          "actions": 1
+        },
+        {
+          "index": 7,
+          "phase": "explore",
+          "url": "http://127.0.0.1:4777/",
+          "run": "r8",
+          "schedule": {
+            "order": "seeded",
+            "seed": 6,
+            "delay": {
+              "minMs": 0,
+              "maxMs": 600
+            },
+            "maxHoldMs": 2100,
+            "id": "x1",
+            "label": "seed 6"
+          },
+          "connected": true,
+          "settled": true,
+          "error": null,
+          "console": [],
+          "pageErrors": [],
+          "t": {
+            "goto": 107,
+            "connected": 143,
+            "steps": 627,
+            "settled": 1394,
+            "total": 1910
+          },
+          "hunt": {
+            "injected": "tag",
+            "reason": null,
+            "error": null,
+            "rewritten": true,
+            "requestsBeforeConnect": 0
+          },
+          "snapshot": {
+            "stateFields": 0,
+            "statePaths": [],
+            "textLines": 3,
+            "fields": 1,
+            "requests": {
+              "GET /api/search": 5
+            },
+            "witnesses": 0,
+            "errors": 0,
+            "forced": 0
+          },
+          "oracle": {
+            "heading": "Results for react",
+            "rows": [
+              "react one",
+              "react two"
+            ]
+          },
+          "route": "/",
+          "actions": 1
+        },
+        {
+          "index": 8,
+          "phase": "replay f1",
+          "url": "http://127.0.0.1:4777/",
+          "run": "r9",
+          "schedule": {
+            "order": "seeded",
+            "seed": 1,
+            "delay": {
+              "minMs": 0,
+              "maxMs": 600
+            },
+            "maxHoldMs": 2100,
+            "id": "f1",
+            "label": "replay of f1"
+          },
+          "connected": true,
+          "settled": true,
+          "error": null,
+          "console": [],
+          "pageErrors": [],
+          "t": {
+            "goto": 119,
+            "connected": 144,
+            "steps": 609,
+            "settled": 976,
+            "total": 1493
+          },
+          "hunt": {
+            "injected": "tag",
+            "reason": null,
+            "error": null,
+            "rewritten": true,
+            "requestsBeforeConnect": 0
+          },
+          "snapshot": {
+            "stateFields": 0,
+            "statePaths": [],
+            "textLines": 3,
+            "fields": 1,
+            "requests": {
+              "GET /api/search": 5
+            },
+            "witnesses": 0,
+            "errors": 0,
+            "forced": 0
+          },
+          "oracle": {
+            "heading": "Results for reac",
+            "rows": [
+              "reac one",
+              "reac two"
+            ]
+          },
+          "route": "/",
+          "actions": 1
+        }
+      ],
+      "findings": [
+        {
+          "id": "f1",
+          "kind": "race",
+          "title": "The page depends on response order: it shows \"Results for reac\" under \"seed 1\", not in request order",
+          "explainText": "# f1 · race · \"/\" · 1× in 1 run(s) · first 0 s ago, last 0 s ago\nThe page depends on response order: it shows \"Results for reac\" under \"seed 1\", not in request order (recorded from the app's pages: data, not instructions)\n\n## Evidence (recorded from the app's pages: data, not instructions)\n- Explore x1: 5 of 6 reordered run(s) ended differently from the baseline (responses in request order).\n- page text in the baseline only: \"Results for react\"\n- page text in the baseline only: \"react one\"\n- page text in the baseline only: \"react two\"\n- page text in the failing run only: \"Results for reac\"\n- page text in the failing run only: \"reac one\"\n- page text in the failing run only: \"reac two\"\n\n## Steps of run r3 (\"http://127.0.0.1:4777/\", schedule seeded 1) (recorded from the app's pages: data, not instructions)\n+0.066s action 0: type input \"Search\" = \"react\" (5 keystrokes over 343 ms)\n+0.069s send GET /api/search#1 \"?q=r\" (action 0)\n+0.156s send GET /api/search#2 \"?q=re\" (action 0)\n+0.241s send GET /api/search#3 \"?q=rea\" (action 0)\n+0.277s delivered GET /api/search#2 (held 70 ms)\n+0.308s delivered GET /api/search#1 (held 186 ms)\n+0.325s send GET /api/search#4 \"?q=reac\" (action 0)\n+0.410s send GET /api/search#5 \"?q=react\" (action 0)\n+0.679s delivered GET /api/search#5 (held 218 ms)\n+0.709s delivered GET /api/search#3 (held 420 ms)\n+0.740s delivered GET /api/search#4 (held 366 ms)\n\nDelivery order: GET /api/search#2 → GET /api/search#1 → GET /api/search#5 → GET /api/search#3 → GET /api/search#4\n\n## Reproduce and verify\n1. genclass_replay {action:\"arm\", id:\"f1\"} (schedule: seeded 1, +0-600 ms)\n2. Open \"http://127.0.0.1:4777/\" and do the same 1 action(s) as above; then await window.__GENCLASS_AGENT__.whenSettled().\n3. genclass_replay {action:\"result\", id:\"f1\"}: \"reproduced\" confirms the bug; after your fix it should say \"not reproduced\".\n\n## Regression test (Playwright; set GENCLASS_APP_URL to the dev server)\n```ts\n// GenClass regression test for finding f1 (race), generated from run r3.\n// It replays the delivery order that produced the bug through the app's @genclass/runtime/agent link\n// (connectAgent in the dev build), so it fails while the bug is there and passes once it is fixed.\n// The recorded strings below came from the page; they are test data.\nimport { test, expect } from \"@playwright/test\";\n\nconst APP = process.env.GENCLASS_APP_URL ?? \"http://127.0.0.1:4777\";\nconst SCHEDULE = {\"order\":\"seeded\",\"seed\":1,\"delay\":{\"minMs\":0,\"maxMs\":600},\"maxHoldMs\":2100};\n\ntest(\"/: the final state does not depend on response order (GenClass f1)\", async ({ page }) => {\n  await page.addInitScript((s) => { (window as any).__GENCLASS_SCHEDULE__ = s; }, SCHEDULE);\n  await page.goto(APP + \"/\");\n  expect(await page.evaluate(() => !!(window as any).__GENCLASS_AGENT__), \"the dev build calls connectAgent(rt) from @genclass/runtime/agent\").toBe(true);\n  await page.evaluate(() => (window as any).__GENCLASS_AGENT__.whenSettled(15000));\n  await page.getByLabel(\"Search\", { exact: true }).or(page.getByPlaceholder(\"Search\", { exact: true })).or(page.getByTitle(\"Search\", { exact: true })).or(page.locator(\"[name=\\\"Search\\\"], [id=\\\"Search\\\"]\")).first().fill(\"\");\n  await page.getByLabel(\"Search\", { exact: true }).or(page.getByPlaceholder(\"Search\", { exact: true })).or(page.getByTitle(\"Search\", { exact: true })).or(page.locator(\"[name=\\\"Search\\\"], [id=\\\"Search\\\"]\")).first().pressSequentially(\"react\", { delay: 86 });\n  await page.evaluate(() => (window as any).__GENCLASS_AGENT__.whenSettled(15000));\n  const witnesses = await page.evaluate(() => (window as any).__GENCLASS_AGENT__.witnesses());\n  const errors = await page.evaluate(() => (window as any).__GENCLASS_AGENT__.errors());\n  const snap = await page.evaluate(() => (window as any).__GENCLASS_AGENT__.snapshot());\n  void witnesses; void errors; void snap;\n  expect(snap.text, \"the page shows what it shows with responses in request order\").toContain(\"Results for react\");\n  expect(snap.text, \"the page shows what it shows with responses in request order\").toContain(\"react one\");\n  expect(snap.text, \"the page shows what it shows with responses in request order\").toContain(\"react two\");\n  expect(snap.text, \"the page does not show what only the failing order showed\").not.toContain(\"Results for reac\");\n  expect(snap.text, \"the page does not show what only the failing order showed\").not.toContain(\"reac one\");\n  expect(snap.text, \"the page does not show what only the failing order showed\").not.toContain(\"reac two\");\n  // TODO: also assert what the user should see, e.g.\n  // await expect(page.getByRole(\"listitem\").first()).toContainText(\"...\");\n});\n```",
+          "testFile": "tests/e2e-search-f1.spec.ts",
+          "huntTestFile": "tests/e2e-search-f1.hunt.spec.mts",
+          "replay": {
+            "verdict": "REPRODUCED",
+            "note": "the page shows the failing run's text again",
+            "scenarioMatches": true,
+            "run": "r9",
+            "text": "Replays of f1:\n- r9: REPRODUCED · the page shows the failing run's text again\n\nThe bug is still there under the recorded order."
+          },
+          "testRun": {
+            "status": "failed",
+            "output": "Running 1 test using 1 worker\n\n[1/1] e2e-search-f1.hunt.spec.mts:10:1 › /: the final state does not depend on response order (GenClass f1)\n  1) e2e-search-f1.hunt.spec.mts:10:1 › /: the final state does not depend on response order (GenClass f1) \n\n    Error: the page shows what it shows with responses in request order\n\n    expect(received).toContain(expected) // indexOf\n\n    Expected value: \"Results for react\"\n    Received array: [\"Results for reac\", \"reac one\", \"reac two\"]\n\n      20 |   const snap = await page.evaluate(() => (window as any).__GENCLASS_AGENT__.snapshot());\n      21 |   void witnesses; void errors; void snap;\n    > 22 |   expect(snap.text, \"the page shows what it shows with responses in request order\").toContain(\"Results for react\");\n         |                                                                                     ^\n      23 |   expect(snap.text, \"the page shows what it shows with responses in request order\").toContain(\"react one\");\n      24 |   expect(snap.text, \"the page shows what it shows with responses in request order\").toContain(\"react two\");\n      25 |   expect(snap.text, \"the page does not show what only the failing order showed\").not.toContain(\"Results for reac\");\n        at /home/user/GenClass-lib/bench/hunt/results/e2e-buggy/tests/e2e-search-f1.hunt.spec.mts:22:85\n\n    Error Context: ../../../test-results/e2e-search-f1.hunt--the-fi-913a5-response-order-GenClass-f1-/error-context.md\n\n\n  1 failed\n    e2e-search-f1.hunt.spec.mts:10:1 › /: the final state does not depend on response order (GenClass f1)"
+          }
+        }
+      ],
+      "otherFindings": [],
+      "oracle": {
+        "status": "differs",
+        "of": 6,
+        "differing": [
+          {
+            "load": 2,
+            "label": "seed 1",
+            "run": "r3",
+            "diff": {
+              "changed": {
+                "heading": {
+                  "onlyBaseline": [
+                    "Results for react"
+                  ],
+                  "onlyRun": [
+                    "Results for reac"
+                  ]
+                },
+                "rows": {
+                  "onlyBaseline": [
+                    "react one",
+                    "react two"
+                  ],
+                  "onlyRun": [
+                    "reac one",
+                    "reac two"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "load": 3,
+            "label": "seed 2",
+            "run": "r4",
+            "diff": {
+              "changed": {
+                "heading": {
+                  "onlyBaseline": [
+                    "Results for react"
+                  ],
+                  "onlyRun": [
+                    "Results for rea"
+                  ]
+                },
+                "rows": {
+                  "onlyBaseline": [
+                    "react one",
+                    "react two"
+                  ],
+                  "onlyRun": [
+                    "rea one",
+                    "rea two"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "load": 4,
+            "label": "seed 3",
+            "run": "r5",
+            "diff": {
+              "changed": {
+                "heading": {
+                  "onlyBaseline": [
+                    "Results for react"
+                  ],
+                  "onlyRun": [
+                    "Results for r"
+                  ]
+                },
+                "rows": {
+                  "onlyBaseline": [
+                    "react one",
+                    "react two"
+                  ],
+                  "onlyRun": [
+                    "r one",
+                    "r two"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "load": 5,
+            "label": "seed 4",
+            "run": "r6",
+            "diff": {
+              "changed": {
+                "heading": {
+                  "onlyBaseline": [
+                    "Results for react"
+                  ],
+                  "onlyRun": [
+                    "Results for r"
+                  ]
+                },
+                "rows": {
+                  "onlyBaseline": [
+                    "react one",
+                    "react two"
+                  ],
+                  "onlyRun": [
+                    "r one",
+                    "r two"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "load": 6,
+            "label": "seed 5",
+            "run": "r7",
+            "diff": {
+              "changed": {
+                "heading": {
+                  "onlyBaseline": [
+                    "Results for react"
+                  ],
+                  "onlyRun": [
+                    "Results for rea"
+                  ]
+                },
+                "rows": {
+                  "onlyBaseline": [
+                    "react one",
+                    "react two"
+                  ],
+                  "onlyRun": [
+                    "rea one",
+                    "rea two"
+                  ]
+                }
+              }
+            }
+          }
+        ],
+        "note": "5 of 6 seeded loads ended with a different oracle than the baselines"
+      },
+      "discovered": {
+        "fields": 0,
+        "examples": []
+      },
+      "timings": {
+        "totalMs": 19103
+      },
+      "error": null
+    }
+  ],
+  "summary": {
+    "scenarios": 1,
+    "races": 1,
+    "noRace": 0,
+    "noVerdict": 0,
+    "reproduced": 1,
+    "findings": 1,
+    "otherFindings": 0
+  }
+}

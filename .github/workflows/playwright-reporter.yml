@@ -1,20 +1,29 @@
 name: Playwright reporter
 
-# @genclass/playwright (packages/playwright): typecheck, build and the unit tests of the reporter, the summariser and
-# the command, then one real Playwright run that loads the reporter by its module name. No browser: the package only
-# reads the files the GenClass Playwright fixture writes, and the fixture lives elsewhere. A separate workflow from
-# ci.yml so it never blocks the main CI job. It renders the unit-test fixture's report into the job summary to show
-# what a pull-request comment would look like; it posts nothing.
+# @genclass/playwright (packages/playwright): typecheck, build and the unit tests of the fixture (on a fake page),
+# the reporter, the summariser and the command, then one real Playwright run (no browser) that loads the reporter by
+# its module name, and in a second job the fixture's end-to-end check in Chromium (packages/playwright/test/e2e):
+# the MCP e2e search page with the fixture's seeded chaos, five seeds per test, the buggy page must get the
+# overwrote-newer witness, the fixed page and the latency-only run must get nothing, and the reporter must render
+# it. A separate workflow from ci.yml so it never blocks the main CI job. It renders the unit-test fixture's report
+# into the job summary to show what a pull-request comment would look like; it posts nothing and sends nothing
+# anywhere (the app server listens on 127.0.0.1 inside the runner; the page's model is skipped).
 
 on:
   push:
     paths:
       - "packages/playwright/**"
+      - "packages/runtime/src/agent/**"
+      - "packages/runtime/src/cdn/**"
+      - "packages/mcp/test/e2e/app/**"
       - "package-lock.json"
       - ".github/workflows/playwright-reporter.yml"
   pull_request:
     paths:
       - "packages/playwright/**"
+      - "packages/runtime/src/agent/**"
+      - "packages/runtime/src/cdn/**"
+      - "packages/mcp/test/e2e/app/**"
       - "package-lock.json"
       - ".github/workflows/playwright-reporter.yml"
   workflow_dispatch:
@@ -75,3 +84,48 @@ jobs:
           node ../../bin/genclass-playwright-report.mjs --out - > "$RUNNER_TEMP/expected.md"
           diff "$RUNNER_TEMP/expected.md" genclass-report.md
           grep -qF '**1 reproducible**' genclass-report.md
+
+  e2e:
+    name: "@genclass/playwright: the fixture end to end in Chromium"
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      ONNXRUNTIME_NODE_INSTALL: skip
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - name: Build (the runtime's dist/ is what the fixture serves to the page)
+        run: |
+          npm run build -w @genclass/runtime
+          npm run build -w @genclass/playwright
+
+      - name: Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: The fixture end to end (buggy page flagged, fixed page and latency-only run clean, report rendered)
+        # shell: bash runs with pipefail, so a failing run.mjs fails the step even though tee succeeds
+        shell: bash
+        run: node packages/playwright/test/e2e/run.mjs | tee "$RUNNER_TEMP/e2e.log"
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo '### GenClass fixture, end to end'
+            echo '```json'
+            sed -n '/^{/,$p' "$RUNNER_TEMP/e2e.log" | tail -60
+            echo '```'
+            if [ -f packages/playwright/test/e2e/genclass-report.md ]; then
+              echo
+              echo '### The report the reporter wrote'
+              cat packages/playwright/test/e2e/genclass-report.md
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

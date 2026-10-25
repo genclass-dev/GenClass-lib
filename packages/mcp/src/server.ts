@@ -80,14 +80,14 @@ export async function serve(o: ServeOptions): Promise<Served> {
   const queue: Finding[] = [];
   const pushed = new Set<string>();
   let timer: NodeJS.Timeout | null = null;
-  const mcp = new McpServer({
+  const mcp: McpServer = new McpServer({
     name: SERVER_NAME,
     version: VERSION,
     instructions: INSTRUCTIONS,
     tools: TOOLS,
     channel: true,
     log,
-    call: (name, args) => callTool(name, args, { api: (m, p) => api(m, p), now: () => Date.now(), cwd: o.cwd, env: o.env }),
+    call: (name, args) => callTool(name, args, { api: (m, p) => api(m, p), now: () => Date.now(), cwd: o.cwd, env: o.env, client: mcp.clientName }),
   });
   const pump = () => {
     timer = null;
