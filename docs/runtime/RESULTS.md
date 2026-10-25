@@ -832,3 +832,26 @@ First load: `test/bundle.test.ts` on the branch measures `/auto` 108.54 KB and t
 gzip; limits 108.6 / 100.48 KB): the agent link is its own entry (`dist/agent.js`, no imports), never part of the first
 load; the XHR fix adds about 10 bytes. Tests: 36 in `test/agent.test.ts`, 57 in `packages/mcp`; the runtime suite
 passes (1,101 tests, 14 model-parity skips); `review-perf` 4 of 4.
+
+## 17. Coding agents on a real app: Gitea's markdown preview (cloud container, 2026-10-25, adoption hunt)
+
+[adoption/hunts/gitea.md](../adoption/hunts/gitea.md). Gitea `main` at `ff68b39` (same code as v28.2.0), built from
+source with SQLite; GenClass from `main` at `d77ffd8` (runtime 0.3.0-beta.1, mcp 0.1.0), injected from outside through
+Playwright 1.63.0 / Chromium 1243 (the script-tag build plus `connectAgent`, `model: false`, telemetry off, one `rt.atom`
+per watched pane because GenClass discovers no store on Gitea's stack). Each explore session: 2 fifo baselines + N
+seeded loads of the same steps, at `slow_ms` 300, 600 and 900. "Fixed" is Gitea with the prepared patch (a request
+counter in each preview handler).
+
+| surface | seeded loads ending stale, unfixed | seeded loads differing from the baseline, fixed (false reports) |
+|---|---|---|
+| comment box Preview (N = 6) | 6 of 18 | 0 of 18 |
+| file editor Preview (N = 6) | 5 of 18 | 0 of 18 |
+| file editor Preview Changes (N = 12) | 12 of 36 (0 of 18 with N = 6) | 0 of 36 |
+
+Every load where the newer response was delivered first ended stale on the unfixed build (23 of 23) and right on the
+fixed one (0 of 23); baselines were right on both. Confirmed without GenClass: a Gitea e2e test fails 20 of 20 before
+the fix and passes 20 of 20 after, and a person-paced run on a throttled network (no reordering) ends stale 5 of 5
+before and right 5 of 5 after. Misses: with N = 6 the Preview Changes race was never tried in the harmful order (the
+seeded priorities of its two request keys favour the older one for seeds 1 to 8); and the Actions "Run workflow" branch
+change, a dropped update rather than a reordering, was reported as a race in 5 of 6 at 300 ms but not at 600 or 900 ms,
+where the baselines lost the update too. One app, three surfaces of one bug class: not a recall figure.
