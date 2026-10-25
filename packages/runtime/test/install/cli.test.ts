@@ -13,6 +13,7 @@ import { appendEnd, bodyTagEnd, codeStyle, insertTop, planRemoval, removeMarked,
 import { integrityFor, nodeOnlyImport, scriptTag } from "../../bin/lib/plan.mjs";
 // @ts-expect-error plain ESM module without types
 import { libraryEvidence } from "../../bin/lib/detect.mjs";
+import { CMD, VERSION, channelOf, cmdFor, compareVersions, versionInSpec, versionStatus } from "../../bin/lib/version.mjs";
 import { assetBase } from "../../src/cdn/global.js";
 import { GenClass } from "../../src/index.js";
 import { DEFAULT_MODEL_BASE_URL } from "../../src/model/host.js";
@@ -848,7 +849,7 @@ describe("init options: --no-telemetry / --telemetry / --model-url (Troy trial, 
   it("discloses that telemetry is on by default, how to turn it off, and links TELEMETRY.md and PRIVACY.md", () => {
     const r = cli(viteVue(), "init", "--dry-run");
     expect(r.out).toMatch(/Telemetry\s+on \(the default\)/);
-    expect(r.out).toContain("npx @genclass/runtime init --no-telemetry");
+    expect(r.out).toContain(`${CMD} init --no-telemetry`);
     expect(r.out).toContain("https://github.com/genclass-dev/GenClass-lib/blob/main/PRIVACY.md");
     expect(r.out).toContain("packages/runtime/TELEMETRY.md");
     expect(cli(viteVue(), "init", "--dry-run", "--no-telemetry").out).toMatch(/Telemetry\s+off/);
@@ -867,8 +868,8 @@ describe("init finds a Content-Security-Policy and prints the self-host steps", 
     const r = cli(next({ "next.config.ts": CSP_CONFIG }), "init", "--dry-run");
     expect(r.out).toContain("Content-Security-Policy found (next.config.ts)");
     expect(r.out).toContain("which your policy does not allow (connect-src)");
-    expect(r.out).toContain("npx @genclass/runtime fetch-model public/genclass-model");
-    expect(r.out).toContain("npx @genclass/runtime init --model-url /genclass-model/");
+    expect(r.out).toContain(`${CMD} fetch-model public/genclass-model`);
+    expect(r.out).toContain(`${CMD} init --model-url /genclass-model/`);
     expect(r.out).toContain("or add https://cdn.jsdelivr.net to connect-src");
     expect(r.out).not.toContain("wasm-unsafe-eval'.");
   });
@@ -949,7 +950,7 @@ describe("init: app token and private dashboard link (fetch mocked; never the re
     expect(r.out).toContain("keep this link private; it is the only way to open your dashboard".replace(/^k/, "K"));
     // analytics are free: the notice says so and how to get the link again, never that it needs Pro or a trial
     expect(r.out).toContain("Free for every app");
-    expect(r.out).toContain("npx @genclass/runtime dashboard");
+    expect(r.out).toContain(`${CMD} dashboard`);
     expect(r.out).not.toMatch(/needs\s+Pro|free trial|trial for analytics/i);
     // again: the token is already there, no network, nothing to do
     const r2 = cliEnv({ GENCLASS_TEST_FETCH: "ok", GENCLASS_TEST_FETCH_LOG: log }, dir, "init", "--yes", "--no-install");
@@ -1121,5 +1122,85 @@ describe("init: app token and private dashboard link (fetch mocked; never the re
     expect(snapshot(html)["index.html"]).toContain(`<script src="https://example.test/g.js" defer data-devtools="local" data-token="${TOKEN}"></script> <!-- genclass:init -->`);
     expect(cli(html, "remove", "--yes").code).toBe(0);
     expect(snapshot(html)["index.html"]).toBe(`<html>\n<head>\n  <title>x</title>\n</head>\n<body></body>\n</html>\n`);
+  });
+});
+
+describe("the newest line: version line, npm dist-tags, older runtimes upgraded (README Install)", () => {
+  const app = (deps: Record<string, string> = {}) => project({ "package.json": pkg({ vue: "^3", vite: "^7", ...deps }), "index.html": VITE_HTML.replace("main.tsx", "main.js"), "src/main.js": VITE_MAIN });
+
+  it("versions: semver order with prereleases, the channel, the command that runs this line again", () => {
+    expect(compareVersions("0.2.2", "0.3.0-beta.1")).toBe(-1);
+    expect(compareVersions("0.3.0-beta.1", "0.3.0-beta.10")).toBe(-1);
+    expect(compareVersions("0.3.0-beta.2", "0.3.0")).toBe(-1);
+    expect(compareVersions("0.3.0-rc.1", "0.3.0-beta.9")).toBe(1);
+    expect(compareVersions("1.0.0", "1.0.0")).toBe(0);
+    expect(compareVersions("latest", "1.0.0")).toBeNull();
+    expect(channelOf("0.3.0-beta.1")).toBe("beta");
+    expect(channelOf("0.3.0")).toBeNull();
+    expect(cmdFor("0.3.0-beta.1")).toBe("npx @genclass/runtime@beta");
+    expect(cmdFor("0.3.0")).toBe("npx @genclass/runtime");
+    expect(CMD).toBe(cmdFor(VERSION));
+    expect(versionInSpec("^0.2.0")).toBe("0.2.0");
+    expect(versionInSpec(">=0.3.0-beta.1")).toBe("0.3.0-beta.1");
+    expect(versionInSpec("beta")).toBeNull();
+    expect(versionInSpec("file:../runtime")).toBeNull();
+    expect(versionStatus("0.3.0-beta.1", { latest: "0.2.2", beta: "0.3.0-beta.1" })).toEqual({ tag: "beta", newer: null });
+    expect(versionStatus("0.3.0-beta.1", { latest: "0.2.2", beta: "0.3.0-beta.3" })).toEqual({ tag: null, newer: { version: "0.3.0-beta.3", tag: "beta" } });
+    expect(versionStatus("0.3.0-beta.3", { latest: "0.3.0", beta: "0.3.0-beta.3" })).toEqual({ tag: "beta", newer: { version: "0.3.0", tag: "latest" } });
+    expect(versionStatus("0.3.0", null)).toEqual({ tag: null, newer: null });
+  });
+
+  it("init prints its own version and the dist-tag it came from", () => {
+    const r = cliEnv({ GENCLASS_TEST_DIST_TAGS: JSON.stringify({ latest: "0.2.2", beta: VERSION }) }, app(), "init", "--yes", "--no-install");
+    expect(r.code, r.out).toBe(0);
+    expect(r.out).toContain(`Version    @genclass/runtime ${VERSION} (npm dist-tag beta)`);
+    expect(r.out).not.toContain("Newer");
+  });
+
+  it("says when npm has a newer release, with the command that runs it", () => {
+    const r = cliEnv({ GENCLASS_TEST_DIST_TAGS: JSON.stringify({ latest: "0.2.2", beta: "99.0.0-beta.1" }) }, app(), "init", "--dry-run");
+    // --dry-run never asks npm
+    expect(r.out).toContain("(npm dist-tags not checked)");
+    const n = cliEnv({ GENCLASS_TEST_DIST_TAGS: JSON.stringify({ latest: "0.2.2", beta: "99.0.0-beta.1" }) }, app(), "init", "--yes", "--no-install");
+    expect(n.out).toContain("Newer      @genclass/runtime 99.0.0-beta.1 is on npm (dist-tag beta): run npx @genclass/runtime@beta init instead");
+    const l = cliEnv({ GENCLASS_TEST_DIST_TAGS: JSON.stringify({ latest: "99.0.0", beta: "99.0.0-beta.1" }) }, app(), "init", "--yes", "--no-install");
+    expect(l.out).toContain("Newer      @genclass/runtime 99.0.0 is on npm (dist-tag latest): run npx @genclass/runtime init instead");
+  });
+
+  it("--no-network, --no-token, --no-telemetry and --dry-run do not ask npm; offline says nothing more", () => {
+    const tags = JSON.stringify({ latest: "99.0.0" });
+    for (const flag of ["--no-network", "--no-token", "--no-telemetry"]) {
+      const r = cliEnv({ GENCLASS_TEST_DIST_TAGS: tags }, app(), "init", "--yes", "--no-install", flag);
+      expect(r.code, r.out).toBe(0);
+      expect(r.out).toContain(`Version    @genclass/runtime ${VERSION} (npm dist-tags not checked)`);
+      expect(r.out).not.toContain("Newer");
+    }
+    const off = cli(app(), "init", "--yes", "--no-install");
+    expect(off.out).toContain(`Version    @genclass/runtime ${VERSION}\n`);
+    expect(off.out).not.toContain("Newer");
+  });
+
+  it("an older @genclass/runtime in the project (0.2.x) is upgraded to this version, not kept", () => {
+    const dir = app({ "@genclass/runtime": "^0.2.0" });
+    mkdirSync(join(dir, "node_modules/@genclass/runtime"), { recursive: true });
+    writeFileSync(join(dir, "node_modules/@genclass/runtime/package.json"), JSON.stringify({ name: "@genclass/runtime", version: "0.2.2" }));
+    const dry = cli(dir, "init", "--dry-run");
+    expect(dry.out).toContain(`@genclass/runtime 0.2.2 is older than this init (${VERSION}); init upgrades it`);
+    expect(dry.out).toContain(`Install  npm install @genclass/runtime@^${VERSION} --no-audit --no-fund`);
+    const r = cli(dir, "init", "--yes", "--no-install");
+    expect(r.code, r.out).toBe(0);
+    expect(r.out).toContain(`--no-install: upgrade @genclass/runtime yourself (npm install @genclass/runtime@^${VERSION} --no-audit --no-fund)`);
+    // set up already: init again offers the upgrade alone
+    const again = cli(dir, "init", "--dry-run");
+    expect(again.out).toContain(`@genclass/runtime 0.2.2 is older than this init. Will run: npm install @genclass/runtime@^${VERSION}`);
+    // the same version (or a newer one) is left alone
+    writeFileSync(join(dir, "node_modules/@genclass/runtime/package.json"), JSON.stringify({ name: "@genclass/runtime", version: VERSION }));
+    expect(cli(dir, "init", "--yes", "--no-install").out).toContain("Nothing to do");
+  });
+
+  it("help names the newest line's behaviour", () => {
+    const r = cli(app(), "init", "--help");
+    expect(r.out).toContain("--no-network");
+    expect(r.out).toContain(`installs @genclass/runtime (this version, ${VERSION}; an older one already in the`);
   });
 });

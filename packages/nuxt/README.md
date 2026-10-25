@@ -30,8 +30,9 @@ export default defineNuxtConfig({
 That is all the setup. The module adds one client-only plugin, placed before your own plugins, whose first line is the
 runtime's `import "@genclass/runtime/auto"`: GenClass is installed when the entry chunk runs, before Nuxt creates the
 app and before any component's first request. On the server (SSR, Nitro routes, prerendering) nothing is imported and
-nothing runs. The `@beta` tag gets `@genclass/runtime` 0.3.0, which the `token` option needs; the stable `0.2.x` works
-with every other option.
+nothing runs. The `@beta` tag gets the newest runtime line, `@genclass/runtime`
+0.3.0-beta.1 or later, which the peer range asks for (the `token` option, the dashboard and interaction analytics need
+it); a bare `npm install @genclass/runtime` gets npm's `latest`, the older `0.2.x`, which does not satisfy it.
 
 With options:
 

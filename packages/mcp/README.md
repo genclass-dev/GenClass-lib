@@ -267,8 +267,9 @@ AI Assistant: Settings, Tools, AI Assistant, Model Context Protocol (MCP), Add, 
 Any other MCP client: a stdio server, command `npx`, arguments `-y @genclass/mcp@0.1.0`, no environment variables
 required.
 
-Then connect the app's development build (once). The agent link needs `@genclass/runtime` 0.3.0-beta.1 or later
-(`npm install @genclass/runtime@beta` until 0.3.0 is `latest`):
+Then connect the app's development build (once). The agent link needs the newest runtime line, `@genclass/runtime`
+0.3.0-beta.1 or later: `npm install @genclass/runtime@beta` (a bare `npm install @genclass/runtime` gets npm's
+`latest`, the older 0.2.x, which has no agent entry):
 
 ```ts
 import { GenClass } from "@genclass/runtime";

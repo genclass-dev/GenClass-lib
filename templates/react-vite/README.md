@@ -23,7 +23,7 @@ import genclass from "@genclass/runtime/auto";
 
 It goes first so GenClass is installed before React and your state exist. That is all the setup: GenClass watches
 fetch, XHR, WebSocket, EventSource, user input and timers, and finds React state on its own (automatic state
-discovery). `npx @genclass/runtime init` writes the same line into an existing app.
+discovery). `npx @genclass/runtime@beta init` writes the same line into an existing app.
 
 ## Observe, then guard
 
@@ -50,7 +50,7 @@ It lists detections and actions, explains each decision and lets you switch mode
 
 - For one page load: add `?genclass=off` to the URL (nothing is installed).
 - For a browser: `localStorage.genclass = "off"`.
-- For good: remove the import (or run `npx @genclass/runtime remove`).
+- For good: remove the import (or run `npx @genclass/runtime@beta remove`).
 
 ## Privacy
 

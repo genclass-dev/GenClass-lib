@@ -531,11 +531,22 @@ export function setupText(cwd: string, client?: string | null): string {
   }
   const deps = { ...(pkg.dependencies ?? {}), ...(pkg.devDependencies ?? {}) };
   const has = (n: string) => n in deps;
-  // the agent entry (@genclass/runtime/agent) ships from 0.3.0-beta.1; until 0.3.0 is `latest`, it is on the beta tag
+  // the agent entry (@genclass/runtime/agent) and interaction analytics ship from 0.3.0-beta.1, the newest line (npm
+  // dist-tag beta); npm's `latest` is the older 0.2.x until 0.3.0, so a range without a version ("*", "latest") gets
+  // 0.2.x. The installed copy, when there is one, says what the project really runs.
   const range = String(deps["@genclass/runtime"] ?? "");
-  const m = /(\d+)\.(\d+)\.(\d+)(?:-beta\.(\d+))?/.exec(range);
-  const tooOld = !!m && (Number(m[1]) === 0 && (Number(m[2]) < 3 || (Number(m[2]) === 3 && Number(m[3]) === 0 && m[4] !== undefined && Number(m[4]) < 1)));
-  const installed = has("@genclass/runtime") && !tooOld && range !== "latest";
+  let have = range;
+  try {
+    const v = JSON.parse(readFileSync(join(cwd, "node_modules", "@genclass", "runtime", "package.json"), "utf8")).version;
+    if (typeof v === "string") have = v;
+  } catch {
+    /* not installed here */
+  }
+  const m = /(\d+)\.(\d+)\.(\d+)(?:-beta\.(\d+))?/.exec(have);
+  const tooOld = m
+    ? Number(m[1]) === 0 && (Number(m[2]) < 3 || (Number(m[2]) === 3 && Number(m[3]) === 0 && m[4] !== undefined && Number(m[4]) < 1))
+    : /^\s*(\*|x|latest)?\s*$/i.test(range);
+  const installed = has("@genclass/runtime") && !tooOld;
   const next = has("next");
   const vite = has("vite") || existsSync(join(cwd, "vite.config.ts")) || existsSync(join(cwd, "vite.config.js"));
   const guard = next ? `process.env.NODE_ENV === "development"` : vite ? "import.meta.env.DEV" : `process.env.NODE_ENV !== "production"`;
@@ -543,7 +554,7 @@ export function setupText(cwd: string, client?: string | null): string {
   const lines = [
     installed
       ? "@genclass/runtime is installed."
-      : `1. Install the runtime with the agent entry (0.3.0-beta.1 or later${has("@genclass/runtime") ? `; this project has ${JSON.stringify(range)}` : ""}): npm install @genclass/runtime@beta`,
+      : `1. Install the newest runtime, 0.3.0-beta.1 or later (the agent entry and analytics; 0.2.x has neither${has("@genclass/runtime") ? `; this project has ${JSON.stringify(range)}${have !== range ? `, installed ${have}` : ""}` : ""}): npm install @genclass/runtime@beta`,
     `${installed ? "1" : "2"}. In ${where}:`,
     "```ts",
     `import { GenClass } from "@genclass/runtime";`,

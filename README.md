@@ -20,9 +20,12 @@ One line, first in `<head>` or first in your entry file:
 import "@genclass/runtime/auto"; // after npm install @genclass/runtime@beta
 ```
 
-Pin the version in the script tag, as above: the unversioned URL may serve an older release from the CDN cache.
-While `0.3.0` is in beta, `@beta` is part of every npm and npx command here: without it npm installs the stable
-`0.2.x`, whose CLI has no `login`, `connect`, `whoami`, `logout` or `--sink` and whose runtime ignores a token.
+Use the newest line, `0.3.0-beta.1` (npm dist-tag `beta`): every npm and npx command here names `@beta`, and the
+script tag pins the version (the unversioned URL serves npm's `latest`, possibly an older release from the CDN cache).
+A bare `npm install @genclass/runtime` or `npx @genclass/runtime init` gets npm's `latest`, the older `0.2.x` line,
+which has no token, dashboard, interaction analytics, visual checks or agent link, whose CLI has no `login`,
+`connect`, `dashboard` or `--sink`, and whose runtime ignores `token` and `analytics: true` without a word. Keep
+`0.2.x` only for an app that cannot take a prerelease.
 
 That covers the whole app: network, user actions, errors, timing, and the app's state (React component state,
 Redux / Redux Toolkit and Zustand `devtools` stores are discovered automatically; discovered React and Zustand state
@@ -35,8 +38,9 @@ generic facts about each write, request and response, and asks a small GenClass 
 The model runs in the browser (WebGPU or WASM, in a Web Worker). It answers two questions: what is happening, and
 which available action is best. There is no list of known bugs in the code.
 
-**Status: `@genclass/runtime@0.3.0-beta.1` (npm `beta` dist-tag: `npm install @genclass/runtime@beta`; the stable
-line is `0.2.x`) with model `@genclass/runtime-model@0.2.0`.** Observe by default; `guard` is
+**Status: `@genclass/runtime@0.3.0-beta.1`, the newest line (npm `beta` dist-tag: `npm install @genclass/runtime@beta`;
+npm's `latest` is still the older `0.2.x`, the exception for apps that cannot take a prerelease) with model
+`@genclass/runtime-model@0.2.0`.** Observe by default; `guard` is
 opt-in; `heal` is experimental. Measured false-intervention and recall rates are under
 [Measured behaviour](#measured-behaviour). AI coding agents: start at [AGENTS.md](AGENTS.md).
 

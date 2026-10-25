@@ -13,7 +13,6 @@
 import { spawnSync } from "node:child_process";
 import { mkdirSync, readdirSync, readFileSync, rmdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";
-import { fileURLToPath } from "node:url";
 import { detectCsp, detectProject, detectState, htmlFiles, littleToWatch, isDir, isFile, readText, walkSkipped, walkSources } from "./detect.mjs";
 import { MARK, hasMarker, isEmptyConfig, planRemoval, removeMarked, sinkBase, sinkNoEvidence, switchMetaConfig, switchMode, switchTagConfig, updateConfigText } from "./edit.mjs";
 import { AUTO, configFileChange, configFileFor, planInit, scriptTag } from "./plan.mjs";
@@ -21,17 +20,8 @@ import { createAccountProject, readCredentials } from "./account.mjs";
 import { hostConfig, hostUrl } from "./host.mjs";
 import { LOCAL_FILE, PENDING_TOKEN, START_URL, TOKEN_RE, createProject, readLocal, saveLocal, tokenInFiles } from "./token.mjs";
 import { banner, c, confirm, err, interactive, out, printChange, row, sym } from "./ui.mjs";
+import { CMD, PKG, PKG_DIR, VERSION, compareVersions, distTags, installedVersion, versionInSpec, versionStatus } from "./version.mjs";
 
-const PKG_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const VERSION = (() => {
-  try {
-    return JSON.parse(readFileSync(join(PKG_DIR, "package.json"), "utf8")).version;
-  } catch {
-    return "latest";
-  }
-})();
-const CMD = "npx @genclass/runtime";
-const PKG = "@genclass/runtime";
 const MODES = ["observe", "guard", "heal"];
 
 const REPO = "https://github.com/genclass-dev/GenClass-lib/blob/main";
@@ -43,19 +33,21 @@ export const PRICING_URL = "https://genclass.dev/pricing";
 /** What a dashboard shows, said under every dashboard link the CLI prints: analytics are free on every plan. */
 export const FREE_LINES = [
   "Free for every app: what GenClass found, on which pages, and what it did, and (with analytics: true)",
-  "how visitors use each page. Print this link again any time: npx @genclass/runtime dashboard",
+  `how visitors use each page. Print this link again any time: ${CMD} dashboard`,
 ];
 
 export const USAGE = `Usage:
   genclass-runtime init   [--mode observe|guard|heal] [--token <gc_...> | --no-token]
                           [--no-telemetry | --telemetry] [--model-url <url>]
                           [--sink console-json|webhook:<url>]
-                          [--yes] [--dry-run] [--no-install] [--no-devtools] [--cwd <dir>]
+                          [--yes] [--dry-run] [--no-install] [--no-devtools] [--no-network] [--cwd <dir>]
   genclass-runtime remove [--yes] [--dry-run] [--keep-package] [--cwd <dir>]
 
-init     finds your framework, installs ${PKG}, adds one import to your entry file (and a dev-only devtools
-         line), shows the diff and asks before writing. Running it again changes nothing; with another
-         --mode it switches the import init added to that mode.
+init     finds your framework, installs ${PKG} (this version, ${VERSION}; an older one already in the
+         project is upgraded), adds one import to your entry file (and a dev-only devtools line), shows
+         the diff and asks before writing. Running it again changes nothing; with another --mode it
+         switches the import init added to that mode. It prints its own version and asks npm's dist-tags
+         (at most 3 s) whether a newer release exists.
 remove   takes out exactly what init added (the lines and blocks marked "${MARK}"; it changes nothing if
          one of them was edited, though attributes added to its script tag, such as defer, are fine) and
          uninstalls the package if nothing else imports it.
@@ -88,6 +80,8 @@ remove   takes out exactly what init added (the lines and blocks marked "${MARK}
   --dry-run        show what would change; write nothing
   --no-install     do not run the package manager
   --no-devtools    do not add the dev-only devtools overlay
+  --no-network     do not ask npm for newer releases (--dry-run, --no-token and --no-telemetry do not
+                   ask either)
   --keep-package   remove: leave ${PKG} installed
   --cwd <dir>      the project directory (default: the current directory)
   --from <spec>    install ${PKG} from this spec (a version, tag or tarball path)
@@ -105,6 +99,7 @@ const BOOL = {
   "dry-run": "dryRun",
   "no-install": "noInstall",
   "no-devtools": "noDevtools",
+  "no-network": "noNetwork",
   "keep-package": "keepPackage",
   "no-sri": "noSri",
   sync: "sync",
@@ -261,7 +256,7 @@ function manualHelp(project) {
   out(`    ${c.cyan(`import "${AUTO()}";`)}`);
   out(`  or, without a bundler, one tag first in <head>`);
   out(`    ${c.cyan(scriptTag({ devtools: true }, PKG_DIR, VERSION).replace(/ integrity="[^"]*" crossorigin="anonymous"/, ""))}`);
-  if (project?.pkg) out(`  and install it: ${c.cyan(installArgs(project.pm ?? "npm", PKG).flat().join(" "))}`);
+  if (project?.pkg) out(`  and install it: ${c.cyan(installArgs(project.pm ?? "npm", installSpec({})).flat().join(" "))}`);
   out();
 }
 
@@ -737,6 +732,29 @@ export function hostNotice() {
   if (h.overridden && !h.error) row("Host", `${h.host} ${c.gray("(GENCLASS_HOST is set: for tests only, instead of https://genclass.dev)")}`, c.yellow(sym.warn));
 }
 
+/**
+ * The version line: this CLI's version and the npm dist-tag that points at it, and a warning when a dist-tag points at
+ * a newer release (npm asked once, at most 3 s; not with --dry-run, --no-network, --no-token or --no-telemetry, nothing
+ * when offline).
+ */
+export async function versionNotice(o) {
+  const asked = !o.dryRun && !o.noNetwork && !o.noToken && !o.noTelemetry;
+  const st = versionStatus(VERSION, asked ? await distTags() : null);
+  const from = st.tag ? c.gray(` (npm dist-tag ${st.tag})`) : asked ? "" : c.gray(" (npm dist-tags not checked)");
+  row("Version", `${PKG} ${VERSION}${from}`);
+  if (st.newer) {
+    const run = st.newer.tag === "latest" ? `npx ${PKG}` : `npx ${PKG}@${st.newer.tag}`;
+    row("Newer", `${PKG} ${st.newer.version} is on npm (dist-tag ${st.newer.tag}): run ${c.cyan(`${run} init`)} instead`, c.yellow(sym.warn));
+  }
+}
+
+/** The version of ${PKG} the project has (installed, else the one its package.json names) when it is older than this CLI's. */
+function olderRuntime(project, cwd) {
+  if (!project.pkg || !project.has(PKG)) return null;
+  const have = installedVersion(cwd) ?? versionInSpec(project.deps[PKG]);
+  return have && compareVersions(have, VERSION) === -1 ? have : null;
+}
+
 /** What init finds in the project directory (no writes, no network). */
 export function inspectProject(o) {
   const cwd = projectDir(o);
@@ -775,6 +793,7 @@ export async function init(o, ctx = {}) {
   const cwd = projectDir(o);
   if (ctx.banner !== false) banner("init");
   if (ctx.banner !== false) hostNotice();
+  if (ctx.banner !== false) await versionNotice(o);
   const project = detectProject(cwd);
   let cfg = withLocalDevice(configOf(o), project);
   if (project.refused) {
@@ -810,8 +829,12 @@ export async function init(o, ctx = {}) {
   }
   if (tk.write) cfg = { token: tk.token, ...cfg };
   else if (tk.pending) cfg = { token: PENDING_TOKEN, ...cfg };
-  const needsPackage = !!project.pkg && project.framework !== "html" && !project.has(PKG);
+  // an older @genclass/runtime in the project (0.2.x from `npx @genclass/runtime init` without @beta) is upgraded:
+  // without that, this init would write options and imports the installed runtime does not have
+  const older = project.framework !== "html" ? olderRuntime(project, cwd) : null;
+  const needsPackage = !!project.pkg && project.framework !== "html" && (!project.has(PKG) || !!older);
   const install = needsPackage && !o.noInstall;
+  if (older) row("Package", `${PKG} ${older} is older than this init (${VERSION})${install ? "; init upgrades it" : ": upgrade it (--no-install)"}`, c.yellow(sym.warn));
   const spec = installSpec(o);
 
   if (marked.length || manualRefs(files).length) {
@@ -851,16 +874,17 @@ export async function init(o, ctx = {}) {
       return r.code;
     }
     if (!install) {
+      if (older) out(`  ${c.yellow(sym.warn)} --no-install: upgrade it yourself: ${c.cyan(installArgs(project.pm, spec).flat().join(" "))}`);
       out(`  ${c.green("Nothing to do.")}${marked.length ? ` To take it out: ${c.cyan(`${CMD} remove`)}` : ""}`);
       out();
       dashboardNotice(tk, cwd, false, true);
       return 0;
     }
     out();
-    out(`  ${PKG} is not in package.json yet. Will run: ${c.cyan(installArgs(project.pm, spec).flat().join(" "))}`);
+    out(`  ${older ? `${PKG} ${older} is older than this init.` : `${PKG} is not in package.json yet.`} Will run: ${c.cyan(installArgs(project.pm, spec).flat().join(" "))}`);
     if (o.dryRun) return 0;
     if (!o.yes) {
-      const ok = await confirm("Install it?");
+      const ok = await confirm(older ? "Upgrade it?" : "Install it?");
       if (ok === null) {
         out(`  Not a terminal: re-run with ${c.bold("--yes")}.`);
         return 1;
@@ -893,7 +917,7 @@ export async function init(o, ctx = {}) {
   out();
   for (const ch of plan.changes) printChange({ ...ch, file: ch.rel });
   if (install) out(`  ${c.bold("Install")}  ${c.cyan(installArgs(project.pm, spec).flat().join(" "))}`);
-  else if (needsPackage) out(`  ${c.yellow(sym.warn)} --no-install: add ${PKG} to your dependencies yourself.`);
+  else if (needsPackage) out(`  ${c.yellow(sym.warn)} --no-install: ${older ? `upgrade ${PKG} yourself (${installArgs(project.pm, spec).flat().join(" ")})` : `add ${PKG} to your dependencies yourself`}.`);
   for (const n of plan.notes ?? []) out(`  ${c.yellow(sym.warn)} ${n}`);
   out();
 

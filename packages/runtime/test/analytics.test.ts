@@ -8,7 +8,11 @@ import { createRuntime } from "../src/index.js";
 import type { RuntimeImpl } from "../src/runtime.js";
 import { DATA_LIKE, type TelemetryClient } from "../src/telemetry/client.js";
 import { fromPairs, readMetaConfig } from "../src/cdn/config.js";
-import { ANALYTICS_NOTICE, deviceOf, IDLE_MS, KEY_MAX, keyOf, loadNav, PATH_MAX, popNav, refHost, utmValue, VISIT_IDLE_MS, VISIT_KEY, type KeyContext } from "../src/analytics/index.js";
+import { ANALYTICS_NOTICE, ANALYTICS_SINCE, deviceOf, IDLE_MS, KEY_MAX, keyOf, loadNav, PATH_MAX, popNav, refHost, utmValue, versionMismatch, VISIT_IDLE_MS, VISIT_KEY, type KeyContext } from "../src/analytics/index.js";
+import { analyticsRegistry } from "../src/analytics/start.js";
+import type { AnalyticsChunk } from "../src/analytics/index.js";
+import { analyticsLoader } from "../src/cdn/analytics-loader.js";
+import { RUNTIME_VERSION } from "../src/version.js";
 import { normalizePath } from "../src/util.js";
 import type { TelemetryTransport } from "../src/types.js";
 import { FakeClock, ScriptedDecider } from "./helpers.js";
@@ -59,7 +63,7 @@ let rt: RuntimeImpl | null = null;
 const w = window as unknown as { crypto?: { getRandomValues?: unknown } };
 if (typeof w.crypto?.getRandomValues !== "function") Object.defineProperty(window, "crypto", { value: globalThis.crypto, configurable: true });
 
-async function arun(o: { analytics?: boolean; token?: string | null; telemetry?: Record<string, unknown> | false; nav?: boolean; user?: boolean; storage?: boolean } = {}) {
+async function arun(o: { analytics?: boolean; token?: string | null; telemetry?: Record<string, unknown> | false; nav?: boolean; user?: boolean; storage?: boolean; noWait?: boolean } = {}) {
   const clock = new FakeClock();
   const transport = recorder();
   rt = createRuntime({
@@ -73,7 +77,7 @@ async function arun(o: { analytics?: boolean; token?: string | null; telemetry?:
     ...(o.analytics === undefined ? { analytics: true } : { analytics: o.analytics }),
   }) as RuntimeImpl;
   const client = rt.telemetry as unknown as TelemetryClient;
-  if (rt.analytics?.enabled) await vi.waitFor(() => expect(client.pre).toBeTypeOf("function"));
+  if (rt.analytics?.enabled && !o.noWait) await vi.waitFor(() => expect(client.pre).toBeTypeOf("function"));
   return { clock, transport, rt, client };
 }
 
@@ -163,6 +167,54 @@ describe("interaction analytics: off by default, telemetry and token required, e
     expect(ANALYTICS_NOTICE).toContain("never page text");
     // shown once per page: by this test or an earlier one in the file
     expect(info.mock.calls.flat().filter((m) => m === ANALYTICS_NOTICE).length).toBeLessThanOrEqual(1);
+  });
+});
+
+describe("interaction analytics: loud when the code is missing or from another version (ANALYTICS.md section 4.1)", () => {
+  afterEach(() => {
+    delete analyticsRegistry.loader;
+  });
+  const URL0 = "https://cdn.example/npm/@genclass/runtime@9.9.9/dist/analytics/index.js";
+  const chunk = () => import("../src/analytics/index.js") as Promise<AnalyticsChunk>;
+
+  it("the script tag's loader: a chunk that does not load warns (once per load) naming the URL and version; reason error", async () => {
+    const said: string[] = [];
+    analyticsRegistry.loader = analyticsLoader(() => Promise.reject(new Error("404")), "9.9.9", URL0, (m) => said.push(m));
+    const { rt: r } = await arun({ noWait: true });
+    await vi.waitFor(() => expect(r.analytics).toMatchObject({ enabled: false, reason: "error" }));
+    expect(said).toEqual([`[GenClass] analytics: ${URL0} (@genclass/runtime 9.9.9) did not load; nothing is recorded. Serve every file of this version's dist/.`]);
+    expect(r.analytics!.start()).toBe(true);
+    await vi.waitFor(() => expect(said).toHaveLength(2));
+  });
+
+  it("the script tag's loader passes its version; the same release says nothing", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const seen: unknown[] = [];
+    analyticsRegistry.loader = analyticsLoader(
+      () => chunk().then((m) => ({ startAnalytics: (...a: Parameters<AnalyticsChunk["startAnalytics"]>) => (seen.push(a[4]), m.startAnalytics(...a)) })),
+      RUNTIME_VERSION,
+      URL0,
+      () => undefined,
+    );
+    const a = await arun();
+    expect(a.rt.analytics).toMatchObject({ enabled: true });
+    expect(seen).toEqual([RUNTIME_VERSION]);
+    expect(warn.mock.calls.flat().filter((m) => String(m).includes("script tag that loaded it"))).toEqual([]);
+  });
+
+  it("a chunk from another release than the script tag warns once per page and still records; the ESM entries pass no version", async () => {
+    expect(versionMismatch(undefined)).toBeNull();
+    expect(versionMismatch(RUNTIME_VERSION)).toBeNull();
+    expect(versionMismatch("0.3.0-beta.9")).toContain(`is @genclass/runtime ${RUNTIME_VERSION} but the script tag that loaded it is 0.3.0-beta.9`);
+    expect(versionMismatch("0.3.0-beta.9")).toContain(`need ${ANALYTICS_SINCE} or later: npm install @genclass/runtime@beta`);
+    expect(ANALYTICS_SINCE).toBe("0.3.0-beta.1");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    analyticsRegistry.loader = analyticsLoader(chunk, "0.3.0-beta.9", URL0, () => undefined);
+    const a = await arun();
+    expect(a.rt.analytics).toMatchObject({ enabled: true });
+    a.rt.destroy();
+    await arun();
+    expect(warn.mock.calls.flat().filter((m) => String(m).includes("but the script tag that loaded it is 0.3.0-beta.9")).length).toBe(1);
   });
 });
 

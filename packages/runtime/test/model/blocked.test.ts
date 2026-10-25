@@ -55,7 +55,7 @@ describe("blockedFetch", () => {
   it("the message names the origin, both fixes and the blocked URL", () => {
     const m = blockedMessage({ url: CARD, origin: "https://cdn.jsdelivr.net", csp: true, directive: "connect-src" });
     expect(m).toContain("https://cdn.jsdelivr.net was blocked by this page's Content-Security-Policy (connect-src)");
-    expect(m).toContain("npx @genclass/runtime fetch-model public/genclass-model");
+    expect(m).toContain("npx @genclass/runtime@beta fetch-model public/genclass-model");
     expect(m).toContain('model: { baseUrl: "/genclass-model/", ortWasmPaths: "/genclass-model/ort/" }');
     expect(m).toContain("allow https://cdn.jsdelivr.net in the CSP's connect-src");
     expect(m).toContain(CARD);

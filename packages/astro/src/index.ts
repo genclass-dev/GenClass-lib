@@ -18,7 +18,7 @@ export interface GenClassOptions {
    */
   mode?: "observe" | "guard";
   /**
-   * The app's dashboard token (`gc_...`) from genclass.dev or `npx @genclass/runtime login`. Needs `@genclass/runtime`
+   * The app's dashboard token (`gc_...`) from genclass.dev or `npx @genclass/runtime@beta login`. Needs `@genclass/runtime`
    * 0.3.0 or later; 0.2.x ignores it.
    */
   token?: string;

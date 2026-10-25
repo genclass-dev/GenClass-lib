@@ -46,7 +46,7 @@ GenClass.init({ model: { baseUrl: "/genclass-model/" } });
 Or download it with the runtime's CLI, which verifies every hash:
 
 ```bash
-npx @genclass/runtime fetch-model public/genclass-model --from https://cdn.jsdelivr.net/npm/@genclass/runtime-model@0.2.0/files/
+npx @genclass/runtime@beta fetch-model public/genclass-model --from https://cdn.jsdelivr.net/npm/@genclass/runtime-model@0.2.0/files/
 ```
 
 With the script tag, use `data-model="/genclass-model/"`.

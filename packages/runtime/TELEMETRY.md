@@ -13,7 +13,7 @@ Details under [Opting out](#opting-out).
 
 | how GenClass starts | default |
 |---|---|
-| `GenClass.init()`, `import "@genclass/runtime/auto"` (and `/auto/*`), the CDN script tag, `npx @genclass/runtime init` setups | **on** in a browser on a public host |
+| `GenClass.init()`, `import "@genclass/runtime/auto"` (and `/auto/*`), the CDN script tag, `npx @genclass/runtime@beta init` setups | **on** in a browser on a public host |
 | the same, on a local or private host (`localhost`, `*.localhost`, `*.local`, `*.test`, `*.internal`, `127.0.0.1`, `::1`, `10/8`, `172.16/12`, `192.168/16`, link-local, `file:`) | off unless `telemetry: true` / `{ ... }` (`0.2.1`: on, by mistake; fixed in `0.2.2`, see the CHANGELOG) |
 | `GenClass.init()` outside a browser (Node, SSR, workers) | off unless `telemetry: true` / `{ ... }` |
 | `createRuntime()` (headless, tests, the simulator) | off unless `telemetry: true` / `{ ... }` |
@@ -259,7 +259,7 @@ flag from `localStorage`.
 
 New in `0.3.0` (`0.2.x` ignores a token and sends neither `token` nor `fn`). An app can set a **token**
 (`InitOptions.token`, `data-token`, `<meta name="genclass" content="token=...">` or `window.GENCLASS_CONFIG.token`):
-`gc_` followed by 22 letters or digits, created by `npx @genclass/runtime init` or at https://genclass.dev/start.
+`gc_` followed by 22 letters or digits, created by `npx @genclass/runtime@beta init` or at https://genclass.dev/start.
 
 - The token is public (it is in the page). It is sent as the batch envelope's top-level `token` and nowhere else; it
   lets the collector group the batches of one app. A malformed token logs one console warning and is not sent.
@@ -278,7 +278,7 @@ New in `0.3.0` (`0.2.x` ignores a token and sends neither `token` nor `fn`). An 
   `[redacted]`, so use fixed names. Without a token `fn` is never sent.
 - With a token, the console notice ends with one more sentence: `With this app's token they also feed its private
   GenClass dashboard.`
-- `npx @genclass/runtime init` creates a token (a "project") only on a new setup and only after the developer
+- `npx @genclass/runtime@beta init` creates a token (a "project") only on a new setup and only after the developer
   approved its changes (or passed `--yes`): it sends one request, `POST https://genclass.dev/api/projects` with
   `{ "name": <package.json name, at most 80 characters> }`. The collector keeps one record per project: the token,
   that name, the creation time, the times of the first and the last batch, a SHA-256 hash of the dashboard secret

@@ -259,7 +259,7 @@ GenClass.init({ mode: "guard", requests: { protect: [...protectPreset("payments"
 window.GENCLASS_CONFIG = { requests: { protect: ["preset:payments", "preset:auth"] } };
 ```
 
-`npx @genclass/runtime init` suggests the second form when the project depends on a payment SDK (Stripe, PayPal,
+`npx @genclass/runtime@beta init` suggests the second form when the project depends on a payment SDK (Stripe, PayPal,
 Braintree, Adyen, Square, Paddle, ...) or has source files named like a checkout or payments page. The presets
 ([src/presets.ts](src/presets.ts)) match URL words such as `checkout`, `payment(s)`, `payment_intents`, `billing`,
 `invoice`, `charge`, `refund`, `subscription`, `order`, `transaction`, `transfer`, `payout`, `wallet` and provider

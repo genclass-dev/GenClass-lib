@@ -21,7 +21,10 @@ name: Release
 #    detection and keeps those aggregates 90 days; batches the old admin ingest has processed stay miscounted.
 # After it: check the dist-tags (a prerelease lands on the tag named after it and `latest` stays), that the
 # "Verify the registry signature and provenance" step passed, and that jsDelivr serves @<version>,
-# /dist/cdn/worker.js and /dist/sinks/webhook.js; then set telemetry-worker RUNTIME_ON_NPM to it and deploy the worker.
+# /dist/cdn/worker.js and /dist/sinks/webhook.js; then set telemetry-worker RUNTIME_ON_NPM (wrangler.toml) and
+# src/pages.ts SNIPPET_RUNTIME to it and deploy the worker. The install lines name the newest release (AGENTS.md
+# conventions): a stable release publishes to `latest` below; also run `npm dist-tag add @genclass/runtime@<version>
+# beta`, so the `@beta` lines never resolve to an older prerelease, and drop `@beta` from the install lines.
 # The registry's top-level `readme` (`npm view @genclass/runtime readme`) is emptied by every publish to a tag other
 # than `latest` and filled again by the next `latest` publish, cut to its first 65,536 characters; npmjs.com and
 # jsDelivr show each version's full README either way (checked 2026-10-17). Nothing in package.json or this workflow

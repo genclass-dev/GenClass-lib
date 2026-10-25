@@ -18,7 +18,7 @@ export function resolveToken(v: unknown, warn: (msg: string) => void): string | 
   if (isValidToken(t)) return t;
   try {
     const shown = typeof v === "string" ? JSON.stringify(v.length > 40 ? `${v.slice(0, 40)}…` : v) : typeof v;
-    warn(`Ignoring token ${shown}: a GenClass token is "gc_" followed by 22 letters or digits. Get one with \`npx @genclass/runtime init\` or at https://genclass.dev/start.`);
+    warn(`Ignoring token ${shown}: a GenClass token is "gc_" followed by 22 letters or digits. Get one with \`npx @genclass/runtime@beta init\` or at https://genclass.dev/start.`);
   } catch {
     /* ignore */
   }

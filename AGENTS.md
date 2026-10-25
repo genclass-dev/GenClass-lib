@@ -115,6 +115,10 @@ Azure, `git push`, `npm publish`.
 
 - Modules open with a `//` header stating role and invariants; JSDoc on exports; named exports; relative imports
   with `.js`; 2 spaces, double quotes. Never throw into the host app: hooks and callbacks run in `try/catch`.
+- Install lines name the newest runtime line, never npm's bare `latest`: while it is a prerelease, every command a user
+  or agent copies says `@genclass/runtime@beta` (`npm install`, `npx ... init`), script tags pin the exact version,
+  templates and peer ranges resolve to it, the stable line is mentioned only as the exception; at a stable release,
+  move `latest` and `beta` to it and drop `@beta` everywhere in one change.
 - Tests: one `<area>.test.ts` per area; `test/helpers.ts` → `setup()` gives a fake clock, server and scripted decider
   (default `mode: "guard"`; pass `mode: undefined` for observe). Name the CONTRACT section in the `describe`.
 - Done means: `tsc` clean, `tsup` builds, both vitest steps pass with new tests, no review test edited, no
