@@ -12,6 +12,7 @@
 // Scenarios: search, filtersort, relsearch, autosave, autosave2, dblpublish, dblsave, dbldraft.
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { extname, join } from "node:path";
 import { PassThrough } from "node:stream";
 import { chromium } from "@playwright/test";
@@ -22,7 +23,8 @@ const { serve } = await import(`${LIB}/packages/mcp/dist/index.js`);
 
 const APP = process.env.PAYLOAD_URL ?? "http://localhost:3000";
 const RT_DIST = `${LIB}/packages/runtime/dist`;
-const OUT = process.env.HUNT_OUT ?? new URL("./out/", import.meta.url).pathname;
+// the login, the bridge state and the session files: outside the repository (they hold a session cookie)
+const OUT = process.env.HUNT_OUT ?? join(tmpdir(), "payload-hunt");
 mkdirSync(OUT, { recursive: true });
 const USER = { email: "dev@payloadcms.com", password: "test1234" };
 const TYPES = { ".js": "text/javascript", ".map": "application/json", ".wasm": "application/wasm", ".json": "application/json" };
@@ -232,7 +234,8 @@ const scenarios = {
     const info = await pageInfo(page);
     return { settled, ...info, options };
   },
-  // (d) drafts with autosave: type in bursts with pauses longer than the 800 ms autosave debounce, then stop
+  // (d) drafts with autosave: type in bursts with 1.5 s pauses, then stop (the autosave debounce is 2000 ms, Payload's
+  // default, so only the last burst's autosave goes out)
   async autosave(page) {
     const id = 2;
     if (!process.env.NO_PATCH) await restPatch(id, { title: "autosave base", _status: "published" });
@@ -242,8 +245,7 @@ const scenarios = {
     await title.waitFor();
     await title.click();
     await page.keyboard.press("End");
-    // 1.5 s pauses: the autosave of a burst (800 ms debounce, restarted by the form-state merge) goes out just before
-    // the next burst is typed, so its response, and the form-state refresh after it, land over newer text
+    // 1.5 s pauses, shorter than the 2000 ms autosave debounce: one autosave, after the last burst
     for (const burst of [" one", " two", " three", " four"]) {
       await title.pressSequentially(burst, { delay: 80 });
       await page.waitForTimeout(1500);
@@ -254,9 +256,9 @@ const scenarios = {
     const versions = await restVersions(id);
     return { settled, settleMs, ...info, storedTitle: stored.title, storedStatus: stored._status, versions: versions.totalDocs, versionTitles: versions.docs.slice(0, 6).map((v) => `${v.version?.title}/${v.version?._status}${v.autosave ? "/auto" : ""}`) };
   },
-  // (d2) autosave with 2.6 s pauses: each burst's autosave goes out about 2 s after the burst (800 ms debounce, restarted
-  // once by the form-state merge), so its response and the form-state refresh that follows it land while the next burst
-  // is being typed: an older save over newer text, if the merge lets it
+  // (d2) autosave with 2.6 s pauses: each burst's autosave goes out 2 s after the burst (the 2000 ms debounce), so its
+  // response and the form-state refresh that follows it land while the next burst is typed: an older save over newer
+  // text, if the merge lets it
   async autosave2(page) {
     const id = 4;
     await restPatch(id, { title: "autosave two base", _status: "published" });
@@ -366,6 +368,14 @@ async function runOnce(name) {
   return result;
 }
 
+// CLEAR_LIST_PREFS=1: forget the posts list's stored preferences (the sort scenario leaves `sort=-views` there, which the
+// search scenario would then inherit) before an explore session or a replay, so a search run sees the default list
+async function clearListPrefs() {
+  if (!process.env.CLEAR_LIST_PREFS) return;
+  const r = await fetch(`${APP}/api/payload-preferences/collection-posts`, { method: "DELETE", headers: { cookie: cookieHeader() } });
+  log("list preferences cleared:", r.status);
+}
+
 // --------------------------------------------------------------------------- commands
 if (cmd === "probe") {
   const ctx = await newContext();
@@ -422,6 +432,7 @@ if (cmd === "probe") {
   const route = { search: "/admin/collections/posts", filtersort: "/admin/collections/posts", relsearch: "/admin/collections/posts/1", autosave: "/admin/collections/posts/2", autosave2: "/admin/collections/posts/4", dblpublish: "/admin/collections/posts/3" }[scenarioName];
   // a warm-up load before arming: the dev server compiles the route on its first load, and a slow first load makes the
   // scenario itself different (keystrokes lost to hydration); an unarmed run takes no explore slot
+  await clearListPrefs();
   const warm = await runOnce(scenarioName);
   log("warm-up", JSON.stringify({ ...warm, rows: warm.rows?.slice(0, 2), options: warm.options?.slice(0, 3) }));
   log(await tool("genclass_explore", { action: "start", runs, slow_ms: slow, ...(route ? { route } : {}) }));
@@ -451,6 +462,7 @@ if (cmd === "probe") {
   console.log(`saved ${file}`);
 } else if (cmd === "replay") {
   const fid = arg3;
+  await clearListPrefs();
   log(await tool("genclass_replay", { action: "arm", id: fid }));
   const r = await runOnce(scenarioName);
   log("replay run", JSON.stringify({ ...r, rows: r.rows?.slice(0, 3) }));

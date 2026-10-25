@@ -1,12 +1,13 @@
 // Which part of the injection stops Payload's autosave? Variants of the script tag and the agent connection; each
 // types " xyz" into post 2's title and lists the requests that follow.
 import { readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { PassThrough } from "node:stream";
 import { chromium } from "@playwright/test";
 const LIB = (process.env.GENCLASS_LIB ?? new URL("../../../../", import.meta.url).pathname).replace(/\/+$/, "");
 const { serve } = await import(`${LIB}/packages/mcp/dist/index.js`);
-const APP = "http://localhost:3000";
-const STATE = new URL("./out/storageState.json", import.meta.url).pathname;
+const APP = process.env.PAYLOAD_URL ?? "http://localhost:3000";
+const STATE = `${process.env.HUNT_OUT ?? `${tmpdir()}/payload-hunt`}/storageState.json`;
 const RT_DIST = `${LIB}/packages/runtime/dist`;
 const served = await serve({ cwd: process.cwd(), env: {}, stdin: new PassThrough(), stdout: new PassThrough(), stderr: new PassThrough(), port: 0, stateDir: null });
 const LIVE = `http://127.0.0.1:${served.port}`;

@@ -1,4 +1,4 @@
-const BASE = "http://localhost:3000";
+const BASE = process.env.PAYLOAD_URL ?? "http://localhost:3000";
 const r = await fetch(BASE + "/api/users/login", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: "dev@payloadcms.com", password: "test1234" }) });
 const { token } = await r.json();
 const h = { "content-type": "application/json", authorization: `JWT ${token}` };

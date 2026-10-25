@@ -4,10 +4,11 @@
 //   slowly; every relationship id must be requested once.
 //   node dup-requests.spec.mjs            -> prints the requests and exits 1 when an id was requested twice
 import { readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { chromium } from "@playwright/test";
 
 const APP = process.env.PAYLOAD_URL ?? "http://localhost:3000";
-const STATE = new URL("./out/storageState.json", import.meta.url).pathname;
+const STATE = `${process.env.HUNT_OUT ?? `${tmpdir()}/payload-hunt`}/storageState.json`;
 const DELAY = Number(process.env.DELAY_MS ?? 1500);
 const browser = await chromium.launch();
 const ctx = await browser.newContext({ storageState: STATE, viewport: { width: 1400, height: 1000 } });
