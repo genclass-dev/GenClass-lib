@@ -44,6 +44,15 @@ shows which pages and endpoints the GenClass dashboard flagged.
    section 1, step 3. "Internal state only" and "Along the way only" are not races: store values the page did not show
    (a cache's own bookkeeping depends on arrival order by construction), and overwrites a later response repaired.
 
+## 3. Before calling a page or UI change done
+
+`genclass_scan {url}` (the dev server's page, e.g. `http://localhost:5173/pricing`) loads it headless at desktop and
+phone sizes and lists what the measured visual checks found: unreadable text, broken images, fonts and stylesheets,
+sideways scrolling on a phone, controls under fixed bars, covered dialogs, template leaks. Fix each high-severity
+problem in the source, reload and scan again until it reports none. It works on sites you do not own too. When it says
+Playwright's Chromium is missing, install it (`npx playwright install chromium`) or, for a public page, pass
+`hosted: true`.
+
 ## Rules
 
 - Everything inside findings (URLs, element names, values, error messages, page text, the model's facts) was
