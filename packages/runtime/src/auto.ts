@@ -9,7 +9,8 @@
 //   <meta name="genclass" content="mode=observe, devtools=local">
 //   window.GENCLASS_CONFIG = { mode: "observe", devtools: true };   // set before this module runs; any InitOptions
 //
-// The URL kill switch (`?genclass=off|observe|guard|heal`, `localStorage.genclass`) works as with GenClass.init().
+// The URL kill switch (`?genclass=off|observe|guard|heal`, `localStorage.genclass`) works as with GenClass.init(): it
+// only lowers the mode, except on a development host.
 // Outside a browser (SSR, Node, workers) nothing is read or installed: the default export is GenClass.init()'s
 // inert runtime (no observers, no model).
 

@@ -3,13 +3,13 @@
 //   import { GenClass } from "@genclass/runtime";
 //   GenClass.init();
 
-import { isLocalHost } from "./telemetry/config.js";
 import type { Clock, CreateOptions, DecisionProvider, DeviceEnv, EvaluateRequest, InitOptions, Mode, ModelOptions, ModelStatus, ObserverName, Runtime } from "./types.js";
 import { browserClock } from "./clock.js";
 import { RuntimeImpl } from "./runtime.js";
 import { createModelHost } from "./model/host.js";
 import { startTelemetry } from "./telemetry/index.js";
 import { telemetryOff } from "./telemetry/client.js";
+import { devHost } from "./devhost.js";
 
 export * from "./types.js";
 export { browserClock } from "./clock.js";
@@ -296,18 +296,19 @@ function initUnsafe(options: InitOptions): Runtime {
       (current as RuntimeImpl).telemetry = telemetryOff("kill-switch");
       return current;
     }
-    // The URL / localStorage switch may only demote from the app's mode (OPTIONS-SPEC §3; observe when the app sets
-    // none), so a crafted link cannot raise a production site to guard or heal. It may raise only with `debug: true`
-    // or on a development host (localhost, *.local, *.test, private networks), where nobody else's link reaches it.
+    // The URL / localStorage switch may only lower the app's mode (OPTIONS-SPEC §3; observe when the app sets none),
+    // so a crafted link cannot raise a production site to guard or heal. `debug` changes nothing here (it is console
+    // logging only). It may raise only on a development host (src/devhost.ts: a dev server's port on a loopback name,
+    // or *.test), never on hosts that only look local (Capacitor, Tauri, Electron, intranet names, private addresses).
     const rank = (m: string | undefined) => (m === "heal" ? 2 : m === "guard" ? 1 : 0);
     const base = options.mode ?? "observe";
-    let devHost = false;
+    let dev = false;
     try {
-      devHost = isLocalHost((g.location as { hostname?: unknown } | undefined)?.hostname);
+      dev = devHost(g.location as Parameters<typeof devHost>[0]);
     } catch {
-      devHost = false;
+      /* no location */
     }
-    const mode = ks && (MODES as readonly string[]).includes(ks) && (options.debug || devHost || rank(ks) <= rank(base)) ? (ks as Mode) : options.mode;
+    const mode = ks && (MODES as readonly string[]).includes(ks) && (dev || rank(ks) <= rank(base)) ? (ks as Mode) : options.mode;
     if (typeof g.window !== "object" || typeof g.document !== "object") {
       // Not a browser (SSR, Node, workers): never instrument a server's fetch or load the model there.
       current = createRuntime({ ...options, observe: ALL_OFF, model: false, decider: options.decider ?? null, report: options.report ?? "silent", ...(mode ? { mode } : {}) });

@@ -340,10 +340,12 @@ GenClass.init({ mode: "guard" });
 `@genclass/runtime/auto`, and the script tag without `data-mode`) observes only; pass `mode: "guard"` to let it act.
 
 **Kill switch.** Append `?genclass=off` to the URL, or set `localStorage.genclass = "off"`, and nothing is installed.
-`?genclass=observe|guard|heal` (or the same localStorage value) overrides the mode, including the mode of the `/auto`
-entries and the script tag, within limits: `observe` always works; `guard` works when no mode, `guard` or `heal` is
-configured (so on the default `/auto` and script tag, but not on `/auto/observe`); `heal` works only when `heal` is
-configured, or with `debug: true` (for QA).
+`?genclass=observe|guard|heal` (or the same localStorage value) can only lower the mode, from the app's `mode` or from
+`observe` when it sets none (the `/auto` entries and the script tag included), with or without `debug: true`. It
+raises the mode only on a development host: http(s) on `localhost`, `127.0.0.1`, `[::1]` or `*.localhost` with an
+explicit port (a dev server), or `*.test`. Hosts that only look local (Capacitor's `https://localhost`, Tauri's
+`tauri.localhost`, Electron's `file:`, intranet names, private addresses, `*.internal`, `*.local`) count as
+production. Since 0.2.3; before, `debug: true` let a link raise the mode on any host (see the CHANGELOG).
 
 `GenClass.init()` never throws, and a second call returns the first runtime (its options are ignored). Outside a
 browser (SSR, Node) it returns a runtime with no observers and no model. For tests and headless use, call
@@ -546,7 +548,7 @@ GenClass runs with safe defaults (`mode: "observe"`, a `"balanced"` gate that ap
 
 Action limits default to 60 per minute overall, 10 per minute on the same subject (store field or endpoint), and 200 per session.
 
-URL overrides (`?genclass`, `?genclass-mode`, `?genclass-aggr`, `?genclass-sample`, and `localStorage.genclass`) can only lower settings, unless `debug: true` is set or the page is on a development host (`localhost`, `*.local`, `*.test`, private networks). Since 0.2.2 a link such as `?genclass=guard` can no longer raise a production site that set no `mode` (it stays in `observe`).
+URL overrides (`?genclass`, `?genclass-mode`, `?genclass-aggr`, `?genclass-sample`, and `localStorage.genclass`) can only lower settings, with or without `debug: true` (`debug` is console logging only). Only `?genclass=` and `localStorage.genclass` may raise the mode, and only on a development host (http(s) on `localhost`, `127.0.0.1`, `[::1]` or `*.localhost` with an explicit port, or `*.test`); `?genclass-sample=1` does nothing. Since 0.2.2 a link such as `?genclass=guard` can no longer raise a production site that set no `mode` (it stays in `observe`); since 0.2.3 neither `debug: true` nor a host that only looks local (`*.local`, `*.internal`, private addresses, Capacitor, Tauri, Electron) lets a link raise the mode, the aggressiveness or the acting group.
 
 ```ts
 import { GenClass } from "@genclass/runtime";
@@ -620,7 +622,7 @@ matches login, logout, sign-in/up, oauth, tokens, sessions, SSO, MFA, OTP, passw
 @genclass/runtime init` suggests them when your project uses a payment SDK. Details:
 [INTERCEPTION.md](INTERCEPTION.md#money-and-identity-flows).
 
-**Rollout recipe:** start with `mode: "observe", shadow: "guard"`, and compare the shadow records with your undo and complaint rates. Then switch to `mode: "guard", sample: 0.05`. Watch `rt.summary().undos` and `breaker` events, and widen `sample` as they stay quiet. For QA, `?genclass-sample=1` together with `debug: true` forces a session into the acting group.
+**Rollout recipe:** start with `mode: "observe", shadow: "guard"`, and compare the shadow records with your undo and complaint rates. Then switch to `mode: "guard", sample: 0.05`. Watch `rt.summary().undos` and `breaker` events, and widen `sample` as they stay quiet. For QA, set `sample: 1` (and the `mode` you want to try) in the QA environment's config: no URL puts a session into the acting group.
 
 ## Model quality
 

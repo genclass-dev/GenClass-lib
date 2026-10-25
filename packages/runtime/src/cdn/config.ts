@@ -2,7 +2,8 @@
 // (dist/genclass.global.js). Owner: INSTALL.
 //
 // Sources, lowest precedence first (the URL kill switch `?genclass=off|observe|guard|heal` and
-// `localStorage.genclass` still beat everything, inside GenClass.init):
+// `localStorage.genclass` still apply after them, inside GenClass.init: off installs nothing, the others only lower
+// the mode, except on a development host, src/devhost.ts):
 //   <meta name="genclass" content="mode=observe, devtools=local">
 //   <script src=".../genclass.global.min.js" data-mode="observe" data-devtools></script>   (script tag only)
 //   window.GENCLASS_CONFIG = { mode: "observe", devtools: true, policy: { deny: ["delay"] } }  (any InitOptions)
@@ -16,8 +17,9 @@
 // (user content, a CMS field) cannot configure GenClass. A meta tag may set the mode, but the model and
 // onnxruntime-web URLs it names must be same-origin (relative, or on the page's own origin): a cross-origin model or
 // ORT URL is ignored with one warning. Cross-origin URLs (a CDN of your own) go in the script tag's data-* attributes,
-// window.GENCLASS_CONFIG or GenClass.init(options). The URL switch (`?genclass=guard`) can no longer raise the mode
-// of a production site (index.ts).
+// window.GENCLASS_CONFIG or GenClass.init(options). The URL switch (`?genclass=guard`) cannot raise the mode outside a
+// development host, and `debug` (a meta or data-* key too) is console logging only: it never lets a link raise
+// anything (index.ts, src/devhost.ts).
 //
 // Remote code: an `integrity` attribute on the script tag covers that one file only. What it loads later at runtime
 // (dist/cdn/worker.js, dist/cdn/ort-*.js, dist/devtools/index.js, onnxruntime-web's wasm and the model files) is

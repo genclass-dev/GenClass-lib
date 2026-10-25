@@ -34,10 +34,13 @@ GenClass.destroy(): void                        // uninstall observers, restore 
 Kill switch, for "is my app broken or did GenClass change something?":
 
 - `?genclass=off` in the page URL, or `localStorage.genclass = "off"`: `init` installs nothing and logs one line.
-- `?genclass=observe|guard|heal`: overrides the mode, within limits (`src/index.ts` -> `initUnsafe`; a missing
-  `mode` counts as `guard` there): `observe` always; `guard` when no mode, `guard` or `heal` is configured (the
-  default `/auto` and script tag included, not `/auto/observe`); `heal` only when `heal` is configured, or with
-  `debug: true`.
+- `?genclass=observe|guard|heal` (or the same `localStorage.genclass` value): may only lower the mode, from the app's
+  `mode` or from `observe` when it sets none (`src/index.ts` -> `initUnsafe`), with or without `debug: true`. It may
+  raise the mode only on a development host (`src/devhost.ts`: http(s) on `localhost`, `127.0.0.1`, `[::1]` or
+  `*.localhost` with an explicit port, or `*.test`), never on hosts that only look local (Capacitor's
+  `https://localhost`, Tauri's `tauri.localhost`, Electron's `file:`, intranet names, private addresses, `*.internal`,
+  `*.local`). Since 0.2.3; before, `debug: true` also let it raise, and every telemetry-local host counted as a
+  development host.
 
 Outside a browser (no `window`/`document`, e.g. SSR), `GenClass.init()` returns an inert runtime: no observers,
 no model. Use [`createRuntime`](#headless-use-tests-ssr-simulation) for headless work.
@@ -71,7 +74,7 @@ interface InitOptions {
   redact?: (path: string, value: unknown) => unknown;   // default: values whose leaf field names a secret (password, token, card number, cvv, ssn, iban, ...); never a whole store by its name
   plugins?: Plugin[];
   historySize?: number;                                 // events kept, default 500
-  debug?: boolean;                                      // console.debug every decision
+  debug?: boolean;                                      // console.debug every decision; logging only (never lets a URL raise anything)
   learn?: { persist?: boolean };                        // keep transition profiles in localStorage
   aggressiveness?: "cautious" | "balanced" | "eager" | number; // how eagerly to act (default "balanced"; see Policy)
   vocabulary?: { diagnoses?: Record<string, string>; actions?: Record<string, string> };
@@ -136,9 +139,11 @@ mode/allow/deny/requireDiagnosis (at the effective mode) → thresholds → `pol
 (`limit:perMinute|perSubject|perSession`; defaults 60/min global, 10/min per subject, 200 per session) → `onBeforeAction` (`vetoed`, `would-veto`, or
 `limit:hold` past the budget) → execute. effectiveMode = min(mode, sample cap, breaker cap, route rule); URL overrides
 (`?genclass`, `?genclass-mode`, `?genclass-aggr`, `?genclass-sample`, `localStorage.genclass`) only demote, from the
-app's mode or from `observe` when it sets none; they may raise only with `debug: true` or on a development host
-(`localhost`, `*.local`, `*.test`, private networks). Before 0.2.2, `?genclass=guard` opted a visitor into guard when
-the app set no mode. `policy.holdBudgetMs` is a hard ceiling that includes defers, the
+app's mode or from `observe` when it sets none, with or without `debug: true`. `?genclass-mode`, `?genclass-aggr` and
+`?genclass-sample` are demote-only on every host (`?genclass-sample=0` makes the session observe; no value makes it
+act); only `?genclass=` and `localStorage.genclass` may raise, and only on a development host (see the kill switch
+above). Before 0.2.2, `?genclass=guard` opted a visitor into guard when the app set no mode; before 0.2.3,
+`debug: true` let every URL override raise. `policy.holdBudgetMs` is a hard ceiling that includes defers, the
 wait for a response or request body, a held write's deferred re-decisions and the veto hook.
 
 Protected requests (`requests.protect`) are never held, never wait for their body to be read, and neither they nor
@@ -415,7 +420,7 @@ meta.json, visible as `runtime.status.gate`). Two gate kinds exist:
   cost units; a runs when ĝ(a) is above its tier's margin (defaults 2 / 2; tauGain default 1). Probabilities are
   clamped to ≥ 1e-6; when the model gives no probability for the passive action, the mass it left over is used.
 Aggressiveness (`InitOptions.aggressiveness`: "cautious" | "balanced" | "eager" | 0–1, default "balanced";
-`runtime.setAggressiveness(x)`; URL `?genclass-aggr=…`) selects the gate: when meta.json has `gate.profiles: {
+`runtime.setAggressiveness(x)`; URL `?genclass-aggr=…`, which may only lower it) selects the gate: when meta.json has `gate.profiles: {
 cautious, balanced, eager }` (each a gate of either kind, report included), a named level uses its profile and a
 number interpolates thresholds/margins, report and tauGain linearly between the neighbouring profiles (the nearer
 profile's kind when they differ). Without profiles the single gate (or the defaults) is shifted: cautious +0.05 on

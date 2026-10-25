@@ -363,22 +363,22 @@ export class RuntimeImpl implements Runtime {
     this.hub.holdWrites = this.policy.holdWrites;
     this.rate = new RateLimiter(() => this.policy.actionLimits);
     this.debug = !!o.debug;
-    // URL overrides only demote, unless debug (OPTIONS-SPEC §3)
+    // URL overrides only lower, on every host (OPTIONS-SPEC §3); `debug` is console logging only and never raises them
     const url = this.urlParams();
     this._mode = o.mode ?? "observe";
     const um = url.get("genclass-mode");
-    if (um === "observe" || um === "guard" || um === "heal") if (this.debug || MODE_RANK[um] <= MODE_RANK[this._mode]) this._mode = um;
+    if (um === "observe" || um === "guard" || um === "heal") if (MODE_RANK[um] <= MODE_RANK[this._mode]) this._mode = um;
     if (o.policy?.maxActionsPerMinute !== undefined && o.policy?.actionLimits?.perMinute !== undefined) this.warn("policy.maxActionsPerMinute is deprecated and ignored when actionLimits.perMinute is set.");
     this.triage = o.triage ?? "salient";
     this.vocab = o.vocabulary;
     this.hooks = o.hooks ?? {};
     this.settleMs = o.settleMs ?? 60;
-    // aggressiveness: the URL override (?genclass-aggr=…) may only lower it, unless debug
+    // aggressiveness: the URL override (?genclass-aggr=…) may only lower it, on every host
     this._aggr = aggressivenessLevel(o.aggressiveness);
     const ua = url.get("genclass-aggr");
     if (ua) {
       const v = aggressivenessLevel(ua);
-      if (this.debug || v <= this._aggr) this._aggr = v;
+      if (v <= this._aggr) this._aggr = v;
     }
     this.budgetOpt = o.situation?.budget ?? "auto";
     this.appFn = o.app;
@@ -568,10 +568,12 @@ export class RuntimeImpl implements Runtime {
     return out;
   }
 
-  /** The session's act/observe bucket (OPTIONS-SPEC §4.2): hash(session id) < sample, frozen in sessionStorage. */
+  /**
+   * The session's act/observe bucket (OPTIONS-SPEC §4.2): hash(session id) < sample, frozen in sessionStorage.
+   * `?genclass-sample=0` puts it in the observe bucket; no URL value puts it in the act bucket.
+   */
   private sampleBucket(sample: number | undefined, urlSample: string | null): boolean {
     if (urlSample === "0") return false;
-    if (urlSample === "1" && this.debug) return true;
     if (sample === undefined) return true;
     let p = Number(sample);
     if (!Number.isFinite(p) || p < 0 || p > 1) {
