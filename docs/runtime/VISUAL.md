@@ -810,8 +810,8 @@ reason is a measurement of boxes (`Range.getClientRects()` line boxes, `getBound
   - `overlap`: two line boxes of the element's first text node overlap vertically by at least **50%** of the smaller
     one's height and horizontally by at least 8 px (lines on the same row never overlap horizontally; normal
     `line-height` from 1.0 leaves at most about 25% overlap of the font's content area). Not when the element or one of
-    its 3 nearest ancestors sets `text-overflow: ellipsis` (Chromium gives a truncated line two boxes, the whole run and
-    the part shown, one inside the other). Also between the first lines
+    its 3 nearest ancestors sets `text-overflow: ellipsis` or `-webkit-line-clamp` (Chromium gives a truncated line two
+    boxes, the whole run and the part shown, one inside the other). Also between the first lines
     of two different candidates, when at the centre of the overlap `elementsFromPoint` holds both, nothing between
     them paints a background, an image or a replaced element (the upper text does not hide the lower one), neither is
     `fixed` or `sticky` (a sticky header over scrolling text is normal), neither contains the other, both have opaque
@@ -1638,7 +1638,8 @@ What the build does where sections 3.25 and 3.26 were not specific, and what the
 - **The ellipsis case.** The first browser run reported `overlap` on two correct elements with `text-overflow:
   ellipsis`: Chromium returns two line boxes for a truncated line (the whole run and the part shown, the second inside
   the first), which also describes three lines at `line-height: 0`. Self-overlap is now skipped under an ellipsis
-  (section 3.26); a `line-height: 0` paragraph is still found.
+  (section 3.26); a `line-height: 0` paragraph is still found. CI's Chromium on Linux then did the same for the last
+  line of a `-webkit-line-clamp` box (the development Mac's did not), so a line clamp is skipped the same way.
 - **Recall and false reports** are in RESULTS.md section 22 (the Chromium fixtures, and the demos and templates bench
   run on a development machine). The compat apps and the public sites were not run for these two kinds yet: they
   need the bench workflow (section 15), which loads public sites and is the owner's to start.

@@ -273,10 +273,16 @@ function readBoxes(r: Reader, t: Text): Rect[] {
 const lettersOf = (s: string): number => (s.match(/\p{L}/gu) ?? []).length;
 const wordsOf = (s: string): number => (s.match(/\p{L}{2,}/gu) ?? []).length;
 
-/** text-overflow: ellipsis on the element or one of its 3 nearest ancestors (the block container that truncates). */
+/**
+ * text-overflow: ellipsis or -webkit-line-clamp on the element or one of its 3 nearest ancestors (the block container
+ * that truncates): Chromium gives the truncated line two boxes, one inside the other.
+ */
 function ellipsis(r: Reader, el: Element): boolean {
   let n = 0;
-  for (let x: Element | null = el; x && n <= 3; x = parentOf(x), n++) if (r.cs(x).textOverflow === "ellipsis") return true;
+  for (let x: Element | null = el; x && n <= 3; x = parentOf(x), n++) {
+    const s = r.cs(x) as CSSStyleDeclaration & { webkitLineClamp?: string };
+    if (s.textOverflow === "ellipsis" || (s.webkitLineClamp && s.webkitLineClamp !== "none")) return true;
+  }
   return false;
 }
 
@@ -431,7 +437,7 @@ export function readWarped(ctx: Ctx, r: Reader, el: Element): WarpRead | null {
   }
   if (!lines.length) return null;
 
-  // an ellipsis gives a truncated line two boxes (the whole run and the part shown), one inside the other
+  // an ellipsis or a line clamp gives a truncated line two boxes (the whole run and the part shown), one inside the other
   const o = ellipsis(r, el) ? { f: 0, i: -1, j: -1 } : selfOverlap(lines);
   if (o.f >= LINE_OVERLAP) {
     const a = lines[o.i];
