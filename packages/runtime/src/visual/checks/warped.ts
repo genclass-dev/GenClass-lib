@@ -1,4 +1,4 @@
-// text-warped (docs/runtime/VISUAL.md 3.25): visible text a reader cannot read as text. Every reason is a measurement
+// text-warped (docs/runtime/VISUAL.md 3.26): visible text a reader cannot read as text. Every reason is a measurement
 // of boxes (Range line boxes, element rects, computed transform, font-size, letter-spacing, word-spacing) or of code
 // points; nothing reads what the text says. parseLinear, chainVerdict, lineOverlap, clipCut, tofuChars and
 // spacingVerdict are pure and unit-tested (test/visual-strange.test.ts).
@@ -228,7 +228,7 @@ export function tofuChars(text: string): string[] {
 
 // ------------------------------------------------------------------------------------------------ spacing
 
-/** VISUAL.md 3.25 spacing: em values of computed letter-spacing and word-spacing, and the words of the text. */
+/** VISUAL.md 3.26 spacing: em values of computed letter-spacing and word-spacing, and the words of the text. */
 export function spacingVerdict(o: { letterEm: number; wordEm: number; words: number; letters: number }): "wide" | "tight" | "words" | null {
   if (o.letterEm >= WIDE_EM && o.words >= 2) return "wide";
   if (o.letterEm <= TIGHT_EM && o.letters >= 3) return "tight";
@@ -354,7 +354,7 @@ function skipWarp(r: Reader, el: Element): boolean {
   return !el.isConnected || skipText(el) || safeMatches(el, "rt, rp, rt *, rp *") || !r.visible(el);
 }
 
-/** VISUAL.md 3.25 for one element, the reasons in order: tofu, mirrored, skewed, spacing, tiny, overlap, clipped. */
+/** VISUAL.md 3.26 for one element, the reasons in order: tofu, mirrored, skewed, spacing, tiny, overlap, clipped. */
 export function readWarped(ctx: Ctx, r: Reader, el: Element): WarpRead | null {
   if (skipWarp(r, el) || r.animating(el)) return null;
   const t = firstText(el);
@@ -481,7 +481,7 @@ function warpDraft(ctx: Ctx, el: Element, w: WarpRead): Draft {
 }
 
 function thresholdOf(reason: WarpReason): Draft["threshold"] {
-  const src = "measured line boxes, transforms and spacing; VISUAL.md 3.25";
+  const src = "measured line boxes, transforms and spacing; VISUAL.md 3.26";
   switch (reason) {
     case "overlap":
       return { value: LINE_OVERLAP, unit: "of the smaller line box's height", source: src };
@@ -494,13 +494,13 @@ function thresholdOf(reason: WarpReason): Draft["threshold"] {
     case "skewed":
       return { value: SKEW_DEG, unit: `degrees of skew, or ${STRETCH}x stretch`, source: src };
     case "spacing":
-      return { value: WIDE_EM, unit: `em letter-spacing (or ${TIGHT_EM} em and below)`, source: "wider than a space (0.25 to 0.33 em); VISUAL.md 3.25" };
+      return { value: WIDE_EM, unit: `em letter-spacing (or ${TIGHT_EM} em and below)`, source: "wider than a space (0.25 to 0.33 em); VISUAL.md 3.26" };
     case "tiny":
       return { value: TINY_PX, unit: "px rendered", source: src };
   }
 }
 
-/** Two candidates' first lines overlap and neither hides the other (VISUAL.md 3.25 overlap between elements). */
+/** Two candidates' first lines overlap and neither hides the other (VISUAL.md 3.26 overlap between elements). */
 export function crossOverlap(r: Reader, a: Element, b: Element): { f: number; ra: Rect; rb: Rect } | null {
   if (containsDeep(a, b) || containsDeep(b, a)) return null;
   const ta = firstText(a);
@@ -547,7 +547,7 @@ function crossDraft(ctx: Ctx, a: Element, b: Element, f: number): Draft {
 }
 
 /**
- * VISUAL.md 3.25 over the text candidates (at most 200), one element per step; then the pairwise first-line test,
+ * VISUAL.md 3.26 over the text candidates (at most 200), one element per step; then the pairwise first-line test,
  * hit-testing only the pairs whose boxes overlap. Drafts are confirmed 1 s later by the same measurement.
  */
 export function* measureWarped(ctx: Ctx, cands: Element[], out: Draft[]): Generator<void> {

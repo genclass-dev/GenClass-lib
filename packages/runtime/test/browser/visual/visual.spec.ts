@@ -319,7 +319,7 @@ test.describe("measured visual checks (VISUAL.md section 14)", () => {
   });
 });
 
-test.describe("ad-heavy and text-warped (VISUAL.md 3.24, 3.25)", () => {
+test.describe("ad-heavy and text-warped (VISUAL.md 3.25, 3.26)", () => {
   test("ad-heavy: ad slots and ad-sized cross-site frames over 30% of the page", async ({ page }) => {
     await open(page, "/f/ads.html");
     const found = await settle(page);

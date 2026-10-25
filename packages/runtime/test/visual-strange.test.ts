@@ -1,4 +1,4 @@
-// ad-heavy and text-warped (docs/runtime/VISUAL.md 3.24, 3.25) as pure functions: ad names and sizes, the union of
+// ad-heavy and text-warped (docs/runtime/VISUAL.md 3.25, 3.26) as pure functions: ad names and sizes, the union of
 // boxes, the shares and their verdict; transform parsing and composition, line-box overlap, clipping, code points and
 // spacing. Each threshold has a case just above and just below it, and clean controls next to the faults.
 import { describe, expect, it } from "vitest";
@@ -24,7 +24,7 @@ const near = (m: Linear | null, want: Linear) => {
   m!.forEach((v, i) => expect(v).toBeCloseTo(want[i], 6));
 };
 
-describe("ad-heavy: names, sizes, shares (VISUAL.md 3.24)", () => {
+describe("ad-heavy: names, sizes, shares (VISUAL.md 3.25)", () => {
   it("splits names into words and matches ad words only as whole words", () => {
     expect(adWords("div-gpt-ad-1234-0")).toEqual(["div", "gpt", "ad"]);
     expect(adWords("google_ads_iframe_/1/x_0")).toEqual(["google", "ads", "iframe", "x"]);
@@ -94,7 +94,7 @@ describe("ad-heavy: names, sizes, shares (VISUAL.md 3.24)", () => {
   });
 });
 
-describe("text-warped: transforms (VISUAL.md 3.25)", () => {
+describe("text-warped: transforms (VISUAL.md 3.26)", () => {
   it("parses matrix(), matrix3d() and the individual rotate and scale properties", () => {
     near(parseLinear("none"), IDENTITY);
     near(parseLinear("matrix(-1, 0, 0, 1, 0, 0)"), [-1, 0, 0, 1]);
@@ -129,7 +129,7 @@ describe("text-warped: transforms (VISUAL.md 3.25)", () => {
   });
 });
 
-describe("text-warped: line boxes, clipping, code points, spacing (VISUAL.md 3.25)", () => {
+describe("text-warped: line boxes, clipping, code points, spacing (VISUAL.md 3.26)", () => {
   it("two lines overlap by half the smaller one's height, and by 8 px horizontally", () => {
     // 20 px tall line boxes 9 px apart: 55% overlap; 11 px apart: 45%
     expect(lineOverlap(box(0, 0, 200, 20), box(0, 9, 200, 20))).toBeGreaterThanOrEqual(LINE_OVERLAP);

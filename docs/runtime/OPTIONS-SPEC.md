@@ -52,7 +52,8 @@ order: off < observe < guard < heal
 | 18 | `model.unloadAfterIdleMs` | load | `false` | new |
 | 19 | `rt.on()` typed events: `shadow`, `breaker`, `limit`, `modelBudget` | API | — | extended |
 | 20 | `detect` (0.3.0) | reporting | `"possible"` where the effective mode is observe and `policy.thresholds.report` is unset, else `"likely"` | new |
-| 21 | `visual` (+ `rt.checks()`, `rt.checkNow()`, the `check` event) | measured visual checks | `"local"` in `GenClass.init()` in a browser, `false` in `createRuntime()` | new (§4.20) |
+| 21 | `visual` (+ `rt.checks()`, `rt.checkNow()`, the `check` event) | measured visual checks | `"local"` in `GenClass.init()` in a browser, `false` in `createRuntime()` | new (§4.20); `checks.stallMs` (issue 94) |
+| 22 | `requestTimeoutMs` | heal | off | **proposed only, not implemented** (§4.21) |
 
 Built in, with no option: hidden tabs (§5.1): guard and heal skip background situations; observe defers them until
 the tab is visible. Observe also defers situations raised while the model loads (§5.3).
@@ -428,6 +429,9 @@ Only `rt.breaker.reset()` clears a trip. `setMode` does not.
 - Dispatch is queued (a microtask batch, then `requestIdleCallback`) and never runs on the decision or hold path.
 - Errors from a sink are swallowed, with at most one status event per sink per minute.
 - On `pagehide`, or once on `visibilitychange→hidden` as a fallback, one `summary` record is emitted and each sink's `flush()` is called.
+- `rt.summary().requests` (issue 94): request counts in total and per host (API.md), present once the measured
+  checks' chunk has loaded. In a sink's `summary` record `requests.hosts` is always empty (host names are request URLs
+  in part). Telemetry does not send `requests` (§4.21 proposes it).
 - `rt.summary()` is always available. Two vendor-neutral adapters ship as entries of the package, outside the first-load bundle: `@genclass/runtime/sinks/{console-json,webhook}` (`src/sinks/`, each a function returning a `SinkObject` that never throws and sends only the record: one JSON line per record on the console, or batched POSTs to the URL the developer configures). The zero-code entries take them by name (`src/cdn/sinks.ts`: `window.GENCLASS_CONFIG.sinks: ["webhook:/genclass"]`, `<meta name="genclass" content="sink=console-json">`, `data-sink`, `init --sink`), as one proxy sink that queues records and loads the adapters on the first record, never before (`src/cdn/sinks-fanout.ts`, a lazy chunk of `/auto`; `dist/sinks/<name>.js` from the CDN for the script tag), so only the proxy is in the first load; a `webhook:<url>` is made absolute at init (against `document.baseURI`) and its endpoint (origin and path) joins `requests.ignore` as an exact match, and from a `<meta>` tag it must be same-origin as the browser resolves it (against the page and `document.baseURI`). Each adapter takes `evidence` (default true; false sends the structured fields only; `console-json:noevidence` in the no-code forms); the webhook caps repeats of one bug at `maxPerSignature` (10) per page load. A string in `GenClass.init({ sinks })` is ignored with one warning.
 - No Sentry, PostHog or Datadog adapter (owner decision, 2026-10-13): forwarding to those tools is not part of the free runtime. The owner intends it as a paid, server-side feature; it is not built, and no plan on https://genclass.dev/pricing offers it yet. A page config that names `sentry`, `posthog` or `datadog` (any case, with or without an option) gets one console warning for them all that says so, with https://genclass.dev/pricing, and nothing is loaded or sent for those names (`applySinks`); `init --sink sentry` is a usage error that says the same.
 
@@ -577,11 +581,65 @@ Design, every check and threshold: [VISUAL.md](VISUAL.md). Types: `VisualOptions
 - `enabled` false or pending, a hidden tab or a prerendered page: no chunk download. A route whose mode is `"off"`:
   no checks there. `disable()`, `destroy()` and `setMode("observe")` undo every fix at once, `pause()` within 2 s.
 
+`checks.stallMs` (after 0.3.0-beta.1, issue 94): how long a `fetch` or XHR request may stay pending before the
+`request-stalled` check reports it; default 15,000, clamped to 1,000..600,000 (VISUAL.md 3.24).
+
 **Precedence.** `?genclass-visual=off` > an explicit `visual: false` > `?genclass-visual=on` > the `"local"` default.
 
 **Tests.** `test/visual-options.test.ts` (resolution, load timing, enabled pending), `test/visual-fix.test.ts` (the
 fix gate, undo), `test/visual-purity.test.ts` (no effect on situations, history or decisions),
 `test/browser/visual/visual.spec.ts` (Chromium, the CI `visual-browser` job).
+
+### 4.21 PROPOSED, not implemented: `requestTimeoutMs` (heal), request health in telemetry, a dashboard alert
+
+**Status: proposed in the issue 94 pull request; nothing below is in the code. Each part needs the owner's OK** (the
+timeout because of AGENTS.md rules 1 and 2, the telemetry fields and the alert because of rule 8). What shipped for
+issue 94 is local only: `rt.summary().requests` (API.md) and the `request-stalled` check (VISUAL.md 3.24), both in the
+measured checks' chunk, so a public site gets them with `visual: true`.
+
+**`requestTimeoutMs` (heal only).** `GenClass.init({ mode: "heal", requestTimeoutMs: 15000 })`, or
+`{ ms, methods?: string[] }` (default methods `GET` and `HEAD`). Default off.
+
+- *When.* Only where the request's effective mode is heal (route rules, sampling and the breaker apply as for every
+  action); never in observe or guard; never for protected requests (`requests.protect`), GenClass's own requests,
+  EventSource, WebSocket, or a signature the cadence layer knows as long-lived (the same exclusions as
+  `request-stalled`); never for a method outside `methods` (a timed-out POST may still commit on the server, and the
+  app's retry would then submit twice).
+- *How.* fetch: the observer creates an `AbortController` per request and passes the native fetch a signal that
+  aborts when either it or the app's own signal does (`AbortSignal.any([app, ours])`, or a listener on the app's
+  signal where `any` is missing); a `Request` input is rebuilt with that signal, as retries already rebuild one. At
+  `ms` on the injected Clock it calls `abort(new DOMException("GenClass requestTimeoutMs (15000 ms)", "TimeoutError"))`,
+  so the app's promise rejects with a `TimeoutError` and its own `catch` and `finally` run: the spinner stops and the
+  button is enabled again by the app's code, not by GenClass. XHR: when the app set no `xhr.timeout` (0), GenClass sets
+  it before `send()`, so the browser fires `timeout` and `loadend` to the app's handlers; an app's own timeout is
+  never changed.
+- *Logged.* As an intervention: a console line (`[GenClass] Timed out GET api.example.com/v1/forecast after 15.0 s
+  (requestTimeoutMs, heal): the app's catch and finally ran.`), a `Report` of kind `"intervention"` with action
+  `"timeout"`, a sink record, `summary().interventions.timeout`, an audit entry of kind `"action"` whose `gate` says
+  `source: "option"` (no model probability), and the op's `x-genclass`-style marker in `rt.explain()`.
+- *Undone.* An aborted request cannot be un-aborted, so this is the one heal behaviour with no per-action undo:
+  `setMode("observe" | "guard")`, the breaker, `pause()`, `disable()` and `destroy()` cancel every pending timeout at
+  once (requests already in flight then run to their natural end), and the breaker counts errors that follow a
+  timeout like errors that follow any action.
+- *Why it needs the owner.* It acts without a model decision: the policy gate never sees it (rule 1), and a fixed
+  "pending past N ms, abort" is an if/then from a measurement to an action (rule 2). The precedent is the visual
+  checks' opt-in fixes (owner, 2026-10-13: measured, opt-in, reversible, never in observe). The alternative that keeps
+  rules 1 and 2 as they are, giving the model an `abort` action on the existing `stall` trigger, changes the action
+  vocabulary, which is model-visible text: a new situation tag, regenerated data and retraining (rule 3).
+
+**Request health in telemetry.** A `runtime.requests` object on the summary event, built from `summary().requests`:
+the totals (`requests`, `2xx`..`5xx`, `network`, `aborted`, `notJson`, `byGenClass`) and `latency` (`p50`, `p95`,
+`n`), and the same per host for at most 10 hosts by request count (`"same-origin"` for the page's own origin, else
+the bare host name; the rest folded into `"other"`). Never paths, queries, headers, bodies or the `request-stalled`
+findings. Every opt-out keeps working (`telemetry: false`, `?genclass=no-telemetry`, localStorage, GPC), plus
+`telemetry.include: { requests: false }`. What widens: the host names of the APIs a page calls. When approved:
+TELEMETRY.md, both READMEs, the CHANGELOG, the console notice check and the collector's schema.
+
+**Dashboard alert.** In the collector (telemetry-worker), per app and host, over a sliding hour: alert when at least
+20 requests from at least 3 sessions show an error share (`5xx` + `network` + `notJson`, over `requests`) of 20% or
+more, or a p95 latency of at least 3 times the host's 7-day median p95. Delivered to an email address or a webhook the
+app owner sets in the dashboard, at most once per host per 6 hours, with the counts and a link to the app's page. It
+depends on the telemetry fields above.
 
 ## 5. Built-in behaviours (no option)
 

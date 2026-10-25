@@ -307,8 +307,8 @@ describe("findings: labelled as measured checks (VISUAL.md 1, 9.1, 9.2)", () => 
 });
 
 describe("options and helpers", () => {
-  it("25 kinds; the light tier keeps only the near-free ones", () => {
-    expect(KINDS.length).toBe(25);
+  it("26 kinds (request-stalled since issue 94; ad-heavy and text-warped); the light tier keeps only the near-free ones", () => {
+    expect(KINDS.length).toBe(26);
     for (const k of ["text-invisible", "text-template-leak", "css-var-undefined", "image-distorted", "page-overflow-x", "page-blank", "ad-heavy", "text-warped"] as const) expect(LIGHT.has(k)).toBe(false);
     expect(LIGHT.has("image-broken")).toBe(true);
   });

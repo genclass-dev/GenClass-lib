@@ -7,8 +7,8 @@ of the checks (section 19, "Review of 2026-10-13") found correct pages that look
 and the code changed again (measured as run 5). The open owner decisions are in
 [section 17](#17-owner-decisions-and-open-questions). [CONTRACT.md](CONTRACT.md) section 14,
 [API.md](API.md), [OPTIONS-SPEC.md](OPTIONS-SPEC.md) section 4.20 and the CHANGELOG have the matching entries.
-Two checks were added on 2026-10-25 at the owner's request for "strange sites": `ad-heavy` (section 3.24) and
-`text-warped` (section 3.25), with their implementation notes at the end of section 19.
+Two checks were added on 2026-10-25 at the owner's request for "strange sites": `ad-heavy` (section 3.25) and
+`text-warped` (section 3.26), with their implementation notes at the end of section 19.
 
 The owner asked on 2026-10-13 for GenClass to find visual and CSS bugs that never throw an error (white text on a
 white background, broken images, "so much more") and to fix them. Many generated ("vibecoded") sites and company
@@ -228,12 +228,13 @@ wrong but usable; **low** means a defect with a small visible effect.
 | 21 | `control-unreachable` | a control covered by a fixed element even at max scroll | high | no | all |
 | 22 | `focus-obscured` | a focused element or anchor target hidden under a sticky header | medium | no | all |
 | 23 | `dialog-covered` | an open dialog covered by other elements, or its buttons off-screen | high | no | all |
-| 24 | `ad-heavy` | ad slots cover more than 30% of the page or half the first screen, a sticky ad over 30% of the screen, or an ad interstitial (added 2026-10-25, section 3.24) | high or medium | no | all |
-| 25 | `text-warped` | text that cannot be read as text: overlapping lines, a line cut mid-way by its box, characters no font can draw, mirrored or skewed text, letter spacing that splits words, text rendered below 8 px (added 2026-10-25, section 3.25) | medium | no | all |
+| 24 | `request-stalled` | a fetch or XHR request pending past 15 s, with the control the page disabled for it (section 3.24) | high or medium | no | all |
+| 25 | `ad-heavy` | ad slots cover more than 30% of the page or half the first screen, a sticky ad over 30% of the screen, or an ad interstitial (added 2026-10-25, section 3.25) | high or medium | no | all |
+| 26 | `text-warped` | text that cannot be read as text: overlapping lines, a line cut mid-way by its box, characters no font can draw, mirrored or skewed text, letter spacing that splits words, text rendered below 8 px (added 2026-10-25, section 3.26) | medium | no | all |
 
 Checks 1 to 7, 15 and 16 are mostly browser-reported and cost close to nothing (event listeners and property reads).
-Checks 8 to 14, 17, 24 and 25 are measured layout and text checks behind the settle and persistence gates. Checks 18
-to 23 run on interaction or on a cheap periodic read.
+Checks 8 to 14, 17, 25 and 26 are measured layout and text checks behind the settle and persistence gates. Checks 18
+to 23 run on interaction or on a cheap periodic read; check 24 runs on the runtime's in-flight requests.
 
 Each entry lists: what it measures, when it reports, what it skips, the evidence fields (local), the severity, the
 suggested developer fix, and the runtime fix if any.
@@ -709,7 +710,41 @@ The owner's first example. One check with two dimensions: the colour scheme the 
   `max-height: 90dvh; overflow-y: auto;`.
 - Runtime fix: none (moving elements or changing `z-index` is risky).
 
-### 3.24 `ad-heavy`
+### 3.24 `request-stalled` (added for issue 94, after 0.3.0-beta.1)
+
+Not a visual measurement but the same family: a deterministic measurement against a documented threshold, reported
+as kind `"check"`, never a situation, a fact, an event-log entry, a gate input or model input (rule 2 exception, as
+section 1). It exists because an app's own error handling hides the failure it measures: a handler disables its
+button, sends a request with no timeout, and re-enables the button in `finally`; when the request never answers,
+`finally` never runs, nothing throws, and no situation is salient.
+
+- Measures: the fetch and XHR requests the runtime has in flight (the bridge's `pending()`, `src/visual/bridge.ts`),
+  judged on the Clock at most every 2 s, sooner when one is due. It runs from the moment the chunk loads, not after
+  the page settles: settle waits for network quiet, which a stalled request prevents. Its own MutationObserver
+  (attributes `disabled`, `aria-busy`, `aria-disabled` only, so the passes' dirty tracking never sees them) keeps the
+  Clock time each element last became busy.
+- Reports when: a request has been pending for `visual.checks.stallMs` (default 15,000 ms, clamped to 1 s..10 min;
+  15 s is past the longest answer the demos' chaos produces, 8 s, and past the usual 10 s gateway timeouts), once per
+  request, while the tab is visible and the route's mode is not off. A request that became due while the tab was
+  hidden is reported once the tab is visible again.
+- Control: the element matching `[disabled], [aria-busy="true"], [aria-disabled="true"]` now whose last change to busy
+  happened from 1 s before the request started (a handler disables the button, then sends) up to now, earliest
+  first; `measured.control` is its state, `"none"` when there is none, `"not watched"` when the request started before
+  the checks were watching (the chunk loads 1.5 s after `load`).
+- Skips: EventSource and WebSocket (not fetch or XHR operations); GenClass's own requests; a signature the cadence
+  layer knows as a background schedule (long polling); a signature whose learned p95 latency is at least `stallMs`
+  (an endpoint that usually takes that long); a host or path prefix in `visual.ignore`; elements inside
+  `[data-genclass-ignore]` as the control. A streamed fetch is not pending once its headers arrive. The first request
+  of a long poll that has no history yet is not recognised (measured on the demos: RESULTS.md section 21).
+- Evidence: method, host, normalised path (no query), `pendingMs`, the control's state and description, when it
+  became busy relative to the request.
+- Severity: high with a control still busy, medium without.
+- Suggested fix: a timeout on the request (`AbortSignal.timeout(ms)`, `xhr.timeout`) so the app's `catch` and
+  `finally` run.
+- Runtime fix: none. A heal-mode timeout that aborts the request is proposed in OPTIONS-SPEC section 4.21 and waits
+  for the owner (rules 1 and 2).
+- Not in `checkPage()` (no runtime, no requests to watch).
+### 3.25 `ad-heavy`
 
 Added 2026-10-25 at the owner's request ("the classifier should detect strange sites, like too many ads, warped text").
 It is a measured check like the others: geometry of elements the markup names as ad slots, against fixed shares taken
@@ -763,9 +798,9 @@ from the Coalition for Better Ads standards. It does not judge whether an ad is 
   shift the page.
 - Runtime fix: none (hiding an ad changes what the site's owner sells).
 
-### 3.25 `text-warped`
+### 3.26 `text-warped`
 
-Added 2026-10-25 with `ad-heavy`. Text that is on the page and visible but that a reader cannot read as text. Every
+Added 2026-10-25 with `ad-heavy` (section 3.25). Text that is on the page and visible but that a reader cannot read as text. Every
 reason is a measurement of boxes (`Range.getClientRects()` line boxes, `getBoundingClientRect()`, computed
 `transform`, `font-size`, `letter-spacing`, `word-spacing`) or of code points; nothing reads what the text says.
 
@@ -836,7 +871,7 @@ breakage. Each needs bench numbers (section 15) before it ships, and some belong
 | candidate | why it waits |
 |---|---|
 | content stuck at `opacity: 0` (a scroll-reveal animation that never ran) | expected medium-high; cross-fade slideshows, tabs and hover reveals look the same. Report-only first |
-| clipped text in a control (`scrollWidth > clientWidth + 2`, overflow hidden, no ellipsis) | expected medium-high; icons and ripples also enlarge `scrollWidth`. The line-box form (a line cut by its box, measured with `Range.getClientRects()`, which icons and ripples do not enlarge) shipped on 2026-10-25 as `text-warped` reason `clipped` (section 3.25) |
+| clipped text in a control (`scrollWidth > clientWidth + 2`, overflow hidden, no ellipsis) | expected medium-high; icons and ripples also enlarge `scrollWidth`. The line-box form (a line cut by its box, measured with `Range.getClientRects()`, which icons and ripples do not enlarge) shipped on 2026-10-25 as `text-warped` reason `clipped` (section 3.26) |
 | raw markdown in rendered text (`**bold**`, `[text](https://...)`) | chat UIs show typed markdown on purpose |
 | lazy image that never loads | needs a reliable network-quiet signal per image |
 | text over images and gradients | the runtime cannot read pixels; gradient stops are feasible, sampled images need same-origin canvas reads or a scanner |
@@ -1594,7 +1629,7 @@ finds it). Run 5 of the bench measured the result (RESULTS.md section 14).
 
 ### `ad-heavy` and `text-warped` (2026-10-25, branch `strange-sites`)
 
-What the build does where sections 3.24 and 3.25 were not specific, and what the first measurements changed:
+What the build does where sections 3.25 and 3.26 were not specific, and what the first measurements changed:
 
 - **Where they run.** `ad-heavy` in full passes only (it is a page-level share; dirty-subtree passes skip it), after
   `css-var-undefined`; `text-warped` after `text-invisible` on the same candidates (the text walk now collects them when
@@ -1603,7 +1638,7 @@ What the build does where sections 3.24 and 3.25 were not specific, and what the
 - **The ellipsis case.** The first browser run reported `overlap` on two correct elements with `text-overflow:
   ellipsis`: Chromium returns two line boxes for a truncated line (the whole run and the part shown, the second inside
   the first), which also describes three lines at `line-height: 0`. Self-overlap is now skipped under an ellipsis
-  (section 3.25); a `line-height: 0` paragraph is still found.
-- **Recall and false reports** are in RESULTS.md section 21 (the Chromium fixtures, and the demos and templates bench
+  (section 3.26); a `line-height: 0` paragraph is still found.
+- **Recall and false reports** are in RESULTS.md section 22 (the Chromium fixtures, and the demos and templates bench
   run on a development machine). The compat apps and the public sites were not run for these two kinds yet: they
   need the bench workflow (section 15), which loads public sites and is the owner's to start.

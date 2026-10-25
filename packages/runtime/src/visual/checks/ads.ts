@@ -1,4 +1,4 @@
-// ad-heavy (docs/runtime/VISUAL.md 3.24): the share of the first screen and of the page that ad slots cover, from
+// ad-heavy (docs/runtime/VISUAL.md 3.25): the share of the first screen and of the page that ad slots cover, from
 // the names the markup gives them and the boxes they take. adWords, adNamed, adSize, unionArea, adShares and
 // adVerdict are pure and unit-tested (test/visual-strange.test.ts).
 //
@@ -28,7 +28,7 @@ const MAX_REGIONS = 50;
 const MIN_W = 40;
 const MIN_H = 20;
 
-/** Words in an id or class name that name an ad slot (VISUAL.md 3.24). */
+/** Words in an id or class name that name an ad slot (VISUAL.md 3.25). */
 const AD_WORDS = new Set(["ad", "ads", "advert", "adverts", "advertisement", "advertisements", "advertising", "adslot", "adunit", "adbox", "adsbygoogle", "adsense", "sponsored"]);
 /** Attributes the ad tags write (AdSense, Ad Manager, Prebid). */
 const AD_ATTRS = ["data-ad-slot", "data-ad-client", "data-ad-unit", "data-ad-unit-path", "data-adunit", "data-google-query-id"];
@@ -129,7 +129,7 @@ export interface AdShares {
   count: number;
 }
 
-/** VISUAL.md 3.24: the shares of the first screen, the page and the largest fixed region. */
+/** VISUAL.md 3.25: the shares of the first screen, the page and the largest fixed region. */
 export function adShares(regions: Region[], vw: number, vh: number, pageH: number): AdShares {
   const screen = Math.max(1, vw * vh);
   const page = Math.max(1, vw * Math.max(pageH, vh));
@@ -151,7 +151,7 @@ export function adShares(regions: Region[], vw: number, vh: number, pageH: numbe
 
 export type AdReason = "interstitial" | "sticky" | "density" | "first-screen";
 
-/** The reason to report, in the order of VISUAL.md 3.24, or null. */
+/** The reason to report, in the order of VISUAL.md 3.25, or null. */
 export function adVerdict(s: AdShares): AdReason | null {
   if (!s.count) return null;
   if (s.topShare >= AD_INTERSTITIAL_SHARE) return "interstitial";
@@ -245,7 +245,7 @@ function adDraft(ctx: Ctx, regions: { el: Element; region: Region }[], s: AdShar
     threshold: {
       value: threshold,
       unit: reason === "density" ? "share of the page" : "share of the screen",
-      source: "Coalition for Better Ads standards (ad density, large sticky ads, prestitials); ad slots named by id, class or ad attributes, or cross-site iframes at ad sizes (VISUAL.md 3.24)",
+      source: "Coalition for Better Ads standards (ad density, large sticky ads, prestitials); ad slots named by id, class or ad attributes, or cross-site iframes at ad sizes (VISUAL.md 3.25)",
     },
     text: `${what}: ${s.count} ad slot${s.count === 1 ? "" : "s"}, ${pct(s.firstShare)} of the first screen and ${pct(s.pageShare)} of the page.`,
     fixText:
@@ -255,7 +255,7 @@ function adDraft(ctx: Ctx, regions: { el: Element; region: Region }[], s: AdShar
   };
 }
 
-/** VISUAL.md 3.24, on full passes: candidates by name (in steps), the regions, the shares; confirmed 2 s later. */
+/** VISUAL.md 3.25, on full passes: candidates by name (in steps), the regions, the shares; confirmed 2 s later. */
 export function* adHeavy(ctx: Ctx, out: Draft[]): Generator<void> {
   if (!ctx.on("ad-heavy")) return;
   const cands: Element[] = [];

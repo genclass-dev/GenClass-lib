@@ -14,7 +14,7 @@ import { spawnSync } from "node:child_process";
 import { mkdirSync, readdirSync, readFileSync, rmdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { detectCsp, detectProject, detectState, htmlFiles, isDir, isFile, readText, walkSkipped, walkSources } from "./detect.mjs";
+import { detectCsp, detectProject, detectState, htmlFiles, littleToWatch, isDir, isFile, readText, walkSkipped, walkSources } from "./detect.mjs";
 import { MARK, hasMarker, isEmptyConfig, planRemoval, removeMarked, sinkBase, sinkNoEvidence, switchMetaConfig, switchMode, switchTagConfig, updateConfigText } from "./edit.mjs";
 import { AUTO, configFileChange, configFileFor, planInit, scriptTag } from "./plan.mjs";
 import { createAccountProject, readCredentials } from "./account.mjs";
@@ -57,7 +57,8 @@ init     finds your framework, installs ${PKG}, adds one import to your entry fi
          line), shows the diff and asks before writing. Running it again changes nothing; with another
          --mode it switches the import init added to that mode.
 remove   takes out exactly what init added (the lines and blocks marked "${MARK}"; it changes nothing if
-         one of them was edited) and uninstalls the package if nothing else imports it.
+         one of them was edited, though attributes added to its script tag, such as defer, are fine) and
+         uninstalls the package if nothing else imports it.
 
   --mode <m>       observe (default: reports, never changes anything), guard or heal
   --token <gc_...> use this app token (no network). By default, on a new setup and only once you
@@ -92,7 +93,9 @@ remove   takes out exactly what init added (the lines and blocks marked "${MARK}
   --from <spec>    install ${PKG} from this spec (a version, tag or tarball path)
   --cdn <url>      plain HTML: the script URL (default: jsDelivr, this version, with an SRI hash; other
                    URLs get no hash)
-  --no-sri         plain HTML: no integrity attribute`;
+  --no-sri         plain HTML: no integrity attribute
+  --sync           plain HTML: a blocking script tag (the default is defer: the page never waits for the
+                   CDN; GenClass then starts after classic scripts that have neither defer nor async)`;
 
 export class UsageError extends Error {}
 
@@ -104,6 +107,7 @@ const BOOL = {
   "no-devtools": "noDevtools",
   "keep-package": "keepPackage",
   "no-sri": "noSri",
+  sync: "sync",
   "no-telemetry": "noTelemetry",
   telemetry: "telemetry",
   "no-token": "noToken",
@@ -336,6 +340,17 @@ function printMoneyAdvice(money, cfgFile) {
   out(`    (${cfgFile ? `${cfgFile}, ` : ""}window.GENCLASS_CONFIG or GenClass.init({ ... })):`);
   out(`        ${c.cyan(`requests: { protect: ["preset:payments", "preset:auth"] }`)}`);
   out(`    Details: ${INTERCEPTION_URL}#money-and-identity-flows`);
+  out();
+}
+
+/** The scan command (cli-scan): a headless pass of the measured checks over a URL. */
+export const SCAN_CMD = "npx @genclass/runtime@beta scan <url>";
+
+/** One sentence when the project looks mostly static (issue 94): GenClass has little to find there. */
+function printLittleToWatch(kind) {
+  if (!kind) return;
+  const why = kind === "none" ? "No fetch, XHR, WebSocket or EventSource call was found in your sources" : "Your page has one script";
+  out(`  ${c.bold("Note")} ${why}, so GenClass will have little to find here beyond request health (runtime.summary().requests); the measured visual checks (visual: true) and the page scan (${c.cyan(SCAN_CMD)}) apply to a mostly static site.`);
   out();
 }
 
@@ -856,7 +871,7 @@ export async function init(o, ctx = {}) {
   }
 
   const devtools = !o.noDevtools;
-  const planFor = (config) => planInit(project, { mode: o.mode, devtools, cdn: o.cdn, sri: !o.noSri, strategy: o.strategy, config }, { pkgDir: PKG_DIR, version: VERSION });
+  const planFor = (config) => planInit(project, { mode: o.mode, devtools, cdn: o.cdn, sri: !o.noSri, sync: !!o.sync, strategy: o.strategy, config }, { pkgDir: PKG_DIR, version: VERSION });
   const plan = planFor(cfg);
   if (plan.manual || !plan.changes.length) {
     out(`  ${c.yellow(sym.warn)} Could not add GenClass automatically: ${plan.manual ?? "nothing to change"}.`);
@@ -884,9 +899,11 @@ export async function init(o, ctx = {}) {
 
   const recs = recommendations(project, detectState(project, files));
   const money = moneyFlows(project, files);
+  const quiet = littleToWatch(project, files);
   if (o.dryRun) {
     printRecommendations(recs);
     printMoneyAdvice(money, cfgAt);
+    printLittleToWatch(quiet);
     out(`  ${c.gray("Dry run: nothing was written.")}`);
     out();
     return 0;
@@ -941,7 +958,7 @@ export async function init(o, ctx = {}) {
   dashboardNotice(tk, cwd, true, false, saved);
   out(`  ${c.bold("Next")}`);
   const script = project.pkg?.scripts?.dev ? "dev" : project.pkg?.scripts?.start ? "start" : null;
-  if (project.framework === "html") out(`    ${sym.dot} Open your page. GenClass starts before your other scripts.`);
+  if (project.framework === "html") out(`    ${sym.dot} Open your page. ${o.sync ? "GenClass starts before your other scripts." : "GenClass starts once the page is parsed, before your deferred and module scripts (--sync: before every script)."}`);
   else if (script) out(`    ${sym.dot} Run ${c.cyan(runCmd(project.pm, script))} and open the app.`);
   out(`    ${sym.dot} Detections and actions appear in the browser console as ${c.cyan("[GenClass] ...")} lines.`);
   if (cfg.sinks?.length) out(`    ${sym.dot} They also reach ${c.cyan(cfg.sinks.join(", "))}: ${cfg.sinks.map((s) => SINK_WHAT[sinkBase(s)] ?? s).join("; ")}.`);
@@ -951,6 +968,7 @@ export async function init(o, ctx = {}) {
   out();
   printRecommendations(recs);
   printMoneyAdvice(money, cfgAt);
+  printLittleToWatch(quiet);
   out(`  Undo: ${c.cyan(`${CMD} remove`)}`);
   out();
   return 0;
