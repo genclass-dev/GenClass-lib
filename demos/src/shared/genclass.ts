@@ -4,7 +4,11 @@
 //   guard -> GenClass.init({ mode: "guard", model: { baseUrl } })
 //   heal  -> GenClass.init({ mode: "heal",  model: { baseUrl } })
 // Telemetry is always off here (telemetry: false): demo and benchmark traffic must never reach the collector.
+// In the Vite dev server (import.meta.env.DEV) each page also connects to the local GenClass MCP bridge
+// (connectAgent, the integration the MCP README shows). Production builds, which the eval and the bench measure,
+// never contain the link.
 import { GenClass } from "@genclass/runtime";
+import { connectAgent } from "@genclass/runtime/agent";
 import type { ActionRecord, Decision, InitOptions, Plugin, Report, Runtime } from "@genclass/runtime";
 import { attachTrace, newTrace, traceHooks, type Trace } from "./trace.ts";
 import type { GcMode, GcStats } from "./types.ts";
@@ -49,6 +53,7 @@ export function startGenClass(
           policy,
           ...extra,
         });
+  if (import.meta.env.DEV) connectAgent(gc);
   if (trace) {
     attachTrace(gc, trace);
     window.__gcTrace = trace;
