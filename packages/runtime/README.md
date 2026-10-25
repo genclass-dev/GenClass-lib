@@ -466,7 +466,7 @@ scroll depth per page, the most clicked elements, and rage and dead clicks ([Pri
 Put `data-genclass-name="pricing-cta"` on an element to give it a readable name there. Analytics need
 `0.3.0-beta.1` or later (`npm install @genclass/runtime@beta`): `0.2.x`, npm's `latest` until 0.3.0, ignores
 `analytics: true` without a word, so the dashboard's Visitors view says which runtime versions your app sends from.
-When the analytics code itself does not load (a self-hosted `dist/` missing `analytics/`), the console says so once
+When the analytics code itself does not load (a self-hosted `dist/` missing `analytics/`), the console says so
 and `runtime.analytics.reason` is `"error"`; files of two releases in one `dist/` get one warning naming both
 ([ANALYTICS.md](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/ANALYTICS.md) section 4.1).
 

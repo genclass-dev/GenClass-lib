@@ -2,7 +2,7 @@
 // once the app turned analytics on (InitOptions.analytics or runtime.analytics.start()) while telemetry runs with the
 // app's token or a custom endpoint, imports the chunk (src/analytics/index.ts) that records. Off means nothing: no
 // listener, no import. Everything else lives in the chunk, so this file stays small (test/bundle.test.ts). A chunk that
-// does not load warns once (nothing is recorded); the chunk itself warns when its version is not the runtime's.
+// does not load warns, once per load (nothing is recorded); the chunk warns when its version is not the runtime's.
 
 import type { RuntimeImpl } from "../runtime.js";
 import type { AnalyticsStatus } from "../types.js";
@@ -23,7 +23,6 @@ export function startAnalytics(rt: RuntimeImpl, on: unknown): AnalyticsStatus {
   let c: AnalyticsController | null | undefined;
   // bumped by stop() and destroy: a chunk that finishes loading after them does not start
   let gen = 0;
-  let failed = false;
   const warn = (m: string) => (rt.global.console as Console | undefined)?.warn?.("[GenClass] analytics" + m);
   const s = {
     enabled: false,
@@ -40,8 +39,7 @@ export function startAnalytics(rt: RuntimeImpl, on: unknown): AnalyticsStatus {
             () => {
               s.enabled = false;
               s.reason = "error";
-              if (!failed) warn(` code of ${RUNTIME_VERSION} did not load; nothing is recorded.`);
-              failed = true;
+              warn(` ${RUNTIME_VERSION} did not load; nothing is recorded.`);
             },
           );
         }

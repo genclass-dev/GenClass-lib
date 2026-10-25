@@ -76,7 +76,7 @@ path; never element text). Every telemetry opt-out and Global Privacy Control tu
 event log: nothing reaches a situation, a decision or the model. `rt.analytics.start()` / `stop()` turn them on and
 off later (consent; `stop()` drops the counts not sent yet). Also `data-analytics="on"`, `analytics=on` in the meta
 tag, `window.GENCLASS_CONFIG.analytics`. Schema: [TELEMETRY.md](../../packages/runtime/TELEMETRY.md#interaction-analytics).
-A chunk that does not load warns once (`[GenClass] analytics code of <version> did not load; nothing is recorded.`,
+A chunk that does not load warns once per load (`[GenClass] analytics <version> did not load; nothing is recorded.`,
 `reason: "error"`); a chunk of another release warns once with both versions. `0.2.x` (npm's `latest` until 0.3.0)
 and `0.3.0-beta.0` have no analytics and ignore the option silently: install `@genclass/runtime@beta`
 ([ANALYTICS.md](ANALYTICS.md) section 4.1).

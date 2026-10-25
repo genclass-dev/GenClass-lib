@@ -171,15 +171,17 @@ describe("interaction analytics: loud when the code is missing or from another v
     delete analyticsRegistry.loader;
   });
 
-  it("a chunk that does not load: one warning naming the version, enabled false, reason error", async () => {
+  it("a chunk that does not load: one warning per load naming the version, enabled false, reason error", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     analyticsRegistry.loader = () => Promise.reject(new Error("404"));
     const { rt: r } = await arun({ noWait: true });
     await vi.waitFor(() => expect(r.analytics).toMatchObject({ enabled: false, reason: "error" }));
+    const said = () => warn.mock.calls.flat().filter((m) => String(m).includes("did not load"));
+    expect(said()).toEqual([`[GenClass] analytics ${RUNTIME_VERSION} did not load; nothing is recorded.`]);
+    // start() tries again: one more warning for that load
     expect(r.analytics!.start()).toBe(true);
-    await vi.waitFor(() => expect(r.analytics).toMatchObject({ reason: "error" }));
-    const said = warn.mock.calls.flat().filter((m) => String(m).includes("did not load"));
-    expect(said).toEqual([`[GenClass] analytics code of ${RUNTIME_VERSION} did not load; nothing is recorded.`]);
+    await vi.waitFor(() => expect(said()).toHaveLength(2));
+    expect(r.analytics).toMatchObject({ enabled: false, reason: "error" });
   });
 
   it("the stub passes its version to the chunk; the same release says nothing, another one warns", async () => {
