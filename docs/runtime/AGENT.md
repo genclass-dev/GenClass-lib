@@ -21,6 +21,9 @@ This feature uses that position for three things:
 
 A local MCP server (`@genclass/mcp`) gives all of it to a coding agent: findings as they happen, the evidence in
 causal order, a replay switch, an explore switch, and a Playwright regression test that fails while the bug is there.
+The server is free and runs on the developer's machine. Closed-loop development as a service, the MCP server,
+collector and dashboard run for a customer's developers and hosted by GenClass or inside their network, is an
+Enterprise offer ([genclass.dev/enterprise](https://genclass.dev/enterprise)).
 
 ```
  page (dev build)                                   this machine

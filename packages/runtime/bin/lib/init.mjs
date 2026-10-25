@@ -38,7 +38,7 @@ const REPO = "https://github.com/genclass-dev/GenClass-lib/blob/main";
 export const TELEMETRY_URL = `${REPO}/packages/runtime/TELEMETRY.md`;
 export const INTERCEPTION_URL = "https://genclass.dev/docs/interception";
 export const PRIVACY_URL = `${REPO}/PRIVACY.md`;
-/** The plans page: forwarding to Sentry, PostHog and Datadog is not part of the free runtime, and no plan offers it yet. */
+/** The plans page: forwarding to Sentry, PostHog and Datadog is not part of the free runtime; the genclass.dev collector does it on every plan. */
 export const PRICING_URL = "https://genclass.dev/pricing";
 /** What a dashboard shows, said under every dashboard link the CLI prints: analytics are free on every plan. */
 export const FREE_LINES = [

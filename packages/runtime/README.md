@@ -371,7 +371,8 @@ where GenClass acts.
 web app gets a **project key** (token: `gc_` + 22 letters and digits) that groups its diagnostics on a dashboard at
 genclass.dev. The key is public: it ships in your page and can only add telemetry to its app. Keep the dashboards in
 a GenClass account, or use one private link per app without an account. The dashboard is free for every app, with
-90 days of history, and so is your own classifier, which GenClass trains on your app ([pricing](https://genclass.dev/pricing)).
+90 days of history, and so are your own classifier, which GenClass trains on your app, and the `@genclass/mcp` server
+for coding agents ([pricing](https://genclass.dev/pricing)).
 
 ```bash
 npx @genclass/runtime@beta dashboard # print the link to this app's dashboard (--open: open it in your browser)

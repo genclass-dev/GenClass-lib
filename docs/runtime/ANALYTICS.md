@@ -107,7 +107,7 @@ adds counters for `interactions` events, in the existing `daily` and `hourly` ta
 
 Interaction counters get their own per-batch budget (200 counters), so they never push out the diagnostics counters
 (`MAX_COUNTERS`). A batch that repeats one already counted is skipped as today. Retention is the dashboard's: 90 days
-(1 year on a paid plan), hourly rows 48 hours.
+(1 year on Enterprise), hourly rows 48 hours.
 
 **Dashboard.** A "How visitors use this app" section on the app dashboard (`src/pages.ts`, every plan, the same range
 picker), shown once the app has sent `interactions` events, using the page's existing table and card styles:
