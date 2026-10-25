@@ -13,7 +13,8 @@
       "@genclass/runtime/react": ["../packages/runtime/dist/adapters/react.d.ts"],
       "@genclass/runtime/redux": ["../packages/runtime/dist/adapters/redux.d.ts"],
       "@genclass/runtime/zustand": ["../packages/runtime/dist/adapters/zustand.d.ts"],
-      "@genclass/runtime/devtools": ["../packages/runtime/dist/devtools/index.d.ts"]
+      "@genclass/runtime/devtools": ["../packages/runtime/dist/devtools/index.d.ts"],
+      "@genclass/runtime/agent": ["../packages/runtime/dist/agent.d.ts"]
     }
   },
   "include": ["src"],
