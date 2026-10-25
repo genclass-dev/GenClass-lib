@@ -21,7 +21,24 @@
   (@genclass/runtime <version>) did not load; nothing is recorded. ...`, with `runtime.analytics.reason` `"error"` as
   before; the tag passes its version to the chunk, and a chunk of another release warns once per page with both
   versions and the install line, and still records (`src/cdn/analytics-loader.ts`, the chunk). Not in the ESM first
-  load; the `@beta` console messages above add 16 B gzip to `/auto` and 13 B to the main entry. The dashboard's Visitors view and Connect panel name the version analytics need.
+  load; the `@beta` console messages above add 16 B gzip to `/auto` and 13 B to the main entry. Under the dashboard's
+  copy-prompt button, the Visitors view and the Connect panel name the version analytics need and the app's older
+  runtimes.
+- **Interaction analytics: visits, where they come from, devices, entry and exit pages, funnels** (inside
+  `analytics: true`, off by default; [docs/runtime/ANALYTICS.md](../../docs/runtime/ANALYTICS.md) sections 1.2 and
+  3.1, TELEMETRY.md "Visits"). A view's first `interactions` event now names its **visit** (`visit`: 16 random hex
+  characters; a visit is page views with no gap over 30 minutes, or until a page load comes from another site or a
+  utm link). The view that opens a visit also sends `entry: true`, `ref` (the referring site's host only), `utm`
+  (`source`, `medium`, `campaign`, cleaned of ids, at most 40 characters each), `device` (desktop, mobile, tablet),
+  `browser` and `os` (families, never the user agent) and `returning` (whether this browser had a visit before). To
+  know that, the runtime keeps **one `localStorage` entry while analytics run**, `genclass.analytics.<token>` (the
+  visit id, its last time, a visited-before flag); `runtime.analytics.stop()` removes it, and every opt-out keeps it
+  from being written. The dashboard's Visitors view adds Sources, Devices (with the collector's country), Sessions
+  (visits per day, pages per visit, one-page visits, returning share), Entry and exit pages and **Funnels** (up to 5
+  of 2 to 6 routes, defined on the dashboard and counted from the routes each visit went through in order); for an
+  app without analytics it is one big "Copy the prompt for your coding agent" button. All of it is in the lazy
+  analytics chunk: the first load is unchanged. No model-visible text changed (`situation-v2.3`). The collector needs
+  migration `0010_visits_funnels.sql` before it is deployed.
 - **`rt.summary().requests`: the requests GenClass saw, per host** (issue 94; [API.md](../../docs/runtime/API.md)
   "Requests in `rt.summary()`"). Counts of the `fetch` and XHR requests of the page load, in total and per host
   (`"same-origin"` or the API's host, 30 at most): `requests`, answers by status class, `network` (no answer),

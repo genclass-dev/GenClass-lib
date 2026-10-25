@@ -71,10 +71,12 @@ tag or `data-token` / `data-scope`).
 `token` (or a custom `telemetry.endpoint`) also sends `interactions` telemetry events for the app's dashboard: per
 page view the route, engaged time, scroll milestones, and clicks, rage clicks and dead clicks per element key (built
 from markup: `data-genclass-name`, `data-testid`, a stable id, a link's target, stable classes, a short structural
-path; never element text). Every telemetry opt-out and Global Privacy Control turn them off; without a token
+path; never element text), and (Unreleased) per visit a random visit id kept 30 minutes in `localStorage`
+(`genclass.analytics.<token>`), the referring host, utm values without ids, device class, browser and OS families and
+whether the browser visited before. Every telemetry opt-out and Global Privacy Control turn them off; without a token
 `analytics: true` warns once and records nothing. They run in a lazy chunk (`dist/analytics/index.js`), outside the
 event log: nothing reaches a situation, a decision or the model. `rt.analytics.start()` / `stop()` turn them on and
-off later (consent; `stop()` drops the counts not sent yet). Also `data-analytics="on"`, `analytics=on` in the meta
+off later (consent; `stop()` drops the counts not sent yet and removes the visit entry). Also `data-analytics="on"`, `analytics=on` in the meta
 tag, `window.GENCLASS_CONFIG.analytics`. Schema: [TELEMETRY.md](../../packages/runtime/TELEMETRY.md#interaction-analytics).
 With the script tag, a chunk that does not load warns once per load (`[GenClass] analytics: <url> (@genclass/runtime
 <version>) did not load; nothing is recorded. ...`, `reason: "error"`), and a chunk of another release than the tag
@@ -128,7 +130,8 @@ interface InitOptions {
                                                         // off in GenClass.init / createRuntime (there it needs import "@genclass/runtime/discover" first)
   token?: string;                                       // (0.3.0) app token, gc_ + 22 letters/digits: groups telemetry under your private dashboard
   analytics?: boolean;                                  // (0.3.0-beta.1) [false] interaction analytics for the app's dashboard: page views, engaged time,
-                                                        // scroll depth, clicks, rage and dead clicks per element key; needs telemetry and the token
+                                                        // scroll depth, clicks, rage and dead clicks per element key; visits, sources, devices
+                                                        // (Unreleased); needs telemetry and the token
   scope?: "app" | "functions";                          // (0.3.0) ["app"]; "functions": decisions and standing questions only for activity inside protect()ed functions (rt.ask() still answered)
 
   // batch 12 (docs/runtime/OPTIONS-SPEC.md); defaults in brackets

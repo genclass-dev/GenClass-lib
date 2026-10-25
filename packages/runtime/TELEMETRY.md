@@ -59,7 +59,9 @@ segment holding an `@`, such as an e-mail address, is `:id` too).
   turns them on** with `analytics: true`, and only with the app's token (or your own `telemetry.endpoint`). Then the
   page also sends `interactions` events: per page view, the route, engaged time, scroll depth milestones and clicks,
   rage clicks and dead clicks per element, the element named from markup (a `data-genclass-name`, a `data-testid`, an
-  id, a link's target, stable class names or a short structural path), never its text. See
+  id, a link's target, stable class names or a short structural path), never its text; and (Unreleased) per visit a
+  random visit id kept 30 minutes, where the visit came from (the referring host, utm values), the device class,
+  browser and OS families and whether the browser visited before (a flag in `localStorage`). See
   [Interaction analytics](#interaction-analytics).
 - **Measured visual checks** ([VISUAL.md](../../docs/runtime/VISUAL.md); new in `0.3.0`): nothing about
   them is sent. Their findings stay in the page (the console, `rt.checks()`, your own sinks). Counts per check kind
@@ -101,7 +103,7 @@ Every event has `t` (type), `seq` (0, 1, 2, … per page) and `at` (ms since sta
 | `breaker` | the breaker tripped or reset | `tripped`, `reason`, `undos`, `errors`, `decisions` (ids) |
 | `model-error` | model errors (first 20 per page; all are counted) | `code`, `message` (≤ 200 chars, URLs replaced by `<url>`: a model host's message can quote the browser's worker error, which names the script and the page origin) |
 | `summary` | about once a minute (≥ 60 s apart) while decisions continue, never capped; when the tab is hidden, on pagehide and on destroy | `reason`, `counts` (decisions, acted, detections (likely ones), `possibleDetections` (0.3.0: the possible ones, counted apart), actions applied/failed, late reverts, undos, vetoes, breaker trips, per trigger / diagnosis / action ran, detections per diagnosis, action limits hit, model errors per code, fail-opens per reason and trigger), `runtime` (model p50/p95 latency, decisions, dropped, hidden-tab skips, held time, denied and shadow counts, error count), `telemetry` (queued, dropped, send failures, events sent, `decisionRecords` (decisions whose records were sent), `decisionsSampledOut`, `decisionsCapped`) |
-| `interactions` | only with `analytics: true` and a token (or a custom endpoint): when a page view ends (a route change, page exit), when the tab is hidden, and before a `summary`, if anything changed ([Interaction analytics](#interaction-analytics)) | `view` (page view number in this page load), `route` (normalised as on `session`), `start` (the view's first event: a page view), `engagedMs`, `scroll` (milestones 25 / 50 / 75 / 100 first reached since the previous event), `clicks`, `rage`, `dead` (counts per element key, at most 50 / 20 / 20 keys, the rest under `(other)`), `end` (the view ended). Counts are deltas since the view's previous event |
+| `interactions` | only with `analytics: true` and a token (or a custom endpoint): when a page view ends (a route change, page exit), when the tab is hidden, and before a `summary`, if anything changed ([Interaction analytics](#interaction-analytics)) | `view` (page view number in this page load), `route` (normalised as on `session`), `start` (the view's first event: a page view), `engagedMs`, `scroll` (milestones 25 / 50 / 75 / 100 first reached since the previous event), `clicks`, `rage`, `dead` (counts per element key, at most 50 / 20 / 20 keys, the rest under `(other)`), `end` (the view ended). Counts are deltas since the view's previous event. Unreleased, on a view's first event only: `visit` (16 hex characters, random, see [Visits](#visits)); and when that view opened the visit, `entry: true`, `ref` (the referring site's host, `www.` dropped, when it is another site; `(other)` when the host looks like data), `utm` (`source`, `medium`, `campaign`: lower case, letters, digits, `. _ + -` and spaces, words that look like ids dropped, at most 40 characters each), `device` (`desktop` / `mobile` / `tablet`), `browser` (`Chrome`, `Safari`, `Firefox`, `Edge`, `Opera`, `Samsung Internet`, `Other`), `os` (`Windows`, `macOS`, `iOS`, `Android`, `Linux`, `ChromeOS`, `Other`), `returning` (whether this browser had a visit before; absent when storage is blocked) |
 
 Not sent: `expectation` reports (a learned step that did not happen, `docs/runtime/EXPECTATIONS.md`) and anything
 else learned about the page (flows, profiles, relations); those stay in the browser (`localStorage`, `rt.learned()`).
@@ -183,7 +185,7 @@ without either, `analytics: true` warns once in the console and records nothing.
 Privacy Control and the local-host default turn them off too. When they start, the console says so once:
 
 ```
-[GenClass] Interaction analytics are on (this app turned them on): page views, time on page, scroll depth and clicks per element, never page text.
+[GenClass] Interaction analytics are on (this app turned them on): page views, visits, time on page, scroll depth, clicks per element, the referring site, campaign and device type, never page text.
 ```
 
 What is recorded, per page view (a page load, and each route change to a new path):
@@ -203,11 +205,37 @@ What is recorded, per page view (a page load, and each route change to a new pat
   up to 4 levels under a named ancestor or a landmark. At most 120 characters. Any attribute value that looks like data
   (an e-mail address, a URL, 4 or more digits, 12 or more hex digits) is not used.
 
+#### Visits
+
+Unreleased (the next `@beta` after 0.3.0-beta.1). A **visit** is a run of page views with no gap over 30 minutes:
+
+- **The visit flag, in `localStorage`.** The runtime keeps one entry, `genclass.analytics.<the app's token>` (or
+  `genclass.analytics.endpoint` with your own endpoint and no token), holding `{ "v": <visit id>, "t": <time of the
+  last page view or event, ms>, "r": 1 }`. The visit id is 16 random hex characters (`crypto.getRandomValues`). A page
+  view more than 30 minutes after `t`, or a page load that comes from another site or from a link with utm values,
+  starts a new visit with a new id. `r` only says that this browser had a visit before, which is all "new or
+  returning" means: there is no visitor id. It is written only while analytics run (so never with any opt-out below,
+  GPC or on a local host by default) and `runtime.analytics.stop()` removes it. With storage blocked, a visit lasts
+  the page load and `returning` is not sent.
+- **Where a visit came from**, on the view that opened it: the referring site's host only (`google.com`, never its
+  path or query; your own site is not a source), and the `utm_source`, `utm_medium` and `utm_campaign` values of the
+  page's URL, cleaned (see the table above). No other query parameter is read.
+- **The device class, browser family and OS family**, from the user agent and its hints, as one of the buckets in the
+  table above. The user agent string itself is never sent.
+- **The country** is the collector's own coarse `request.cf.country` (two letters), as for every batch, counted once
+  per visit.
+
+The collector keeps per visit only a hash of the app's token and the visit id (never the id itself), when it started
+and was last seen, its entry and exit page, its number of page views and the routes of its first 50 page views in
+order, and deletes it 90 days after the visit started. That is what the dashboard's entry and exit pages, pages per
+visit and **funnels** come from: an app defines up to 5 funnels of 2 to 6 routes on its dashboard (stored with the
+app), and each step counts the visits that reached the steps before it in that order.
+
 **Never recorded:** element text, labels, `alt`, `title`, placeholders, input values or what was typed, mouse
-coordinates, the order or timing of clicks, the query string or fragment, the referrer, the page title, the screen
-size, a visitor id. Nothing is written to cookies or `localStorage`, so page loads by the same person cannot be linked
-and the dashboard does not count unique visitors. Synthetic events (`isTrusted` false) and events inside
-`[data-genclass-ignore]` are not counted.
+coordinates, the order or timing of clicks, the query string or fragment (beyond the three utm values), the
+referrer's path or query, the page title, the screen size, the user agent string, a visitor id. No cookies are set,
+and nothing links two visits of one browser except the yes-or-no `returning` flag, so the dashboard does not count
+unique visitors. Synthetic events (`isTrusted` false) and events inside `[data-genclass-ignore]` are not counted.
 
 They never reach the model or a decision: they are recorded by their own listeners (a separate file the runtime loads
 only when analytics are on), outside GenClass's event log, and change nothing on the page in any mode. The
@@ -215,7 +243,8 @@ maintainers use `interactions` events only for the app's dashboard and its expor
 evaluation.
 
 **After consent:** `runtime.analytics.start()` turns them on later (for example once a visitor accepts analytics in
-your consent banner), `runtime.analytics.stop()` turns them off and drops the counts not sent yet.
+your consent banner), `runtime.analytics.stop()` turns them off, drops the counts not sent yet and removes the visit
+flag from `localStorage`.
 `runtime.analytics` reports `{ enabled, reason? }` (`option`, `telemetry-off`, `no-token`, `stopped`, `error`).
 
 ## App tokens and dashboards
@@ -229,7 +258,9 @@ New in `0.3.0` (`0.2.x` ignores a token and sends neither `token` nor `fn`). An 
 - Whoever holds the app's private dashboard link (`https://genclass.dev/dashboard/<secret>`, given once when the
   token is created) can see aggregated diagnostics for that token (decisions, detections by diagnosis, possible
   detections (the `detect` events with `tier: "possible"`, shown apart), actions, the app's hostnames, top routes and
-  protected functions, model load, backend and latency, versions) and its recent detections. Dashboard data is also deleted after 90 days.
+  protected functions, model load, backend and latency, versions; with interaction analytics on, page views, visits,
+  their sources, devices, countries, entry and exit pages and the app's funnels) and its recent detections. Dashboard
+  data is also deleted after 90 days (visits after 90 days on every plan).
 - A token changes nothing about when data is collected: with telemetry off (any opt-out, or Global Privacy
   Control, or a local host) nothing is sent and the dashboard gets nothing from that page. On a local host the
   console says so once when a token is set; otherwise only with `debug: true`.

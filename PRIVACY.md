@@ -1,6 +1,6 @@
 # GenClass Runtime: privacy policy
 
-_Last updated: 2026-10-22._
+_Last updated: 2026-10-25._
 
 This policy covers the diagnostics that `@genclass/runtime` (from `0.1.0-beta.3`) sends to its maintainers. It does not
 cover the website or app that uses GenClass; that site has its own privacy policy.
@@ -45,12 +45,22 @@ object; version 0.2.1 sent from those hosts by default, by mistake, fixed in 0.2
   the page the visitor scrolled (25, 50, 75 or 100 %), and how many times each element was clicked, clicked 3 or more
   times within a second, or clicked without anything changing on the page. An element is named from the page's code
   (a name the developer gave it, an id, a link's address on the same site, the other site's address only, class names
-  or its position on the page), never by its text. We do not collect what visitors type, where the mouse was, the
-  order of clicks, or anything that links one page load to another. We use this data only to show it on that
-  website's dashboard and in its export, never to train or evaluate the model.
+  or its position on the page), never by its text. With a newer runtime (after 0.3.0-beta.1), also per **visit** (page
+  views with no gap over 30 minutes): a random visit ID that the browser keeps in its local storage for those 30
+  minutes, together with a flag saying the browser visited the site before; the website the visitor came from (its
+  domain only, such as google.com); the campaign names in the link (`utm_source`, `utm_medium`, `utm_campaign`, with
+  anything that looks like an ID removed); the type of device (desktop, mobile or tablet), the browser family and the
+  operating system family (never the full user-agent string); and the pages of the visit in order. We do not collect
+  what visitors type, where the mouse was, the order of clicks, or anything that links one visit to another, and we
+  do not count unique visitors. We store only a one-way hash of the visit ID, and delete visit records 90 days after
+  the visit started. We use this data only to show it on that website's dashboard (including funnels the website's
+  owner sets up there: a few pages in order and how many visits reached each) and in its export, never to train or
+  evaluate the model.
 
 We do **not** store IP addresses, browser user-agent strings or cookies, and the runtime sets no cookies. Each page
-load gets a random session ID that is not saved anywhere.
+load gets a random session ID that is not saved anywhere. Only when the website turned on interaction analytics does
+the runtime keep one entry in the browser's local storage (the visit ID and the visited-before flag above); the
+website's developer can remove it by turning analytics off for that visitor.
 
 ## Why we collect it
 
@@ -61,7 +71,8 @@ works on their own site. We do not sell the data, use it for advertising, or try
 
 A website owner can get a private dashboard link for their site's token. Whoever holds that link can see aggregated diagnostics for that site (counts of decisions, detections, possible detections and actions, the site's hostnames,
 routes, the names the developer gave to protected functions, model speed, versions; with interaction analytics on,
-page views, time on page, scroll depth and clicks per page and element) and a list of recent detections
+page views, time on page, scroll depth and clicks per page and element, visits per day, pages per visit, where visits
+came from, devices, countries, new or returning, entry and exit pages and funnels) and a list of recent detections
 (time, route or function name, diagnosis, action). Dashboards do not show the situation text. Data from browsers that opted out or
 send Global Privacy Control never reaches a dashboard.
 
@@ -141,7 +152,7 @@ own records of past payments as the law requires.
 ## Where it goes and how long we keep it
 
 Data is sent to our collector on Cloudflare and stored in Cloudflare R2. It is deleted automatically after
-**90 days**; dashboard data is deleted after 90 days too. Only GenClass maintainers can access the stored data, and
+**90 days**; dashboard data is deleted after 90 days too (visit records 90 days after the visit started). Only GenClass maintainers can access the stored data, and
 the owner of a website's dashboard link can see that website's dashboard. Cloudflare processes it on our behalf.
 
 ## How to turn it off

@@ -2,7 +2,7 @@
 // through packages/runtime): what a developer reads on the page, the possible-issues tier and the display fixes.
 import { describe, expect, it } from "vitest";
 import { Window } from "happy-dom";
-import { ANALYTICS_RUNTIME, CDN_SCRIPT, DASH_CSS, dashboardPage, KEY_RUNTIME, MESH_SCRIPT, RUNTIME_PKG, securityHeaders, SNIPPET_RUNTIME, startPage, type DashboardOptions } from "../src/pages.js";
+import { ANALYTICS_RUNTIME, analyticsPrompt, CDN_SCRIPT, DASH_CSS, dashboardPage, esc, KEY_RUNTIME, MESH_SCRIPT, RUNTIME_PKG, securityHeaders, SNIPPET_RUNTIME, startPage, type DashboardOptions } from "../src/pages.js";
 import { accountPage, devicePage, forgotPage, lockedLinkPage, loginPage, messagePage, passkeyStepPage, pendingPage, signupPage } from "../src/account-pages.js";
 import { sampleStats } from "../src/sample.js";
 import type { Stats } from "../src/dashboard.js";
@@ -456,23 +456,147 @@ describe("dashboard page: interaction analytics (docs/runtime/ANALYTICS.md secti
     await close();
   });
 
-  it("an app without interaction data: the empty state says the version and install line; the footer says what interaction data is", async () => {
+  it("an app without analytics: the Visitors view is one big copy-prompt button, the other sections hidden", async () => {
     const st = sampleStats("7d", NOW);
     for (const k of Object.keys(st.breakdowns)) if (k.startsWith("ix_")) delete st.breakdowns[k];
     for (const k of Object.keys(st.totals)) if (k.startsWith("ix_")) delete st.totals[k];
+    st.visits = { sessions: 0, pages: 0, bounces: 0, entry: [], exit: [] };
+    st.funnels = [];
     const { doc, hidden, text, close } = await render(st);
     expect(hidden("visits")).toBe(false);
-    expect(hidden("clicks")).toBe(true);
     expect(hidden("nav-visits")).toBe(false);
     expect(text("#c-visits")).toBe("");
-    expect(text("#ixsum")).toContain("No interaction analytics in this period.");
-    expect(text("#ixsum")).toContain(`They need @genclass/runtime ${ANALYTICS_RUNTIME} or later; earlier versions ignore analytics: true without a word.`);
-    expect(text("#ixsum")).not.toContain("This app sends from");
-    expect(doc.querySelector("#ixsum pre")!.textContent).toBe(`npm install ${RUNTIME_PKG}\n\nGenClass.init({ token: "gc_...", analytics: true });`);
+    expect(hidden("ixsetup")).toBe(false);
+    for (const id of ["ixsum", "ixpages", "clicks", "ix-sources", "ix-devices", "ix-sessions", "ix-entry", "ix-funnels"]) expect(hidden(id), id).toBe(true);
+    // the button comes first, then at most two lines
+    const box = doc.querySelector("#ixsetup .cprompt")!;
+    const btn = box.firstElementChild as HTMLButtonElement;
+    expect(btn.tagName).toBe("BUTTON");
+    expect(btn.className).toBe("btn green xl");
+    expect(btn.textContent).toBe("Copy the prompt for your coding agent");
+    expect(box.children).toHaveLength(2);
+    expect(box.querySelectorAll("p.cp-sub br")).toHaveLength(0);
+    expect(text("#ixsetup .cp-sub").length).toBeLessThanOrEqual(160);
+    // under the button: the runtime analytics need and the install line (0.2.x ignores the option)
+    expect(text("#ixver")).toBe(`They need @genclass/runtime ${ANALYTICS_RUNTIME} or later (npm install ${RUNTIME_PKG}); earlier versions ignore analytics: true without a word.`);
     expect(ANALYTICS_RUNTIME).toBe("0.3.0-beta.1");
     expect(doc.querySelector(".dfoot")!.textContent).toContain("never its text");
     expect(doc.querySelector(".dfoot")!.textContent).toContain("No text from your pages, no IP addresses and no user agents are stored.");
     await close();
+  });
+
+  it("the copied prompt: install @beta, analytics on with this app's token in each kind of config, consent, dev server, where to look", () => {
+    const p = analyticsPrompt("gc_TestToken0123456789abc", "this app's GenClass dashboard, under Visitors (https://genclass.dev/account/apps/0123456789abcdef#visits)");
+    expect(p).toContain(`npm install ${RUNTIME_PKG}`);
+    expect(p).toContain("0.2.x has no analytics");
+    expect(p).toContain(`npx ${RUNTIME_PKG} init`);
+    expect(p).toContain('GenClass.init({ token: "gc_TestToken0123456789abc", analytics: true })');
+    expect(p).toContain("genclass.config.ts");
+    expect(p).toContain('content="token=gc_TestToken0123456789abc, analytics=on"');
+    expect(p).toContain('data-analytics="on"');
+    expect(p).toContain("GenClass.runtime?.analytics?.start()");
+    expect(p).toContain("Run the dev server once");
+    expect(p).toContain("https://genclass.dev/account/apps/0123456789abcdef#visits");
+    expect(p).not.toContain("telemetry: { endpoint");
+    expect(analyticsPrompt("gc_x", "x", "https://c.example/v1/events")).toContain('Keep telemetry: { endpoint: "https://c.example/v1/events" }');
+  });
+
+  it("the button copies the prompt and reads Copied for two seconds (the page's copy code)", async () => {
+    const st = sampleStats("7d", NOW);
+    for (const k of Object.keys(st.totals)) if (k.startsWith("ix_")) delete st.totals[k];
+    for (const k of Object.keys(st.breakdowns)) if (k.startsWith("ix_")) delete st.breakdowns[k];
+    const html = dashboardPage("NONCE", { name: st.name, token: st.token, created: st.created, lastEvent: st.lastEvent });
+    const main = /<main class="wrap"[^>]*>([\s\S]*)<\/main>/.exec(html)![1]!;
+    const script = /<script nonce="NONCE">([\s\S]*?)<\/script>/.exec(html)![1]!;
+    const win = new Window({ url: "https://genclass.dev/dashboard/sample" });
+    const doc = win.document;
+    doc.body.innerHTML = main;
+    const copied: string[] = [];
+    const timers: [() => void, number][] = [];
+    const nav = { clipboard: { writeText: async (t: string) => void copied.push(t) } };
+    const fetch = async () => ({ ok: true, status: 200, json: async () => st });
+    const run = new Function("window", "document", "location", "localStorage", "fetch", "setInterval", "navigator", "IntersectionObserver", "setTimeout", "clearTimeout", script);
+    run(win, doc, win.location, win.localStorage, fetch, () => 0, nav, class { observe() {} }, (f: () => void, ms: number) => timers.push([f, ms]), () => undefined);
+    await new Promise((r) => setTimeout(r, 20));
+    const btn = doc.querySelector("#ixsetup button") as unknown as HTMLButtonElement;
+    btn.click();
+    await new Promise((r) => setTimeout(r, 5));
+    expect(copied).toEqual([analyticsPrompt(st.token, "this app's GenClass dashboard (the private link I opened it from), under Visitors")]);
+    expect(btn.textContent).toBe("Copied");
+    const t = timers.find(([, ms]) => ms === 2000)!;
+    t[0]();
+    expect(btn.textContent).toBe("Copy the prompt for your coding agent");
+    await win.happyDOM.close();
+  });
+});
+
+describe("dashboard page: visitors, sources, devices, sessions, entry and exit pages, funnels (ANALYTICS.md section 3.1)", () => {
+  it("every section renders from the sample's stats", async () => {
+    const st = sampleStats("7d", NOW);
+    const { doc, text, hidden, heads, close } = await render(st);
+    expect(hidden("ixsetup")).toBe(true);
+    for (const id of ["ix-sources", "ix-devices", "ix-sessions", "ix-entry", "ix-funnels", "clicks"]) expect(hidden(id), id).toBe(false);
+    expect(heads("#ixref")).toEqual(["Source", "Visits", "Share", ""]);
+    expect(text("#ixref")).toContain("google.com");
+    expect(text("#ixref")).toContain("Direct or unknown");
+    expect(text("#ixutm")).toContain("Source: newsletter");
+    expect(text("#ixutm")).toContain("Campaign: autumn-sale");
+    expect([...doc.querySelectorAll("#ixdev h2")].map((h) => h.textContent)).toEqual(["Device", "Browser", "Operating system", "Country", "New or returning"]);
+    expect(text("#ixdev")).toContain("desktop");
+    expect(text("#ixdev")).toContain("(US)");
+    expect(text("#ixdev")).toContain("Returning");
+    expect(text("#ixsess")).toContain("Pages per visit");
+    expect(text("#ixsess")).toContain(String(Math.round((10 * st.visits.pages) / st.visits.sessions) / 10));
+    expect(text("#ixsess")).toContain("One-page visits");
+    expect(doc.querySelectorAll("#ixsess svg rect").length).toBeGreaterThan(0);
+    expect(heads("#ixentry")).toEqual(["Page", "Visits", "Share", ""]);
+    expect(doc.querySelector("#ixentry tbody td")!.textContent).toBe("/");
+    expect(doc.querySelector("#ixexit tbody td")!.textContent).toBe("/products/:id");
+    expect([...doc.querySelectorAll("#ixfun h3")].map((h) => h.textContent)).toEqual(["Checkout", "Search to product"]);
+    expect(heads("#ixfun > .fun:first-child")).toEqual(["Step", "Page", "Visits", "Of step 1", "From the step before", ""]);
+    expect(doc.querySelectorAll("#ixfun .fun:first-child tbody tr")).toHaveLength(3);
+    expect(text("#ixfun")).toContain("Most visits are lost between step 1 and step 2");
+    expect(text("#ixfunedit")).toBe("Edit funnels");
+    expect(text("#ixsum")).toContain("Unique visitors are not counted");
+    await close();
+  });
+
+  it("edit funnels: the form saves the whole list with PUT to this dashboard's funnels URL and reloads the stats", async () => {
+    const st = sampleStats("7d", NOW);
+    const { doc, urls, close } = await render(st);
+    (doc.querySelector("#ixfunedit button") as unknown as HTMLButtonElement).click();
+    const fe = doc.querySelectorAll("#ixfunedit .fe");
+    expect(fe).toHaveLength(2);
+    expect((fe[0]!.querySelector("textarea") as unknown as HTMLTextAreaElement).value).toBe("/products/:id\n/cart\n/checkout");
+    (fe[1]!.querySelector("button") as unknown as HTMLButtonElement).click(); // remove the second
+    (doc.querySelector("#ixfunedit form") as unknown as HTMLFormElement).requestSubmit();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(urls).toContain("/api/projects/sample/funnels");
+    await close();
+  });
+
+  it("an app sending page views from a runtime without visits: the sessions section says to update; sources stay hidden", async () => {
+    const st = sampleStats("7d", NOW);
+    for (const k of ["ix_ref", "ix_utm_source", "ix_utm_medium", "ix_utm_campaign", "ix_device", "ix_browser", "ix_os", "ix_country", "ix_returning"]) delete st.breakdowns[k];
+    delete st.totals.ix_sessions;
+    st.visits = { sessions: 0, pages: 0, bounces: 0, entry: [], exit: [] };
+    const { hidden, text, close } = await render(st);
+    expect(hidden("ix-sessions")).toBe(false);
+    expect(text("#ixsess")).toContain(`need the newest ${RUNTIME_PKG}`);
+    for (const id of ["ix-sources", "ix-devices", "ix-entry"]) expect(hidden(id), id).toBe(true);
+    expect(hidden("ix-funnels")).toBe(false);
+    await close();
+  });
+
+  it("account mode: the Connect panel has the same big button, first in its analytics block, with the account link", async () => {
+    const account = { apps: [{ id: "0123456789abcdef", name: "Shop" }], current: "0123456789abcdef", email: "dev@example.com" };
+    const html = dashboardPage("n", { name: "Shop", token: "gc_TestToken0123456789abc", created: "", lastEvent: null }, { account, id: "0123456789abcdef", origin: "https://genclass.dev" });
+    const panel = /<section class="connect[\s\S]*?<\/section>/.exec(html)![0];
+    const block = /<div class="cana">([\s\S]*?)<\/div><\/div>/.exec(panel)![1]!;
+    expect(block).toMatch(/^<div class="eb">Visitor analytics<\/div><div class="cprompt"><button class="btn green xl" type="button" data-copy="/);
+    expect(block).toContain("Copy the prompt for your coding agent</button>");
+    expect(block).toContain(esc("https://genclass.dev/account/apps/0123456789abcdef#visits"));
+    expect(html).toContain('"funnelsUrl":"/api/account/projects/0123456789abcdef/funnels"');
   });
 });
 
@@ -483,7 +607,7 @@ describe("dashboard page: the Visitors empty state names the app's older runtime
     for (const k of Object.keys(st.totals)) if (k.startsWith("ix_")) delete st.totals[k];
     st.breakdowns.runtime = [{ key: "0.2.2", count: 5 }, { key: "0.3.0-beta.0", count: 3 }, { key: "0.3.0-beta.1", count: 2 }, { key: "0.3.0", count: 1 }, { key: "(unknown)", count: 1 }];
     const { text, close } = await render(st);
-    expect(text("#ixsum")).toContain("This app sends from @genclass/runtime 0.2.2, 0.3.0-beta.0, which has no analytics.");
+    expect(text("#ixold")).toBe("This app sends from @genclass/runtime 0.2.2, 0.3.0-beta.0, which has no analytics.");
     await close();
   });
 });

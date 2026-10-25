@@ -31,6 +31,7 @@ import {
   projectsCreatedSince,
   randomBase62,
   RANGES,
+  putFunnels,
   sanitizeName,
   sha256Hex,
   stats,
@@ -291,7 +292,7 @@ async function ingest(request: Request, env: Env, opts: HandleOptions): Promise<
     const token = batch.token;
     const task = (async () => {
       if (!(await knownToken(db, token, now.getTime()))) return;
-      await aggregate(db, token, batch, now).catch(() => undefined);
+      await aggregate(db, token, { ...batch, country }, now).catch(() => undefined);
       // export index, and forwarding for apps on a paid plan (src/paid.ts)
       const f = opts.fetch ?? ((u: string, i?: RequestInit) => fetch(u, i));
       await afterBatch(env, db, { token, runtime: batch.runtime, model: batch.model, events: batch.events, key, gz, received: receivedAt, id }, now, f);
@@ -303,6 +304,7 @@ async function ingest(request: Request, env: Env, opts: HandleOptions): Promise<
 }
 
 // ------------------------------------------------------------------------------------------ tokens and dashboards
+
 
 /** Global ceiling on anonymous project creation (all clients together; apps created in accounts count separately). */
 export const MAX_PROJECTS_PER_MINUTE = 60;
@@ -373,6 +375,17 @@ async function routeSite(request: Request, url: URL, path: string, env: Env, opt
     }
     const r = await agentReport(env.DB, p.token, body, now);
     return "error" in r ? json(400, { ok: false, error: r.error }) : json(200, { ok: true, stored: r.stored });
+  }
+
+  // The app's funnels (interaction analytics), the whole list at once, from its dashboard (src/pages.ts).
+  const funnelApi = /^\/api\/projects\/([^/]+)\/funnels$/.exec(path);
+  if (funnelApi) {
+    if (m !== "PUT") return json(405, { ok: false, error: "method not allowed" });
+    if (funnelApi[1] === SAMPLE_SECRET) return json(403, { ok: false, error: "the sample dashboard's funnels cannot be changed" });
+    const p = env.DB ? await projectBySecret(env.DB, funnelApi[1]!) : null;
+    if (!p || !env.DB) return json(404, { ok: false, error: "not found" });
+    if (!hasDashboard(await projectAccess(env.DB, p, env, now))) return json(402, { ok: false, error: lockedError(env), locked: true });
+    return putFunnels(request, env.DB, p.token);
   }
 
   const api = /^\/api\/projects\/([^/]+)$/.exec(path);
