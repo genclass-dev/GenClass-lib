@@ -69,7 +69,12 @@ export interface ErrorRec {
 export interface Snapshot {
   t: number;
   state: Record<string, string>;
+  /** Store fields the page left out of `state` (its budget), and how many it had. */
+  stateLeft?: number;
+  stateTotal?: number;
   text?: string[];
+  /** The lines of `text` inside ARIA live regions (announcements: status messages, alerts, toasts). */
+  live?: string[];
   fields?: Record<string, string>;
   requests: Record<string, number>;
   witnesses: number;

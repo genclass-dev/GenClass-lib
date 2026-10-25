@@ -70,8 +70,13 @@ export interface Snapshot {
   t: number;
   /** Store fields (registered or discovered): path → redacted summary. */
   state: Record<string, string>;
+  /** Store fields left out of `state` (its budget), and how many there were; set only when some were left out. */
+  stateLeft?: number;
+  stateTotal?: number;
   /** Visible page text, one entry per line (dom: true). */
   text?: string[];
+  /** The lines of `text` inside ARIA live regions (status messages, alerts, toasts), when there are any. */
+  live?: string[];
   /** Form fields by label → value (dom: true; sensitive fields left out). */
   fields?: Record<string, string>;
   /** Requests sent so far, per signature. */
@@ -115,6 +120,18 @@ type Seams = { runDelivery: Gate; mIgnore?: IgnoreMatcher; redactFn?: (path: str
 type TimerFn = (fn: unknown, ms?: number, ...args: unknown[]) => unknown;
 /** App timers up to this delay (debounces, short hops) keep a page from looking quiet; longer ones (polls) do not. */
 const SHORT_TIMER_MS = 1000;
+/**
+ * Store fields per snapshot, and their budget in characters (paths and summaries): a snapshot stays far inside the
+ * bridge's 1 MB body limit. Fields are taken in an order that does not depend on when they were written: registered
+ * stores, then discovered component state, then other discovered stores (Redux, Zustand, devtools); shallower paths
+ * first (a cache's deep records last), then by path.
+ */
+const SNAPSHOT_FIELDS = 1000;
+const SNAPSHOT_CHARS = 96_000;
+/** A final snapshot sent while the page unloads rides a keepalive request (64 KB for all of them): at most this much. */
+const EXIT_SNAPSHOT_CHARS = 48_000;
+/** ARIA live regions: what a page announces (status messages, alerts, toasts), as opposed to what it shows. */
+const LIVE = '[aria-live]:not([aria-live="off"]),[role="status"],[role="alert"],[role="log"],[role="timer"],[role="marquee"]';
 const SECRET = /pass|pwd|secret|token|card|cc-?num|cvv|cvc|ssn|iban|\bpin\b|otp|one.?time|security.?code|account.?num/i;
 type NetFetch = (u: string, i: Record<string, unknown>) => Promise<{ ok: boolean; status: number; json(): Promise<unknown> }>;
 
@@ -298,26 +315,47 @@ export function connectAgent(runtime: Runtime | null | undefined, opts: AgentOpt
   };
   const snapshot = (): Snapshot => {
     const state: Record<string, string> = {};
-    let n = 0;
+    let total = 0;
+    let kept = 0;
     try {
-      for (const [path, leaf] of ints.hub.allLeaves()) {
-        if (n++ >= 300) break;
-        state[path] = String(ints.hub.describeValue(path, leaf.value)).slice(0, 200);
+      const all: { rank: number; depth: number; path: string; value: unknown }[] = [];
+      for (const s of ints.hub.stores.values()) {
+        const rank = s.source === undefined ? 0 : s.source === "react" ? 1 : 2;
+        for (const [path, leaf] of s.leaves) all.push({ rank, depth: path.split(".").length, path, value: leaf.value });
+      }
+      all.sort((a, b) => a.rank - b.rank || a.depth - b.depth || (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+      total = all.length;
+      let chars = 0;
+      for (const f of all) {
+        if (kept >= SNAPSHOT_FIELDS) break;
+        const v = String(ints.hub.describeValue(f.path, f.value)).slice(0, 200);
+        if (chars + f.path.length + v.length > SNAPSHOT_CHARS) break;
+        chars += f.path.length + v.length;
+        state[f.path] = v;
+        kept++;
       }
     } catch {
       /* ignore */
     }
     const snap: Snapshot = { t: Math.round(clock.now() - t0), state, requests: Object.fromEntries(reqCount), witnesses: rec.witnesses.length, errors: rec.errors.length, forced: sched.forced };
+    if (total > kept) {
+      snap.stateLeft = total - kept;
+      snap.stateTotal = total;
+    }
     const doc = g.document as Document | undefined;
     if (dom && doc?.body) {
       try {
-        const text = String((doc.body as HTMLElement).innerText ?? doc.body.textContent ?? "");
-        snap.text = text
-          .split("\n")
-          .map((l) => l.replace(/\s+/g, " ").trim())
-          .filter(Boolean)
-          .slice(0, 300)
-          .map((l) => l.slice(0, 160));
+        const lines = (t: string) =>
+          t
+            .split("\n")
+            .map((l) => l.replace(/\s+/g, " ").trim())
+            .filter(Boolean)
+            .map((l) => l.slice(0, 160));
+        snap.text = lines(String((doc.body as HTMLElement).innerText ?? doc.body.textContent ?? "")).slice(0, 300);
+        // lines inside live regions (status messages, alerts, toasts): announcements, often dismissed after a time
+        const live: string[] = [];
+        for (const el of Array.from(doc.querySelectorAll(LIVE)).slice(0, 50)) for (const l of lines(String((el as HTMLElement).innerText ?? el.textContent ?? ""))) if (live.length < 50 && !live.includes(l)) live.push(l);
+        if (live.length) snap.live = live;
         const fields: Record<string, string> = {};
         let k = 0;
         for (const el of Array.from(doc.querySelectorAll("input,textarea,select"))) {
@@ -589,8 +627,16 @@ export function connectAgent(runtime: Runtime | null | undefined, opts: AgentOpt
   const onHide = (): void => {
     if (!live) return;
     flushSteps();
-    // a final snapshot only from a quiet page: a run unloaded mid-flight keeps its last quiet snapshot (or none)
-    link.send(settled && !busy() ? { t: "end", settled: true, snapshot: snapshot() } : { t: "end", settled: false });
+    // a final snapshot only from a quiet page: a run unloaded mid-flight keeps its last quiet snapshot (or none); one
+    // the bridge already has, or one too big for a keepalive request, is not sent again (the last quiet one stands)
+    let end: Record<string, unknown> = { t: "end", settled: false };
+    if (settled && !busy()) {
+      const snap = snapshot();
+      const { t: _t, ...cmp } = snap;
+      const key = JSON.stringify(cmp);
+      end = key !== lastSnap && key.length <= EXIT_SNAPSHOT_CHARS ? { t: "end", settled: true, snapshot: snap } : { t: "end", settled: true };
+    }
+    link.send(end);
     link.flush(true);
   };
   try {

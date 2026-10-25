@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+- **Coding-agent link: snapshots and witnesses that do not depend on arrival order** (`@genclass/runtime/agent`;
+  [docs/runtime/AGENT.md](../../docs/runtime/AGENT.md) section 2). `snapshot()` takes up to 1,000 store fields (was 300)
+  within 96,000 characters, in an order that does not depend on when they were written (registered stores, then
+  discovered component state, then other discovered stores; shallower paths first), and says how many it left out
+  (`stateLeft`, `stateTotal`). The final snapshot at page hide is not sent again when the bridge already has it or when it
+  would not fit a keepalive request. Snapshots list the lines of ARIA live regions (`live`: status messages, alerts,
+  toasts) beside the page text. An `overwrote-newer` witness is no longer recorded for a write that only reordered a
+  field's elements or entries (a cache's list of keys re-sorted by arrival), nor for a path the hub's layout re-cut in
+  the same write (an object or store that crossed its field limits, so its fields became one or the reverse). Development-only entry: the first load,
+  situations, the model and telemetry are unchanged (`situation-v2.3`).
+
 ## 0.3.0-beta.1 (2026-10-22)
 
 The second 0.3.0 prerelease, on the `beta` dist-tag (`latest` stays 0.2.2). It adds the coding-agent link

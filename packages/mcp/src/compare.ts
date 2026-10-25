@@ -6,17 +6,128 @@
 //   - the children of a store object whose keys differ between the baselines (new records get new ids on every run):
 //     there, records are compared by their values, not by their keys;
 //   - a page line whose shape (tokens holding digits blanked: times, counters, ids) differs between the baselines.
-// Whatever a seeded run ends with that differs from the baseline beyond that depends on network timing: a race, by
-// definition, whatever the app does. A group without two baselines cannot tell noise from a race and gives no verdict.
-// No pattern of any kind is matched here.
+// A value the runtime redacted ("[redacted]") equals any value: whether an opaque id is redacted depends on the id
+// itself, so a redaction is never a difference.
+//
+// Whatever a seeded run ends with that differs from the baseline beyond that depends on network timing. It is sorted by
+// where the difference shows, from the evidence the run recorded:
+//   visible    what the page shows (its text, its form values), the unsafe requests it sent (POST, PUT, ...), or an
+//              error only it had: a race;
+//   internal   store values, counts of safe requests (GET: a cache refetching once more) or announcements (lines in
+//              ARIA live regions: a toast a slower run let expire) only, while the page showed the same as the
+//              baseline: reported apart, never as a race (a cache's bookkeeping, such as request ids and lists of
+//              cache keys, depends on arrival order by construction and never reaches the page);
+//   transient  the same final state, but an older response overwrote newer data along the way (a later response
+//              repaired it): reported apart, never as a race.
+// Scenarios are grouped by their recorded actions: element names with digits blanked and parenthesised counts dropped,
+// consecutive typing into one field as one burst; when that leaves reordered runs without two baselines to compare
+// with (a label that changed with the order), by action kinds and element roles, then by action kinds alone. A group
+// without two baselines cannot tell noise from a race and gives no verdict. No pattern of any kind is matched here.
 
 import type { ActStep, Run, Snapshot } from "./types.js";
 import { pathShape, sigOf } from "./text.js";
 
-/** The scenario a run performed: its user actions, in order (typing bursts with their final value). */
-export function scenarioOf(run: Run): string {
+/** The runtime's redaction placeholder (packages/runtime/src/util.ts REDACTED). */
+export const REDACTED = "[redacted]";
+
+/** How a session's runs were grouped: by element names, by action kinds and element roles, or by action kinds only. */
+export type Grouping = "names" | "roles" | "kinds";
+const GROUPINGS: Grouping[] = ["names", "roles", "kinds"];
+
+/** Where a seeded run's difference from the baseline shows (see the header). */
+export type Tier = "visible" | "internal" | "transient";
+
+const blankDigits = (s: string): string => s.replace(/\d+/g, "N");
+
+/** Tags whose ARIA role is "generic": which of them takes a click can depend on what the page rendered first. */
+const GENERIC = new Set(["div", "span", "b", "i", "u", "s", "small", "bdi", "bdo", "samp", "data"]);
+
+/** A target's name for grouping: parenthesised counts dropped ('combobox "author (1)"' → 'combobox "author"'), digits blanked. */
+function targetName(t: string | undefined): string {
+  return blankDigits((t ?? "").replace(/\s*\(\d+\)/g, "")).trim();
+}
+
+/** A target's role: 'button "Save"' → button; a generic container (div, span, ...) → element. */
+function targetRole(t: string | undefined): string {
+  const role = (t ?? "").split(/[\s"]/)[0] ?? "";
+  return GENERIC.has(role) ? "element" : role;
+}
+
+/** One action as a scenario line at a grouping level. */
+function actLine(a: ActStep, level: Grouping | "exact"): string {
+  const clicks = a.clicks && a.clicks > 1 ? ` ×${a.clicks}` : "";
+  if (level === "exact") return `${a.kind} ${a.target ?? ""}${a.value !== undefined ? ` = ${a.value}` : ""}${clicks}`;
+  if (level === "names") return `${a.kind} ${targetName(a.target)}${a.value !== undefined ? ` = ${blankDigits(a.value)}` : ""}${clicks}`;
+  if (level === "roles") return `${a.kind} ${targetRole(a.target)}${clicks}`;
+  return `${a.kind}${clicks}`;
+}
+
+/**
+ * The scenario a run performed: its user actions, in order (typing bursts with their final value). `exact` is the
+ * recorded text; the other levels are what explore groups by: consecutive typing into the same field (at that level)
+ * is one burst, so a burst the recording split when the field's label changed under it is one action again.
+ */
+export function scenarioOf(run: Run, level: Grouping | "exact" = "exact"): string {
   const acts = run.steps.filter((s): s is ActStep => s.k === "act");
-  return acts.map((a) => `${a.kind} ${a.target ?? ""}${a.value !== undefined ? ` = ${a.value}` : ""}${a.clicks && a.clicks > 1 ? ` ×${a.clicks}` : ""}`).join("\n");
+  const out: string[] = [];
+  let prevType: string | null = null;
+  for (const a of acts) {
+    const line = actLine(a, level);
+    if (level !== "exact" && a.kind === "type") {
+      const field = actLine({ ...a, value: undefined }, level);
+      if (prevType === field) {
+        out[out.length - 1] = line;
+        continue;
+      }
+      prevType = field;
+    } else prevType = null;
+    out.push(line);
+  }
+  return out.join("\n");
+}
+
+/** Two runs did the same steps: the same actions by name, or (a label that changed with the order) by kind and role. */
+export function sameScenario(a: Run, b: Run): boolean {
+  return scenarioOf(a, "names") === scenarioOf(b, "names") || scenarioOf(a, "roles") === scenarioOf(b, "roles");
+}
+
+/**
+ * Two recorded values are equal, a redaction being equal to anything: "[redacted]" against any value, or a summary
+ * with "[redacted]" inside it against one with any text in its place ('{id: 1, token: [redacted]}').
+ */
+export function sameValue(a: string | undefined, b: string | undefined): boolean {
+  if (a === b) return true;
+  if (a === undefined || b === undefined) return false;
+  return fits(a, b) || fits(b, a);
+}
+
+/** One value inside a summary, as describe() writes it: a quoted string, a bare token, or another redaction. */
+const ONE_VALUE = String.raw`(?:"(?:[^"\\]|\\.)*"|[^,\s{}\[\]]+|\[redacted\])`;
+
+/** `pattern` with its "[redacted]" standing for the whole value, or each one inside it for one value, matches `s`. */
+function fits(pattern: string, s: string): boolean {
+  if (pattern === REDACTED) return true;
+  if (!pattern.includes(REDACTED)) return false;
+  const re = new RegExp(`^${pattern.split(REDACTED).map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join(ONE_VALUE)}$`);
+  return re.test(s);
+}
+
+/** Two lists of values are the same multiset, a redacted value matching any one value. */
+function sameValues(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  const rest = [...b];
+  const left: string[] = [];
+  for (const v of a) {
+    const i = rest.indexOf(v);
+    if (i >= 0) rest.splice(i, 1);
+    else left.push(v);
+  }
+  for (const v of left) {
+    const i = rest.findIndex((w) => sameValue(v, w));
+    if (i < 0) return false;
+    rest.splice(i, 1);
+  }
+  return true;
 }
 
 export interface FieldDiff {
@@ -29,10 +140,15 @@ export interface FieldDiff {
 export interface RunDiff {
   run: string;
   label: string;
+  /** Where the difference shows: what the page shows or sends (a race), store values only, or along the way only. */
+  tier: Tier;
+  /** Form values and request counts first (what the page shows and sends), then store values. */
   fields: FieldDiff[];
-  /** Page text lines only the baseline shows, and only this run shows. */
+  /** Page text lines only the baseline shows, and only this run shows (announcements apart, below). */
   textOnlyBaseline: string[];
   textOnlyRun: string[];
+  /** Lines of live regions (status messages, alerts, toasts) only the baseline, or only this run, showed. */
+  announced?: string[];
   /** Errors this run had and the baselines did not (by message). */
   errors: string[];
   /** Witnesses this run had and the baselines did not ("overwrote-newer search.results by GET /api/search"). */
@@ -67,19 +183,43 @@ export function endedDifferently(d: RunDiff): boolean {
   return d.fields.length > 0 || d.textOnlyBaseline.length > 0 || d.textOnlyRun.length > 0 || d.errors.length > 0;
 }
 
+/** Requests with a safe method (RFC 9110: GET, HEAD, OPTIONS) change nothing the server keeps: a cache refetching once more. */
+const SAFE = /^(GET|HEAD|OPTIONS)\s/;
+
+/** A difference the page shows or sends: a form value, the count of an unsafe request (POST, PUT, ...). */
+export const shownField = (f: FieldDiff): boolean => f.where === "field" || (f.where === "requests" && !SAFE.test(f.name));
+
+/**
+ * Did the difference reach what the page shows or sends (its text outside announcements, form values, unsafe
+ * requests) or throw? A race.
+ */
+export function visibleDiff(d: Pick<RunDiff, "fields" | "textOnlyBaseline" | "textOnlyRun" | "errors">): boolean {
+  return d.fields.some(shownField) || d.textOnlyBaseline.length > 0 || d.textOnlyRun.length > 0 || d.errors.length > 0;
+}
+
 export interface GroupReport {
   route: string;
+  /** The scenario as the group's first baseline (else its first run) recorded it. */
   scenario: string;
+  /** The scenario at the grouping level: what the group's runs have in common (finding keys use it). */
+  scenarioKey: string;
+  /** How the session's runs were grouped (the same for every group of a session). */
+  grouping: Grouping;
   baselines: string[];
   runs: number;
+  /** Reordered runs compared with two baselines (0 without two baselines). */
+  compared: number;
   /** Baseline-vs-baseline differences, ignored as noise. */
   noise: string[];
+  /** Every reordered run that differed, each with its tier. */
   diffs: RunDiff[];
   /** No baseline among the runs: nothing to compare with. */
   missingBaseline: boolean;
   /** Only one baseline: noise cannot be told apart, so no verdict (the differences are in `unfiltered`). */
   insufficientBaselines: boolean;
   unfiltered: RunDiff[];
+  /** Runs whose snapshot left store fields out (its budget), and the most left out of how many. */
+  truncated?: { runs: number; left: number; total: number };
 }
 
 function multiset(lines: Iterable<string>): Map<string, number> {
@@ -136,49 +276,76 @@ function underNoisy(path: string, noisy: Set<string>): string | null {
 }
 
 /**
- * A snapshot as comparable entries: `state <path>`, `field <label>`, `requests <sig>` → value. Under a noisy parent the
- * records are compared as a multiset of values per blanked path (`state todos.entities.*.title` → sorted values).
+ * A snapshot as comparable entries: `state <path>`, `field <label>`, `requests <sig>` → its values. Under a noisy
+ * parent the records are compared as a multiset of values per blanked path (`state todos.entities.*.title`).
  */
-function keyed(s: Snapshot | undefined, noisy: Set<string>): Map<string, string> {
-  const m = new Map<string, string>();
+function keyed(s: Snapshot | undefined, noisy: Set<string>): Map<string, string[]> {
+  const m = new Map<string, string[]>();
   if (!s) return m;
-  const pooled = new Map<string, string[]>();
   for (const [k, v] of Object.entries(s.state)) {
     const blank = underNoisy(k, noisy);
-    if (blank) {
-      const list = pooled.get(blank) ?? [];
-      list.push(v);
-      pooled.set(blank, list);
-    } else m.set(`state ${k}`, v);
+    const name = `state ${blank ?? k}`;
+    const list = m.get(name);
+    if (list) list.push(v);
+    else m.set(name, [v]);
   }
-  for (const [k, list] of pooled) m.set(`state ${k}`, list.length === 1 ? list[0] : `[${list.sort().join(" | ")}]`);
-  for (const [k, v] of Object.entries(s.fields ?? {})) m.set(`field ${k}`, v);
-  for (const [k, v] of Object.entries(s.requests)) m.set(`requests ${k}`, String(v));
+  for (const [k, v] of Object.entries(s.fields ?? {})) m.set(`field ${k}`, [v]);
+  for (const [k, v] of Object.entries(s.requests)) m.set(`requests ${k}`, [String(v)]);
   return m;
 }
+
+/** An entry's values as one string (a pooled multiset sorted and joined, as stateValue() reads it back). */
+const shown = (v: string[] | undefined): string => (!v ? "(absent)" : v.length === 1 ? v[0] : `[${[...v].sort().join(" | ")}]`);
 
 function witnessesOf(run: Run): string[] {
   return run.witnesses.map((w) => `${w.kind} ${pathShape(w.subject)} by ${sigOf(w.by)}`);
 }
 
-/** Compare a set of runs (one explore session). Groups by route and scenario; each group needs two fifo baselines. */
-export function compareRuns(runs: Run[]): GroupReport[] {
+/** Group runs by route and the scenario at one level; only runs whose snapshot came after their steps. */
+function groupAt(runs: Run[], level: Grouping): Map<string, Run[]> {
   const groups = new Map<string, Run[]>();
   for (const r of runs) {
-    if (!settledAfterActs(r)) continue;
-    const k = `${r.page.route}\n${scenarioOf(r)}`;
+    const k = `${r.page.route}\n${scenarioOf(r, level)}`;
     const g = groups.get(k) ?? [];
     g.push(r);
     groups.set(k, g);
   }
+  return groups;
+}
+
+const isBaseline = (r: Run): boolean => r.schedule?.order === "fifo";
+
+/** Reordered runs that share a group with two baselines (the ones a verdict can be given for). */
+function comparable(groups: Map<string, Run[]>): number {
+  let n = 0;
+  for (const g of groups.values()) if (g.filter(isBaseline).length >= 2) n += g.filter((r) => !isBaseline(r)).length;
+  return n;
+}
+
+/**
+ * Group a session's runs: the finest level that compares as many reordered runs with two baselines as any level does
+ * (a label that changed with the response order splits the runs by name, not by kind and role).
+ */
+export function groupRuns(runs: Run[]): { grouping: Grouping; groups: Map<string, Run[]> } {
+  const settled = runs.filter(settledAfterActs);
+  const levels = GROUPINGS.map((level) => ({ level, groups: groupAt(settled, level) }));
+  const best = Math.max(...levels.map((l) => comparable(l.groups)));
+  const pick = levels.find((l) => comparable(l.groups) === best) ?? levels[0];
+  return { grouping: pick.level, groups: pick.groups };
+}
+
+/** Compare a set of runs (one explore session). Groups by route and scenario; each group needs two fifo baselines. */
+export function compareRuns(runs: Run[]): GroupReport[] {
+  const { grouping, groups } = groupRuns(runs);
   const out: GroupReport[] = [];
-  for (const [k, g] of groups) {
-    const nl = k.indexOf("\n");
-    const route = k.slice(0, nl);
-    const scenario = k.slice(nl + 1);
-    const base = g.filter((r) => r.schedule?.order === "fifo");
-    const rest = g.filter((r) => r.schedule?.order !== "fifo");
-    const rep: GroupReport = { route, scenario, baselines: base.map((r) => r.id), runs: g.length, noise: [], diffs: [], missingBaseline: base.length === 0, insufficientBaselines: base.length === 1, unfiltered: [] };
+  for (const g of groups.values()) {
+    const route = g[0].page.route;
+    const base = g.filter(isBaseline);
+    const rest = g.filter((r) => !isBaseline(r));
+    const scenario = scenarioOf(base[0] ?? g[0]);
+    const rep: GroupReport = { route, scenario, scenarioKey: scenarioOf(base[0] ?? g[0], grouping), grouping, baselines: base.map((r) => r.id), runs: g.length, compared: base.length >= 2 ? rest.length : 0, noise: [], diffs: [], missingBaseline: base.length === 0, insufficientBaselines: base.length === 1, unfiltered: [] };
+    const cut = g.filter((r) => (r.snapshot?.stateLeft ?? 0) > 0);
+    if (cut.length) rep.truncated = { runs: cut.length, left: Math.max(...cut.map((r) => r.snapshot!.stateLeft!)), total: Math.max(...cut.map((r) => r.snapshot!.stateTotal ?? 0)) };
     if (!base.length) {
       out.push(rep);
       continue;
@@ -194,7 +361,10 @@ export function compareRuns(runs: Run[]): GroupReport[] {
     const noiseShape = new Set<string>();
     for (const b of base.slice(1)) {
       const o = keyed(b.snapshot, noisy);
-      for (const [name, v] of bk) if (o.get(name) !== v) noiseName.add(name);
+      for (const [name, v] of bk) {
+        const w = o.get(name);
+        if (!w || !sameValues(v, w)) noiseName.add(name);
+      }
       for (const name of o.keys()) if (!bk.has(name)) noiseName.add(name);
       const ot = multiset(b.snapshot?.text ?? []);
       for (const l of [...onlyIn(bt, ot), ...onlyIn(ot, bt)]) noiseShape.add(lineShape(l));
@@ -205,25 +375,38 @@ export function compareRuns(runs: Run[]): GroupReport[] {
     const isNoiseLine = (l: string) => noiseShape.has(lineShape(l));
     const baseErrors = new Set(base.flatMap((b) => b.errors.map((e) => e.message)));
     const baseWit = new Set(base.flatMap(witnessesOf));
+    const baseCut = (b0.snapshot?.stateLeft ?? 0) > 0;
     for (const r of rest) {
       const rk = keyed(r.snapshot, noisy);
+      const runCut = (r.snapshot?.stateLeft ?? 0) > 0;
       const fields: FieldDiff[] = [];
       for (const name of new Set([...bk.keys(), ...rk.keys()])) {
         if (noiseName.has(name)) continue;
         const a = bk.get(name);
         const c = rk.get(name);
-        if (a === c) continue;
+        if (a && c && sameValues(a, c)) continue;
         const sp = name.indexOf(" ");
         const where = name.slice(0, sp) === "state" ? "state" : name.slice(0, sp) === "field" ? "field" : "requests";
-        fields.push({ where, name: name.slice(sp + 1), baseline: a ?? "(absent)", run: c ?? "(absent)" });
+        // a store field missing from a snapshot that left fields out was not compared, not lost
+        if (where === "state" && ((!a && baseCut) || (!c && runCut))) continue;
+        fields.push({ where, name: name.slice(sp + 1), baseline: shown(a), run: shown(c) });
       }
+      fields.sort((x, y) => Number(!shownField(x)) - Number(!shownField(y)));
       const rt = multiset(r.snapshot?.text ?? []);
-      const textOnlyBaseline = onlyIn(bt, rt).filter((l) => !isNoiseLine(l));
-      const textOnlyRun = onlyIn(rt, bt).filter((l) => !isNoiseLine(l));
+      // a line inside a live region of the run that showed it is an announcement (a toast that a slower run let expire)
+      const liveB = new Set(b0.snapshot?.live ?? []);
+      const liveR = new Set(r.snapshot?.live ?? []);
+      const onlyB = onlyIn(bt, rt).filter((l) => !isNoiseLine(l));
+      const onlyR = onlyIn(rt, bt).filter((l) => !isNoiseLine(l));
+      const announced = [...onlyB.filter((l) => liveB.has(l)), ...onlyR.filter((l) => liveR.has(l))];
+      const textOnlyBaseline = onlyB.filter((l) => !liveB.has(l));
+      const textOnlyRun = onlyR.filter((l) => !liveR.has(l));
       const errors = [...new Set(r.errors.map((e) => e.message))].filter((m) => !baseErrors.has(m));
       const witnesses = [...new Set(witnessesOf(r))].filter((w) => !baseWit.has(w));
-      if (fields.length || textOnlyBaseline.length || textOnlyRun.length || errors.length || witnesses.length) {
-        const d: RunDiff = { run: r.id, label: r.assignment?.label ?? r.schedule?.label ?? r.id, fields: fields.slice(0, 30), textOnlyBaseline: textOnlyBaseline.slice(0, 15), textOnlyRun: textOnlyRun.slice(0, 15), errors: errors.slice(0, 10), witnesses: witnesses.slice(0, 10), forced: r.forced };
+      if (fields.length || textOnlyBaseline.length || textOnlyRun.length || announced.length || errors.length || witnesses.length) {
+        const parts = { fields, textOnlyBaseline, textOnlyRun, errors };
+        const tier: Tier = visibleDiff(parts) ? "visible" : fields.length || announced.length ? "internal" : "transient";
+        const d: RunDiff = { run: r.id, label: r.assignment?.label ?? r.schedule?.label ?? r.id, tier, fields: fields.slice(0, 30), textOnlyBaseline: textOnlyBaseline.slice(0, 15), textOnlyRun: textOnlyRun.slice(0, 15), ...(announced.length ? { announced: announced.slice(0, 10) } : {}), errors: errors.slice(0, 10), witnesses: witnesses.slice(0, 10), forced: r.forced };
         (rep.insufficientBaselines ? rep.unfiltered : rep.diffs).push(d);
       }
     }

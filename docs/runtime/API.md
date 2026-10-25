@@ -959,7 +959,11 @@ interface AgentConnection {
   recorded(): RecordedSchedule;      // { schema: "genclass-schedule/1", route, spec, steps, order, forced, truncated }
   witnesses(): Witness[];            // overwrote-newer and identical-in-flight facts
   errors(): ErrorRec[];              // uncaught errors with stack and causal chain
-  snapshot(): Snapshot;              // store fields, page text, form values, requests per signature
+  snapshot(): Snapshot;              // store fields, page text, form values, requests per signature; at most 1,000
+                                     // store fields (96,000 characters): registered stores, then component state, then
+                                     // other discovered stores, shallowest paths first; stateLeft / stateTotal say how
+                                     // many were left out of how many (set only when some were); live: the
+                                     // lines of ARIA live regions (status messages, alerts, toasts), when any
   whenSettled(timeoutMs?: number): Promise<boolean>;
   disconnect(): void;                // deliver anything held, restore the runtime
 }

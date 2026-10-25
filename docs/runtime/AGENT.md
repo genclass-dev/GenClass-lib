@@ -90,7 +90,12 @@ lists. It never writes to the event log and never feeds a situation, a decision 
     (one that started after it, outside its causal chain) or the user had written. In words: older data was put over
     newer data. Not counted: fan-out siblings (requests one click or tick started together, whose completion order is
     arbitrary, as in the runtime's delivery triage), writes more than 10 s after the response, and writes by an
-    interval tick or a timer of 1 s or more that the response's handler scheduled (a ticker is not the response).
+    interval tick or a timer of 1 s or more that the response's handler scheduled (a ticker is not the response), and
+    a write that only reordered the field's elements or entries (the same multiset of elements, the same keys and
+    values: a cache's list of keys re-sorted by arrival puts nothing older in place of anything newer), and a path the
+    hub's layout re-cut in the same write (an object past 32 keys or a store past 200 fields becomes one field, or the
+    reverse: the path's "change" is GenClass's layout, not data; RESULTS.md section 20 counts the witnesses and
+    stale-write findings before and after).
   - `identical-in-flight`: two identical requests (same method, URL and body) in flight together, started by two
     separate user actions. Not counted: a request the app aborted, GenClass's own retries and hedges, and keystrokes
     of one typing burst.
@@ -101,11 +106,16 @@ lists. It never writes to the event log and never feeds a situation, a decision 
 - **Errors** with their stack (read from the page's own `error` / `unhandledrejection` dispatch of that error, never
   an older one with the same message) and the causal chain (newest first: request keys and user actions).
 - **Snapshots** at quiet points (no event for `settleMs`, default 400 ms; nothing in flight or held; no pending app
-  timer of at most 1 s, so a debounced search is not snapshotted before its request): every store field (registered or
-  discovered) as the runtime's redacted summary, the page's visible text by line, form values (password, hidden, file,
+  timer of at most 1 s, so a debounced search is not snapshotted before its request): store fields (registered or
+  discovered) as the runtime's redacted summary, at most 1,000 of them and 96,000 characters, taken in an order that
+  does not depend on when they were written (registered stores, then discovered component state, then other discovered
+  stores such as Redux; shallower paths first, so a cache's deep records go last; then by path), with the count left
+  out when the budget ran out (`stateLeft`, `stateTotal`), the page's visible text by line, form values (password, hidden, file,
   card and one-time-code fields, secret-named or secret-labelled fields and anything in `[data-genclass-ignore]` left
-  out; the app's `redact` function applies), and requests sent per signature. When the page goes away, a final
-  snapshot is sent only if the page is quiet.
+  out; the app's `redact` function applies), the lines of ARIA live regions (`live`: status messages, alerts,
+  toasts), and requests sent per signature. When the page goes away, a final
+  snapshot is sent only if the page is quiet, differs from the last one sent, and fits a keepalive request (48,000
+  characters); otherwise the last quiet snapshot stands.
 
 ## 3. Schedules (`src/agent/schedule.ts`)
 
@@ -207,12 +217,42 @@ final value). In each group, the two `fifo` runs are the baseline; with `slow_ms
 seeded runs, so timing alone never separates them. Anything that differs between the two baselines is **noise** and is
 ignored: a store field whose value differs; the records under a store object whose keys differ (new ids on every run:
 compared by their values, not their keys); a page line whose shape differs (tokens holding a digit blanked: times,
-counters, ids). A seeded run is reported when its final state differs from the baseline beyond that: a store field, a
-form value, a request count, a page line, an error only it had. A run that ended right but recorded an
-`overwrote-newer` witness the baselines did not is reported separately (older data showed for a moment before a later
-response repaired it). A group with only one baseline gets no verdict (its differences are listed unfiltered), and the
-page of the first armed load is the page under test unless `route` says otherwise, so other pages and tabs do not take
-a slot. No pattern is matched anywhere: the only question is whether the final state depends on the delivery order.
+counters, ids). A value the runtime redacted (`[redacted]`) equals any value, alone or inside a summary: whether an
+opaque id is redacted depends on the id itself (one with a digit looks like a credential, one without does not), so a
+redaction is never a difference.
+
+What a seeded run ends with beyond that is sorted by where it shows, from the evidence the run recorded:
+
+| tier | what differs | reported as |
+|---|---|---|
+| visible | what the page shows (a page line outside a live region), a form value, the number of unsafe requests (POST, PUT, PATCH, DELETE) to a signature, or an error only this run had | **RACE**, a race finding with a replayable seed |
+| internal | store values, the number of safe requests (GET, HEAD, OPTIONS: a cache refetching once more changes nothing the user sees or the server keeps), or lines of ARIA live regions (status messages, alerts, toasts: a slower run lets a toast expire), while the page showed the same as the baseline | "Internal state only", listed with the fields, no finding |
+| transient | nothing at the end, but an `overwrote-newer` witness the baselines did not have (a later response repaired it) | "Along the way only", listed with the witness, no finding |
+
+The internal tier exists because a data-fetching cache keeps bookkeeping whose final value depends on arrival order by
+construction, with nothing visible attached: on the Strapi admin (Redux Toolkit Query) the request ids, the fulfilled
+timestamps, the lists of cache keys a tag provides and the subscriptions differed between orders in every session
+while the page did not (RESULTS.md section 20). The rule is generic and measured on the run itself, not a list of
+library fields: a store value that matters to the user reaches the page, and when it does the run is in the visible
+tier, with the store fields listed beside the page lines. Its limit: a difference that shows only in a control's
+state (a button left disabled, a spinner without text) is not in the page text, so it lands in the internal tier
+(section 8). No ignore list was added: the tiers and the rules below left no false report on the measured sessions, so
+a per-library default would have been code without a measured purpose.
+
+**Scenarios.** Runs are grouped by their actions with element names normalised: digits blanked in typed values and
+names (a title made unique per run, "page 3"), parenthesised counts dropped (`combobox "author (1)"` is
+`combobox "author"`: the count arrives with a response), and consecutive typing into one field taken as one burst (the
+recording splits a burst when the field's label changes under it). A label can still change with the order (a sorted
+column header renders its name in another element), so when that grouping leaves reordered runs without two baselines
+to compare with, the session is grouped by action kinds and element roles (`click button`; a `div` or `span` is a
+generic element), then by action kinds alone: the finest grouping that compares as many reordered runs as any does.
+The report says which grouping it used, and how many reordered runs it compared ("Compared: 6 of 6"); a group whose
+baselines had no reordered run beside them says "No verdict: 0 reordered runs were compared", never "No race found".
+
+A group with only one baseline gets no verdict (its differences are listed unfiltered), and the page of the first armed
+load is the page under test unless `route` says otherwise, so other pages and tabs do not take a slot. A snapshot that
+left store fields out (section 2) says so in the report, and a field missing from such a snapshot is not compared. No
+pattern is matched anywhere: the only question is whether what the page shows depends on the delivery order.
 
 ### 5.2 Replays (`store.ts` `replayResult`)
 
@@ -220,7 +260,9 @@ a slot. No pattern is matched anywhere: the only question is whether the final s
 replays its run's seeded schedule (with its delay); anything recorded in a natural run replays that run's delivery
 order as `given`. When the recorded run is gone, it refuses to arm rather than replay something else. `result` compares
 the replay run with the finding: the same witness (field by shape, signature), the same error (by name and shape), the
-failing run's values, page text, error or witness again = reproduced; the baseline's = not reproduced. It is
+failing run's page text, form values, request counts or error again = reproduced; the baseline's = not reproduced
+(store values decide only for a finding recorded with nothing else, and a redaction matches any value); a replay whose
+element names changed with the order still counts as the same steps when its actions match by kind and role. It is
 inconclusive, and says why, until the run has settled and recorded user actions, when its steps differ from the
 original run's, and when the original run is gone; it also says when holds ran out.
 
@@ -233,7 +275,8 @@ checkboxes; `getByLabel`, `getByPlaceholder`, `getByTitle`, then name or id for 
 matches by its prefix; a target without a name is flagged for checking; the recorded typing pace; a double click as
 `dblclick`), waits for a quiet point, and asserts the fact that made the finding: no `overwrote-newer` on a field of
 that shape, no `identical-in-flight` on that signature, no recurrence of the error (by name and shape), the baseline's
-values and page lines for a race and none of the failing run's (compared with the agent's own snapshot). A finding it
+page lines, form values and request counts for a race and none of the failing run's (compared with the agent's own
+snapshot; store values only when nothing visible differed, so a cache's bookkeeping cannot keep a fixed page failing). A finding it
 cannot give a generic assertion produces a test that fails until the domain assertion is written: it never passes
 while asserting nothing. Page strings enter the file only as JSON string literals.
 
@@ -294,13 +337,29 @@ well, fixed in `src/observe/xhr.ts`.
 Tests: 36 in `packages/runtime/test/agent.test.ts`, 104 in `packages/mcp/test/`; the runtime's whole suite passes, and
 the first load stays within its limits.
 
+False reports on real apps (RESULTS.md section 20, the Strapi admin with the hunt harness and two small apps on Redux
+Toolkit Query and TanStack Query): before the rules of section 5.1, 16 of 21 interaction sessions on Strapi got a
+race-like verdict (62 reordered runs, all false by a DOM oracle) and a correct Redux Toolkit Query page got "RACE" in
+18 of 18 reordered runs; after, 0 of 21 and 0 of 18, with the real 403 race still found in 6 of 6 reordered runs at
+300, 600 and 900 ms (0 false) and every planted stale race found (32 of 32 runs) with the same e2e result as above.
+
 This is one page and one bug class, a proof of the mechanism, not a recall figure. The demos' and real apps' numbers
 (with the false-report rate next to each) are the next measurement (section 8).
 
 ## 8. Limits and next steps
 
 - Explore needs the same steps repeated, one page load each, and each run must reach a quiet point. A scenario whose
-  requests come in a different order on each run gets different keys and is not compared reliably.
+  requests come in a different order on each run gets different keys and is not compared reliably. Runs whose recorded
+  actions differ even by kind (a click that a page only offers in some orders) are not compared; the report says
+  "0 compared" for them.
+- The verdict looks at what the page shows through its text and form values, the writes it sends and its errors. A
+  difference that shows only in a control's state (a button left disabled, a spinner without text, a style), beyond
+  the snapshot's 300 page lines, only inside a live region (an alert that an order made persist), or only in the
+  number of GET requests is reported as internal state only, not as a race. Store fields beyond the snapshot's
+  budget (1,000 fields) are not compared; the report says when that happened.
+- An overwrite that a later response repaired (a flicker) is reported along the way, not as a race; the stale-write
+  findings each witness makes stay as they were, so on an app whose cache writes its own bookkeeping (Redux Toolkit
+  Query's statuses, subscriptions) `genclass_findings` still lists those (RESULTS.md section 20 counts them).
 - WebSocket and EventSource messages are recorded, not reordered; failure responses are not held. Both are next.
 - The script-tag build has no agent entry yet (ESM only).
 - Production: today the agent reads production through the dashboard (counts by diagnosis and page) and reproduces
@@ -308,7 +367,7 @@ This is one page and one bug class, a proof of the mechanism, not a recall figur
   failing session, without page text) is the natural next step and widens what telemetry sends, so it needs the
   owner's OK first (AGENTS.md rule 8).
 - Next measurement: explore on the six demos and the real-apps sweep, reporting races found next to false reports on
-  their correct variants.
+  their correct variants (the Strapi admin and two small apps are measured, RESULTS.md section 20).
 
 ## 9. Relation to the rules
 
