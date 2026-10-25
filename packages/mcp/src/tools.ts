@@ -75,7 +75,7 @@ export const TOOLS: ToolDef[] = [
     name: "genclass_explore",
     title: "Explore response orders",
     description:
-      "Find races before users do. action \"start\" arms the next page loads: 2 baselines with responses in request order, then `runs` loads where overlapping responses arrive in a seeded different order (optionally slower, or with `focus` endpoints last). Run the same scenario once per armed load, then action \"report\": each load's final state is compared with the baseline; anything that differs depends on network timing, and comes with a seed that replays it. Without `route`, the page of the first armed load is the page under test; set `route` when the scenario loads several pages. Armed loads expire after 30 minutes. \"stop\" disarms.",
+      "Find races before users do. action \"start\" arms the next page loads: 2 baselines with responses in request order, then `runs` loads where overlapping responses arrive in a seeded different order (optionally slower, or with `focus` endpoints last). Run the same scenario once per armed load, then action \"report\": each load's final state is compared with the baseline; a difference in what the page shows, its form values, the requests it sent or its errors depends on network timing (a race), and comes with a seed that replays it. Store values that differ while the page is the same are listed apart as internal state. Without `route`, the page of the first armed load is the page under test; set `route` when the scenario loads several pages. Armed loads expire after 30 minutes. \"stop\" disarms.",
     inputSchema: {
       type: "object",
       properties: {
@@ -275,10 +275,11 @@ export async function callTool(name: string, args: Record<string, unknown>, ctx:
         return { text: x ? `Explore ${x.id} stopped; later page loads are not scheduled.` : "No explore session was armed." };
       }
       if (action === "report") {
+        type Diff = { run: string; label: string; tier?: string; fields: { where: string; name: string; baseline: string; run: string }[]; textOnlyBaseline: string[]; textOnlyRun: string[]; errors: string[]; witnesses: string[]; forced: number };
         const r = (await ctx.api("explore.report", { id: args.id })) as null | {
           session: { id: string; plan: ScheduleSpec[]; runs: string[]; state: string };
           runs: { id: string; route: string; schedule: ScheduleSpec | null; settled: boolean; forced: number; scenario: string }[];
-          groups: { route: string; scenario: string; baselines: string[]; runs: number; noise: string[]; missingBaseline: boolean; insufficientBaselines: boolean; diffs: { run: string; label: string; fields: { where: string; name: string; baseline: string; run: string }[]; textOnlyBaseline: string[]; textOnlyRun: string[]; errors: string[]; witnesses: string[]; forced: number }[]; unfiltered: unknown[] }[];
+          groups: { route: string; scenario: string; grouping?: string; baselines: string[]; runs: number; compared?: number; noise: string[]; missingBaseline: boolean; insufficientBaselines: boolean; diffs: Diff[]; unfiltered: unknown[]; truncated?: { runs: number; left: number; total: number } }[];
           findings: { id: string }[];
         };
         if (!r) return { text: "No explore session yet: genclass_explore {action:\"start\"} first.", isError: true };
@@ -287,8 +288,23 @@ export async function callTool(name: string, args: Record<string, unknown>, ctx:
         out.push(`Explore ${s.id}: ${s.runs.length} of ${s.plan.length} planned loads recorded (${r.runs.filter((x) => x.settled).length} reached a quiet point).`);
         if (s.runs.length < s.plan.length) out.push(`Missing ${s.plan.length - s.runs.length} load(s): run the scenario again for the rest, or report now with what there is.`);
         if (!r.groups.length) out.push("No run reached a quiet point yet: wait for whenSettled() after the steps.");
+        const seededRuns = r.runs.filter((x) => x.settled && x.schedule?.order !== "fifo").length;
+        const compared = r.groups.reduce((n, g) => n + (g.compared ?? 0), 0);
+        if (r.groups.length) {
+          const how = r.groups[0].grouping === "kinds" ? " (grouped by action kinds only: the recorded element names and roles differed between loads)" : r.groups[0].grouping === "roles" ? " (grouped by action kinds and element roles: the recorded element names differed between loads)" : "";
+          out.push(`Compared: ${compared} of ${seededRuns} reordered run(s) against two baselines${how}.`);
+        }
+        const diffLines = (d: Diff) => {
+          out.push(`- run ${d.run} (${clean(d.label, 60)})${d.forced ? ` (${d.forced} hold(s) ran out)` : ""}:`);
+          if (d.textOnlyBaseline.length) out.push(`    page text only in the baseline: ${d.textOnlyBaseline.slice(0, 4).map((l) => q(l, 80)).join(", ")}`);
+          if (d.textOnlyRun.length) out.push(`    page text only in this run: ${d.textOnlyRun.slice(0, 4).map((l) => q(l, 80)).join(", ")}`);
+          for (const x of d.fields.slice(0, 6)) out.push(`    ${x.where === "requests" ? "requests sent to" : x.where} ${q(x.name, 80)}: baseline ${q(x.baseline, 80)}, this run ${q(x.run, 80)}`);
+          for (const e of d.errors.slice(0, 3)) out.push(`    error only here: ${q(e, 120)}`);
+          for (const w of d.witnesses.slice(0, 3)) out.push(`    witness only here: ${clean(w, 160)}`);
+        };
         for (const g of r.groups) {
           out.push("", `## ${clean(g.route, 80)} · ${g.runs} run(s) · scenario ${PAGE_DATA}:`, ...(g.scenario ? g.scenario.split("\n").map((l) => `  ${clean(l, 160)}`) : ["  (no user actions: a page load)"]));
+          if (g.truncated) out.push(`Snapshots of ${g.truncated.runs} run(s) left store fields out (up to ${g.truncated.left} of ${g.truncated.total}; registered and component state first, then discovered stores, shallowest first): a field missing there was not compared.`);
           if (g.missingBaseline) {
             out.push("No baseline run in this group (the first two armed loads are the baselines): nothing to compare with.");
             continue;
@@ -298,25 +314,26 @@ export async function callTool(name: string, args: Record<string, unknown>, ctx:
             continue;
           }
           if (g.noise.length) out.push(`Ignored as noise (differs between the two baselines): ${g.noise.slice(0, 8).map((n) => clean(n, 60)).join(", ")}`);
-          const seeded = g.runs - g.baselines.length;
-          if (!g.diffs.length) {
-            out.push(`No race found: all ${seeded} reordered run(s) ended in the baseline's state.`);
+          const seeded = g.compared ?? g.runs - g.baselines.length;
+          if (!seeded) {
+            out.push(seededRuns ? "No verdict: 0 reordered runs were compared in this group (the reordered loads recorded other user actions: see the other groups)." : "No verdict: 0 reordered runs were compared (none has reached a quiet point after its steps yet: run the scenario for the remaining armed loads).");
             continue;
           }
-          const ended = g.diffs.filter((d) => d.fields.length || d.textOnlyBaseline.length || d.textOnlyRun.length || d.errors.length).length;
-          const along = g.diffs.length - ended;
-          out.push(
-            ended
-              ? `RACE: ${ended} of ${seeded} reordered run(s) ended in a different state than the baseline (responses in request order)${along ? `; ${along} more ended right but had an older response overwrite newer data along the way` : ""}.`
-              : `RACE: no reordered run ended differently, but ${along} of ${seeded} had an older response overwrite newer data along the way (a later response repaired it, so users would see it flicker).`,
-          );
-          for (const d of g.diffs.slice(0, 6)) {
-            out.push(`- run ${d.run} (${clean(d.label, 60)})${d.forced ? ` (${d.forced} hold(s) ran out)` : ""}:`);
-            for (const x of d.fields.slice(0, 6)) out.push(`    ${x.where === "requests" ? "requests sent to" : x.where} ${q(x.name, 80)}: baseline ${q(x.baseline, 80)}, this run ${q(x.run, 80)}`);
-            if (d.textOnlyBaseline.length) out.push(`    page text only in the baseline: ${d.textOnlyBaseline.slice(0, 4).map((l) => q(l, 80)).join(", ")}`);
-            if (d.textOnlyRun.length) out.push(`    page text only in this run: ${d.textOnlyRun.slice(0, 4).map((l) => q(l, 80)).join(", ")}`);
-            for (const e of d.errors.slice(0, 3)) out.push(`    error only here: ${q(e, 120)}`);
-            for (const w of d.witnesses.slice(0, 3)) out.push(`    witness only here: ${clean(w, 160)}`);
+          // tier: what the page showed or sent (a race), store values only, or an overwrite repaired along the way
+          const tierOf = (d: Diff) => d.tier ?? (d.fields.length || d.textOnlyBaseline.length || d.textOnlyRun.length || d.errors.length ? "visible" : "transient");
+          const races = g.diffs.filter((d) => tierOf(d) === "visible");
+          const internal = g.diffs.filter((d) => tierOf(d) === "internal");
+          const along = g.diffs.filter((d) => tierOf(d) === "transient");
+          if (races.length) out.push(`RACE: ${races.length} of ${seeded} reordered run(s) ended in a different state than the baseline (responses in request order): what the page shows, its form values, the requests it sent or its errors differ.`);
+          else out.push(`No race found: none of the ${seeded} compared reordered run(s) ended with a different page, form values, requests or errors than the baseline.`);
+          for (const d of races.slice(0, 6)) diffLines(d);
+          if (internal.length) {
+            out.push(`Internal state only (not a race by this check): ${internal.length} of ${seeded} ended with store values that differ from the baseline while the page showed the same. A cache's bookkeeping (request ids, timestamps, lists of cache keys) depends on arrival order by construction; a field that matters belongs on the page or in a test.`);
+            for (const d of internal.slice(0, 3)) diffLines(d);
+          }
+          if (along.length) {
+            out.push(`Along the way only (not a race by this check): ${along.length} of ${seeded} ended in the baseline's state but recorded an older response overwriting newer data that a later response repaired (users may see it flicker if the field is shown).`);
+            for (const d of along.slice(0, 3)) diffLines(d);
           }
         }
         if (r.findings.length) out.push("", `Race finding(s): ${r.findings.map((f) => f.id).join(", ")}. Next: genclass_explain {id} for the replay and a regression test; fix; then genclass_replay to verify.`);

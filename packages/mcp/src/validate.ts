@@ -5,6 +5,8 @@ import type { ActStep, DecisionRec, ErrorRec, ExplainRec, ScheduleOrder, Schedul
 import { num, str } from "./text.js";
 
 const ORDERS: readonly ScheduleOrder[] = ["natural", "fifo", "seeded", "given"];
+/** Store fields kept per snapshot (the page sends at most 1,000: packages/runtime/src/agent/index.ts SNAPSHOT_FIELDS). */
+const MAX_STATE = 1200;
 const obj = (v: unknown): Record<string, unknown> | null => (v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null);
 const int = (v: unknown, max: number): number | undefined => {
   const n = num(v);
@@ -177,7 +179,12 @@ export function snapshot(v: unknown): Snapshot | null {
   const requests: Record<string, number> = {};
   const rq = obj(o.requests);
   if (rq) for (const [k, n] of Object.entries(rq).slice(0, 200)) if (typeof n === "number") requests[k.slice(0, 200)] = n;
-  const s: Snapshot = { t: num(o.t) ?? 0, state: rec(o.state, 300), requests, witnesses: int(o.witnesses, 1e6) ?? 0, errors: int(o.errors, 1e6) ?? 0, forced: int(o.forced, 1e6) ?? 0 };
+  const s: Snapshot = { t: num(o.t) ?? 0, state: rec(o.state, MAX_STATE), requests, witnesses: int(o.witnesses, 1e6) ?? 0, errors: int(o.errors, 1e6) ?? 0, forced: int(o.forced, 1e6) ?? 0 };
+  const left = int(o.stateLeft, 1e7);
+  if (left) {
+    s.stateLeft = left;
+    s.stateTotal = Math.max(left, int(o.stateTotal, 1e7) ?? 0);
+  }
   if (Array.isArray(o.text)) s.text = strs(o.text, 300, 160);
   if (o.fields !== undefined) s.fields = rec(o.fields, 100);
   return s;

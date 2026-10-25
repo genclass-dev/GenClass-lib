@@ -191,7 +191,14 @@ export function regressionTest(f: Finding, run: Run | undefined, spec: ScheduleS
     lines.push(`  expect(witnesses.filter((w: any) => w.kind === "identical-in-flight" && w.subject === ${lit(ev.subject)})).toEqual([]);`);
     asserts++;
   } else if (f.kind === "race") {
-    const fields = (ev.fields as { where: string; name: string; baseline: string }[] | undefined) ?? [];
+    const all = (ev.fields as { where: string; name: string; baseline: string }[] | undefined) ?? [];
+    const onlyBase = (ev.textOnlyBaseline as string[] | undefined) ?? [];
+    const onlyRun = (ev.textOnlyRun as string[] | undefined) ?? [];
+    const errs = (ev.errors as string[] | undefined) ?? [];
+    // what the page showed or sent; store values (often a cache's own bookkeeping) only when nothing else differed
+    const shown = all.filter((d) => d.where !== "state");
+    const visible = shown.length > 0 || onlyBase.length > 0 || onlyRun.length > 0 || errs.length > 0;
+    const fields = visible ? shown : all;
     const pooledUsed = fields.slice(0, 5).some((d) => d.where === "state" && d.name.split(".").includes("*"));
     if (pooledUsed) {
       // records under an object whose keys are new each run: compared by their values (as the bridge did)
@@ -210,17 +217,17 @@ export function regressionTest(f: Finding, run: Run | undefined, spec: ScheduleS
       asserts++;
     }
     // page lines are compared with the agent's own snapshot (the same line splitting as the recording)
-    for (const l of ((ev.textOnlyBaseline as string[] | undefined) ?? []).slice(0, 3)) {
+    for (const l of onlyBase.slice(0, 3)) {
       lines.push(`  expect(snap.text, "the page shows what it shows with responses in request order").toContain(${lit(l)});`);
       asserts++;
     }
-    for (const l of ((ev.textOnlyRun as string[] | undefined) ?? []).slice(0, 3)) {
+    for (const l of onlyRun.slice(0, 3)) {
       lines.push(`  expect(snap.text, "the page does not show what only the failing order showed").not.toContain(${lit(l)});`);
       asserts++;
     }
-    for (const m of ((ev.errors as string[] | undefined) ?? []).slice(0, 1)) errorAssert(undefined, m);
+    for (const m of errs.slice(0, 1)) errorAssert(undefined, m);
     const wits = (ev.witnesses as string[] | undefined) ?? [];
-    if (wits.length) {
+    if (wits.length && !asserts) {
       // "<kind> <subject> by <signature>": the witness the failing order recorded and request order did not
       const [kind, subj] = clean(wits[0], 400).split(" ");
       lines.push(`  const SUBJECT = new RegExp(${JSON.stringify(pathPattern(subj ?? ""))});`);
