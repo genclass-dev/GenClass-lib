@@ -467,31 +467,39 @@ describe("dashboard page: interaction analytics (docs/runtime/ANALYTICS.md secti
 });
 
 describe("dashboard page: the closed loop (Fig. 3)", () => {
-  it("has a Loop view: seven stages, this app's numbers on observe, find and confirm, a human gate on ship", async () => {
+  it("draws this app's problems, one agent step each, the shared fix, prove and ship, and observe with the deltas", async () => {
     const st = sampleStats("7d", NOW);
     const { doc, text, close } = await render(st);
     expect(text('.snav a[href="#loop"]')).toBe("Loop");
-    const section = doc.getElementById("loop")!;
-    expect(section.getAttribute("data-v")).toBe("loop");
-    const stages = [...doc.querySelectorAll("#loopv > li")].map((li) => li.getAttribute("data-s"));
-    expect(stages).toEqual(["observe", "find", "reproduce", "fix", "prove", "ship", "confirm"]);
-    expect(text("#loop-observe")).toContain(`${nf.format(st.totals.sessions!)} page loads`);
-    expect(text("#loop-find")).toContain(`${nf.format(st.totals.detections!)} problems`);
-    expect(text("#loop-confirm")).toMatch(/^Problems (down|up|unchanged)/);
-    expect(doc.querySelector('#loopv li[data-s="ship"]')!.classList.contains("gate")).toBe(true);
-    expect(text('#loopv li[data-s="ship"]')).toContain("A person");
-    expect(text("#loop")).toContain("@genclass/mcp");
+    expect(doc.getElementById("loop")!.getAttribute("data-v")).toBe("loop");
+    const kinds = st.breakdowns.detect_diagnosis!.filter((x) => x.key !== "expected").slice(0, 5).map((x) => x.key);
+    const problems = [...doc.querySelectorAll('#loopsvg rect[data-s="problem"]')].map((r) => r.getAttribute("data-k"));
+    expect(problems).toEqual(kinds);
+    const agents = [...doc.querySelectorAll('#loopsvg rect[data-s="agent"]')].map((r) => r.getAttribute("data-k"));
+    expect(agents).toEqual(kinds);
+    for (const s of ["fix", "prove", "ship", "observe"]) expect(doc.querySelector(`#loopsvg rect[data-s="${s}"]`)).not.toBeNull();
+    expect(doc.querySelector('#loopsvg rect[data-s="ship"]')!.classList.contains("gate")).toBe(true);
+    const svgText = text("#loopsvg");
+    expect(svgText).toContain("Stale responses: ");
+    expect(svgText).toContain("genclass_replay");
+    expect(svgText).toContain(`${nf.format(st.totals.sessions!)} page loads watched`);
+    expect(svgText).toMatch(/Problems (down|up|unchanged)/);
+    expect(svgText).toContain("a person decides");
+    expect(text("#loop-foot")).toContain("@genclass/mcp");
+    // every problem row points at its agent step, every agent step at Fix, Fix at Prove, Prove at Ship, Ship back to Observe
+    expect(doc.querySelectorAll("#loopsvg path.edge").length).toBe(kinds.length * 2 + 4);
     close();
   });
 
-  it("with nothing found, the find and confirm lines say so instead of showing zeros", async () => {
+  it("with nothing found, the flow says so and still shows the shared chain", async () => {
     const st = sampleStats("7d", NOW);
-    st.totals.detections = 0; st.totals.possible = 0; st.breakdowns.detect_diagnosis = []; st.breakdowns.detect_route = [];
+    st.totals.detections = 0; st.totals.possible = 0; st.breakdowns.detect_diagnosis = []; st.breakdowns.detect_issue = []; st.breakdowns.detect_route = []; st.recent = [];
     st.previous = { sessions: 0, detections: 0, acted: 0, ix_views: 0 };
-    const { text, close } = await render(st);
-    expect(text("#loop-find")).toContain("Nothing found in this period");
-    expect(text("#loop-reproduce")).toBe("");
-    expect(text("#loop-confirm")).toBe("Nothing to compare with yet.");
+    const { doc, text, close } = await render(st);
+    expect(doc.querySelector('#loopsvg rect[data-s="problem"]')!.getAttribute("data-k")).toBe("none");
+    expect(text("#loopsvg")).toContain("Nothing broke in this period");
+    expect(text("#loopsvg")).toContain("Nothing to compare with yet.");
+    expect(doc.querySelectorAll('#loopsvg rect[data-s="fix"], #loopsvg rect[data-s="prove"], #loopsvg rect[data-s="ship"]').length).toBe(3);
     close();
   });
 });
