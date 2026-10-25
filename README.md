@@ -13,7 +13,7 @@ prevent, stale responses, races, duplicate requests, inconsistent state and fail
 One line, first in `<head>` or first in your entry file:
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@0.2.2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@0.2.3"></script>
 ```
 
 ```ts
@@ -33,7 +33,7 @@ generic facts about each write, request and response, and asks a small GenClass 
 The model runs in the browser (WebGPU or WASM, in a Web Worker). It answers two questions: what is happening, and
 which available action is best. There is no list of known bugs in the code.
 
-**Status: `@genclass/runtime@0.2.2` with model `@genclass/runtime-model@0.2.0`.** Observe by default; `guard` is
+**Status: `@genclass/runtime@0.2.3` with model `@genclass/runtime-model@0.2.0`.** Observe by default; `guard` is
 opt-in; `heal` is experimental. Measured false-intervention and recall rates are under
 [Measured behaviour](#measured-behaviour). AI coding agents: start at [AGENTS.md](AGENTS.md).
 
@@ -101,7 +101,7 @@ The package is **ESM only** (no `require`). Jest users need `transformIgnorePatt
 
 ## Measured behaviour
 
-> **`@genclass/runtime@0.2.2` with the model `@genclass/runtime-model@0.2.0`.**
+> **`@genclass/runtime@0.2.3` with the model `@genclass/runtime-model@0.2.0`.**
 >
 > - **Runtime:** works and is unit-tested (situation format tag `situation-v2.3`). Install with
 >   `npx @genclass/runtime init`, one import (`@genclass/runtime/auto`) or one script tag.

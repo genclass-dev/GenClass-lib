@@ -1,5 +1,41 @@
 # Changelog
 
+## 0.2.3 (2026-10-25)
+
+A security fix on top of 0.2.2; nothing else changed. No model-visible text changed (`situation-v2.3`), telemetry
+and its opt-outs are unchanged, and the default model is still `@genclass/runtime-model@0.2.0`. The same fix is in
+0.3.0-beta.2.
+
+- **Security: a link can no longer raise GenClass's mode through `debug: true` or through a host that only looks
+  local.** Two holes, both in what the page's own URL may change:
+  - **With `debug: true`** (set in `GenClass.init`, `window.GENCLASS_CONFIG`, `<meta name="genclass" content="debug">`
+    or the script tag's `data-debug`), a crafted link could raise GenClass on any site, for the visitor who opened
+    it: `?genclass=guard|heal` (or a `localStorage.genclass` value) and `?genclass-mode=guard|heal` raised the mode
+    from `observe` to `guard` or `heal`, `?genclass-aggr=eager` raised the aggressiveness (lower gate thresholds),
+    and `?genclass-sample=1` put a sampled-out session into the acting group. A lowering link could even be undone
+    (`?genclass=observe&genclass-mode=heal` ran in `heal`). The visitor then got a GenClass the site had not turned
+    on: guard-tier actions (holding, delaying, coalescing or discarding responses and writes) or, in `heal`,
+    blocked requests, rolled-back stores and cached responses, whenever the model and the policy gate cleared them
+    (`requests.protect`, the action limits and the breaker still applied). Affected: 0.2.0, 0.2.1, 0.2.2,
+    0.3.0-beta.0 and 0.3.0-beta.1 (and the unsupported 0.1.0 prereleases).
+  - **Without `debug`**, `?genclass=guard|heal` and `localStorage.genclass` could raise the mode on every host that
+    telemetry counts as local, which includes hosts that serve production apps: bare intranet names, private
+    addresses, `*.internal`, `*.local`, Capacitor (`https://localhost`), Tauri (`tauri.localhost`) and Electron
+    (`file:`). Affected: 0.2.2, 0.3.0-beta.0 and 0.3.0-beta.1 (0.2.0 and 0.2.1 let the link raise a default
+    install to `guard` on any host, which 0.2.2 fixed).
+
+  Now `debug` is console logging only, as documented. `?genclass-mode`, `?genclass-aggr` and `?genclass-sample` only
+  lower, on every host (`?genclass-sample=1` does nothing). `?genclass=` and `localStorage.genclass` may raise the
+  mode only on a development host (new `src/devhost.ts`: http(s) on `localhost`, `127.0.0.1`, `[::1]` or
+  `*.localhost` with an explicit port, or `*.test`). Lowering (`?genclass=off|observe|guard`, `?genclass-mode`,
+  `?genclass-aggr`, `?genclass-sample=0`, `localStorage.genclass`) works on every host as before. The debug-based QA
+  recipe (`?genclass-sample=1` or `?genclass=heal` with `debug: true`) is gone: set `mode` / `sample` per
+  environment, call `rt.setMode()`, or use the devtools overlay. Remaining residual: a production app served from a
+  loopback name with an explicit port (an Electron app with an embedded server) counts as a development host
+  (THREAT-MODEL T8). Upgrade to 0.2.3 (or 0.3.0-beta.2 on the `beta` dist-tag); until then, do not ship `debug: true`
+  in production. Tests: `test/mode-switch.test.ts`; docs: CONTRACT §2 and §13, THREAT-MODEL T8, OPTIONS-SPEC §3 and
+  §4.2, API.md, README, INTERCEPTION.md.
+
 ## 0.2.2 (2026-10-13)
 
 - **Fix (privacy): default telemetry is off on local hosts, as documented since 0.2.1.** `GenClass.init()` (and so
