@@ -486,6 +486,16 @@ describe("dashboard page: the closed loop (Fig. 3)", () => {
     expect(svgText).toMatch(/Problems (down|up|unchanged)/);
     expect(svgText).toContain("a person decides");
     expect(text("#loop-foot")).toContain("@genclass/mcp");
+    // the sample's agent reports: the stale-response row names f3 as proven, the double-submit row f7 as reproduced and tested
+    expect(doc.querySelector('#loopsvg rect[data-s="problem"][data-k="stale"]')!.getAttribute("data-agent")).toBe("f3");
+    expect(svgText).toContain("Agent: f3 on /search reproduced, test");
+    expect(svgText).toContain("fix proven");
+    expect(doc.querySelector('#loopsvg rect[data-s="problem"][data-k="duplicate"]')!.getAttribute("data-agent")).toBe("f7");
+    expect(svgText).toContain("Agent: f7 on /checkout: found");
+    expect(svgText).toContain("replay reproduced");
+    expect(svgText).toContain("Last fix proven: f3 on /search");
+    expect(svgText).toContain("Your agent wrote 2 regression tests");
+    expect(text("#loop-foot")).toContain("Your agent reported 3 findings in this period");
     // every problem row points at its agent step, every agent step at Fix, Fix at Prove, Prove at Ship, Ship back to Observe
     expect(doc.querySelectorAll("#loopsvg path.edge").length).toBe(kinds.length * 2 + 4);
     close();
@@ -500,6 +510,17 @@ describe("dashboard page: the closed loop (Fig. 3)", () => {
     expect(text("#loopsvg")).toContain("Nothing broke in this period");
     expect(text("#loopsvg")).toContain("Nothing to compare with yet.");
     expect(doc.querySelectorAll('#loopsvg rect[data-s="fix"], #loopsvg rect[data-s="prove"], #loopsvg rect[data-s="ship"]').length).toBe(3);
+    close();
+  });
+
+  it("without agent reports the rows carry no agent line and the foot says reporting is off by default", async () => {
+    const st = sampleStats("7d", NOW);
+    st.agent = { findings: [], counts: { found: 0, reproduced: 0, tested: 0, proven: 0 }, last: null };
+    const { doc, text, close } = await render(st);
+    expect([...doc.querySelectorAll('#loopsvg rect[data-s="problem"]')].every((r) => r.getAttribute("data-agent") === "")).toBe(true);
+    expect(text("#loopsvg")).not.toContain("Agent:");
+    expect(text("#loop-foot")).toContain("No agent has reported on this app");
+    expect(text("#loop-foot")).toContain("GENCLASS_REPORT");
     close();
   });
 });

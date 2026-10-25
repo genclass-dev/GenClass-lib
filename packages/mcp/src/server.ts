@@ -6,12 +6,33 @@
 import { isAbsolute, join, resolve } from "node:path";
 import type { Readable, Writable } from "node:stream";
 import { makeApi } from "./api.js";
+import { createReporter, reportTarget, type Reporter } from "./report.js";
 import { callBridge, parseOrigins, probeBridge, startBridge, VERSION, type Bridge } from "./http.js";
 import { McpServer } from "./mcp.js";
 import { Store } from "./store.js";
 import { q } from "./text.js";
 import { INSTRUCTIONS, SERVER_NAME, TOOLS, callTool } from "./tools.js";
 import { DEFAULT_PORT, type Finding } from "./types.js";
+
+/** Wrap the local API so the dashboard reporter hears replay verdicts and written tests (AGENT.md section 4.5). */
+export function reportingApi(api: ReturnType<typeof makeApi>, store: Store, reporter: Reporter): ReturnType<typeof makeApi> {
+  return (m, p) => {
+    const out = api(m, p);
+    try {
+      if (m === "replay.result" && out && typeof out === "object") {
+        const r = out as { finding: Finding; results: { reproduced: boolean | null }[] };
+        const last = r.results.length ? r.results[r.results.length - 1]! : null;
+        if (last) reporter.replay(r.finding, last.reproduced);
+      } else if (m === "finding" && out && typeof out === "object") {
+        const f = (out as { finding?: Finding }).finding;
+        if (f && store.findings.has(f.id)) reporter.test(f);
+      }
+    } catch {
+      // reporting never changes what the agent gets
+    }
+    return out;
+  };
+}
 
 export interface ServeOptions {
   cwd: string;
@@ -73,6 +94,7 @@ export async function serve(o: ServeOptions): Promise<Served> {
   let mode: Served["mode"] = "none";
   let realPort = port;
   let offFind: (() => void) | null = null;
+  let reporter: Reporter | null = null;
   let poll: NodeJS.Timeout | null = null;
   let why = "";
 
@@ -114,11 +136,21 @@ export async function serve(o: ServeOptions): Promise<Served> {
     }
     realPort = bridge.port;
     local = makeApi(s, { url: bridge.url, port: bridge.port });
+    const target = reportTarget(o.env);
+    if (target) {
+      reporter = createReporter(target, { log });
+      local = reportingApi(local, s, reporter);
+      log(`reporting findings, replays and tests to the dashboard at ${target.origin} (GENCLASS_REPORT)`);
+    }
     store = s;
     mode = "local";
     if (poll) clearInterval(poll);
     poll = null;
-    offFind = s.onFinding(({ finding, fresh }) => fresh && push(finding));
+    offFind = s.onFinding(({ finding, fresh }) => {
+      if (!fresh) return;
+      push(finding);
+      reporter?.found(finding);
+    });
     log(`bridge listening on ${bridge.url}`);
     return true;
   };
@@ -183,6 +215,8 @@ export async function serve(o: ServeOptions): Promise<Served> {
   }
 
   const close = async () => {
+
+    if (reporter) await reporter.close().catch(() => undefined);
     if (closed) return;
     closed = true;
     offFind?.();

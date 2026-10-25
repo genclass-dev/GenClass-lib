@@ -326,6 +326,7 @@ on the fixed one, and explore on the fixed page reported nothing. Details: [docs
 | `GENCLASS_AGENT_PORT` | `47357` | the bridge's port (the page then needs `connectAgent(rt, { url })`) |
 | `GENCLASS_STATE_DIR` | `.genclass/agent` | where findings persist between sessions; `none` keeps them in memory |
 | `GENCLASS_DASHBOARD` | | your dashboard's private link, for `genclass_analytics` `production` (`sample` reads the public sample) |
+| `GENCLASS_REPORT` | | `on` (with `GENCLASS_DASHBOARD`), or a dashboard link or secret: report each finding, replay verdict and written test to that dashboard's Loop view, so the dashboard shows what the agent reproduced and fixed. Ids, kinds, page paths, verdicts and times only, never page text; off unless set ([AGENT.md section 4.5](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/AGENT.md)) |
 | `GENCLASS_AGENT_ORIGINS` | | exact page origins allowed besides this machine's, e.g. `http://192.168.1.20:5173` (the page then needs `connectAgent(rt, { anyHost: true })`) |
 | `GENCLASS_TOKEN_DIR` | `~/.genclass` | where the bridge keeps its API token (mode 0600) for the hook and other sessions |
 
@@ -345,7 +346,10 @@ The server collects nothing and sends nothing to GenClass or anyone else. Findin
 `.genclass/agent/` in the server's working directory (the project, for clients that start servers there; set
 `GENCLASS_STATE_DIR` for clients that do not, such as Claude Desktop), which the server gitignores, and in the bridge's memory; the bridge's token is in
 `~/.genclass`. The one request that leaves the machine is `genclass_analytics` `{source: "production"}`, which reads
-your own GenClass dashboard when you set `GENCLASS_DASHBOARD` to its private link. The runtime in your app has its
+your own GenClass dashboard when you set `GENCLASS_DASHBOARD` to its private link. With `GENCLASS_REPORT` set (off by
+default) the server also sends that dashboard, in small batches, the id, kind and page path of each finding, each
+replay's verdict and when a regression test was written, so the dashboard's Loop view shows what the agent reproduced
+and fixed; never a title, an evidence line, a snapshot or any page text, and nothing it sends feeds a decision. The runtime in your app has its
 own disclosed diagnostics ([PRIVACY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/PRIVACY.md)), which
 `GenClass.init({ telemetry: false })` turns off; the agent link is not part of them.
 
