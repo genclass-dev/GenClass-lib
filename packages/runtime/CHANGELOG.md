@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **`dashboard` prints the link to this app's free dashboard.** `npx @genclass/runtime dashboard` prints the link
+  to the dashboard of the app in the current folder: the private link in `.genclass.local` (nothing is contacted),
+  else the app's page in the signed-in account (one `GET /api/me`), else the account's apps; `--open` also opens it in
+  the browser. `init`'s dashboard notice says what the dashboard shows and how to print the link again, and `whoami`
+  and `login` point to the dashboards too. No runtime code, no telemetry and no model-visible text changed.
 - **Coding-agent link: snapshots and witnesses that do not depend on arrival order** (`@genclass/runtime/agent`;
   [docs/runtime/AGENT.md](../../docs/runtime/AGENT.md) section 2). `snapshot()` takes up to 1,000 store fields (was 300)
   within 96,000 characters, in an order that does not depend on when they were written (registered stores, then
