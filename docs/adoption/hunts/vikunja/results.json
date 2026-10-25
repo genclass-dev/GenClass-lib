@@ -1,0 +1,7492 @@
+{
+ "schema": "genclass-hunt-vikunja/1",
+ "sessions": [
+  {
+   "scenario": "kanban-drags",
+   "slow_ms": 300,
+   "variant": "unfixed",
+   "report": [],
+   "replay": "-",
+   "loads": [
+    {
+     "i": 0,
+     "replay": false,
+     "schedule": {
+      "order": "fifo",
+      "delay": {
+       "minMs": 0,
+       "maxMs": 300
+      },
+      "maxHoldMs": 1800,
+      "id": "x13",
+      "label": "baseline 1 (responses in request order)"
+     },
+     "order": [
+      "PUT /api/v2/projects/:id/views/:id/buckets/:id/tasks#1",
+      "PUT /api/v2/tasks/:id/position#1"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "Card B": "To-Do",
+       "Card C": "To-Do",
+       "Card A": "Doing"
+      },
+      "server": {
+       "Card B": "To-Do",
+       "Card C": "To-Do",
+       "Race hunt task": "To-Do",
+       "Card A": "Doing"
+      },
+      "wrong": [
+       "server.Card B=To-Do",
+       "ui.Card B=To-Do"
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 1,
+     "replay": false,
+     "schedule": {
+      "order": "fifo",
+      "delay": {
+       "minMs": 0,
+       "maxMs": 300
+      },
+      "maxHoldMs": 1800,
+      "id": "x13",
+      "label": "baseline 2 (responses in request order)"
+     },
+     "order": [
+      "PUT /api/v2/projects/:id/views/:id/buckets/:id/tasks#1",
+      "PUT /api/v2/tasks/:id/position#1",
+      "PUT /api/v2/projects/:id/views/:id/buckets/:id/tasks#2",
+      "PUT /api/v2/tasks/:id/position#2"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "Card C": "To-Do",
+       "Card A": "Doing",
+       "Card B": "Review"
+      },
+      "server": {
+       "Card C": "To-Do",
+       "Race hunt task": "To-Do",
+       "Card A": "Doing",
+       "Card B": "Review"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 2,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 1,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 300
+      },
+      "maxHoldMs": 1800,
+      "id": "x13",
+      "label": "seed 1"
+     },
+     "order": [
+      "PUT /api/v2/projects/:id/views/:id/buckets/:id/tasks#1",
+      "PUT /api/v2/tasks/:id/position#1",
+      "PUT /api/v2/projects/:id/views/:id/buckets/:id/tasks#2",
+      "PUT /api/v2/tasks/:id/position#2"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "Card C": "To-Do",
+       "Card A": "Doing",
+       "Card B": "Review"
+      },
+      "server": {
+       "Card C": "To-Do",
+       "Race hunt task": "To-Do",
+       "Card A": "Doing",
+       "Card B": "Review"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 3,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 2,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 300
+      },
+      "maxHoldMs": 1800,
+      "id": "x13",
+      "label": "seed 2"
+     },
+     "order": [
+      "PUT /api/v2/projects/:id/views/:id/buckets/:id/tasks#1",
+      "PUT /api/v2/tasks/:id/position#1",
+      "PUT /api/v2/projects/:id/views/:id/buckets/:id/tasks#2",
+      "PUT /api/v2/tasks/:id/position#2"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "Card C": "To-Do",
+       "Card A": "Doing",
+       "Card B": "Review"
+      },
+      "server": {
+       "Card C": "To-Do",
+       "Race hunt task": "To-Do",
+       "Card A": "Doing",
+       "Card B": "Review"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 4,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 3,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 300
+      },
+      "maxHoldMs": 1800,
+      "id": "x13",
+      "label": "seed 3"
+     },
+     "order": [
+      "PUT /api/v2/projects/:id/views/:id/buckets/:id/tasks#1",
+      "PUT /api/v2/tasks/:id/position#1",
+      "PUT /api/v2/projects/:id/views/:id/buckets/:id/tasks#2",
+      "PUT /api/v2/tasks/:id/position#2"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "Card C": "To-Do",
+       "Card A": "Doing",
+       "Card B": "Review"
+      },
+      "server": {
+       "Card C": "To-Do",
+       "Race hunt task": "To-Do",
+       "Card A": "Doing",
+       "Card B": "Review"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 5,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 4,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 300
+      },
+      "maxHoldMs": 1800,
+      "id": "x13",
+      "label": "seed 4"
+     },
+     "order": [
+      "PUT /api/v2/projects/:id/views/:id/buckets/:id/tasks#1",
+      "PUT /api/v2/tasks/:id/position#1",
+      "PUT /api/v2/projects/:id/views/:id/buckets/:id/tasks#2",
+      "PUT /api/v2/tasks/:id/position#2"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "Card C": "To-Do",
+       "Card A": "Doing",
+       "Card B": "Review"
+      },
+      "server": {
+       "Card C": "To-Do",
+       "Race hunt task": "To-Do",
+       "Card A": "Doing",
+       "Card B": "Review"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 6,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 5,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 300
+      },
+      "maxHoldMs": 1800,
+      "id": "x13",
+      "label": "seed 5"
+     },
+     "order": [
+      "PUT /api/v2/projects/:id/views/:id/buckets/:id/tasks#1",
+      "PUT /api/v2/tasks/:id/position#1",
+      "PUT /api/v2/projects/:id/views/:id/buckets/:id/tasks#2",
+      "PUT /api/v2/tasks/:id/position#2"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "Card C": "To-Do",
+       "Card A": "Doing",
+       "Card B": "Review"
+      },
+      "server": {
+       "Card C": "To-Do",
+       "Race hunt task": "To-Do",
+       "Card A": "Doing",
+       "Card B": "Review"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 7,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 6,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 300
+      },
+      "maxHoldMs": 1800,
+      "id": "x13",
+      "label": "seed 6"
+     },
+     "order": [
+      "PUT /api/v2/projects/:id/views/:id/buckets/:id/tasks#1",
+      "PUT /api/v2/tasks/:id/position#1",
+      "PUT /api/v2/projects/:id/views/:id/buckets/:id/tasks#2",
+      "PUT /api/v2/tasks/:id/position#2"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "Card C": "To-Do",
+       "Card A": "Doing",
+       "Card B": "Review"
+      },
+      "server": {
+       "Card C": "To-Do",
+       "Race hunt task": "To-Do",
+       "Card A": "Doing",
+       "Card B": "Review"
+      },
+      "wrong": []
+     },
+     "error": null
+    }
+   ]
+  },
+  {
+   "scenario": "kanban-drags",
+   "slow_ms": 600,
+   "variant": "unfixed",
+   "report": [
+    "No race found: all 6 reordered run(s) ended in the baseline's state."
+   ],
+   "replay": "-",
+   "loads": [
+    {
+     "i": 0,
+     "replay": false,
+     "schedule": {
+      "order": "fifo",
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x14",
+      "label": "baseline 1 (responses in request order)"
+     },
+     "order": [
+      "PUT /api/v2/projects/:id/views/:id/buckets/:id/tasks#1",
+      "PUT /api/v2/projects/:id/views/:id/buckets/:id/tasks#2",
+      "PUT /api/v2/tasks/:id/position#1",
+      "PUT /api/v2/tasks/:id/position#2"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "Card C": "To-Do",
+       "Card A": "Doing",
+       "Card B": "Review"
+      },
+      "server": {
+       "Card C": "To-Do",
+       "Race hunt task": "To-Do",
+       "Card A": "Doing",
+       "Card B": "Review"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 1,
+     "replay": false,
+     "schedule": {
+      "order": "fifo",
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x14",
+      "label": "baseline 2 (responses in request order)"
+     },
+     "order": [
+      "PUT /api/v2/projects/:id/views/:id/buckets/:id/tasks#1",
+      "PUT /api/v2/projects/:id/views/:id/buckets/:id/tasks#2",
+      "PUT /api/v2/tasks/:id/position#1",
+      "PUT /api/v2/tasks/:id/position#2"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "Card C": "To-Do",
+       "Card A": "Doing",
+       "Card B": "Review"
+      },
+      "server": {
+       "Card C": "To-Do",
+       "Race hunt task": "To-Do",
+       "Card A": "Doing",
+       "Card B": "Review"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 2,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 1,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x14",
+      "label": "seed 1"
+     },
+     "order": [
+      "PUT /api/v2/projects/:id/views/:id/buckets/:id/tasks#1",
+      "PUT /api/v2/tasks/:id/position#1",
+      "PUT /api/v2/projects/:id/views/:id/buckets/:id/tasks#2",
+      "PUT /api/v2/tasks/:id/position#2"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "Card C": "To-Do",
+       "Card A": "Doing",
+       "Card B": "Review"
+      },
+      "server": {
+       "Card C": "To-Do",
+       "Race hunt task": "To-Do",
+       "Card A": "Doing",
+       "Card B": "Review"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 3,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 2,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x14",
+      "label": "seed 2"
+     },
+     "order": [
+      "PUT /api/v2/projects/:id/views/:id/buckets/:id/tasks#1",
+      "PUT /api/v2/tasks/:id/position#1",
+      "PUT /api/v2/projects/:id/views/:id/buckets/:id/tasks#2",
+      "PUT /api/v2/tasks/:id/position#2"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "Card C": "To-Do",
+       "Card A": "Doing",
+       "Card B": "Review"
+      },
+      "server": {
+       "Card C": "To-Do",
+       "Race hunt task": "To-Do",
+       "Card A": "Doing",
+       "Card B": "Review"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 4,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 3,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x14",
+      "label": "seed 3"
+     },
+     "order": [
+      "PUT /api/v2/projects/:id/views/:id/buckets/:id/tasks#1",
+      "PUT /api/v2/tasks/:id/position#1",
+      "PUT /api/v2/projects/:id/views/:id/buckets/:id/tasks#2",
+      "PUT /api/v2/tasks/:id/position#2"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "Card C": "To-Do",
+       "Card A": "Doing",
+       "Card B": "Review"
+      },
+      "server": {
+       "Card C": "To-Do",
+       "Race hunt task": "To-Do",
+       "Card A": "Doing",
+       "Card B": "Review"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 5,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 4,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x14",
+      "label": "seed 4"
+     },
+     "order": [
+      "PUT /api/v2/projects/:id/views/:id/buckets/:id/tasks#1",
+      "PUT /api/v2/tasks/:id/position#1",
+      "PUT /api/v2/projects/:id/views/:id/buckets/:id/tasks#2",
+      "PUT /api/v2/tasks/:id/position#2"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "Card C": "To-Do",
+       "Card A": "Doing",
+       "Card B": "Review"
+      },
+      "server": {
+       "Card C": "To-Do",
+       "Race hunt task": "To-Do",
+       "Card A": "Doing",
+       "Card B": "Review"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 6,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 5,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x14",
+      "label": "seed 5"
+     },
+     "order": [
+      "PUT /api/v2/projects/:id/views/:id/buckets/:id/tasks#2",
+      "PUT /api/v2/tasks/:id/position#1",
+      "PUT /api/v2/projects/:id/views/:id/buckets/:id/tasks#1",
+      "PUT /api/v2/tasks/:id/position#2"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "Card C": "To-Do",
+       "Card A": "Doing",
+       "Card B": "Review"
+      },
+      "server": {
+       "Card C": "To-Do",
+       "Race hunt task": "To-Do",
+       "Card A": "Doing",
+       "Card B": "Review"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 7,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 6,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x14",
+      "label": "seed 6"
+     },
+     "order": [
+      "PUT /api/v2/projects/:id/views/:id/buckets/:id/tasks#1",
+      "PUT /api/v2/tasks/:id/position#1",
+      "PUT /api/v2/projects/:id/views/:id/buckets/:id/tasks#2",
+      "PUT /api/v2/tasks/:id/position#2"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "Card C": "To-Do",
+       "Card A": "Doing",
+       "Card B": "Review"
+      },
+      "server": {
+       "Card C": "To-Do",
+       "Race hunt task": "To-Do",
+       "Card A": "Doing",
+       "Card B": "Review"
+      },
+      "wrong": []
+     },
+     "error": null
+    }
+   ]
+  },
+  {
+   "scenario": "kanban-drags",
+   "slow_ms": 900,
+   "variant": "unfixed",
+   "report": [
+    "RACE: 1 of 3 reordered run(s) ended in a different state than the baseline (responses in request order).",
+    "- run r131 (seed 5):",
+    "    requests sent to \"PUT /api/v2/tasks/:id/position\": baseline \"2\", this run \"1\"",
+    "No baseline run in this group (the first two armed loads are the baselines): nothing to compare with."
+   ],
+   "replay": "reproduced",
+   "loads": [
+    {
+     "i": 0,
+     "replay": false,
+     "schedule": {
+      "order": "fifo",
+      "delay": {
+       "minMs": 0,
+       "maxMs": 900
+      },
+      "maxHoldMs": 2400,
+      "id": "x15",
+      "label": "baseline 1 (responses in request order)"
+     },
+     "order": [
+      "PUT /api/v2/projects/:id/views/:id/buckets/:id/tasks#1",
+      "PUT /api/v2/projects/:id/views/:id/buckets/:id/tasks#2",
+      "PUT /api/v2/tasks/:id/position#1",
+      "PUT /api/v2/tasks/:id/position#2"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "Card C": "To-Do",
+       "Card A": "Doing",
+       "Card B": "Review"
+      },
+      "server": {
+       "Card C": "To-Do",
+       "Race hunt task": "To-Do",
+       "Card A": "Doing",
+       "Card B": "Review"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 1,
+     "replay": false,
+     "schedule": {
+      "order": "fifo",
+      "delay": {
+       "minMs": 0,
+       "maxMs": 900
+      },
+      "maxHoldMs": 2400,
+      "id": "x15",
+      "label": "baseline 2 (responses in request order)"
+     },
+     "order": [
+      "PUT /api/v2/projects/:id/views/:id/buckets/:id/tasks#1",
+      "PUT /api/v2/projects/:id/views/:id/buckets/:id/tasks#2",
+      "PUT /api/v2/tasks/:id/position#1",
+      "PUT /api/v2/tasks/:id/position#2"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "Card C": "To-Do",
+       "Card A": "Doing",
+       "Card B": "Review"
+      },
+      "server": {
+       "Card C": "To-Do",
+       "Race hunt task": "To-Do",
+       "Card A": "Doing",
+       "Card B": "Review"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 2,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 1,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 900
+      },
+      "maxHoldMs": 2400,
+      "id": "x15",
+      "label": "seed 1"
+     },
+     "order": [
+      "PUT /api/v2/projects/:id/views/:id/buckets/:id/tasks#1",
+      "PUT /api/v2/tasks/:id/position#1",
+      "PUT /api/v2/projects/:id/views/:id/buckets/:id/tasks#2",
+      "PUT /api/v2/tasks/:id/position#2"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "Card C": "To-Do",
+       "Card A": "Doing",
+       "Card B": "Review"
+      },
+      "server": {
+       "Card C": "To-Do",
+       "Race hunt task": "To-Do",
+       "Card A": "Doing",
+       "Card B": "Review"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 3,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 2,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 900
+      },
+      "maxHoldMs": 2400,
+      "id": "x15",
+      "label": "seed 2"
+     },
+     "order": [
+      "PUT /api/v2/projects/:id/views/:id/buckets/:id/tasks#1",
+      "PUT /api/v2/tasks/:id/position#1",
+      "PUT /api/v2/projects/:id/views/:id/buckets/:id/tasks#2",
+      "PUT /api/v2/tasks/:id/position#2"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "Card C": "To-Do",
+       "Card A": "Doing",
+       "Card B": "Review"
+      },
+      "server": {
+       "Card C": "To-Do",
+       "Race hunt task": "To-Do",
+       "Card A": "Doing",
+       "Card B": "Review"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 4,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 3,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 900
+      },
+      "maxHoldMs": 2400,
+      "id": "x15",
+      "label": "seed 3"
+     },
+     "order": [
+      "PUT /api/v2/projects/:id/views/:id/buckets/:id/tasks#1",
+      "PUT /api/v2/tasks/:id/position#1"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "Card B": "To-Do",
+       "Card C": "To-Do",
+       "Card A": "Doing"
+      },
+      "server": {
+       "Card B": "To-Do",
+       "Card C": "To-Do",
+       "Race hunt task": "To-Do",
+       "Card A": "Doing"
+      },
+      "wrong": [
+       "server.Card B=To-Do",
+       "ui.Card B=To-Do"
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 5,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 4,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 900
+      },
+      "maxHoldMs": 2400,
+      "id": "x15",
+      "label": "seed 4"
+     },
+     "order": [
+      "PUT /api/v2/projects/:id/views/:id/buckets/:id/tasks#1",
+      "PUT /api/v2/tasks/:id/position#1"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "Card B": "To-Do",
+       "Card C": "To-Do",
+       "Card A": "Doing"
+      },
+      "server": {
+       "Card B": "To-Do",
+       "Card C": "To-Do",
+       "Race hunt task": "To-Do",
+       "Card A": "Doing"
+      },
+      "wrong": [
+       "server.Card B=To-Do",
+       "ui.Card B=To-Do"
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 6,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 5,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 900
+      },
+      "maxHoldMs": 2400,
+      "id": "x15",
+      "label": "seed 5"
+     },
+     "order": [
+      "PUT /api/v2/projects/:id/views/:id/buckets/:id/tasks#2",
+      "PUT /api/v2/tasks/:id/position#1",
+      "PUT /api/v2/projects/:id/views/:id/buckets/:id/tasks#1"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "Card C": "To-Do",
+       "Card A": "Doing",
+       "Card B": "Review"
+      },
+      "server": {
+       "Card C": "To-Do",
+       "Race hunt task": "To-Do",
+       "Card A": "Doing",
+       "Card B": "Review"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 7,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 6,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 900
+      },
+      "maxHoldMs": 2400,
+      "id": "x15",
+      "label": "seed 6"
+     },
+     "order": [
+      "PUT /api/v2/projects/:id/views/:id/buckets/:id/tasks#1",
+      "PUT /api/v2/tasks/:id/position#1"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "Card B": "To-Do",
+       "Card C": "To-Do",
+       "Card A": "Doing"
+      },
+      "server": {
+       "Card B": "To-Do",
+       "Card C": "To-Do",
+       "Race hunt task": "To-Do",
+       "Card A": "Doing"
+      },
+      "wrong": [
+       "server.Card B=To-Do",
+       "ui.Card B=To-Do"
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 8,
+     "replay": true,
+     "schedule": {
+      "order": "seeded",
+      "seed": 5,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 900
+      },
+      "maxHoldMs": 2400,
+      "id": "f11",
+      "label": "replay of f11"
+     },
+     "order": [
+      "PUT /api/v2/projects/:id/views/:id/buckets/:id/tasks#2",
+      "PUT /api/v2/tasks/:id/position#1",
+      "PUT /api/v2/projects/:id/views/:id/buckets/:id/tasks#1"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "Card C": "To-Do",
+       "Card A": "Doing",
+       "Card B": "Review"
+      },
+      "server": {
+       "Card C": "To-Do",
+       "Race hunt task": "To-Do",
+       "Card A": "Doing",
+       "Card B": "Review"
+      },
+      "wrong": []
+     },
+     "error": null
+    }
+   ]
+  },
+  {
+   "scenario": "priority-twice",
+   "slow_ms": 300,
+   "variant": "unfixed",
+   "report": [
+    "RACE: 4 of 6 reordered run(s) ended in a different state than the baseline (responses in request order).",
+    "- run r59 (seed 3):",
+    "    page text only in the baseline: \"Created 14 minutes ago by hunt\"",
+    "    page text only in this run: \"Created 15 minutes ago by hunt\"",
+    "- run r60 (seed 4):",
+    "    page text only in the baseline: \"Created 14 minutes ago by hunt\"",
+    "    page text only in this run: \"Created 15 minutes ago by hunt\"",
+    "- run r61 (seed 5):",
+    "    page text only in the baseline: \"Created 14 minutes ago by hunt\"",
+    "    page text only in this run: \"Created 15 minutes ago by hunt\"",
+    "- run r62 (seed 6):",
+    "    page text only in the baseline: \"Created 14 minutes ago by hunt\"",
+    "    page text only in this run: \"Created 15 minutes ago by hunt\""
+   ],
+   "replay": "reproduced",
+   "loads": [
+    {
+     "i": 0,
+     "replay": false,
+     "schedule": {
+      "order": "fifo",
+      "delay": {
+       "minMs": 0,
+       "maxMs": 300
+      },
+      "maxHoldMs": 1800,
+      "id": "x7",
+      "label": "baseline 1 (responses in request order)"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due": "in 9 days"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": [
+       "server.priority=3",
+       "ui.priority=3"
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 1,
+     "replay": false,
+     "schedule": {
+      "order": "fifo",
+      "delay": {
+       "minMs": 0,
+       "maxMs": 300
+      },
+      "maxHoldMs": 1800,
+      "id": "x7",
+      "label": "baseline 2 (responses in request order)"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due": "in 9 days"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": [
+       "server.priority=3",
+       "ui.priority=3"
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 2,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 1,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 300
+      },
+      "maxHoldMs": 1800,
+      "id": "x7",
+      "label": "seed 1"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due": "in 9 days"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": [
+       "server.priority=3",
+       "ui.priority=3"
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 3,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 2,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 300
+      },
+      "maxHoldMs": 1800,
+      "id": "x7",
+      "label": "seed 2"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due": "in 9 days"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": [
+       "server.priority=3",
+       "ui.priority=3"
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 4,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 3,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 300
+      },
+      "maxHoldMs": 1800,
+      "id": "x7",
+      "label": "seed 3"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due": "in 9 days"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": [
+       "server.priority=3",
+       "ui.priority=3"
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 5,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 4,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 300
+      },
+      "maxHoldMs": 1800,
+      "id": "x7",
+      "label": "seed 4"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due": "in 9 days"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": [
+       "server.priority=3",
+       "ui.priority=3"
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 6,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 5,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 300
+      },
+      "maxHoldMs": 1800,
+      "id": "x7",
+      "label": "seed 5"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due": "in 9 days"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": [
+       "server.priority=3",
+       "ui.priority=3"
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 7,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 6,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 300
+      },
+      "maxHoldMs": 1800,
+      "id": "x7",
+      "label": "seed 6"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due": "in 9 days"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": [
+       "server.priority=3",
+       "ui.priority=3"
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 8,
+     "replay": true,
+     "schedule": {
+      "order": "seeded",
+      "seed": 3,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 300
+      },
+      "maxHoldMs": 1800,
+      "id": "f5",
+      "label": "replay of f5"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due": "in 9 days"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": [
+       "server.priority=3",
+       "ui.priority=3"
+      ]
+     },
+     "error": null
+    }
+   ]
+  },
+  {
+   "scenario": "priority-twice",
+   "slow_ms": 600,
+   "variant": "unfixed",
+   "report": [
+    "RACE: 3 of 6 reordered run(s) ended in a different state than the baseline (responses in request order).",
+    "- run r69 (seed 4):",
+    "    page text only in the baseline: \"Created 15 minutes ago by hunt\"",
+    "    page text only in this run: \"Created 16 minutes ago by hunt\"",
+    "- run r70 (seed 5):",
+    "    page text only in the baseline: \"Created 15 minutes ago by hunt\"",
+    "    page text only in this run: \"Created 16 minutes ago by hunt\"",
+    "- run r71 (seed 6):",
+    "    page text only in the baseline: \"Created 15 minutes ago by hunt\"",
+    "    page text only in this run: \"Created 16 minutes ago by hunt\", \"Error\", \"onDeactivated is called when there is no active component instance to be associ…\""
+   ],
+   "replay": "reproduced",
+   "loads": [
+    {
+     "i": 0,
+     "replay": false,
+     "schedule": {
+      "order": "fifo",
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x8",
+      "label": "baseline 1 (responses in request order)"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due": "in 9 days"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": [
+       "server.priority=3",
+       "ui.priority=3"
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 1,
+     "replay": false,
+     "schedule": {
+      "order": "fifo",
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x8",
+      "label": "baseline 2 (responses in request order)"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due": "in 9 days"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": [
+       "server.priority=3",
+       "ui.priority=3"
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 2,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 1,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x8",
+      "label": "seed 1"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due": "in 9 days"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": [
+       "server.priority=3",
+       "ui.priority=3"
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 3,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 2,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x8",
+      "label": "seed 2"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due": "in 9 days"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": [
+       "server.priority=3",
+       "ui.priority=3"
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 4,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 3,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x8",
+      "label": "seed 3"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due": "in 9 days"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": [
+       "server.priority=3",
+       "ui.priority=3"
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 5,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 4,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x8",
+      "label": "seed 4"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due": "in 9 days"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": [
+       "server.priority=3",
+       "ui.priority=3"
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 6,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 5,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x8",
+      "label": "seed 5"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due": "in 9 days"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": [
+       "server.priority=3",
+       "ui.priority=3"
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 7,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 6,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x8",
+      "label": "seed 6"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due": "in 9 days"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": [
+       "server.priority=3",
+       "ui.priority=3"
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 8,
+     "replay": true,
+     "schedule": {
+      "order": "seeded",
+      "seed": 4,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "f5",
+      "label": "replay of f5"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due": "in 9 days"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": [
+       "server.priority=3",
+       "ui.priority=3"
+      ]
+     },
+     "error": null
+    }
+   ]
+  },
+  {
+   "scenario": "priority-twice",
+   "slow_ms": 900,
+   "variant": "unfixed",
+   "report": [
+    "RACE: 2 of 6 reordered run(s) ended in a different state than the baseline (responses in request order).",
+    "- run r79 (seed 5):",
+    "    page text only in the baseline: \"Created 16 minutes ago by hunt\"",
+    "    page text only in this run: \"Created 17 minutes ago by hunt\"",
+    "- run r80 (seed 6):",
+    "    page text only in the baseline: \"Created 16 minutes ago by hunt\"",
+    "    page text only in this run: \"Created 17 minutes ago by hunt\""
+   ],
+   "replay": "reproduced",
+   "loads": [
+    {
+     "i": 0,
+     "replay": false,
+     "schedule": {
+      "order": "fifo",
+      "delay": {
+       "minMs": 0,
+       "maxMs": 900
+      },
+      "maxHoldMs": 2400,
+      "id": "x9",
+      "label": "baseline 1 (responses in request order)"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due": "in 9 days"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": [
+       "server.priority=3",
+       "ui.priority=3"
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 1,
+     "replay": false,
+     "schedule": {
+      "order": "fifo",
+      "delay": {
+       "minMs": 0,
+       "maxMs": 900
+      },
+      "maxHoldMs": 2400,
+      "id": "x9",
+      "label": "baseline 2 (responses in request order)"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due": "in 9 days"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": [
+       "server.priority=3",
+       "ui.priority=3"
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 2,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 1,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 900
+      },
+      "maxHoldMs": 2400,
+      "id": "x9",
+      "label": "seed 1"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due": "in 9 days"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": [
+       "server.priority=3",
+       "ui.priority=3"
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 3,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 2,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 900
+      },
+      "maxHoldMs": 2400,
+      "id": "x9",
+      "label": "seed 2"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due": "in 9 days"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": [
+       "server.priority=3",
+       "ui.priority=3"
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 4,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 3,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 900
+      },
+      "maxHoldMs": 2400,
+      "id": "x9",
+      "label": "seed 3"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due": "in 9 days"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": [
+       "server.priority=3",
+       "ui.priority=3"
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 5,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 4,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 900
+      },
+      "maxHoldMs": 2400,
+      "id": "x9",
+      "label": "seed 4"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due": "in 9 days"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": [
+       "server.priority=3",
+       "ui.priority=3"
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 6,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 5,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 900
+      },
+      "maxHoldMs": 2400,
+      "id": "x9",
+      "label": "seed 5"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due": "in 9 days"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": [
+       "server.priority=3",
+       "ui.priority=3"
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 7,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 6,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 900
+      },
+      "maxHoldMs": 2400,
+      "id": "x9",
+      "label": "seed 6"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due": "in 9 days"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": [
+       "server.priority=3",
+       "ui.priority=3"
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 8,
+     "replay": true,
+     "schedule": {
+      "order": "seeded",
+      "seed": 5,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 900
+      },
+      "maxHoldMs": 2400,
+      "id": "f5",
+      "label": "replay of f5"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due": "in 9 days"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": [
+       "server.priority=3",
+       "ui.priority=3"
+      ]
+     },
+     "error": null
+    }
+   ]
+  },
+  {
+   "scenario": "three-edits",
+   "slow_ms": 300,
+   "variant": "unfixed",
+   "report": [
+    "RACE: 6 of 6 reordered run(s) ended in a different state than the baseline (responses in request order).",
+    "- run r30 (seed 1):",
+    "    state \"visible.priority\": baseline \"\\\"3\\\"\", this run \"\\\"1\\\"\"",
+    "    state \"visible.percentDone\": baseline \"\\\"0.5\\\"\", this run \"\\\"0.1\\\"\"",
+    "    field \"Priority\": baseline \"3\", this run \"1\"",
+    "    field \"select\": baseline \"0.5\", this run \"0.1\"",
+    "    page text only in the baseline: \"Created 11 minutes ago by hunt\"",
+    "    page text only in this run: \"Created 12 minutes ago by hunt\"",
+    "- run r31 (seed 2):",
+    "    state \"visible.percentDone\": baseline \"\\\"0.5\\\"\", this run \"\\\"0.1\\\"\"",
+    "    field \"select\": baseline \"0.5\", this run \"0.1\"",
+    "    page text only in the baseline: \"Created 11 minutes ago by hunt\"",
+    "    page text only in this run: \"Created 12 minutes ago by hunt\"",
+    "- run r32 (seed 3):",
+    "    state \"visible.priority\": baseline \"\\\"3\\\"\", this run \"\\\"1\\\"\"",
+    "    state \"visible.percentDone\": baseline \"\\\"0.5\\\"\", this run \"\\\"0.1\\\"\"",
+    "    field \"Priority\": baseline \"3\", this run \"1\"",
+    "    field \"select\": baseline \"0.5\", this run \"0.1\"",
+    "    page text only in the baseline: \"Created 11 minutes ago by hunt\"",
+    "    page text only in this run: \"Created 12 minutes ago by hunt\"",
+    "- run r33 (seed 4):",
+    "    state \"visible.percentDone\": baseline \"\\\"0.5\\\"\", this run \"\\\"0.1\\\"\"",
+    "    field \"select\": baseline \"0.5\", this run \"0.1\"",
+    "    page text only in the baseline: \"Created 11 minutes ago by hunt\"",
+    "    page text only in this run: \"Created 12 minutes ago by hunt\"",
+    "- run r34 (seed 5):",
+    "    state \"visible.priority\": baseline \"\\\"3\\\"\", this run \"\\\"1\\\"\"",
+    "    state \"visible.percentDone\": baseline \"\\\"0.5\\\"\", this run \"\\\"0.1\\\"\"",
+    "    field \"Priority\": baseline \"3\", this run \"1\"",
+    "    field \"select\": baseline \"0.5\", this run \"0.1\"",
+    "    page text only in the baseline: \"Created 11 minutes ago by hunt\"",
+    "    page text only in this run: \"Created 12 minutes ago by hunt\"",
+    "- run r35 (seed 6):",
+    "    page text only in the baseline: \"Created 11 minutes ago by hunt\"",
+    "    page text only in this run: \"Created 12 minutes ago by hunt\""
+   ],
+   "replay": "reproduced",
+   "loads": [
+    {
+     "i": 0,
+     "replay": false,
+     "schedule": {
+      "order": "fifo",
+      "delay": {
+       "minMs": 0,
+       "maxMs": 300
+      },
+      "maxHoldMs": 1800,
+      "id": "x4",
+      "label": "baseline 1 (responses in request order)"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1",
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#3"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.percentDone by PATCH /api/v2/tasks/:id#1",
+      "overwrote-newer visible.priority by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.5,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.5,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 1,
+     "replay": false,
+     "schedule": {
+      "order": "fifo",
+      "delay": {
+       "minMs": 0,
+       "maxMs": 300
+      },
+      "maxHoldMs": 1800,
+      "id": "x4",
+      "label": "baseline 2 (responses in request order)"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1",
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#3"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.percentDone by PATCH /api/v2/tasks/:id#1",
+      "overwrote-newer visible.priority by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.5,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.5,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 2,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 1,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 300
+      },
+      "maxHoldMs": 1800,
+      "id": "x4",
+      "label": "seed 1"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#3",
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.percentDone by PATCH /api/v2/tasks/:id#2",
+      "overwrote-newer visible.priority by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.5,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": [
+       "ui.priority=1",
+       "ui.percent_done=0.1"
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 3,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 2,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 300
+      },
+      "maxHoldMs": 1800,
+      "id": "x4",
+      "label": "seed 2"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#3",
+      "PATCH /api/v2/tasks/:id#1",
+      "PATCH /api/v2/tasks/:id#2"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.percentDone by PATCH /api/v2/tasks/:id#1",
+      "overwrote-newer visible.priority by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.5,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": [
+       "ui.percent_done=0.1"
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 4,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 3,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 300
+      },
+      "maxHoldMs": 1800,
+      "id": "x4",
+      "label": "seed 3"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#3",
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.percentDone by PATCH /api/v2/tasks/:id#2",
+      "overwrote-newer visible.priority by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.5,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": [
+       "ui.priority=1",
+       "ui.percent_done=0.1"
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 5,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 4,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 300
+      },
+      "maxHoldMs": 1800,
+      "id": "x4",
+      "label": "seed 4"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1",
+      "PATCH /api/v2/tasks/:id#3",
+      "PATCH /api/v2/tasks/:id#2"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.percentDone by PATCH /api/v2/tasks/:id#1",
+      "overwrote-newer visible.priority by PATCH /api/v2/tasks/:id#1",
+      "overwrote-newer visible.percentDone by PATCH /api/v2/tasks/:id#2"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.5,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": [
+       "ui.percent_done=0.1"
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 6,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 5,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 300
+      },
+      "maxHoldMs": 1800,
+      "id": "x4",
+      "label": "seed 5"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#3",
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.percentDone by PATCH /api/v2/tasks/:id#2",
+      "overwrote-newer visible.percentDone by PATCH /api/v2/tasks/:id#1",
+      "overwrote-newer visible.priority by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.5,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": [
+       "ui.priority=1",
+       "ui.percent_done=0.1"
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 7,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 6,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 300
+      },
+      "maxHoldMs": 1800,
+      "id": "x4",
+      "label": "seed 6"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#1",
+      "PATCH /api/v2/tasks/:id#3"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.percentDone by PATCH /api/v2/tasks/:id#2",
+      "overwrote-newer visible.priority by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.5,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.5,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 8,
+     "replay": true,
+     "schedule": {
+      "order": "seeded",
+      "seed": 1,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 300
+      },
+      "maxHoldMs": 1800,
+      "id": "f4",
+      "label": "replay of f4"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#3",
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.percentDone by PATCH /api/v2/tasks/:id#2",
+      "overwrote-newer visible.priority by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.5,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": [
+       "ui.priority=1",
+       "ui.percent_done=0.1"
+      ]
+     },
+     "error": null
+    }
+   ]
+  },
+  {
+   "scenario": "three-edits",
+   "slow_ms": 600,
+   "variant": "fixed",
+   "report": [
+    "RACE: 5 of 6 reordered run(s) ended in a different state than the baseline (responses in request order).",
+    "- run r13 (seed 2):",
+    "    page text only in the baseline: \"Created 24 minutes ago by hunt\"",
+    "    page text only in this run: \"Created 25 minutes ago by hunt\"",
+    "- run r14 (seed 3):",
+    "    page text only in the baseline: \"Created 24 minutes ago by hunt\"",
+    "    page text only in this run: \"Created 25 minutes ago by hunt\"",
+    "- run r15 (seed 4):",
+    "    page text only in the baseline: \"Created 24 minutes ago by hunt\"",
+    "    page text only in this run: \"Created 25 minutes ago by hunt\"",
+    "- run r16 (seed 5):",
+    "    page text only in the baseline: \"Created 24 minutes ago by hunt\"",
+    "    page text only in this run: \"Created 25 minutes ago by hunt\"",
+    "- run r17 (seed 6):",
+    "    page text only in the baseline: \"Created 24 minutes ago by hunt\"",
+    "    page text only in this run: \"Created 25 minutes ago by hunt\""
+   ],
+   "replay": "reproduced",
+   "loads": [
+    {
+     "i": 0,
+     "replay": false,
+     "schedule": {
+      "order": "fifo",
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x2",
+      "label": "baseline 1 (responses in request order)"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1",
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#3"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.5,
+       "due": "in a day"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.5,
+       "due_date": "2026-10-26T12:00:00Z"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 1,
+     "replay": false,
+     "schedule": {
+      "order": "fifo",
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x2",
+      "label": "baseline 2 (responses in request order)"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1",
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#3"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.5,
+       "due": "in a day"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.5,
+       "due_date": "2026-10-26T12:00:00Z"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 2,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 1,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x2",
+      "label": "seed 1"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#3",
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.5,
+       "due": "in a day"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.5,
+       "due_date": "2026-10-26T12:00:00Z"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 3,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 2,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x2",
+      "label": "seed 2"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#3",
+      "PATCH /api/v2/tasks/:id#1",
+      "PATCH /api/v2/tasks/:id#2"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.5,
+       "due": "in a day"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.5,
+       "due_date": "2026-10-26T12:00:00Z"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 4,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 3,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x2",
+      "label": "seed 3"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#3",
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.5,
+       "due": "in a day"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.5,
+       "due_date": "2026-10-26T12:00:00Z"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 5,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 4,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x2",
+      "label": "seed 4"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1",
+      "PATCH /api/v2/tasks/:id#3",
+      "PATCH /api/v2/tasks/:id#2"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.5,
+       "due": "in a day"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.5,
+       "due_date": "2026-10-26T12:00:00Z"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 6,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 5,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x2",
+      "label": "seed 5"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#3",
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.5,
+       "due": "in a day"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.5,
+       "due_date": "2026-10-26T12:00:00Z"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 7,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 6,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x2",
+      "label": "seed 6"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#1",
+      "PATCH /api/v2/tasks/:id#3"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.5,
+       "due": "in a day"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.5,
+       "due_date": "2026-10-26T12:00:00Z"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 8,
+     "replay": true,
+     "schedule": {
+      "order": "seeded",
+      "seed": 2,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "f2",
+      "label": "replay of f2"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#3",
+      "PATCH /api/v2/tasks/:id#1",
+      "PATCH /api/v2/tasks/:id#2"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.5,
+       "due": "in a day"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.5,
+       "due_date": "2026-10-26T12:00:00Z"
+      },
+      "wrong": []
+     },
+     "error": null
+    }
+   ]
+  },
+  {
+   "scenario": "three-edits",
+   "slow_ms": 600,
+   "variant": "unfixed",
+   "report": [
+    "RACE: 6 of 6 reordered run(s) ended in a different state than the baseline (responses in request order).",
+    "- run r39 (seed 1):",
+    "    state \"visible.priority\": baseline \"\\\"3\\\"\", this run \"\\\"1\\\"\"",
+    "    state \"visible.percentDone\": baseline \"\\\"0.5\\\"\", this run \"\\\"0.1\\\"\"",
+    "    field \"Priority\": baseline \"3\", this run \"1\"",
+    "    field \"select\": baseline \"0.5\", this run \"0.1\"",
+    "- run r40 (seed 2):",
+    "    state \"visible.percentDone\": baseline \"\\\"0.5\\\"\", this run \"\\\"0.1\\\"\"",
+    "    field \"select\": baseline \"0.5\", this run \"0.1\"",
+    "- run r41 (seed 3):",
+    "    state \"visible.priority\": baseline \"\\\"3\\\"\", this run \"\\\"1\\\"\"",
+    "    state \"visible.percentDone\": baseline \"\\\"0.5\\\"\", this run \"\\\"0.1\\\"\"",
+    "    field \"Priority\": baseline \"3\", this run \"1\"",
+    "    field \"select\": baseline \"0.5\", this run \"0.1\"",
+    "    page text only in the baseline: \"Created 12 minutes ago by hunt\"",
+    "    page text only in this run: \"Created 13 minutes ago by hunt\"",
+    "- run r42 (seed 4):",
+    "    state \"visible.percentDone\": baseline \"\\\"0.5\\\"\", this run \"\\\"0.1\\\"\"",
+    "    field \"select\": baseline \"0.5\", this run \"0.1\"",
+    "    page text only in the baseline: \"Created 12 minutes ago by hunt\"",
+    "    page text only in this run: \"Created 13 minutes ago by hunt\"",
+    "- run r43 (seed 5):",
+    "    state \"visible.priority\": baseline \"\\\"3\\\"\", this run \"\\\"1\\\"\"",
+    "    state \"visible.percentDone\": baseline \"\\\"0.5\\\"\", this run \"\\\"0.1\\\"\"",
+    "    field \"Priority\": baseline \"3\", this run \"1\"",
+    "    field \"select\": baseline \"0.5\", this run \"0.1\"",
+    "    page text only in the baseline: \"Created 12 minutes ago by hunt\"",
+    "    page text only in this run: \"Created 13 minutes ago by hunt\"",
+    "- run r44 (seed 6):",
+    "    page text only in the baseline: \"Created 12 minutes ago by hunt\"",
+    "    page text only in this run: \"Created 13 minutes ago by hunt\""
+   ],
+   "replay": "reproduced",
+   "loads": [
+    {
+     "i": 0,
+     "replay": false,
+     "schedule": {
+      "order": "fifo",
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x5",
+      "label": "baseline 1 (responses in request order)"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1",
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#3"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.percentDone by PATCH /api/v2/tasks/:id#1",
+      "overwrote-newer visible.priority by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.5,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.5,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 1,
+     "replay": false,
+     "schedule": {
+      "order": "fifo",
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x5",
+      "label": "baseline 2 (responses in request order)"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1",
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#3"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.percentDone by PATCH /api/v2/tasks/:id#1",
+      "overwrote-newer visible.priority by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.5,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.5,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 2,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 1,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x5",
+      "label": "seed 1"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#3",
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.percentDone by PATCH /api/v2/tasks/:id#2",
+      "overwrote-newer visible.priority by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.5,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": [
+       "ui.priority=1",
+       "ui.percent_done=0.1"
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 3,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 2,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x5",
+      "label": "seed 2"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#3",
+      "PATCH /api/v2/tasks/:id#1",
+      "PATCH /api/v2/tasks/:id#2"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.percentDone by PATCH /api/v2/tasks/:id#1",
+      "overwrote-newer visible.priority by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.5,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": [
+       "ui.percent_done=0.1"
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 4,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 3,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x5",
+      "label": "seed 3"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#3",
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.percentDone by PATCH /api/v2/tasks/:id#2",
+      "overwrote-newer visible.priority by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.5,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": [
+       "ui.priority=1",
+       "ui.percent_done=0.1"
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 5,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 4,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x5",
+      "label": "seed 4"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1",
+      "PATCH /api/v2/tasks/:id#3",
+      "PATCH /api/v2/tasks/:id#2"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.priority by PATCH /api/v2/tasks/:id#1",
+      "overwrote-newer visible.percentDone by PATCH /api/v2/tasks/:id#2"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 1,
+       "percent_done": 0.5,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": [
+       "server.priority=1",
+       "ui.percent_done=0.1"
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 6,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 5,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x5",
+      "label": "seed 5"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#3",
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.percentDone by PATCH /api/v2/tasks/:id#2",
+      "overwrote-newer visible.percentDone by PATCH /api/v2/tasks/:id#1",
+      "overwrote-newer visible.priority by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.5,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": [
+       "ui.priority=1",
+       "ui.percent_done=0.1"
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 7,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 6,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x5",
+      "label": "seed 6"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#1",
+      "PATCH /api/v2/tasks/:id#3"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.percentDone by PATCH /api/v2/tasks/:id#2",
+      "overwrote-newer visible.priority by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.5,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.5,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 8,
+     "replay": true,
+     "schedule": {
+      "order": "seeded",
+      "seed": 1,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "f4",
+      "label": "replay of f4"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#3",
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.percentDone by PATCH /api/v2/tasks/:id#2",
+      "overwrote-newer visible.priority by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.5,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": [
+       "ui.priority=1",
+       "ui.percent_done=0.1"
+      ]
+     },
+     "error": null
+    }
+   ]
+  },
+  {
+   "scenario": "three-edits",
+   "slow_ms": 900,
+   "variant": "unfixed",
+   "report": [
+    "RACE: 6 of 6 reordered run(s) ended in a different state than the baseline (responses in request order).",
+    "- run r48 (seed 1):",
+    "    state \"visible.priority\": baseline \"\\\"3\\\"\", this run \"\\\"1\\\"\"",
+    "    state \"visible.percentDone\": baseline \"\\\"0.5\\\"\", this run \"\\\"0.1\\\"\"",
+    "    field \"Priority\": baseline \"3\", this run \"1\"",
+    "    field \"select\": baseline \"0.5\", this run \"0.1\"",
+    "- run r49 (seed 2):",
+    "    state \"visible.percentDone\": baseline \"\\\"0.5\\\"\", this run \"\\\"0.1\\\"\"",
+    "    field \"select\": baseline \"0.5\", this run \"0.1\"",
+    "    page text only in the baseline: \"Created 13 minutes ago by hunt\"",
+    "    page text only in this run: \"Created 14 minutes ago by hunt\"",
+    "- run r50 (seed 3):",
+    "    state \"visible.priority\": baseline \"\\\"3\\\"\", this run \"\\\"1\\\"\"",
+    "    state \"visible.percentDone\": baseline \"\\\"0.5\\\"\", this run \"\\\"0.1\\\"\"",
+    "    field \"Priority\": baseline \"3\", this run \"1\"",
+    "    field \"select\": baseline \"0.5\", this run \"0.1\"",
+    "    page text only in the baseline: \"Created 13 minutes ago by hunt\"",
+    "    page text only in this run: \"Created 14 minutes ago by hunt\"",
+    "- run r51 (seed 4):",
+    "    state \"visible.percentDone\": baseline \"\\\"0.5\\\"\", this run \"\\\"0.1\\\"\"",
+    "    field \"select\": baseline \"0.5\", this run \"0.1\"",
+    "    page text only in the baseline: \"Created 13 minutes ago by hunt\"",
+    "    page text only in this run: \"Created 14 minutes ago by hunt\"",
+    "- run r52 (seed 5):",
+    "    state \"visible.priority\": baseline \"\\\"3\\\"\", this run \"\\\"1\\\"\"",
+    "    state \"visible.percentDone\": baseline \"\\\"0.5\\\"\", this run \"\\\"0.1\\\"\"",
+    "    field \"Priority\": baseline \"3\", this run \"1\"",
+    "    field \"select\": baseline \"0.5\", this run \"0.1\"",
+    "    page text only in the baseline: \"Created 13 minutes ago by hunt\"",
+    "    page text only in this run: \"Created 14 minutes ago by hunt\"",
+    "- run r53 (seed 6):",
+    "    page text only in the baseline: \"Created 13 minutes ago by hunt\"",
+    "    page text only in this run: \"Created 14 minutes ago by hunt\""
+   ],
+   "replay": "reproduced",
+   "loads": [
+    {
+     "i": 0,
+     "replay": false,
+     "schedule": {
+      "order": "fifo",
+      "delay": {
+       "minMs": 0,
+       "maxMs": 900
+      },
+      "maxHoldMs": 2400,
+      "id": "x6",
+      "label": "baseline 1 (responses in request order)"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1",
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#3"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.percentDone by PATCH /api/v2/tasks/:id#1",
+      "overwrote-newer visible.priority by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.5,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.5,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 1,
+     "replay": false,
+     "schedule": {
+      "order": "fifo",
+      "delay": {
+       "minMs": 0,
+       "maxMs": 900
+      },
+      "maxHoldMs": 2400,
+      "id": "x6",
+      "label": "baseline 2 (responses in request order)"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1",
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#3"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.percentDone by PATCH /api/v2/tasks/:id#1",
+      "overwrote-newer visible.priority by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.5,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.5,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 2,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 1,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 900
+      },
+      "maxHoldMs": 2400,
+      "id": "x6",
+      "label": "seed 1"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#3",
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.percentDone by PATCH /api/v2/tasks/:id#2",
+      "overwrote-newer visible.priority by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.5,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": [
+       "ui.priority=1",
+       "ui.percent_done=0.1"
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 3,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 2,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 900
+      },
+      "maxHoldMs": 2400,
+      "id": "x6",
+      "label": "seed 2"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#3",
+      "PATCH /api/v2/tasks/:id#1",
+      "PATCH /api/v2/tasks/:id#2"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.percentDone by PATCH /api/v2/tasks/:id#1",
+      "overwrote-newer visible.priority by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.5,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": [
+       "ui.percent_done=0.1"
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 4,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 3,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 900
+      },
+      "maxHoldMs": 2400,
+      "id": "x6",
+      "label": "seed 3"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#3",
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.percentDone by PATCH /api/v2/tasks/:id#2",
+      "overwrote-newer visible.priority by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.5,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": [
+       "ui.priority=1",
+       "ui.percent_done=0.1"
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 5,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 4,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 900
+      },
+      "maxHoldMs": 2400,
+      "id": "x6",
+      "label": "seed 4"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1",
+      "PATCH /api/v2/tasks/:id#3",
+      "PATCH /api/v2/tasks/:id#2"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.percentDone by PATCH /api/v2/tasks/:id#1",
+      "overwrote-newer visible.priority by PATCH /api/v2/tasks/:id#1",
+      "overwrote-newer visible.percentDone by PATCH /api/v2/tasks/:id#2"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.5,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": [
+       "ui.percent_done=0.1"
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 6,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 5,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 900
+      },
+      "maxHoldMs": 2400,
+      "id": "x6",
+      "label": "seed 5"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#3",
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.percentDone by PATCH /api/v2/tasks/:id#2",
+      "overwrote-newer visible.percentDone by PATCH /api/v2/tasks/:id#1",
+      "overwrote-newer visible.priority by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.5,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": [
+       "ui.priority=1",
+       "ui.percent_done=0.1"
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 7,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 6,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 900
+      },
+      "maxHoldMs": 2400,
+      "id": "x6",
+      "label": "seed 6"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#1",
+      "PATCH /api/v2/tasks/:id#3"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.percentDone by PATCH /api/v2/tasks/:id#2",
+      "overwrote-newer visible.priority by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.5,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.5,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 8,
+     "replay": true,
+     "schedule": {
+      "order": "seeded",
+      "seed": 1,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 900
+      },
+      "maxHoldMs": 2400,
+      "id": "f4",
+      "label": "replay of f4"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#3",
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.percentDone by PATCH /api/v2/tasks/:id#2",
+      "overwrote-newer visible.priority by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.5,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": [
+       "ui.priority=1",
+       "ui.percent_done=0.1"
+      ]
+     },
+     "error": null
+    }
+   ]
+  },
+  {
+   "scenario": "title-description",
+   "slow_ms": 300,
+   "variant": "unfixed",
+   "report": [
+    "RACE: 6 of 6 reordered run(s) ended in a different state than the baseline (responses in request order).",
+    "- run r84 (seed 1):",
+    "    state \"visible.title\": baseline \"\\\"Edited title\\\"\", this run \"\\\"Race hunt task\\\"\"",
+    "    page text only in the baseline: \"Edited title\"",
+    "    page text only in this run: \"Race hunt task\"",
+    "    witness only here: overwrote-newer visible.description by GET /api/v2/labels",
+    "    witness only here: overwrote-newer visible.description by PATCH /api/v2/tasks/:id",
+    "    witness only here: overwrote-newer visible.title by PATCH /api/v2/tasks/:id",
+    "- run r85 (seed 2):",
+    "    state \"visible.description\": baseline \"\\\"Edited description\\\"\", this run \"\\\"Original description\\\"\"",
+    "    page text only in the baseline: \"Edited description\"",
+    "    page text only in this run: \"Original description\"",
+    "- run r86 (seed 3):",
+    "    state \"visible.title\": baseline \"\\\"Edited title\\\"\", this run \"\\\"Race hunt task\\\"\"",
+    "    page text only in the baseline: \"Edited title\"",
+    "    page text only in this run: \"Race hunt task\"",
+    "    witness only here: overwrote-newer visible.description by PATCH /api/v2/tasks/:id",
+    "    witness only here: overwrote-newer visible.title by PATCH /api/v2/tasks/:id",
+    "- run r87 (seed 4):",
+    "    state \"visible.description\": baseline \"\\\"Edited description\\\"\", this run \"\\\"Original description\\\"\"",
+    "    page text only in the baseline: \"Edited description\"",
+    "    page text only in this run: \"Original description\"",
+    "- run r88 (seed 5):",
+    "    state \"visible.title\": baseline \"\\\"Edited title\\\"\", this run \"\\\"Race hunt task\\\"\"",
+    "    page text only in the baseline: \"Edited title\"",
+    "    page text only in this run: \"Race hunt task\"",
+    "    witness only here: overwrote-newer visible.description by PATCH /api/v2/tasks/:id",
+    "    witness only here: overwrote-newer visible.title by PATCH /api/v2/tasks/:id",
+    "- run r89 (seed 6):",
+    "    state \"visible.title\": baseline \"\\\"Edited title\\\"\", this run \"\\\"Race hunt task\\\"\"",
+    "    page text only in the baseline: \"Edited title\"",
+    "    page text only in this run: \"Race hunt task\"",
+    "    witness only here: overwrote-newer visible.description by PATCH /api/v2/tasks/:id",
+    "    witness only here: overwrote-newer visible.title by PATCH /api/v2/tasks/:id"
+   ],
+   "replay": "reproduced",
+   "loads": [
+    {
+     "i": 0,
+     "replay": false,
+     "schedule": {
+      "order": "fifo",
+      "delay": {
+       "minMs": 0,
+       "maxMs": 300
+      },
+      "maxHoldMs": 1800,
+      "id": "x10",
+      "label": "baseline 1 (responses in request order)"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1",
+      "PATCH /api/v2/tasks/:id#2"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Edited title",
+       "description": "Edited description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 9 days"
+      },
+      "server": {
+       "title": "Edited title",
+       "description": "<p>Edited description</p>",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 1,
+     "replay": false,
+     "schedule": {
+      "order": "fifo",
+      "delay": {
+       "minMs": 0,
+       "maxMs": 300
+      },
+      "maxHoldMs": 1800,
+      "id": "x10",
+      "label": "baseline 2 (responses in request order)"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1",
+      "PATCH /api/v2/tasks/:id#2"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Edited title",
+       "description": "Edited description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 9 days"
+      },
+      "server": {
+       "title": "Edited title",
+       "description": "<p>Edited description</p>",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 2,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 1,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 300
+      },
+      "maxHoldMs": 1800,
+      "id": "x10",
+      "label": "seed 1"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.description by GET /api/v2/labels#1",
+      "overwrote-newer visible.description by PATCH /api/v2/tasks/:id#1",
+      "overwrote-newer visible.title by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Edited description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 9 days"
+      },
+      "server": {
+       "title": "Edited title",
+       "description": "<p>Original description</p>",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": [
+       "ui.title=\"Race hunt task\"",
+       "server.description=\"Original description\""
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 3,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 2,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 300
+      },
+      "maxHoldMs": 1800,
+      "id": "x10",
+      "label": "seed 2"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1",
+      "PATCH /api/v2/tasks/:id#2"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Edited title",
+       "description": "Original description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 9 days"
+      },
+      "server": {
+       "title": "Edited title",
+       "description": "<p>Original description</p>",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": [
+       "server.description=\"Original description\"",
+       "ui.description=\"Original description\""
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 4,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 3,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 300
+      },
+      "maxHoldMs": 1800,
+      "id": "x10",
+      "label": "seed 3"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.description by PATCH /api/v2/tasks/:id#1",
+      "overwrote-newer visible.title by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Edited description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 9 days"
+      },
+      "server": {
+       "title": "Edited title",
+       "description": "<p>Original description</p>",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": [
+       "ui.title=\"Race hunt task\"",
+       "server.description=\"Original description\""
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 5,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 4,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 300
+      },
+      "maxHoldMs": 1800,
+      "id": "x10",
+      "label": "seed 4"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1",
+      "PATCH /api/v2/tasks/:id#2"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Edited title",
+       "description": "Original description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 9 days"
+      },
+      "server": {
+       "title": "Edited title",
+       "description": "<p>Original description</p>",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": [
+       "server.description=\"Original description\"",
+       "ui.description=\"Original description\""
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 6,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 5,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 300
+      },
+      "maxHoldMs": 1800,
+      "id": "x10",
+      "label": "seed 5"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.description by PATCH /api/v2/tasks/:id#1",
+      "overwrote-newer visible.title by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Edited description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 9 days"
+      },
+      "server": {
+       "title": "Edited title",
+       "description": "<p>Original description</p>",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": [
+       "ui.title=\"Race hunt task\"",
+       "server.description=\"Original description\""
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 7,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 6,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 300
+      },
+      "maxHoldMs": 1800,
+      "id": "x10",
+      "label": "seed 6"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.description by PATCH /api/v2/tasks/:id#1",
+      "overwrote-newer visible.title by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Edited description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 9 days"
+      },
+      "server": {
+       "title": "Edited title",
+       "description": "<p>Original description</p>",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": [
+       "ui.title=\"Race hunt task\"",
+       "server.description=\"Original description\""
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 8,
+     "replay": true,
+     "schedule": {
+      "order": "seeded",
+      "seed": 1,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 300
+      },
+      "maxHoldMs": 1800,
+      "id": "f9",
+      "label": "replay of f9"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.description by PATCH /api/v2/tasks/:id#1",
+      "overwrote-newer visible.title by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Edited description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 9 days"
+      },
+      "server": {
+       "title": "Edited title",
+       "description": "<p>Original description</p>",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": [
+       "ui.title=\"Race hunt task\"",
+       "server.description=\"Original description\""
+      ]
+     },
+     "error": null
+    }
+   ]
+  },
+  {
+   "scenario": "title-description",
+   "slow_ms": 600,
+   "variant": "fixed",
+   "report": [
+    "RACE: 4 of 6 reordered run(s) ended in a different state than the baseline (responses in request order).",
+    "- run r23 (seed 3):",
+    "    page text only in the baseline: \"Created 25 minutes ago by hunt\"",
+    "    page text only in this run: \"Created 26 minutes ago by hunt\"",
+    "- run r24 (seed 4):",
+    "    page text only in the baseline: \"Created 25 minutes ago by hunt\"",
+    "    page text only in this run: \"Created 26 minutes ago by hunt\"",
+    "- run r25 (seed 5):",
+    "    page text only in the baseline: \"Created 25 minutes ago by hunt\"",
+    "    page text only in this run: \"Created 26 minutes ago by hunt\"",
+    "- run r26 (seed 6):",
+    "    page text only in the baseline: \"Created 25 minutes ago by hunt\"",
+    "    page text only in this run: \"Created 26 minutes ago by hunt\""
+   ],
+   "replay": "reproduced",
+   "loads": [
+    {
+     "i": 0,
+     "replay": false,
+     "schedule": {
+      "order": "fifo",
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x3",
+      "label": "baseline 1 (responses in request order)"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1",
+      "PATCH /api/v2/tasks/:id#2"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Edited title",
+       "description": "Edited description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 8 days"
+      },
+      "server": {
+       "title": "Edited title",
+       "description": "<p>Edited description</p>",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 1,
+     "replay": false,
+     "schedule": {
+      "order": "fifo",
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x3",
+      "label": "baseline 2 (responses in request order)"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1",
+      "PATCH /api/v2/tasks/:id#2"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Edited title",
+       "description": "Edited description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 8 days"
+      },
+      "server": {
+       "title": "Edited title",
+       "description": "<p>Edited description</p>",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 2,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 1,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x3",
+      "label": "seed 1"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Edited title",
+       "description": "Edited description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 8 days"
+      },
+      "server": {
+       "title": "Edited title",
+       "description": "<p>Edited description</p>",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 3,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 2,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x3",
+      "label": "seed 2"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1",
+      "PATCH /api/v2/tasks/:id#2"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Edited title",
+       "description": "Edited description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 8 days"
+      },
+      "server": {
+       "title": "Edited title",
+       "description": "<p>Edited description</p>",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 4,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 3,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x3",
+      "label": "seed 3"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Edited title",
+       "description": "Edited description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 8 days"
+      },
+      "server": {
+       "title": "Edited title",
+       "description": "<p>Edited description</p>",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 5,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 4,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x3",
+      "label": "seed 4"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1",
+      "PATCH /api/v2/tasks/:id#2"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Edited title",
+       "description": "Edited description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 8 days"
+      },
+      "server": {
+       "title": "Edited title",
+       "description": "<p>Edited description</p>",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 6,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 5,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x3",
+      "label": "seed 5"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Edited title",
+       "description": "Edited description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 8 days"
+      },
+      "server": {
+       "title": "Edited title",
+       "description": "<p>Edited description</p>",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 7,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 6,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x3",
+      "label": "seed 6"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Edited title",
+       "description": "Edited description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 8 days"
+      },
+      "server": {
+       "title": "Edited title",
+       "description": "<p>Edited description</p>",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 8,
+     "replay": true,
+     "schedule": {
+      "order": "seeded",
+      "seed": 3,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "f3",
+      "label": "replay of f3"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Edited title",
+       "description": "Edited description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 8 days"
+      },
+      "server": {
+       "title": "Edited title",
+       "description": "<p>Edited description</p>",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": []
+     },
+     "error": null
+    }
+   ]
+  },
+  {
+   "scenario": "title-description",
+   "slow_ms": 600,
+   "variant": "unfixed",
+   "report": [
+    "RACE: 5 of 6 reordered run(s) ended in a different state than the baseline (responses in request order).",
+    "- run r93 (seed 1):",
+    "    state \"visible.title\": baseline \"\\\"Edited title\\\"\", this run \"\\\"Race hunt task\\\"\"",
+    "    state \"visible.description\": baseline \"\\\"Original description\\\"\", this run \"\\\"Edited description\\\"\"",
+    "    page text only in the baseline: \"Edited title\", \"Original description\"",
+    "    page text only in this run: \"Race hunt task\", \"Edited description\"",
+    "    witness only here: overwrote-newer visible.description by PATCH /api/v2/tasks/:id",
+    "    witness only here: overwrote-newer visible.title by PATCH /api/v2/tasks/:id",
+    "- run r95 (seed 3):",
+    "    state \"visible.title\": baseline \"\\\"Edited title\\\"\", this run \"\\\"Race hunt task\\\"\"",
+    "    state \"visible.description\": baseline \"\\\"Original description\\\"\", this run \"\\\"Edited description\\\"\"",
+    "    page text only in the baseline: \"Edited title\", \"Original description\"",
+    "    page text only in this run: \"Race hunt task\", \"Edited description\"",
+    "    witness only here: overwrote-newer visible.description by PATCH /api/v2/tasks/:id",
+    "    witness only here: overwrote-newer visible.title by PATCH /api/v2/tasks/:id",
+    "- run r96 (seed 4):",
+    "    state \"visible.description\": baseline \"\\\"Original description\\\"\", this run \"\\\"Edited description\\\"\"",
+    "    page text only in the baseline: \"Original description\"",
+    "    page text only in this run: \"Edited description\"",
+    "- run r97 (seed 5):",
+    "    state \"visible.title\": baseline \"\\\"Edited title\\\"\", this run \"\\\"Race hunt task\\\"\"",
+    "    state \"visible.description\": baseline \"\\\"Original description\\\"\", this run \"\\\"Edited description\\\"\"",
+    "    page text only in the baseline: \"Edited title\", \"Original description\"",
+    "    page text only in this run: \"Race hunt task\", \"Edited description\"",
+    "    witness only here: overwrote-newer visible.description by PATCH /api/v2/tasks/:id",
+    "    witness only here: overwrote-newer visible.title by PATCH /api/v2/tasks/:id",
+    "- run r98 (seed 6):",
+    "    state \"visible.title\": baseline \"\\\"Edited title\\\"\", this run \"\\\"Race hunt task\\\"\"",
+    "    state \"visible.description\": baseline \"\\\"Original description\\\"\", this run \"\\\"Edited description\\\"\"",
+    "    page text only in the baseline: \"Edited title\", \"Original description\"",
+    "    page text only in this run: \"Race hunt task\", \"Edited description\"",
+    "    witness only here: overwrote-newer visible.description by PATCH /api/v2/tasks/:id",
+    "    witness only here: overwrote-newer visible.title by PATCH /api/v2/tasks/:id"
+   ],
+   "replay": "reproduced",
+   "loads": [
+    {
+     "i": 0,
+     "replay": false,
+     "schedule": {
+      "order": "fifo",
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x11",
+      "label": "baseline 1 (responses in request order)"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1",
+      "PATCH /api/v2/tasks/:id#2"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Edited title",
+       "description": "Original description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 9 days"
+      },
+      "server": {
+       "title": "Edited title",
+       "description": "<p>Original description</p>",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": [
+       "server.description=\"Original description\"",
+       "ui.description=\"Original description\""
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 1,
+     "replay": false,
+     "schedule": {
+      "order": "fifo",
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x11",
+      "label": "baseline 2 (responses in request order)"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1",
+      "PATCH /api/v2/tasks/:id#2"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Edited title",
+       "description": "Original description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 9 days"
+      },
+      "server": {
+       "title": "Edited title",
+       "description": "<p>Original description</p>",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": [
+       "server.description=\"Original description\"",
+       "ui.description=\"Original description\""
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 2,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 1,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x11",
+      "label": "seed 1"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.description by PATCH /api/v2/tasks/:id#1",
+      "overwrote-newer visible.title by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Edited description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 9 days"
+      },
+      "server": {
+       "title": "Edited title",
+       "description": "<p>Original description</p>",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": [
+       "ui.title=\"Race hunt task\"",
+       "server.description=\"Original description\""
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 3,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 2,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x11",
+      "label": "seed 2"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1",
+      "PATCH /api/v2/tasks/:id#2"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Edited title",
+       "description": "Original description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 9 days"
+      },
+      "server": {
+       "title": "Edited title",
+       "description": "<p>Original description</p>",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": [
+       "server.description=\"Original description\"",
+       "ui.description=\"Original description\""
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 4,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 3,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x11",
+      "label": "seed 3"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.description by PATCH /api/v2/tasks/:id#1",
+      "overwrote-newer visible.title by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Edited description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 9 days"
+      },
+      "server": {
+       "title": "Edited title",
+       "description": "<p>Original description</p>",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": [
+       "ui.title=\"Race hunt task\"",
+       "server.description=\"Original description\""
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 5,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 4,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x11",
+      "label": "seed 4"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1",
+      "PATCH /api/v2/tasks/:id#2"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Edited title",
+       "description": "Edited description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 9 days"
+      },
+      "server": {
+       "title": "Edited title",
+       "description": "<p>Edited description</p>",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 6,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 5,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x11",
+      "label": "seed 5"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.description by PATCH /api/v2/tasks/:id#1",
+      "overwrote-newer visible.title by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Edited description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 9 days"
+      },
+      "server": {
+       "title": "Edited title",
+       "description": "<p>Original description</p>",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": [
+       "ui.title=\"Race hunt task\"",
+       "server.description=\"Original description\""
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 7,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 6,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x11",
+      "label": "seed 6"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.description by PATCH /api/v2/tasks/:id#1",
+      "overwrote-newer visible.title by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Edited description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 9 days"
+      },
+      "server": {
+       "title": "Edited title",
+       "description": "<p>Original description</p>",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": [
+       "ui.title=\"Race hunt task\"",
+       "server.description=\"Original description\""
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 8,
+     "replay": true,
+     "schedule": {
+      "order": "seeded",
+      "seed": 1,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "f10",
+      "label": "replay of f10"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.description by PATCH /api/v2/tasks/:id#1",
+      "overwrote-newer visible.title by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Edited description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 9 days"
+      },
+      "server": {
+       "title": "Edited title",
+       "description": "<p>Original description</p>",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": [
+       "ui.title=\"Race hunt task\"",
+       "server.description=\"Original description\""
+      ]
+     },
+     "error": null
+    }
+   ]
+  },
+  {
+   "scenario": "title-description",
+   "slow_ms": 900,
+   "variant": "unfixed",
+   "report": [
+    "RACE: 4 of 6 reordered run(s) ended in a different state than the baseline (responses in request order).",
+    "- run r102 (seed 1):",
+    "    state \"visible.title\": baseline \"\\\"Edited title\\\"\", this run \"\\\"Race hunt task\\\"\"",
+    "    state \"visible.description\": baseline \"\\\"Original description\\\"\", this run \"\\\"Edited description\\\"\"",
+    "    page text only in the baseline: \"Edited title\", \"Original description\"",
+    "    page text only in this run: \"Race hunt task\", \"Edited description\"",
+    "    witness only here: overwrote-newer visible.description by PATCH /api/v2/tasks/:id",
+    "    witness only here: overwrote-newer visible.title by PATCH /api/v2/tasks/:id",
+    "- run r104 (seed 3):",
+    "    state \"visible.title\": baseline \"\\\"Edited title\\\"\", this run \"\\\"Race hunt task\\\"\"",
+    "    state \"visible.description\": baseline \"\\\"Original description\\\"\", this run \"\\\"Edited description\\\"\"",
+    "    page text only in the baseline: \"Edited title\", \"Original description\"",
+    "    page text only in this run: \"Race hunt task\", \"Edited description\"",
+    "    witness only here: overwrote-newer visible.description by PATCH /api/v2/tasks/:id",
+    "    witness only here: overwrote-newer visible.title by PATCH /api/v2/tasks/:id",
+    "- run r106 (seed 5):",
+    "    state \"visible.title\": baseline \"\\\"Edited title\\\"\", this run \"\\\"Race hunt task\\\"\"",
+    "    state \"visible.description\": baseline \"\\\"Original description\\\"\", this run \"\\\"Edited description\\\"\"",
+    "    page text only in the baseline: \"Edited title\", \"Original description\"",
+    "    page text only in this run: \"Race hunt task\", \"Edited description\"",
+    "    witness only here: overwrote-newer visible.description by PATCH /api/v2/tasks/:id",
+    "    witness only here: overwrote-newer visible.title by PATCH /api/v2/tasks/:id",
+    "- run r107 (seed 6):",
+    "    state \"visible.title\": baseline \"\\\"Edited title\\\"\", this run \"\\\"Race hunt task\\\"\"",
+    "    state \"visible.description\": baseline \"\\\"Original description\\\"\", this run \"\\\"Edited description\\\"\"",
+    "    page text only in the baseline: \"Edited title\", \"Original description\"",
+    "    page text only in this run: \"Race hunt task\", \"Edited description\"",
+    "    witness only here: overwrote-newer visible.description by PATCH /api/v2/tasks/:id",
+    "    witness only here: overwrote-newer visible.title by PATCH /api/v2/tasks/:id"
+   ],
+   "replay": "reproduced",
+   "loads": [
+    {
+     "i": 0,
+     "replay": false,
+     "schedule": {
+      "order": "fifo",
+      "delay": {
+       "minMs": 0,
+       "maxMs": 900
+      },
+      "maxHoldMs": 2400,
+      "id": "x12",
+      "label": "baseline 1 (responses in request order)"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1",
+      "PATCH /api/v2/tasks/:id#2"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Edited title",
+       "description": "Original description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 9 days"
+      },
+      "server": {
+       "title": "Edited title",
+       "description": "<p>Original description</p>",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": [
+       "server.description=\"Original description\"",
+       "ui.description=\"Original description\""
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 1,
+     "replay": false,
+     "schedule": {
+      "order": "fifo",
+      "delay": {
+       "minMs": 0,
+       "maxMs": 900
+      },
+      "maxHoldMs": 2400,
+      "id": "x12",
+      "label": "baseline 2 (responses in request order)"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1",
+      "PATCH /api/v2/tasks/:id#2"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Edited title",
+       "description": "Original description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 9 days"
+      },
+      "server": {
+       "title": "Edited title",
+       "description": "<p>Original description</p>",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": [
+       "server.description=\"Original description\"",
+       "ui.description=\"Original description\""
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 2,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 1,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 900
+      },
+      "maxHoldMs": 2400,
+      "id": "x12",
+      "label": "seed 1"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.description by PATCH /api/v2/tasks/:id#1",
+      "overwrote-newer visible.title by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Edited description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 9 days"
+      },
+      "server": {
+       "title": "Edited title",
+       "description": "<p>Original description</p>",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": [
+       "ui.title=\"Race hunt task\"",
+       "server.description=\"Original description\""
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 3,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 2,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 900
+      },
+      "maxHoldMs": 2400,
+      "id": "x12",
+      "label": "seed 2"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1",
+      "PATCH /api/v2/tasks/:id#2"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Edited title",
+       "description": "Original description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 9 days"
+      },
+      "server": {
+       "title": "Edited title",
+       "description": "<p>Original description</p>",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": [
+       "server.description=\"Original description\"",
+       "ui.description=\"Original description\""
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 4,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 3,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 900
+      },
+      "maxHoldMs": 2400,
+      "id": "x12",
+      "label": "seed 3"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.description by PATCH /api/v2/tasks/:id#1",
+      "overwrote-newer visible.title by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Edited description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 9 days"
+      },
+      "server": {
+       "title": "Edited title",
+       "description": "<p>Original description</p>",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": [
+       "ui.title=\"Race hunt task\"",
+       "server.description=\"Original description\""
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 5,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 4,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 900
+      },
+      "maxHoldMs": 2400,
+      "id": "x12",
+      "label": "seed 4"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1",
+      "PATCH /api/v2/tasks/:id#2"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Edited title",
+       "description": "Original description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 9 days"
+      },
+      "server": {
+       "title": "Edited title",
+       "description": "<p>Original description</p>",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": [
+       "server.description=\"Original description\"",
+       "ui.description=\"Original description\""
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 6,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 5,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 900
+      },
+      "maxHoldMs": 2400,
+      "id": "x12",
+      "label": "seed 5"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.description by PATCH /api/v2/tasks/:id#1",
+      "overwrote-newer visible.title by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Edited description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 9 days"
+      },
+      "server": {
+       "title": "Edited title",
+       "description": "<p>Original description</p>",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": [
+       "ui.title=\"Race hunt task\"",
+       "server.description=\"Original description\""
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 7,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 6,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 900
+      },
+      "maxHoldMs": 2400,
+      "id": "x12",
+      "label": "seed 6"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.description by PATCH /api/v2/tasks/:id#1",
+      "overwrote-newer visible.title by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Edited description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 9 days"
+      },
+      "server": {
+       "title": "Edited title",
+       "description": "<p>Original description</p>",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": [
+       "ui.title=\"Race hunt task\"",
+       "server.description=\"Original description\""
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 8,
+     "replay": true,
+     "schedule": {
+      "order": "seeded",
+      "seed": 1,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 900
+      },
+      "maxHoldMs": 2400,
+      "id": "f10",
+      "label": "replay of f10"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.description by PATCH /api/v2/tasks/:id#1",
+      "overwrote-newer visible.title by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Edited description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 9 days"
+      },
+      "server": {
+       "title": "Edited title",
+       "description": "<p>Original description</p>",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due_date": "2026-11-02T12:00:00Z"
+      },
+      "wrong": [
+       "ui.title=\"Race hunt task\"",
+       "server.description=\"Original description\""
+      ]
+     },
+     "error": null
+    }
+   ]
+  },
+  {
+   "scenario": "two-edits",
+   "slow_ms": 300,
+   "variant": "unfixed",
+   "report": [
+    "RACE: 4 of 6 reordered run(s) ended in a different state than the baseline (responses in request order).",
+    "- run r3 (seed 1):",
+    "    state \"visible.priority\": baseline \"\\\"3\\\"\", this run \"\\\"1\\\"\"",
+    "    field \"Priority\": baseline \"3\", this run \"1\"",
+    "- run r5 (seed 3):",
+    "    state \"visible.priority\": baseline \"\\\"3\\\"\", this run \"\\\"1\\\"\"",
+    "    field \"Priority\": baseline \"3\", this run \"1\"",
+    "- run r7 (seed 5):",
+    "    state \"visible.priority\": baseline \"\\\"3\\\"\", this run \"\\\"1\\\"\"",
+    "    field \"Priority\": baseline \"3\", this run \"1\"",
+    "- run r8 (seed 6):",
+    "    state \"visible.priority\": baseline \"\\\"3\\\"\", this run \"\\\"1\\\"\"",
+    "    field \"Priority\": baseline \"3\", this run \"1\""
+   ],
+   "replay": "reproduced",
+   "loads": [
+    {
+     "i": 0,
+     "replay": false,
+     "schedule": {
+      "order": "fifo",
+      "delay": {
+       "minMs": 0,
+       "maxMs": 300
+      },
+      "maxHoldMs": 1800,
+      "id": "x1",
+      "label": "baseline 1 (responses in request order)"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1",
+      "PATCH /api/v2/tasks/:id#2"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.priority by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 1,
+     "replay": false,
+     "schedule": {
+      "order": "fifo",
+      "delay": {
+       "minMs": 0,
+       "maxMs": 300
+      },
+      "maxHoldMs": 1800,
+      "id": "x1",
+      "label": "baseline 2 (responses in request order)"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1",
+      "PATCH /api/v2/tasks/:id#2"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.priority by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 2,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 1,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 300
+      },
+      "maxHoldMs": 1800,
+      "id": "x1",
+      "label": "seed 1"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.priority by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": [
+       "ui.priority=1"
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 3,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 2,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 300
+      },
+      "maxHoldMs": 1800,
+      "id": "x1",
+      "label": "seed 2"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1",
+      "PATCH /api/v2/tasks/:id#2"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.priority by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 4,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 3,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 300
+      },
+      "maxHoldMs": 1800,
+      "id": "x1",
+      "label": "seed 3"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.priority by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": [
+       "ui.priority=1"
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 5,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 4,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 300
+      },
+      "maxHoldMs": 1800,
+      "id": "x1",
+      "label": "seed 4"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1",
+      "PATCH /api/v2/tasks/:id#2"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.priority by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 6,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 5,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 300
+      },
+      "maxHoldMs": 1800,
+      "id": "x1",
+      "label": "seed 5"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.priority by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": [
+       "ui.priority=1"
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 7,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 6,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 300
+      },
+      "maxHoldMs": 1800,
+      "id": "x1",
+      "label": "seed 6"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.priority by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": [
+       "ui.priority=1"
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 8,
+     "replay": true,
+     "schedule": {
+      "order": "seeded",
+      "seed": 1,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 300
+      },
+      "maxHoldMs": 1800,
+      "id": "f2",
+      "label": "replay of f2"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.priority by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": [
+       "ui.priority=1"
+      ]
+     },
+     "error": null
+    }
+   ]
+  },
+  {
+   "scenario": "two-edits",
+   "slow_ms": 600,
+   "variant": "fixed",
+   "report": [
+    "RACE: 5 of 6 reordered run(s) ended in a different state than the baseline (responses in request order).",
+    "- run r4 (seed 2):",
+    "    page text only in the baseline: \"Created 23 minutes ago by hunt\"",
+    "    page text only in this run: \"Created 24 minutes ago by hunt\"",
+    "- run r5 (seed 3):",
+    "    page text only in the baseline: \"Created 23 minutes ago by hunt\"",
+    "    page text only in this run: \"Created 24 minutes ago by hunt\"",
+    "- run r6 (seed 4):",
+    "    page text only in the baseline: \"Created 23 minutes ago by hunt\"",
+    "    page text only in this run: \"Created 24 minutes ago by hunt\"",
+    "- run r7 (seed 5):",
+    "    page text only in the baseline: \"Created 23 minutes ago by hunt\"",
+    "    page text only in this run: \"Created 24 minutes ago by hunt\"",
+    "- run r8 (seed 6):",
+    "    page text only in the baseline: \"Created 23 minutes ago by hunt\"",
+    "    page text only in this run: \"Created 24 minutes ago by hunt\""
+   ],
+   "replay": "reproduced",
+   "loads": [
+    {
+     "i": 0,
+     "replay": false,
+     "schedule": {
+      "order": "fifo",
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x1",
+      "label": "baseline 1 (responses in request order)"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1",
+      "PATCH /api/v2/tasks/:id#2"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 1,
+     "replay": false,
+     "schedule": {
+      "order": "fifo",
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x1",
+      "label": "baseline 2 (responses in request order)"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1",
+      "PATCH /api/v2/tasks/:id#2"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 2,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 1,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x1",
+      "label": "seed 1"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 3,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 2,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x1",
+      "label": "seed 2"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1",
+      "PATCH /api/v2/tasks/:id#2"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 4,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 3,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x1",
+      "label": "seed 3"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 5,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 4,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x1",
+      "label": "seed 4"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1",
+      "PATCH /api/v2/tasks/:id#2"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 6,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 5,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x1",
+      "label": "seed 5"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 7,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 6,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x1",
+      "label": "seed 6"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 8,
+     "replay": true,
+     "schedule": {
+      "order": "seeded",
+      "seed": 2,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "f1",
+      "label": "replay of f1"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1",
+      "PATCH /api/v2/tasks/:id#2"
+     ],
+     "witnesses": [],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": []
+     },
+     "error": null
+    }
+   ]
+  },
+  {
+   "scenario": "two-edits",
+   "slow_ms": 600,
+   "variant": "unfixed",
+   "report": [
+    "RACE: 6 of 6 reordered run(s) ended in a different state than the baseline (responses in request order).",
+    "- run r12 (seed 1):",
+    "    state \"visible.priority\": baseline \"\\\"3\\\"\", this run \"\\\"1\\\"\"",
+    "    field \"Priority\": baseline \"3\", this run \"1\"",
+    "    page text only in the baseline: \"Created 9 minutes ago by hunt\"",
+    "    page text only in this run: \"Created 10 minutes ago by hunt\"",
+    "- run r13 (seed 2):",
+    "    page text only in the baseline: \"Created 9 minutes ago by hunt\"",
+    "    page text only in this run: \"Created 10 minutes ago by hunt\"",
+    "- run r14 (seed 3):",
+    "    state \"visible.priority\": baseline \"\\\"3\\\"\", this run \"\\\"1\\\"\"",
+    "    field \"Priority\": baseline \"3\", this run \"1\"",
+    "    page text only in the baseline: \"Created 9 minutes ago by hunt\"",
+    "    page text only in this run: \"Created 10 minutes ago by hunt\"",
+    "- run r15 (seed 4):",
+    "    page text only in the baseline: \"Created 9 minutes ago by hunt\"",
+    "    page text only in this run: \"Created 10 minutes ago by hunt\"",
+    "- run r16 (seed 5):",
+    "    state \"visible.priority\": baseline \"\\\"3\\\"\", this run \"\\\"1\\\"\"",
+    "    field \"Priority\": baseline \"3\", this run \"1\"",
+    "    page text only in the baseline: \"Created 9 minutes ago by hunt\"",
+    "    page text only in this run: \"Created 10 minutes ago by hunt\"",
+    "- run r17 (seed 6):",
+    "    state \"visible.priority\": baseline \"\\\"3\\\"\", this run \"\\\"1\\\"\"",
+    "    field \"Priority\": baseline \"3\", this run \"1\"",
+    "    page text only in the baseline: \"Created 9 minutes ago by hunt\"",
+    "    page text only in this run: \"Created 10 minutes ago by hunt\""
+   ],
+   "replay": "reproduced",
+   "loads": [
+    {
+     "i": 0,
+     "replay": false,
+     "schedule": {
+      "order": "fifo",
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x2",
+      "label": "baseline 1 (responses in request order)"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1",
+      "PATCH /api/v2/tasks/:id#2"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.priority by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 1,
+     "replay": false,
+     "schedule": {
+      "order": "fifo",
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x2",
+      "label": "baseline 2 (responses in request order)"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1",
+      "PATCH /api/v2/tasks/:id#2"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.priority by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 2,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 1,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x2",
+      "label": "seed 1"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.priority by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": [
+       "ui.priority=1"
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 3,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 2,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x2",
+      "label": "seed 2"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1",
+      "PATCH /api/v2/tasks/:id#2"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.priority by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 4,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 3,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x2",
+      "label": "seed 3"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.priority by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": [
+       "ui.priority=1"
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 5,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 4,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x2",
+      "label": "seed 4"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1",
+      "PATCH /api/v2/tasks/:id#2"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.priority by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 6,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 5,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x2",
+      "label": "seed 5"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.priority by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": [
+       "ui.priority=1"
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 7,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 6,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "x2",
+      "label": "seed 6"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.priority by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": [
+       "ui.priority=1"
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 8,
+     "replay": true,
+     "schedule": {
+      "order": "seeded",
+      "seed": 1,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 600
+      },
+      "maxHoldMs": 2100,
+      "id": "f2",
+      "label": "replay of f2"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.priority by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": [
+       "ui.priority=1"
+      ]
+     },
+     "error": null
+    }
+   ]
+  },
+  {
+   "scenario": "two-edits",
+   "slow_ms": 900,
+   "variant": "unfixed",
+   "report": [
+    "RACE: 6 of 6 reordered run(s) ended in a different state than the baseline (responses in request order).",
+    "- run r21 (seed 1):",
+    "    state \"visible.priority\": baseline \"\\\"3\\\"\", this run \"\\\"1\\\"\"",
+    "    field \"Priority\": baseline \"3\", this run \"1\"",
+    "    page text only in the baseline: \"Created 10 minutes ago by hunt\", \"Error\", \"onActivated is called when there is no active component instance to be associat…\"",
+    "    page text only in this run: \"Created 11 minutes ago by hunt\"",
+    "- run r22 (seed 2):",
+    "    page text only in the baseline: \"Created 10 minutes ago by hunt\"",
+    "    page text only in this run: \"Created 11 minutes ago by hunt\"",
+    "- run r23 (seed 3):",
+    "    state \"visible.priority\": baseline \"\\\"3\\\"\", this run \"\\\"1\\\"\"",
+    "    field \"Priority\": baseline \"3\", this run \"1\"",
+    "    page text only in the baseline: \"Created 10 minutes ago by hunt\"",
+    "    page text only in this run: \"Created 11 minutes ago by hunt\"",
+    "- run r24 (seed 4):",
+    "    page text only in the baseline: \"Created 10 minutes ago by hunt\"",
+    "    page text only in this run: \"Created 11 minutes ago by hunt\"",
+    "- run r25 (seed 5):",
+    "    state \"visible.priority\": baseline \"\\\"3\\\"\", this run \"\\\"1\\\"\"",
+    "    field \"Priority\": baseline \"3\", this run \"1\"",
+    "    page text only in the baseline: \"Created 10 minutes ago by hunt\"",
+    "    page text only in this run: \"Created 11 minutes ago by hunt\"",
+    "- run r26 (seed 6):",
+    "    state \"visible.priority\": baseline \"\\\"3\\\"\", this run \"\\\"1\\\"\"",
+    "    field \"Priority\": baseline \"3\", this run \"1\"",
+    "    page text only in the baseline: \"Created 10 minutes ago by hunt\"",
+    "    page text only in this run: \"Created 11 minutes ago by hunt\""
+   ],
+   "replay": "reproduced",
+   "loads": [
+    {
+     "i": 0,
+     "replay": false,
+     "schedule": {
+      "order": "fifo",
+      "delay": {
+       "minMs": 0,
+       "maxMs": 900
+      },
+      "maxHoldMs": 2400,
+      "id": "x3",
+      "label": "baseline 1 (responses in request order)"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1",
+      "PATCH /api/v2/tasks/:id#2"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.priority by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 1,
+     "replay": false,
+     "schedule": {
+      "order": "fifo",
+      "delay": {
+       "minMs": 0,
+       "maxMs": 900
+      },
+      "maxHoldMs": 2400,
+      "id": "x3",
+      "label": "baseline 2 (responses in request order)"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1",
+      "PATCH /api/v2/tasks/:id#2"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.priority by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 2,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 1,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 900
+      },
+      "maxHoldMs": 2400,
+      "id": "x3",
+      "label": "seed 1"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.priority by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": [
+       "ui.priority=1"
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 3,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 2,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 900
+      },
+      "maxHoldMs": 2400,
+      "id": "x3",
+      "label": "seed 2"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1",
+      "PATCH /api/v2/tasks/:id#2"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.priority by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 4,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 3,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 900
+      },
+      "maxHoldMs": 2400,
+      "id": "x3",
+      "label": "seed 3"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.priority by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": [
+       "ui.priority=1"
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 5,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 4,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 900
+      },
+      "maxHoldMs": 2400,
+      "id": "x3",
+      "label": "seed 4"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#1",
+      "PATCH /api/v2/tasks/:id#2"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.priority by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": []
+     },
+     "error": null
+    },
+    {
+     "i": 6,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 5,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 900
+      },
+      "maxHoldMs": 2400,
+      "id": "x3",
+      "label": "seed 5"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.priority by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": [
+       "ui.priority=1"
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 7,
+     "replay": false,
+     "schedule": {
+      "order": "seeded",
+      "seed": 6,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 900
+      },
+      "maxHoldMs": 2400,
+      "id": "x3",
+      "label": "seed 6"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.priority by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": [
+       "ui.priority=1"
+      ]
+     },
+     "error": null
+    },
+    {
+     "i": 8,
+     "replay": true,
+     "schedule": {
+      "order": "seeded",
+      "seed": 1,
+      "delay": {
+       "minMs": 0,
+       "maxMs": 900
+      },
+      "maxHoldMs": 2400,
+      "id": "f2",
+      "label": "replay of f2"
+     },
+     "order": [
+      "PATCH /api/v2/tasks/:id#2",
+      "PATCH /api/v2/tasks/:id#1"
+     ],
+     "witnesses": [
+      "overwrote-newer visible.priority by PATCH /api/v2/tasks/:id#1"
+     ],
+     "forced": 0,
+     "oracle": {
+      "ui": {
+       "title": "Race hunt task",
+       "description": "Original description",
+       "priority": 1,
+       "percent_done": 0.1,
+       "due": "in 12 hours"
+      },
+      "server": {
+       "title": "Race hunt task",
+       "description": "<p>Original description</p>",
+       "priority": 3,
+       "percent_done": 0.1,
+       "due_date": "2026-10-25T12:00:00Z"
+      },
+      "wrong": [
+       "ui.priority=1"
+      ]
+     },
+     "error": null
+    }
+   ]
+  }
+ ],
+ "repro": {
+  "unfixed": {
+   "delayMs": 800,
+   "runs": 3,
+   "twoEdits": {
+    "delayed": [
+     {
+      "delay": 800,
+      "deliveryOrder": [
+       "PATCH #2",
+       "PATCH #1"
+      ],
+      "serverOrder": [
+       "PATCH #1",
+       "PATCH #2"
+      ],
+      "afterTwoEdits": {
+       "pagePriority": 1,
+       "serverPriority": 3,
+       "serverDue": "2026-10-25T12:00:00Z"
+      },
+      "afterThirdEdit": {
+       "serverPriority": 1,
+       "serverProgress": 0.5
+      }
+     },
+     {
+      "delay": 800,
+      "deliveryOrder": [
+       "PATCH #2",
+       "PATCH #1"
+      ],
+      "serverOrder": [
+       "PATCH #1",
+       "PATCH #2"
+      ],
+      "afterTwoEdits": {
+       "pagePriority": 1,
+       "serverPriority": 3,
+       "serverDue": "2026-10-25T12:00:00Z"
+      },
+      "afterThirdEdit": {
+       "serverPriority": 1,
+       "serverProgress": 0.5
+      }
+     },
+     {
+      "delay": 800,
+      "deliveryOrder": [
+       "PATCH #2",
+       "PATCH #1"
+      ],
+      "serverOrder": [
+       "PATCH #1",
+       "PATCH #2"
+      ],
+      "afterTwoEdits": {
+       "pagePriority": 1,
+       "serverPriority": 3,
+       "serverDue": "2026-10-25T12:00:00Z"
+      },
+      "afterThirdEdit": {
+       "serverPriority": 1,
+       "serverProgress": 0.5
+      }
+     }
+    ],
+    "control": [
+     {
+      "delay": 0,
+      "deliveryOrder": [
+       "PATCH #1",
+       "PATCH #2"
+      ],
+      "serverOrder": [
+       "PATCH #1",
+       "PATCH #2"
+      ],
+      "afterTwoEdits": {
+       "pagePriority": 3,
+       "serverPriority": 3,
+       "serverDue": "2026-10-25T12:00:00Z"
+      },
+      "afterThirdEdit": {
+       "serverPriority": 3,
+       "serverProgress": 0.5
+      }
+     },
+     {
+      "delay": 0,
+      "deliveryOrder": [
+       "PATCH #1",
+       "PATCH #2"
+      ],
+      "serverOrder": [
+       "PATCH #1",
+       "PATCH #2"
+      ],
+      "afterTwoEdits": {
+       "pagePriority": 3,
+       "serverPriority": 3,
+       "serverDue": "2026-10-25T12:00:00Z"
+      },
+      "afterThirdEdit": {
+       "serverPriority": 3,
+       "serverProgress": 0.5
+      }
+     },
+     {
+      "delay": 0,
+      "deliveryOrder": [
+       "PATCH #1",
+       "PATCH #2"
+      ],
+      "serverOrder": [
+       "PATCH #1",
+       "PATCH #2"
+      ],
+      "afterTwoEdits": {
+       "pagePriority": 3,
+       "serverPriority": 3,
+       "serverDue": "2026-10-25T12:00:00Z"
+      },
+      "afterThirdEdit": {
+       "serverPriority": 3,
+       "serverProgress": 0.5
+      }
+     }
+    ]
+   },
+   "titleDescription": {
+    "delayed": [
+     {
+      "delay": 800,
+      "patches": 2,
+      "pageDescription": "Edited description",
+      "serverTitle": "Edited title",
+      "serverDescription": "<p>Original description</p>"
+     },
+     {
+      "delay": 800,
+      "patches": 2,
+      "pageDescription": "Edited description",
+      "serverTitle": "Edited title",
+      "serverDescription": "<p>Original description</p>"
+     },
+     {
+      "delay": 800,
+      "patches": 2,
+      "pageDescription": "Edited description",
+      "serverTitle": "Edited title",
+      "serverDescription": "<p>Original description</p>"
+     }
+    ],
+    "control": [
+     {
+      "delay": 0,
+      "patches": 2,
+      "pageDescription": "Edited description",
+      "serverTitle": "Edited title",
+      "serverDescription": "<p>Edited description</p>"
+     },
+     {
+      "delay": 0,
+      "patches": 2,
+      "pageDescription": "Edited description",
+      "serverTitle": "Edited title",
+      "serverDescription": "<p>Edited description</p>"
+     },
+     {
+      "delay": 0,
+      "patches": 2,
+      "pageDescription": "Edited description",
+      "serverTitle": "Edited title",
+      "serverDescription": "<p>Edited description</p>"
+     }
+    ]
+   }
+  },
+  "fixed": {
+   "delayMs": 800,
+   "runs": 3,
+   "twoEdits": {
+    "delayed": [
+     {
+      "delay": 800,
+      "deliveryOrder": [
+       "PATCH #2",
+       "PATCH #1"
+      ],
+      "serverOrder": [
+       "PATCH #1",
+       "PATCH #2"
+      ],
+      "afterTwoEdits": {
+       "pagePriority": 3,
+       "serverPriority": 3,
+       "serverDue": "2026-10-26T12:00:00Z"
+      },
+      "afterThirdEdit": {
+       "serverPriority": 3,
+       "serverProgress": 0.5
+      }
+     },
+     {
+      "delay": 800,
+      "deliveryOrder": [
+       "PATCH #2",
+       "PATCH #1"
+      ],
+      "serverOrder": [
+       "PATCH #1",
+       "PATCH #2"
+      ],
+      "afterTwoEdits": {
+       "pagePriority": 3,
+       "serverPriority": 3,
+       "serverDue": "2026-10-26T12:00:00Z"
+      },
+      "afterThirdEdit": {
+       "serverPriority": 3,
+       "serverProgress": 0.5
+      }
+     },
+     {
+      "delay": 800,
+      "deliveryOrder": [
+       "PATCH #2",
+       "PATCH #1"
+      ],
+      "serverOrder": [
+       "PATCH #1",
+       "PATCH #2"
+      ],
+      "afterTwoEdits": {
+       "pagePriority": 3,
+       "serverPriority": 3,
+       "serverDue": "2026-10-26T12:00:00Z"
+      },
+      "afterThirdEdit": {
+       "serverPriority": 3,
+       "serverProgress": 0.5
+      }
+     }
+    ],
+    "control": [
+     {
+      "delay": 0,
+      "deliveryOrder": [
+       "PATCH #1",
+       "PATCH #2"
+      ],
+      "serverOrder": [
+       "PATCH #1",
+       "PATCH #2"
+      ],
+      "afterTwoEdits": {
+       "pagePriority": 3,
+       "serverPriority": 3,
+       "serverDue": "2026-10-26T12:00:00Z"
+      },
+      "afterThirdEdit": {
+       "serverPriority": 3,
+       "serverProgress": 0.5
+      }
+     },
+     {
+      "delay": 0,
+      "deliveryOrder": [
+       "PATCH #1",
+       "PATCH #2"
+      ],
+      "serverOrder": [
+       "PATCH #1",
+       "PATCH #2"
+      ],
+      "afterTwoEdits": {
+       "pagePriority": 3,
+       "serverPriority": 3,
+       "serverDue": "2026-10-26T12:00:00Z"
+      },
+      "afterThirdEdit": {
+       "serverPriority": 3,
+       "serverProgress": 0.5
+      }
+     },
+     {
+      "delay": 0,
+      "deliveryOrder": [
+       "PATCH #1",
+       "PATCH #2"
+      ],
+      "serverOrder": [
+       "PATCH #1",
+       "PATCH #2"
+      ],
+      "afterTwoEdits": {
+       "pagePriority": 3,
+       "serverPriority": 3,
+       "serverDue": "2026-10-26T12:00:00Z"
+      },
+      "afterThirdEdit": {
+       "serverPriority": 3,
+       "serverProgress": 0.5
+      }
+     }
+    ]
+   },
+   "titleDescription": {
+    "delayed": [
+     {
+      "delay": 800,
+      "patches": 2,
+      "pageDescription": "Edited description",
+      "serverTitle": "Edited title",
+      "serverDescription": "<p>Edited description</p>"
+     },
+     {
+      "delay": 800,
+      "patches": 2,
+      "pageDescription": "Edited description",
+      "serverTitle": "Edited title",
+      "serverDescription": "<p>Edited description</p>"
+     },
+     {
+      "delay": 800,
+      "patches": 2,
+      "pageDescription": "Edited description",
+      "serverTitle": "Edited title",
+      "serverDescription": "<p>Edited description</p>"
+     }
+    ],
+    "control": [
+     {
+      "delay": 0,
+      "patches": 2,
+      "pageDescription": "Edited description",
+      "serverTitle": "Edited title",
+      "serverDescription": "<p>Edited description</p>"
+     },
+     {
+      "delay": 0,
+      "patches": 2,
+      "pageDescription": "Edited description",
+      "serverTitle": "Edited title",
+      "serverDescription": "<p>Edited description</p>"
+     },
+     {
+      "delay": 0,
+      "patches": 2,
+      "pageDescription": "Edited description",
+      "serverTitle": "Edited title",
+      "serverDescription": "<p>Edited description</p>"
+     }
+    ]
+   }
+  }
+ }
+}
