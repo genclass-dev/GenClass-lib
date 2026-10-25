@@ -9,13 +9,14 @@
 //
 // For each test it puts @genclass/runtime on the page before the app's first script (observe mode, telemetry off,
 // the model skipped unless asked), applies the seeded chaos when one is given, and at the end writes one
-// "genclass-races/1" file to `outDir` (default test-results/genclass next to the config) with what the runtime saw
-// and the seed and chaos that produced it, which the reporter turns into the pull-request comment. Observe only: the
-// fixture never holds, delays or changes anything the app does; chaos changes when a response arrives, never what
-// it says. A test's outcome is never changed by a finding. `enabled: false` makes the fixture inert: the page is
-// Playwright's own and nothing is written.
+// "genclass-races/1" file to `outDir` (default `genclass` in the project's outputDir, test-results/genclass) with what
+// the runtime saw, the seed and chaos that produced it and what the fixture could not do, which the reporter turns
+// into the pull-request comment. The runtime only observes: it never holds, delays or changes anything the app does.
+// Chaos, when given, holds matched requests before they leave (that is its job), never changes what they say. A
+// finding never changes a test's outcome. `enabled: false` makes the fixture inert: the page is Playwright's own and
+// nothing is written.
 
-import { test as base, expect } from "@playwright/test";
+import { test as base, expect, type Page, type PlaywrightTestArgs, type PlaywrightTestOptions, type PlaywrightWorkerArgs, type PlaywrightWorkerOptions, type TestType } from "@playwright/test";
 import { dirname, isAbsolute, join, relative, sep } from "node:path";
 import { DEFAULT_SEED, describeMatch, resolveChaos, type ChaosMatch, type ChaosMatchFn, type ChaosOptions } from "./chaos.js";
 import { install, type Collected, type PageLike } from "./install.js";
@@ -38,7 +39,11 @@ export interface GenClassOptions {
   modelUrl?: string;
   /** Seeded network chaos (ChaosOptions; `true` for the defaults). Off unless given. */
   chaos?: ChaosOptions | true | false;
-  /** Where the files go, relative to the Playwright config's directory. Default "test-results/genclass". */
+  /**
+   * Where the files go, relative to the Playwright config's directory. Default: `genclass` in the project's
+   * outputDir (test-results/genclass), which Playwright empties at the start of each run, so no file of an earlier
+   * run is read as another seed. The reporter reads both places by default.
+   */
   outDir?: string;
   /** @genclass/runtime's dist/ directory. Default: the installed package's. */
   runtimeDir?: string;
@@ -54,14 +59,19 @@ export interface TestInfoLike {
   file: string;
   testId: string;
   repeatEachIndex: number;
-  project: { name: string; testDir: string };
+  /** The attempt (0 for the first run); a retry writes a file of its own. */
+  retry?: number;
+  /** The test's status when the fixture finishes ("skipped": no file is written). */
+  status?: string;
+  project: { name: string; testDir: string; outputDir?: string };
   config: { configFile?: string; rootDir: string };
 }
 
 /** The test's name in the file: "[project] file.spec.ts > describe > title" (the project only when it has a name). */
 export function testName(info: TestInfoLike): string {
   const path = [...info.titlePath];
-  // Playwright's title path is ["", project, file, ...describes, title]; find the file to be safe about the shape
+  // TestInfo.titlePath starts with the file ([file, ...describes, title]); a reporter's TestCase.titlePath() adds
+  // ["", project] in front. Find the file to be safe about either shape
   const rel = relative(info.project.testDir, info.file).split(sep).join("/");
   let at = path.findIndex((t) => t === rel || t.split(sep).join("/") === rel);
   if (at < 0) at = path.findIndex((t) => t.endsWith(".ts") || t.endsWith(".js") || t.endsWith(".mjs") || t.endsWith(".tsx") || t.endsWith(".jsx"));
@@ -72,10 +82,13 @@ export function testName(info: TestInfoLike): string {
   return project ? `[${project}] ${name}` : name;
 }
 
-/** The directory the file goes to: `outDir` against the config's directory (else the root dir). */
+/**
+ * The directory the file goes to: `outDir` against the config's directory (else the root dir); by default `genclass`
+ * in the project's outputDir (else test-results/genclass next to the config).
+ */
 export function outDirOf(info: TestInfoLike, outDir?: string): string {
   const base = info.config.configFile ? dirname(info.config.configFile) : info.config.rootDir;
-  if (!outDir) return join(base, "test-results", "genclass");
+  if (!outDir) return info.project.outputDir ? join(info.project.outputDir, "genclass") : join(base, "test-results", "genclass");
   return isAbsolute(outDir) ? outDir : join(base, outDir);
 }
 
@@ -90,7 +103,7 @@ export interface GenClassRun {
  * Starts the fixture on a page for one test: installs the runtime (and chaos), and returns what to call when the
  * test ends. Exported for tests and for custom fixtures; `test` below does this on its `page`.
  */
-export async function startGenClass(page: PageLike, options: GenClassOptions | undefined, info: TestInfoLike): Promise<{ finish(): Promise<GenClassRun> }> {
+export async function startGenClass(page: Page | PageLike, options: GenClassOptions | undefined, info: TestInfoLike): Promise<{ finish(): Promise<GenClassRun> }> {
   const o = options ?? {};
   const empty: GenClassRun = { collected: null, file: null, path: null };
   if (o.enabled === false) return { finish: async () => empty };
@@ -98,10 +111,13 @@ export async function startGenClass(page: PageLike, options: GenClassOptions | u
   if (o.model !== undefined && o.model !== "skip" && o.model !== "load") throw new Error(`@genclass/playwright: genclass.model must be "skip" or "load" (got ${JSON.stringify(o.model)})`);
   const chaos = o.chaos ? resolveChaos(o.chaos, info.repeatEachIndex) : null;
   const seed = chaos ? chaos.seed : DEFAULT_SEED + Math.max(0, Math.floor(info.repeatEachIndex) || 0);
-  const session = await install(page, { runtimeDir: o.runtimeDir, model: o.model ?? "skip", modelUrl: o.modelUrl, chaos });
+  const model = o.model ?? "skip";
+  const session = await install(page as unknown as PageLike, { runtimeDir: o.runtimeDir, model, modelUrl: o.modelUrl, chaos });
   return {
     async finish(): Promise<GenClassRun> {
       const collected = await session.finish();
+      // a test skipped in its body was not run: no file, so the report does not count it as unchecked
+      if (info.status === "skipped") return { collected, file: null, path: null };
       const file = buildRacesFile({
         test: testName(info),
         seed,
@@ -110,8 +126,15 @@ export async function startGenClass(page: PageLike, options: GenClassOptions | u
         chaos: chaos ? { latencyMs: chaos.delayMs, reorder: chaos.reorder, routes: describeMatch(chaos.match) } : null,
         records: collected.records,
         witnesses: collected.witnesses,
+        fixture: {
+          model,
+          agent: collected.agent,
+          chaosApplied: chaos ? collected.plans.length : null,
+          serviceWorker: collected.serviceWorker,
+          ...(collected.modeOverridden ? { modeOverridden: collected.modeOverridden } : {}),
+        },
       });
-      const path = writeRacesFile(outDirOf(info, o.outDir), racesFileName(file.test, info.testId, seed), file);
+      const path = writeRacesFile(outDirOf(info, o.outDir), racesFileName(file.test, info.testId, seed, info.retry ?? 0), file);
       return { collected, file, path };
     },
   };
@@ -122,10 +145,10 @@ export async function startGenClass(page: PageLike, options: GenClassOptions | u
  * `test.use({ genclass: {...} })` in a spec. Pages opened another way (`context.newPage()`, popups) are not
  * instrumented.
  */
-export const test = base.extend<GenClassFixtures>({
+export const test: TestType<PlaywrightTestArgs & PlaywrightTestOptions & GenClassFixtures, PlaywrightWorkerArgs & PlaywrightWorkerOptions> = base.extend<GenClassFixtures>({
   genclass: [{}, { option: true }],
   page: async ({ page, genclass }, use, testInfo) => {
-    const run = await startGenClass(page as unknown as PageLike, genclass, testInfo);
+    const run = await startGenClass(page, genclass, testInfo);
     try {
       await use(page);
     } finally {
@@ -140,5 +163,5 @@ export const test = base.extend<GenClassFixtures>({
 });
 
 export { expect };
-export type { ChaosMatch, ChaosMatchFn, ChaosOptions, Collected };
+export type { ChaosMatch, ChaosMatchFn, ChaosOptions, Collected, PageLike };
 export { RUNTIME_PATH } from "./chaos.js";

@@ -108,10 +108,18 @@ export interface TestSummary {
   /**
    * Files that flagged nothing and whose model was not "ready" when the fixture collected (null model: "not
    * started"), so those runs may not have been checked; and their states. Files with detections are not counted,
-   * whatever the state (the runtime can unload an idle model after it ran), nor files whose state is "off" (no
-   * model by choice: the fixture's default, which still computes witnesses).
+   * whatever the state (the runtime can unload an idle model after it ran), nor files whose `fixture.model` is
+   * "skip" (no model by choice: `unchecked` covers those).
    */
   modelNotReady: { files: number; states: string[] };
+  /**
+   * Files the fixture wrote that flagged nothing although it could not check the page, and why: the agent entry did
+   * not connect (no witnesses), or a service worker controlled the page (chaos and the runtime's files went past
+   * page.route).
+   */
+  unchecked: { files: number; reasons: string[] };
+  /** Files whose chaos was on but held no request (nothing matched, or a user route or service worker answered first). */
+  chaosIdle: number;
   /** The chaos of the first file (by name) that carries one. */
   chaos?: GenClassRacesFile["chaos"];
 }
@@ -147,6 +155,9 @@ interface Acc {
   modes: Set<string>;
   notReady: number;
   states: Set<string>;
+  unchecked: number;
+  reasons: Set<string>;
+  chaosIdle: number;
   chaos?: GenClassRacesFile["chaos"];
 }
 
@@ -173,7 +184,7 @@ export function buildSummary(inputs: readonly RacesFileInput[], options: Summari
     }
     files++;
     const f = r.file;
-    const t: Acc = tests.get(f.test) ?? { test: f.test, seeds: new Set(), files: 0, sigs: new Map(), modes: new Set(), notReady: 0, states: new Set() };
+    const t: Acc = tests.get(f.test) ?? { test: f.test, seeds: new Set(), files: 0, sigs: new Map(), modes: new Set(), notReady: 0, states: new Set(), unchecked: 0, reasons: new Set(), chaosIdle: 0 };
     tests.set(f.test, t);
     t.files++;
     t.seeds.add(f.seed);
@@ -183,9 +194,20 @@ export function buildSummary(inputs: readonly RacesFileInput[], options: Summari
     if (!flaggedHere && m === null) {
       t.notReady++;
       t.states.add("not started");
-    } else if (!flaggedHere && m && m.state !== undefined && m.state !== "ready" && m.state !== "off") {
+    } else if (!flaggedHere && m && m.state !== undefined && m.state !== "ready" && f.fixture?.model !== "skip") {
       t.notReady++;
       t.states.add(m.state);
+    }
+    const fx = f.fixture;
+    if (fx) {
+      const why: string[] = [];
+      if (fx.agent !== null) why.push(`witnesses not recorded: ${fx.agent}`);
+      if (fx.serviceWorker) why.push("a service worker controlled the page");
+      if (!flaggedHere && why.length) {
+        t.unchecked++;
+        for (const w of why) t.reasons.add(w);
+      }
+      if (fx.chaosApplied === 0) t.chaosIdle++;
     }
     if (f.chaos && t.chaos === undefined) t.chaos = f.chaos;
     for (const s of f.signatures) {
@@ -236,6 +258,8 @@ export function buildSummary(inputs: readonly RacesFileInput[], options: Summari
       signatures: sigs,
       modes: [...t.modes].sort(),
       modelNotReady: { files: t.notReady, states: [...t.states].sort() },
+      unchecked: { files: t.unchecked, reasons: [...t.reasons].sort() },
+      chaosIdle: t.chaosIdle,
     };
     if (t.chaos !== undefined) ts.chaos = t.chaos;
     out.push(ts);
@@ -318,6 +342,20 @@ function signatureLines(s: SignatureSummary, t: TestSummary, maxEvidence: number
   const ev = clip(s.evidence, maxEvidence);
   lines.push(ev ? `  > ${escapeMarkdown(ev)}` : "  > (no evidence line in the file)");
   return lines;
+}
+
+/** The notes under a flagged test about what the fixture could not do (none for files without a `fixture`). */
+function fixtureNotes(t: TestSummary): string[] {
+  const out: string[] = [];
+  if (t.unchecked.files > 0)
+    out.push(
+      `Note: in ${t.unchecked.files} of ${plural(t.files, "file")} for this test nothing was flagged and the fixture could not check the page (${t.unchecked.reasons.map(escapeMarkdown).join("; ")}), so those runs may not have been checked.`,
+    );
+  if (t.chaosIdle > 0)
+    out.push(
+      `Note: in ${t.chaosIdle} of ${plural(t.files, "file")} for this test chaos was on but held no request (nothing matched its filter, or a route of the test or a service worker answered first).`,
+    );
+  return out;
 }
 
 /** How much of the report is shown: list entries (nothing flagged, files skipped), signatures per test, tests. */
@@ -443,6 +481,7 @@ function render(s: RaceSummary, options: SummarizeOptions, lim: Limits, maxChars
       );
       L.push("");
     }
+    for (const n of fixtureNotes(t)) L.push(n, "");
   }
   if (flagged.length > lim.tests) {
     L.push(`_…and ${plural(flagged.length - lim.tests, "more test")} with signatures, not shown._`);
@@ -454,7 +493,9 @@ function render(s: RaceSummary, options: SummarizeOptions, lim: Limits, maxChars
     L.push("");
     for (const t of quiet.slice(0, lim.items)) {
       const notReady = t.modelNotReady.files > 0 ? `; model not ready in ${t.modelNotReady.files} of ${plural(t.files, "file")} (${t.modelNotReady.states.map(escapeMarkdown).join(", ")})` : "";
-      L.push(`- ${escapeMarkdown(t.test)} (${plural(t.seeds.length, "seed")}: ${seedList(t.seeds)}${notReady})`);
+      const unchecked = t.unchecked.files > 0 ? `; not checked in ${t.unchecked.files} of ${plural(t.files, "file")} (${t.unchecked.reasons.map(escapeMarkdown).join("; ")})` : "";
+      const idle = t.chaosIdle > 0 ? `; chaos held no request in ${t.chaosIdle} of ${plural(t.files, "file")}` : "";
+      L.push(`- ${escapeMarkdown(t.test)} (${plural(t.seeds.length, "seed")}: ${seedList(t.seeds)}${notReady}${unchecked}${idle})`);
     }
     if (quiet.length > lim.items) L.push(`- …and ${quiet.length - lim.items} more`);
     L.push("");

@@ -93,6 +93,17 @@ export function validateRaces(value: unknown): RacesParseResult {
         if (value.model[k] !== undefined && typeof value.model[k] !== "string") errors.push(`model.${k}: expected a string when present, got ${describe(value.model[k])}`);
   }
   if (value.chaos !== undefined && value.chaos !== null && !isObject(value.chaos)) errors.push(`chaos: expected an object or null when present, got ${describe(value.chaos)}`);
+  if (value.fixture !== undefined) {
+    const x = value.fixture;
+    if (!isObject(x)) errors.push(`fixture: expected an object when present, got ${describe(x)}`);
+    else {
+      if (x.model !== "skip" && x.model !== "load") errors.push(`fixture.model: expected "skip" or "load", got ${describe(x.model)}`);
+      if (x.agent !== null && typeof x.agent !== "string") errors.push(`fixture.agent: expected a string or null, got ${describe(x.agent)}`);
+      if (x.chaosApplied !== null && !(isInt(x.chaosApplied) && x.chaosApplied >= 0)) errors.push(`fixture.chaosApplied: expected a whole number or null, got ${describe(x.chaosApplied)}`);
+      if (typeof x.serviceWorker !== "boolean") errors.push(`fixture.serviceWorker: expected true or false, got ${describe(x.serviceWorker)}`);
+      if (x.modeOverridden !== undefined && typeof x.modeOverridden !== "string") errors.push(`fixture.modeOverridden: expected a string when present, got ${describe(x.modeOverridden)}`);
+    }
+  }
   if (errors.length) return fail(errors);
 
   const file: GenClassRacesFile = { schema: RACES_SCHEMA, test: (value.test as string).trim(), seed: value.seed as number, signatures };
@@ -114,6 +125,11 @@ export function validateRaces(value: unknown): RacesParseResult {
     if (typeof c.failRate === "number" && Number.isFinite(c.failRate)) out.failRate = c.failRate;
     if (Array.isArray(c.routes)) out.routes = c.routes.slice();
     file.chaos = out;
+  }
+  if (isObject(value.fixture)) {
+    const x = value.fixture;
+    file.fixture = { model: x.model as "skip" | "load", agent: x.agent as string | null, chaosApplied: x.chaosApplied as number | null, serviceWorker: x.serviceWorker as boolean };
+    if (typeof x.modeOverridden === "string") file.fixture.modeOverridden = x.modeOverridden;
   }
   return { ok: true, file };
 }

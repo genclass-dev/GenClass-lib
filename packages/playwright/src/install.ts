@@ -10,17 +10,18 @@
 //     runtime starts before the app's first script, in observe mode with telemetry off and the model as chosen;
 //   - exposes one function (page.exposeFunction) the page pushes each finding through as it happens, so navigations
 //     and an early page close lose nothing;
-//   - with chaos, routes every fetch/XHR request through the seeded scheduler (chaos.ts): the real response is
-//     fetched at once and its delivery to the page is held for the planned time. Requests outside the filter, the
-//     runtime's own files and the agent link's URL are left alone; the agent link's URL is aborted, so the page's
-//     link never reaches a bridge.
-// Observe only: no hold on the page's side, no change to any request or response (chaos changes when a response
-// arrives, never what it says). Every handler catches its own errors: a page that closes mid-test is not a failure.
+//   - with chaos, routes every request through the seeded scheduler (chaos.ts): a matched fetch/XHR request is held
+//     for its planned time and then passed on with route.fallback(), so it still reaches the user's own routes
+//     (context.route, routeFromHAR), the browser's network stack and its cache. Anything else is passed on at once.
+// The page's agent link never sends a request (page.ts gives it a stand-in fetch); requests to its URL are aborted
+// anyway as a safety net. Observe only: no hold on the page's side, no change to any request or response (chaos
+// changes when a request leaves, never what it says). Every handler catches its own errors: a page that closes
+// mid-test is not a failure.
 
 import { existsSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, extname, join, resolve, sep } from "node:path";
-import { ChaosScheduler, RUNTIME_PATH, confirms, isCandidate, isRuntimeUrl, type ResolvedChaos } from "./chaos.js";
+import { ChaosScheduler, RUNTIME_PATH, isCandidate, isRuntimeUrl, type ResolvedChaos } from "./chaos.js";
 import { genclassPageScript, type PageScriptConfig } from "./page.js";
 
 /** The page methods the installer uses (a subset of Playwright's Page, by shape). */
@@ -33,8 +34,7 @@ export interface PageLike {
 }
 
 export interface RouteLike {
-  fetch(): Promise<ResponseLike>;
-  fulfill(options: { response?: ResponseLike; status?: number; headers?: Record<string, string>; body?: string | Buffer; contentType?: string }): Promise<void>;
+  fulfill(options: { status?: number; headers?: Record<string, string>; body?: string | Buffer; contentType?: string }): Promise<void>;
   fallback(): Promise<void>;
   abort(errorCode?: string): Promise<void>;
 }
@@ -43,11 +43,8 @@ export interface RequestLike {
   url(): string;
   method(): string;
   resourceType(): string;
-  frame(): { url(): string };
-}
-
-export interface ResponseLike {
   headers(): Record<string, string>;
+  frame(): { url(): string };
 }
 
 export interface InstallOptions {
@@ -83,6 +80,10 @@ export interface Collected {
   agent: string | null;
   /** The chaos plans applied, in request order. */
   plans: { key: string; delayMs: number }[];
+  /** A service worker controlled the page when the fixture collected (page.route does not see what it handles). */
+  serviceWorker: boolean;
+  /** The URL or localStorage switch had put the runtime in another mode; the fixture set it back to observe. */
+  modeOverridden: string | null;
 }
 
 export interface Session {
@@ -139,6 +140,11 @@ export function initScriptContent(runtimeDir: string, cfg: PageScriptConfig): st
   return `(${genclassPageScript.toString()})(${JSON.stringify(cfg)}, function () {\n${global}\n});\n`;
 }
 
+/** A URL on the agent link's address (not merely one whose port starts with the same digits). */
+export function isAgentUrl(url: string): boolean {
+  return url === AGENT_URL || url.startsWith(`${AGENT_URL}/`);
+}
+
 function originOf(url: string): string | null {
   try {
     return new URL(url).origin;
@@ -169,7 +175,7 @@ export function runtimeFile(runtimeDir: string, url: string): string | null {
  */
 export async function install(page: PageLike, o: InstallOptions): Promise<Session> {
   const runtimeDir = resolveRuntimeDir(o.runtimeDir);
-  const collected: Collected = { records: [], witnesses: [], mode: null, model: null, agent: "not-loaded", plans: [] };
+  const collected: Collected = { records: [], witnesses: [], mode: null, model: null, agent: "not-loaded", plans: [], serviceWorker: false, modeOverridden: null };
   const scheduler = o.chaos ? new ChaosScheduler(o.chaos) : null;
 
   const take = (item: unknown): void => {
@@ -180,6 +186,7 @@ export async function install(page: PageLike, o: InstallOptions): Promise<Sessio
     else if (x.t === "status") {
       collected.mode = typeof x.mode === "string" ? x.mode : null;
       collected.model = x.model && typeof x.model === "object" ? (x.model as ModelInfo) : null;
+      if (typeof x.overridden === "string") collected.modeOverridden = x.overridden;
     } else if (x.t === "agent") collected.agent = x.ok === true ? null : String(x.reason ?? "unknown");
   };
   await page.exposeFunction(BINDING, take);
@@ -188,11 +195,9 @@ export async function install(page: PageLike, o: InstallOptions): Promise<Sessio
   if (scheduler) {
     const chaos = scheduler.chaos;
     await page.route("**/*", async (route, request) => {
-      let candidate = false;
-      let req: Parameters<typeof isCandidate>[0] | null = null;
       try {
         const url = request.url();
-        if (isRuntimeUrl(url) || url.startsWith(AGENT_URL)) return await route.fallback();
+        if (isRuntimeUrl(url) || isAgentUrl(url)) return await route.fallback();
         let frameUrl = "";
         try {
           frameUrl = request.frame().url();
@@ -200,28 +205,18 @@ export async function install(page: PageLike, o: InstallOptions): Promise<Sessio
           /* a detached frame */
         }
         const origin = originOf(url);
-        req = { url, method: request.method(), resourceType: request.resourceType(), sameOrigin: origin !== null && origin === originOf(frameUrl) };
-        candidate = isCandidate(req, chaos.match);
-      } catch {
-        candidate = false;
-      }
-      if (!candidate || !req) return route.fallback().catch(() => undefined);
-      let response: ResponseLike;
-      try {
-        response = await route.fetch();
-      } catch {
-        // the request itself failed (the server is down, the page is gone): let the browser see the failure
-        return route.abort("failed").catch(() => undefined);
-      }
-      try {
-        const headers = response.headers();
-        const ct = headers["content-type"] ?? headers["Content-Type"] ?? null;
-        if (confirms(req, chaos.match, ct)) {
-          await scheduler.hold(scheduler.plan(req.method, req.url, req.sameOrigin));
+        let accept = "";
+        try {
+          accept = request.headers()["accept"] ?? "";
+        } catch {
+          /* no headers */
         }
-        await route.fulfill({ response });
+        const req = { url, method: request.method(), resourceType: request.resourceType(), sameOrigin: origin !== null && origin === originOf(frameUrl), accept };
+        // planned now, in the order the page sent its requests; the request itself is only held, never fetched here
+        if (isCandidate(req, chaos.match)) await scheduler.hold(scheduler.plan(req.method, req.url, req.sameOrigin));
+        await route.fallback();
       } catch {
-        /* the page closed while the response was held */
+        /* the page closed while the request was held */
       }
     });
   }
@@ -236,7 +231,8 @@ export async function install(page: PageLike, o: InstallOptions): Promise<Sessio
       /* the page closed */
     }
   });
-  // the page's agent link talks to this URL: never let it reach a bridge
+  // the page's agent link sends nothing (page.ts gives it a stand-in fetch); should anything still ask, never let it
+  // reach a bridge
   await page.route(`${AGENT_URL}/**`, (route) => route.abort("connectionrefused").catch(() => undefined));
 
   const cfg: PageScriptConfig = {
@@ -259,8 +255,10 @@ export async function install(page: PageLike, o: InstallOptions): Promise<Sessio
             const x = r as Record<string, unknown>;
             if (typeof x.mode === "string") collected.mode = x.mode;
             if (x.model && typeof x.model === "object") collected.model = x.model as ModelInfo;
+            // a specific reason the page already pushed (an import error) beats collect()'s generic "not-loaded"
             if (x.agent === null) collected.agent = null;
-            else if (typeof x.agent === "string") collected.agent = x.agent;
+            else if (typeof x.agent === "string" && (collected.agent === null || collected.agent === "not-loaded")) collected.agent = x.agent;
+            if (x.serviceWorker === true) collected.serviceWorker = true;
           }
         }
       } catch {

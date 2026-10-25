@@ -54,7 +54,7 @@ function info(over: Partial<TestInfoLike> = {}): TestInfoLike {
     file: join(root, "tests", "checkout.spec.ts"),
     testId: "a1b2c3-d4e5f6",
     repeatEachIndex: 0,
-    project: { name: "chromium", testDir: join(root, "tests") },
+    project: { name: "chromium", testDir: join(root, "tests"), outputDir: join(root, "test-results") },
     config: { configFile: join(root, "playwright.config.ts"), rootDir: join(root, "tests") },
     ...over,
   };
@@ -68,11 +68,13 @@ describe("fixture: names and places", () => {
     expect(testName(info({ titlePath: ["weird", "shape"], file: join(root, "tests", "x.spec.ts"), project: { name: "", testDir: join(root, "tests") } }))).toBe("weird > shape");
   });
 
-  it("outDirOf: test-results/genclass next to the config by default; a relative outDir against it; an absolute one as is", () => {
+  it("outDirOf: genclass in the project's outputDir by default; a relative outDir against the config; an absolute one as is", () => {
     expect(outDirOf(info())).toBe(join(root, "test-results", "genclass"));
+    expect(outDirOf(info({ project: { name: "p", testDir: join(root, "tests"), outputDir: join(root, "out", "p") } }))).toBe(join(root, "out", "p", "genclass"));
+    expect(outDirOf(info({ project: { name: "p", testDir: join(root, "tests") } }))).toBe(join(root, "test-results", "genclass"));
     expect(outDirOf(info(), "out/races")).toBe(join(root, "out", "races"));
     expect(outDirOf(info(), join(root, "abs"))).toBe(join(root, "abs"));
-    expect(outDirOf(info({ config: { rootDir: join(root, "tests") } }))).toBe(join(root, "tests", "test-results", "genclass"));
+    expect(outDirOf(info({ config: { rootDir: join(root, "tests") }, project: { name: "", testDir: join(root, "tests") } }))).toBe(join(root, "tests", "test-results", "genclass"));
   });
 });
 
@@ -110,8 +112,17 @@ describe("fixture: startGenClass", () => {
       mode: "observe",
       model: { state: "off", name: "none" },
       chaos: null,
+      fixture: { model: "skip", agent: null, chaosApplied: null, serviceWorker: false },
     });
     expect(r.file).toEqual(parsed.ok && parsed.file);
+  });
+
+  it("a retry writes its own file; a test skipped in its body writes none", async () => {
+    const retry = await startGenClass(new FakePage(), { runtimeDir }, info({ retry: 1 }));
+    expect((await retry.finish()).path).toMatch(/-s1-r1\.json$/);
+    const skipped = await startGenClass(new FakePage(), { runtimeDir }, info({ status: "skipped", testId: "skipped-id" }));
+    expect(await skipped.finish()).toMatchObject({ file: null, path: null });
+    expect(readdirSync(join(root, "test-results", "genclass")).some((n) => n.includes("skipped-id"))).toBe(false);
   });
 
   it("with chaos: the seed is the chaos seed plus the repeat index, and the settings are in the file", async () => {
@@ -121,7 +132,7 @@ describe("fixture: startGenClass", () => {
     expect(page.routes[0]).toBe("**/*");
     const r = await run.finish();
     expect(r.path).toBe(join(root, "races", "chromium-checkout-spec-ts-checkout-places-one-order-a1b2c3-d4e5f6-s11.json"));
-    expect(r.file).toMatchObject({ seed: 11, chaos: { latencyMs: [100, 200], reorder: false, routes: ["/api", "/x/"] } });
+    expect(r.file).toMatchObject({ seed: 11, chaos: { latencyMs: [100, 200], reorder: false, routes: ["/api", "/x/"] }, fixture: { model: "skip", chaosApplied: 0 } });
     expect(parseRaces(readFileSync(r.path!, "utf8")).ok).toBe(true);
   });
 
@@ -129,6 +140,6 @@ describe("fixture: startGenClass", () => {
     const page = new FakePage();
     const run = await startGenClass(page, { runtimeDir, chaos: true }, info());
     const r = await run.finish();
-    expect(r.file).toMatchObject({ seed: 1, chaos: { latencyMs: [0, 600], reorder: true, routes: ["same-origin /api* or JSON responses"] }, model: null, signatures: [] });
+    expect(r.file).toMatchObject({ seed: 1, chaos: { latencyMs: [0, 600], reorder: true, routes: ["same-origin /api* or Accept: json"] }, model: null, signatures: [], fixture: { model: "skip", agent: "not-loaded", chaosApplied: 0, serviceWorker: false } });
   });
 });

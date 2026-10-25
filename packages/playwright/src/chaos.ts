@@ -1,13 +1,14 @@
 // Seeded network chaos for the GenClass Playwright fixture: which responses to slow down, by how much, and whether
 // they may overtake each other, every value derived from a seed so that a run repeats exactly. Pure: no Playwright,
 // no I/O, no clock of its own (the scheduler takes its timers from the caller, so tests drive it by hand). The fixture
-// (install.ts) applies the plan with page.route: it fetches the real response and holds its delivery for the planned
-// time. Nothing is dropped, changed or invented, and requests outside the filter are never touched; the runtime's own
-// files (served on RUNTIME_PATH) never are.
+// (install.ts) applies the plan with page.route: it holds each matched request for the planned time, then lets it go on
+// its way (route.fallback), the way a slow uplink would. The request still goes through the user's own routes, the
+// browser's network stack and its cache, so nothing is dropped, changed, buffered or invented; requests outside the
+// filter are never held, and the runtime's own files (served on RUNTIME_PATH) never are.
 //
-// Determinism: a matched request is keyed by its method, path and occurrence in the test ("GET /api/search#3"), and
-// its delay is read from a small PRNG seeded by the chaos seed and that key. The same test under the same seed gives
-// the same delays whatever the wall clock does.
+// Determinism: a matched request is keyed, when the page sends it, by its method, path and occurrence in the test
+// ("GET /api/search#3"), and its delay is read from a small PRNG seeded by the chaos seed and that key. The same test
+// under the same seed gives the same delays whatever the wall clock or the server does.
 
 /** Where install.ts serves the runtime's dist/ on the page's origin. Chaos never applies to it. */
 export const RUNTIME_PATH = "/__genclass__/";
@@ -17,6 +18,11 @@ export const MAX_DELAY_MS = 10_000;
 export const DEFAULT_DELAY_MS: readonly [number, number] = [0, 600];
 /** The default seed (the fixture adds Playwright's `repeatEachIndex` to it). */
 export const DEFAULT_SEED = 1;
+/**
+ * With `reorder: false`: the least time between two releases, so the page has handled one request's response before
+ * the next request leaves (the runtime's agent schedules use the same 30 ms, DEFAULT_GAP_MS).
+ */
+export const FIFO_GAP_MS = 30;
 
 /** A request as the filter sees it, before its response is fetched. */
 export interface ChaosRequest {
@@ -26,13 +32,15 @@ export interface ChaosRequest {
   resourceType: string;
   /** Same origin as the document that sent it. */
   sameOrigin: boolean;
+  /** The request's Accept header, when it has one. */
+  accept?: string;
 }
 
 export type ChaosMatchFn = (r: ChaosRequest) => boolean;
 /**
  * Which requests get chaos: a string (a path prefix such as "/api", or a URL prefix such as "https://api.example.com/"),
  * a RegExp tested against the full URL, a function, or a list of those (any match counts). Unset: same-origin
- * requests whose path starts with /api or whose response is JSON.
+ * requests whose path starts with /api or whose Accept header asks for JSON.
  */
 export type ChaosMatch = string | RegExp | ChaosMatchFn | readonly (string | RegExp | ChaosMatchFn)[];
 
@@ -41,9 +49,12 @@ export interface ChaosOptions {
   seed?: number;
   /** Extra latency per matched response, uniform in [min, max] ms. Default [0, 600]; at most 10000. */
   delayMs?: readonly [number, number];
-  /** false: matched responses keep their request order (latency only, nothing overtakes). Default true. */
+  /**
+   * false: matched requests leave in the order the page sent them, at least 30 ms apart (latency only: with a server
+   * that answers in order, nothing overtakes). Default true.
+   */
   reorder?: boolean;
-  /** Which requests (see ChaosMatch). Default: same-origin, path /api* or a JSON response. */
+  /** Which requests (see ChaosMatch). Default: same-origin, path /api* or an Accept header that asks for JSON. */
   match?: ChaosMatch;
 }
 
@@ -141,31 +152,21 @@ function matchesOne(m: string | RegExp | ChaosMatchFn, r: ChaosRequest): boolean
 }
 
 /**
- * Whether a request may get chaos, decided before its response is fetched. Only fetch and XHR requests, never the
- * runtime's files. With a `match`, the filter decides; without one, every same-origin request is a candidate and
- * `confirms` decides from the response.
+ * Whether a request gets chaos, decided from the request alone before it is sent. Only fetch and XHR requests, never
+ * the runtime's files. With a `match`, the filter decides; without one, same-origin requests whose path starts with
+ * /api or whose Accept header asks for JSON.
  */
 export function isCandidate(r: ChaosRequest, match: ChaosMatch | undefined): boolean {
   if (r.resourceType !== "fetch" && r.resourceType !== "xhr") return false;
   if (isRuntimeUrl(r.url)) return false;
-  if (match === undefined) return r.sameOrigin;
+  if (match === undefined) return r.sameOrigin && (pathOf(r.url).startsWith("/api") || /json/i.test(r.accept ?? ""));
   const list = Array.isArray(match) ? (match as readonly (string | RegExp | ChaosMatchFn)[]) : [match as string | RegExp | ChaosMatchFn];
   return list.some((m) => matchesOne(m, r));
 }
 
-/**
- * Whether a candidate gets chaos once its response is known. With a `match`, always (the filter already said yes);
- * without one, when the path starts with /api or the response is JSON (its content-type names json).
- */
-export function confirms(r: ChaosRequest, match: ChaosMatch | undefined, contentType: string | null | undefined): boolean {
-  if (match !== undefined) return true;
-  if (pathOf(r.url).startsWith("/api")) return true;
-  return /json/i.test(contentType ?? "");
-}
-
 /** The filter as written to the race file's `chaos.routes` (functions as "function", RegExps as their source). */
 export function describeMatch(match: ChaosMatch | undefined): unknown[] {
-  if (match === undefined) return ["same-origin /api* or JSON responses"];
+  if (match === undefined) return ["same-origin /api* or Accept: json"];
   const list = Array.isArray(match) ? (match as readonly (string | RegExp | ChaosMatchFn)[]) : [match as string | RegExp | ChaosMatchFn];
   return list.map((m) => (typeof m === "function" ? "function" : m instanceof RegExp ? String(m) : m));
 }
@@ -182,15 +183,16 @@ const realTimers: ChaosTimers = {
 };
 
 /**
- * Assigns each matched request its key and latency, and holds its delivery: for its own delay, and with `reorder`
- * off also until every earlier matched response was released, so nothing overtakes. `dispose()` releases every
- * hold at once (the page is gone). Never throws.
+ * Assigns each matched request its key and latency when the page sends it, and holds it: for its own delay, and with
+ * `reorder` off also until FIFO_GAP_MS after the earlier matched request was released, so requests leave in the
+ * order they were sent. `dispose()` releases every hold at once (the page is gone). Never throws.
  */
 export class ChaosScheduler {
   private readonly counts = new Map<string, number>();
   private last: Promise<void> = Promise.resolve();
   private readonly pending = new Map<unknown, () => void>();
   private disposed = false;
+  private chained = 0;
   /** Every plan made so far, in request order (for the race file and tests). */
   readonly plans: ChaosPlan[] = [];
 
@@ -199,12 +201,16 @@ export class ChaosScheduler {
     private readonly timers: ChaosTimers = realTimers,
   ) {}
 
-  /** The key ("GET /api/search#3": method, path, occurrence in this test) and latency of a matched request. */
+  /**
+   * The key ("GET /api/search#3": method, path, occurrence in this test) and latency of a matched request. A
+   * cross-origin request is keyed by host name and path, without the port, so a backend on a random port keeps its
+   * delays under the same seed.
+   */
   plan(method: string, url: string, sameOrigin = true): ChaosPlan {
     let where: string;
     try {
       const u = new URL(url);
-      where = sameOrigin ? u.pathname : `${u.host}${u.pathname}`;
+      where = sameOrigin ? u.pathname : `${u.hostname}${u.pathname}`;
     } catch {
       where = url;
     }
@@ -217,17 +223,19 @@ export class ChaosScheduler {
     return p;
   }
 
-  /** Resolves when the response may be delivered. */
+  /** Resolves when the request may leave. Call it in the order the page sent the requests (route handlers are). */
   hold(plan: ChaosPlan): Promise<void> {
     const own = this.sleep(plan.delayMs);
     if (this.chaos.reorder) return own;
-    const after = this.last;
+    const first = this.chained === 0;
+    this.chained++;
+    const after = first ? this.last : this.last.then(() => this.sleep(FIFO_GAP_MS));
     const mine = Promise.all([after, own]).then(() => undefined);
     this.last = mine;
     return mine;
   }
 
-  /** Release every held response now and stop the timers. */
+  /** Release every held request now and stop the timers. */
   dispose(): void {
     this.disposed = true;
     for (const [id, release] of this.pending) {

@@ -2,11 +2,13 @@
 // @genclass/runtime and this package). It runs Playwright with ./playwright.config.ts (the search page of server.mjs,
 // the fixture with seeded chaos, five seeds per test, this package's reporter), then checks what was written:
 //   - the buggy page: a `witness|overwrote-newer|GET /api/search` signature in at least one of the five seeds (the
-//     count is printed: a race shows under some orders, not all);
+//     count is printed: a race shows under some orders, not all) and no other signature;
 //   - the buggy page with `reorder: false` (latency only, responses keep their order): no signature in any seed,
 //     since nothing overtakes;
 //   - the fixed page: no signature at all in any of the five seeds (the false-report count on the correct variant);
-//   - every file validates as genclass-races/1 and carries the seed and the chaos settings;
+//   - every file validates as genclass-races/1 and carries the seed, the chaos settings and a fixture record saying
+//     the agent connected and chaos held requests;
+//   - (in search.spec.ts) no page logged a console error or had a failed request;
 //   - genclass-report.md names the buggy test under the witness group and lists the fixed test under "nothing
 //     flagged"; the command renders the same report from the same files.
 // Exit code 0 when all hold; the summary is printed as JSON.
@@ -63,6 +65,8 @@ for (const f of files) {
   if (!f.file.chaos || !f.file.chaos.latencyMs || f.file.chaos.latencyMs[0] !== 0 || f.file.chaos.latencyMs[1] !== 600 || f.file.chaos.reorder !== reorder) fail(`${f.name}: chaos settings missing or wrong: ${JSON.stringify(f.file.chaos)}`);
   if (f.file.mode !== "observe") fail(`${f.name}: mode ${f.file.mode}, expected observe`);
   if (!f.file.model || f.file.model.state !== "off") fail(`${f.name}: model ${JSON.stringify(f.file.model)}, expected state "off" (model skipped)`);
+  const fx = f.file.fixture;
+  if (!fx || fx.model !== "skip" || fx.agent !== null || fx.serviceWorker !== false || !(fx.chaosApplied > 0)) fail(`${f.name}: fixture record ${JSON.stringify(fx)}, expected the agent connected and chaos applied`);
 }
 const SIG = "witness|overwrote-newer|GET /api/search";
 const stale = (f) => f.file.signatures.some((s) => s.sig === SIG);
@@ -71,6 +75,7 @@ summary.buggy = { staleSeeds: buggy.filter(stale).map((f) => f.file.seed), other
 summary.latencyOnly = { signatures: sigs(fifo) };
 summary.fixed = { signatures: sigs(fixed) };
 if (summary.buggy.staleSeeds.length === 0) fail("no overwrote-newer witness on the buggy page in any seed");
+if (summary.buggy.otherSignatures.length !== 0) fail(`other signatures on the buggy page: ${summary.buggy.otherSignatures.join(", ")}`);
 if (summary.latencyOnly.signatures.length !== 0) fail(`signatures on the buggy page with reorder off (latency keeps the order, so nothing should overtake): ${summary.latencyOnly.signatures.join(", ")}`);
 if (summary.fixed.signatures.length !== 0) fail(`signatures on the fixed page (false reports): ${summary.fixed.signatures.join(", ")}`);
 

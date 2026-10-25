@@ -5,9 +5,9 @@
 GenClass for Playwright, in two parts that share one file format:
 
 - **The fixture** (`@genclass/playwright/fixture`) puts [`@genclass/runtime`](../runtime) on every page your tests
-  open, before the app's first script, in observe mode with telemetry off. With `chaos` it slows and reorders the
-  app's API responses from a seed, so the orders a real network produces happen in your test, the same way every
-  run. At the end of each test it writes one JSON file (format `genclass-races/1`) with what the runtime saw, the
+  open, before the app's first script, in observe mode with telemetry off. With `chaos` it holds the app's API
+  requests for a seeded time before they leave, so the response orders a slow network produces happen in your test,
+  the same way every run. At the end of each test it writes one JSON file (format `genclass-races/1`) with what the runtime saw, the
   seed and the chaos that produced it.
 - **The reporter** (`@genclass/playwright/reporter`) reads those files when the suite ends, marks what reproduced
   across seeds, writes one markdown file, `genclass-report.md`, and prints it. A short GitHub Actions step posts that
@@ -19,20 +19,23 @@ What the fixture records without a model download: two happens-before facts the 
 (`model: "load"`, a 13 MB download), the file also carries the model's diagnoses with their confidence. Both are
 things to look at, not verdicts: the report says what happened and leaves the call to you.
 
-Observe only. The runtime never holds, delays or changes anything the app does; the fixture's chaos changes when a
-response reaches the page, never what it says; no finding changes a test's outcome. No runtime dependencies:
-`@playwright/test` and `@genclass/runtime` are peer dependencies (the reporter alone needs neither).
+The runtime only observes: it never holds, delays or changes anything the app does. Chaos, when you turn it on, holds
+matched requests before they leave (that is its job) and never changes what they say. No finding changes a test's
+outcome, and the fixture logs nothing to the page's console. No runtime dependencies: `@playwright/test` and
+`@genclass/runtime` are peer dependencies (the reporter alone needs neither).
 
 ## Install
 
 Not on npm yet (version 0.1.0 is unreleased). Once published:
 
 ```bash
-npm install -D @genclass/playwright @genclass/runtime
+npm install -D @genclass/playwright @genclass/runtime@beta
 ```
 
-Playwright 1.40 or later; `@genclass/runtime` 0.3.0-beta.1 or later (the fixture reads its `dist/` from the
-installed package).
+Playwright 1.40 or later; `@genclass/runtime` 0.3.0-beta.1 or later, which is on the `beta` dist-tag (`latest` is
+0.2.x, which has no agent entry, so the fixture stops with an error naming it). The package is ESM only. A test
+project that is CommonJS (no `"type": "module"`) needs Node 20.19+ or 22.12+, where `require` loads ES modules, and,
+to type-check its specs, `module` and `moduleResolution` set to `nodenext` (or `bundler`).
 
 ## Use
 
@@ -41,12 +44,15 @@ Two lines in the config, one import in a spec:
 ```ts
 // playwright.config.ts
 import { defineConfig } from "@playwright/test";
+import type { GenClassFixtures } from "@genclass/playwright/fixture";
 
-export default defineConfig({
+export default defineConfig<GenClassFixtures>({
   use: { genclass: { chaos: { seed: 1, delayMs: [0, 600] } } },
   reporter: [["list"], ["@genclass/playwright/reporter"]],
 });
 ```
+
+The type argument tells TypeScript about the `genclass` option (without it, `defineConfig` rejects `use.genclass`).
 
 ```ts
 // tests/search.spec.ts
@@ -60,8 +66,8 @@ test("shows the results of the last query", async ({ page }) => {
 ```
 
 `test` is Playwright's `test.extend` with GenClass on its `page`; `expect` is Playwright's. Everything else in the
-spec stays as it was. The run ends with `test-results/genclass/<test>-<id>-s<seed>.json` per test and
-`genclass-report.md` next to the config.
+spec stays as it was. The run ends with `test-results/genclass/<test>-<id>-s<seed>.json` per test (a retry adds
+`-r<n>`, so a failing first attempt is kept) and `genclass-report.md` next to the config.
 
 Two seeds, so the report can mark what reproduced: `repeatEach: 2` in the config (or `npx playwright test
 --repeat-each 2`). The fixture adds the repeat index to the seed, so the repeats run under seeds 1 and 2, and a
@@ -78,7 +84,7 @@ Set in `use` in the config, or `test.use({ genclass: {...} })` in a spec or a `d
 | `model` | `"skip"` | `"skip"`: no model download; the file carries the runtime's witnesses, facts computed without the model, and no model confidences. `"load"`: the runtime loads its model (from `modelUrl`, else the package default on jsDelivr: 13 MB, cached by the browser) and the file also carries its detections with their confidence. |
 | `modelUrl` | package default | With `model: "load"`: a model directory URL (the runtime's `model.baseUrl`). |
 | `chaos` | off | Seeded network chaos (below): an object, or `true` for the defaults. Off unless given. |
-| `outDir` | `"test-results/genclass"` | Where the files go, relative to the config's directory. The reporter reads the same place by default. |
+| `outDir` | `genclass` in the project's `outputDir` | Where the files go, relative to the config's directory. The default (test-results/genclass) is emptied by Playwright at the start of each run, so files of an earlier run are never read as more seeds. The reporter reads it by default. |
 | `runtimeDir` | the installed package's `dist/` | `@genclass/runtime`'s `dist/` directory, when it is not resolvable from your project. |
 
 ### Chaos
@@ -91,17 +97,24 @@ use: { genclass: { chaos: { seed: 1, delayMs: [0, 600], reorder: true, match: ["
 |---|---|---|
 | `seed` | `1` | Every delay is derived from it. With `repeatEach`, the fixture adds the repeat index. |
 | `delayMs` | `[0, 600]` | Extra latency per matched response, uniform in `[min, max]` ms, at most 10000. |
-| `reorder` | `true` | `false`: matched responses keep their request order (latency only, nothing overtakes). |
-| `match` | same-origin `/api*` or JSON | Which requests: a path prefix (`"/api"`), a URL prefix (`"https://api.example.com/"`), a RegExp tested against the full URL, a function of `{ url, method, resourceType, sameOrigin }`, or a list of those. Without it: same-origin requests whose path starts with `/api` or whose response is JSON. |
+| `reorder` | `true` | `false`: matched requests leave in the order the page sent them, at least 30 ms apart (latency only: with a server that answers in order, nothing overtakes). |
+| `match` | same-origin `/api*` or `Accept: json` | Which requests: a path prefix (`"/api"`), a URL prefix (`"https://api.example.com/"`), a RegExp tested against the full URL, a function of `{ url, method, resourceType, sameOrigin, accept }`, or a list of those. Without it: same-origin requests whose path starts with `/api` or whose Accept header asks for JSON. |
 
-How it works: with `page.route`, the fixture fetches the real response at once and holds its delivery to the page
-for the planned time, the way a slower network would. Each matched request is keyed by its method, path and
-occurrence in the test (`GET /api/search#3`); its delay comes from a small PRNG seeded by `seed` and that key, so
-the same test under the same seed gets the same delays whatever the wall clock does, and a finding comes with the
-seed that produced it. Nothing is dropped, changed or invented. Only fetch and XHR requests are ever touched, never
-documents, scripts, styles, images, WebSockets or the runtime's own files; a request outside `match` is passed
-through untouched. One consequence of fetching the response first: a matched response is buffered, so a streaming
-response (server-sent events over fetch, NDJSON) on a matched URL does not work; exclude it with `match`.
+How it works: with `page.route`, the fixture holds each matched request for its planned time and then passes it on
+(`route.fallback()`), the way a slow uplink would. The request then takes its normal path: your own routes
+(`page.route`, `context.route`, `routeFromHAR`) and the browser's network stack, with its cookies, redirects, CORS and
+streaming as they are. Each matched request is keyed when the page sends it, by its method, path and occurrence in
+the test (`GET /api/search#3`; a cross-origin one by host name without the port); its delay comes from a small PRNG
+seeded by `seed` and that key, so the same test under the same seed gets the same delays whatever the wall clock or
+the server does, and a finding comes with the seed that produced it. Nothing is dropped, changed, buffered or
+invented. Only fetch and XHR requests are ever held, never documents, scripts, styles, images, WebSockets or the
+runtime's own files; a request outside `match` is passed on at once.
+
+Two things to know. A route of yours registered after the fixture's (Playwright tries the last one first) that
+fulfils a request answers before chaos sees it, so that request gets no delay; call `route.fallback()` in it to let
+chaos run. And `page.route` does not see requests a service worker handles; with a service worker controlling the
+page, set `serviceWorkers: "block"` in `use`. The race file records how many requests chaos held and whether a
+service worker was in control, and the report notes a test where chaos held nothing.
 
 ### The model trade-off
 
@@ -117,10 +130,13 @@ store field), with no model involved:
 A witness is a fact, not a diagnosis: some overwrites are intended, and many are repaired a moment later. The report
 keeps them in their own group, shows no confidence for them and says so in its footer. They need state the runtime
 can see: stores registered with the runtime, or found by automatic state discovery (React component state, Redux,
-Zustand stores with the devtools middleware), which the fixture turns on.
+and Zustand stores whose devtools middleware is enabled, `devtools(..., { enabled: true })`; at its default the
+middleware is off outside development builds and the store is not found), which the fixture turns on.
 
-With `model: "load"` the runtime downloads its model (13 MB, from jsDelivr unless `modelUrl` names your own copy;
-the browser caches it) and the file also carries the model's **detections** (`delivery:stale`,
+With `model: "load"` the runtime downloads its model (about 13 MB with onnxruntime-web's wasm). Each Playwright test
+gets a fresh browser context, so in practice every test downloads it again. The model comes from jsDelivr unless
+`modelUrl` names your own copy; onnxruntime-web's wasm comes from jsDelivr either way. The file then also carries the
+model's **detections** (`delivery:stale`,
 `request:duplicate`, `failure:failing`, ...) with the model's confidence and the evidence line it printed, grouped
 by diagnosis in the report. What the model flags, and how often it is wrong on correct apps, was measured on the
 framework compatibility matrix (the "What to expect" section below).
@@ -129,14 +145,22 @@ framework compatibility matrix (the "What to expect" section below).
 
 For the runtime to see the app's first requests and state, it has to be there before the app's first script, so
 the fixture adds one init script per page: the runtime's script-tag build (`dist/genclass.global.js`) with the
-page configuration `mode: "observe"`, `telemetry: false`, no visual checks, no devtools overlay, the model as
-chosen, and one sink that hands each likely detection to the test runner. The runtime's files are served from disk
-on the page's own origin at `/__genclass__/` with `page.route`, never from a CDN. The page then loads the runtime's
-agent entry (`dist/agent.js`) and connects it with every hold off (`hold: false`), pointed at a loopback URL the
-fixture aborts, so the witnesses are computed and nothing is ever sent to an MCP bridge. Like the runtime's own
-observers, the agent entry wraps the page's `setTimeout` and `clearTimeout` (to see pending debounces; it calls the
-originals). The page gets two globals, `window.GenClass` (the runtime) and `window.__GENCLASS_PLAYWRIGHT__` (the
-fixture's collector), and one exposed function.
+page configuration `mode: "observe"`, `telemetry: false`, no visual checks, no devtools overlay and the model as
+chosen. If a URL or localStorage switch (`?genclass=heal`, `localStorage.genclass`, say from a saved storage state)
+raised the mode, the fixture sets it back to observe and the race file says so. Likely detections reach the test
+runner from the runtime's `decide` event. The runtime's files are served from disk on the page's own origin at
+`/__genclass__/` with `page.route`, never from a CDN. The page then loads the runtime's agent entry
+(`dist/agent.js`) and connects it with every hold off (`hold: false`), so the witnesses are computed. The agent link
+is given a stand-in `fetch` for its own address when it connects, so it sends nothing at all: no request, no console
+line, no failed request, nothing to a Content-Security-Policy report. Like the runtime's own observers, the agent
+entry wraps the page's `setTimeout` and `clearTimeout` (to see pending debounces; it calls the originals).
+
+What the page gets: the globals `GenClass` (the runtime), `GENCLASS_CONFIG` (its configuration),
+`__GENCLASS_AGENT__` (the agent entry) and `__GENCLASS_PLAYWRIGHT__` (the fixture's collector); one function exposed
+by Playwright (`__genclassPlaywright`); and, from automatic state discovery, stand-ins for the React and Redux
+DevTools hooks (`__REACT_DEVTOOLS_GLOBAL_HOOK__`, `__REDUX_DEVTOOLS_EXTENSION__`,
+`__REDUX_DEVTOOLS_EXTENSION_COMPOSE__`) when the page has none. A page route, any route, also turns off the browser's
+HTTP cache for that page in Playwright, so cached responses are fetched again.
 
 Limits, as they are today:
 
@@ -149,6 +173,12 @@ Limits, as they are today:
 - The witnesses need writes the runtime can attribute to a response (registered or discovered state). Apps whose
   state the runtime cannot see produce no witnesses; the model's detections about requests (duplicates, failures)
   do not depend on state.
+- The fixture's runtime does not know your app's own `redact` function (it is set where your app calls
+  `GenClass.init`). Values in the witness lines are summarised and redacted by the runtime's default rules (field names
+  that say they hold a secret), not by yours.
+- With a service worker controlling the page, `/__genclass__/` and chaos go past `page.route`: set
+  `serviceWorkers: "block"`. The report notes a test where the witnesses could not be recorded (the agent entry did
+  not load) or a service worker was in control, instead of calling it clean.
 
 ## Measured
 
@@ -156,21 +186,25 @@ The fixture's end-to-end check, [`test/e2e`](test/e2e) (run by [`.github/workflo
 on the search page of the MCP server's own e2e ([`packages/mcp/test/e2e/app/app.js`](../mcp/test/e2e/app/app.js)):
 a search box whose results are written by each response, so a slower older answer can land over newer results; the
 fixed variant keeps only the answer to the latest query. The test types "react" at 80 ms per key; the backend
-answers in 40 ms, in order, so without chaos the race never shows. Headless Chromium 153 (Playwright 1.63.0),
-2026-10-24, `model: "skip"`, five seeds per test (`repeatEach: 5`):
+answers in 40 ms, in order, so without chaos the race never shows. The page's `app.js` is unchanged, but the check's
+server ([`test/e2e/server.mjs`](test/e2e/server.mjs)) maps its `@genclass/runtime` import to the page's script-tag
+runtime, so its `rt.atom("search")` store is registered with the fixture's runtime: the script-tag integration case.
+The same app with its own ESM runtime gets no witness (the store is on another runtime; see the limits above): a
+review run of the unmodified app recorded none in 5 of 5 seeds. Headless Chromium 153 (Playwright 1.63.0),
+2026-10-25, `model: "skip"`, six runs of the check, five seeds each (`repeatEach: 5`), so 30 seeds per row:
 
-| page | chaos | seeds with `witness:overwrote-newer` on `GET /api/search` | any other signature |
-|---|---|---:|---:|
-| buggy | latency 0 to 600 ms, reorder | 5 of 5 | 0 |
-| buggy | latency 0 to 600 ms, latency only (`reorder: false`) | 0 of 5 | 0 |
-| fixed | latency 0 to 600 ms, reorder | 0 of 5 | 0 |
+| page | chaos | seeds with `witness:overwrote-newer` on `GET /api/search` | any other signature | console errors or failed requests |
+|---|---|---:|---:|---:|
+| buggy | latency 0 to 600 ms, reorder | 30 of 30 | 0 | 0 |
+| buggy | latency 0 to 600 ms, latency only (`reorder: false`) | 0 of 30 | 0 | 0 |
+| fixed | latency 0 to 600 ms, reorder | 0 of 30 | 0 | 0 |
 
 So on this page the fixture finds the race under every seed, reports nothing on the correct variant (the false
 report count that goes next to every recall number here), and reports nothing when the chaos cannot reorder, which
 is the check that the witness comes from the order and not from the latency.
 
-The same buggy page with `model: "load"` (one run by hand, same day, two seeds, not part of the workflow because it
-downloads the model): the model loaded through the fixture's path (`genclass-runtime-r17` 2.0.0-rc4t, WASM, in a
+The same buggy page with `model: "load"` (one run by hand on 2026-10-24, two seeds, not part of the workflow because
+it downloads the model, and before the chaos moved from responses to requests): the model loaded through the fixture's path (`genclass-runtime-r17` 2.0.0-rc4t, WASM, in a
 worker) and the witness was recorded in 2 of 2 seeds, but the model itself produced no likely detection: in seed 1
 its top diagnosis for the late delivery was `stale` at 0.64, below the 0.90 report gate, and in seed 2 it raised
 no decision. That matches the compatibility matrix below (stale detection is the model's weak case) and is why the
@@ -248,6 +282,13 @@ interface GenClassRacesFile {
   mode?: string;                 // "observe"
   model?: { state?: string; name?: string; version?: string; device?: string } | null;  // null: GenClass never started
   chaos?: { latencyMs?: [number, number]; reorder?: boolean; routes?: unknown[] } | null;  // the chaos option (latencyMs is delayMs)
+  fixture?: {                    // written by the fixture: what it could and could not do on the page
+    model: "skip" | "load";      // the fixture's model option
+    agent: string | null;        // null: the agent entry connected and witnesses were recorded; else why not
+    chaosApplied: number | null; // how many requests chaos held (null: chaos off)
+    serviceWorker: boolean;      // a service worker controlled the page
+    modeOverridden?: string;     // a URL or localStorage switch had asked for this mode; set back to observe
+  };
 }
 ```
 
@@ -268,9 +309,11 @@ How the report groups them:
 - **witnesses** (trigger `witness`) get their own group, shown only when there are any, with no confidence on the
   line and a footer sentence saying what they are; they are never counted as duplicate submits or stale responses;
 - a file that flagged nothing and whose `model.state` is not `ready` (for example `loading`, or `null` for a page
-  where GenClass never started) may not have been checked, and the report notes it for that test. State `off` (no
-  model by choice, the fixture's default) gets no note: the witnesses were still computed. A file with detections
-  is reported as usual whatever the state: the runtime can unload an idle model after it ran;
+  where GenClass never started) may not have been checked, and the report notes it for that test. A fixture file
+  with `model: "skip"` gets no model note; the fixture record decides instead: a file that flagged nothing while the
+  witnesses could not be recorded, or while a service worker controlled the page, gets a note too, and so does a test
+  where chaos was on but held no request. A file with detections is reported as usual whatever the state: the runtime
+  can unload an idle model after it ran;
 - **nothing about interventions.** The files do not say what an action did to your app, so the report makes no
   claim about interventions, correct or false.
 
@@ -350,7 +393,7 @@ test; the request ids carry the same invisible character):
 **Witnesses (facts measured without the model)**
 
 - **Reproducible**: 5 of 5 seeds (1, 2, 3, 4, 5) · `GET /api/search` · `witness:overwrote-newer`
-  > The response of GET /api/search#​1 wrote search.results over what newer GET /api/search#​4 had written 0.26s after GET /api/search#​1 started (2 items \["reac one", "reac two"\] → 2 items \["r one", "r two"\]).
+  > The response of GET /api/search#​1 wrote search.results over what newer GET /api/search#​4, started 0.26s after GET /api/search#​1, had written (2 items \["reac one", "reac two"\] → 2 items \["r one", "r two"\]).
 ```
 
 The first line of every report is an HTML comment, invisible on GitHub, that lets a CI step find and update its own
@@ -419,9 +462,12 @@ The same with the GitHub CLI only (it updates the bot's comment that starts with
 ## What to expect from the model
 
 With `model: "load"`, the report passes on what the runtime's model flagged. That was measured on the framework
-compatibility matrix ([`compat/RESULTS.md`](../../compat/RESULTS.md), run of 2026-10-10: headless Chromium,
-10 seeds per cell, model `genclass-runtime-r17` 2.0.0-rc4t, the default of `@genclass/runtime-model` 0.2.0, WASM,
-balanced profile, whose report threshold is 0.90 per [`docs/runtime/RESULTS.md`](../../docs/runtime/RESULTS.md)):
+compatibility matrix ([`compat/RESULTS.md`](../../compat/RESULTS.md), run of 2026-10-10: `@genclass/runtime`
+0.1.0-beta.4, the code released as 0.2.1, not the 0.3.0 beta the fixture needs; headless Chromium, 10 seeds per
+cell, model `genclass-runtime-r17` 2.0.0-rc4t, the default of `@genclass/runtime-model` 0.2.0, WASM, balanced
+profile, whose report threshold is 0.90 per [`docs/runtime/RESULTS.md`](../../docs/runtime/RESULTS.md)). Three
+0.3.0 changes (superseded writes in observe, the body wait, the idle unload) can add likely reports, false ones
+included, at a rate not measured (`docs/runtime/RESULTS.md`).
 
 - **Double submit** (scenario b, a create form clicked twice): 10 `request:duplicate` detections over 10 seeds in
   each of the 14 data layers where the scenario applies (React state, TanStack Query, Zustand, Redux, Apollo,
@@ -432,8 +478,10 @@ balanced profile, whose report threshold is 0.90 per [`docs/runtime/RESULTS.md`]
   the middleware at its default, Pinia, Svelte stores, Angular fetch and XHR, plain HTML fetch and push). Stale
   detection needs state the runtime can discover: React component state, Redux, and Zustand stores whose devtools
   middleware is enabled (the discovery table of the same page).
-- **On correct apps** (scenarios c to h, 880 runs): 49 false findings, `request:overload` ×45 and
-  `request:duplicate` ×4, all on the polling scenario (g).
+- **On correct apps** (scenarios c to h, 880 runs): 319 findings. 270 of them report a failure the scenario injects
+  on purpose (an HTTP 500, going offline), which the app handles correctly; in your report those appear under Failing
+  endpoints and Other detections. 49 are false findings, `request:overload` ×45 and `request:duplicate` ×4, all on the
+  polling scenario (g).
 
 So with the model, lead with duplicate submits, expect stale signatures only where that state is discovered, and
 treat any line as the model's diagnosis to check, not a confirmed bug. The witnesses (the default) were measured
@@ -443,8 +491,8 @@ only on the one page above so far.
 
 This package reads and writes files on the machine that runs it, serves the runtime's files to the page it tests
 from disk, and sends nothing anywhere: with `model: "skip"` no network request leaves your test environment
-because of it; with `model: "load"` the page downloads the model and onnxruntime-web's wasm from jsDelivr (or
-`modelUrl`). The runtime on the page runs with `telemetry: false`.
+because of it; with `model: "load"` the page downloads the model (from jsDelivr, or `modelUrl`) and
+onnxruntime-web's wasm (from jsDelivr). The runtime on the page runs with `telemetry: false`.
 
 The files hold test titles, operation names and the runtime's evidence lines. For a witness that line includes the
 store field's name and the runtime's short summary of its value before and after (`2 items ["r one", "r two"]`;
@@ -466,7 +514,7 @@ The end-to-end check needs both builds and Chromium:
 ```bash
 npm run build -w @genclass/runtime && npm run build -w @genclass/playwright
 npx playwright install --with-deps chromium
-node packages/playwright/test/e2e/run.mjs   # the table in "Measured"; prints a JSON summary, exit 0 when every count holds
+node packages/playwright/test/e2e/run.mjs   # one run of the table in "Measured": exit 0 when the buggy page has the witness in at least 1 of 5 seeds and nothing else, and the other two rows have nothing
 ```
 
 The workflow also runs Playwright itself on `test/playwright-smoke` (no browser: its one test writes race files and

@@ -17,7 +17,8 @@ const witness = (op: string, seed: number, kind = "overwrote-newer"): RaceSignat
   seeds: [seed],
 });
 const model = (op: string, seed: number): RaceSignature => ({ sig: `delivery|stale|${op}`, trigger: "delivery", diagnosis: "stale", op, confidence: 0.91, evidence: "the model's line", seeds: [seed] });
-const file = (test: string, seed: number, signatures: RaceSignature[], extra: Partial<GenClassRacesFile> = {}): GenClassRacesFile => ({ schema: "genclass-races/1", test, seed, signatures, mode: "observe", model: { state: "off", name: "none" }, ...extra });
+const fixture = { model: "skip" as const, agent: null, chaosApplied: 4, serviceWorker: false };
+const file = (test: string, seed: number, signatures: RaceSignature[], extra: Partial<GenClassRacesFile> = {}): GenClassRacesFile => ({ schema: "genclass-races/1", test, seed, signatures, mode: "observe", model: { state: "off", name: "none" }, fixture, ...extra });
 
 describe("witnesses: grouping", () => {
   it("categoryOf puts trigger witness in its own group whatever the label, and the group is last", () => {
@@ -69,13 +70,28 @@ describe("witnesses: the report", () => {
     expect(footer.split("\n\n")).toHaveLength(3);
   });
 
-  it("buildSummary: state off is not 'not ready'; loading still is", () => {
+  it("model notes: a fixture file with model skip gets none; a model-only file with state off still does", () => {
     const s = buildSummary([
-      { name: "a.json", content: file("t", 1, [], { model: { state: "off" } }) },
-      { name: "b.json", content: file("t", 2, [], { model: { state: "loading" } }) },
+      { name: "a.json", content: file("t", 1, []) },
+      { name: "b.json", content: file("t", 2, [], { model: { state: "loading" }, fixture: { ...fixture, model: "load" } }) },
+      { name: "c.json", content: { schema: "genclass-races/1", test: "u", seed: 1, signatures: [], model: { state: "off" } } },
     ]);
-    expect(s.tests[0].modelNotReady).toEqual({ files: 1, states: ["loading"] });
+    const [t, u] = [s.tests.find((x) => x.test === "t")!, s.tests.find((x) => x.test === "u")!];
+    expect(t.modelNotReady).toEqual({ files: 1, states: ["loading"] });
+    expect(u.modelNotReady).toEqual({ files: 1, states: ["off"] });
     expect(s.totals.byCategory.witness).toEqual({ signatures: 0, reproducible: 0 });
+  });
+
+  it("notes what the fixture could not do: no agent, a service worker, chaos that held nothing", () => {
+    const md = summarize([
+      { name: "a.json", content: file("quiet", 1, [], { fixture: { ...fixture, agent: "not-loaded" } }) },
+      { name: "b.json", content: file("quiet", 2, [], { fixture: { ...fixture, serviceWorker: true, chaosApplied: 0 } }) },
+      { name: "c.json", content: file("flagged", 1, [witness("GET /api/search", 1)], { fixture: { ...fixture, chaosApplied: 0 } }) },
+      { name: "d.json", content: file("flagged", 2, [], { fixture: { ...fixture, agent: "not-loaded" } }) },
+    ]);
+    expect(md).toContain("- quiet (2 seeds: 1, 2; not checked in 2 of 2 files (a service worker controlled the page; witnesses not recorded: not-loaded); chaos held no request in 1 of 2 files)\n");
+    expect(md).toContain("Note: in 1 of 2 files for this test nothing was flagged and the fixture could not check the page (witnesses not recorded: not-loaded), so those runs may not have been checked.\n");
+    expect(md).toContain("Note: in 1 of 2 files for this test chaos was on but held no request (nothing matched its filter, or a route of the test or a service worker answered first).\n");
   });
 
   it("maxChars keeps witness lines like any other signature", () => {
