@@ -1,0 +1,58 @@
+{
+  "scenario": "smoke",
+  "slow_ms": 600,
+  "runs": 6,
+  "seed": 1,
+  "started": "2026-10-24T19:03:09.508Z",
+  "loads": [
+    {
+      "dom": {
+        "url": "#/editor/post/6add00c20bf36d052b0baf9b",
+        "title": "Hunt post A smoke",
+        "body": "Initial body of Hunt post A.",
+        "status": "Draft - Saved",
+        "stores": [
+          "atom:ghost",
+          "observed:reactAdminMounted",
+          "observed:reactAdminMounted_2",
+          "observed:reactAdminMounted_3",
+          "observed:admin7",
+          "observed:controlShape",
+          "observed:controlShape_2",
+          "observed:postEditor",
+          "observed:controlShape_3",
+          "observed:Kfe",
+          "observed:IU",
+          "observed:NU",
+          "observed:Kfe_2",
+          "observed:IU_2",
+          "observed:NU_2",
+          "observed:editorStatus",
+          "observed:tp"
+        ],
+        "agent": {
+          "run": "r1",
+          "schedule": {
+            "order": "natural"
+          },
+          "witnesses": 0,
+          "errors": 0,
+          "forced": 0
+        }
+      },
+      "api": {
+        "title": "Hunt post A smoke",
+        "plaintext": "Initial body of Hunt post A.",
+        "status": "draft",
+        "updated_at": "2026-10-24T19:03:14.000Z",
+        "tags": [],
+        "authors": [
+          "Hunt Owner"
+        ]
+      },
+      "expect": {
+        "title": "Hunt post A smoke"
+      }
+    }
+  ]
+}

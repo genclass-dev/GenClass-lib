@@ -1,0 +1,356 @@
+{
+  "scenario": "publish",
+  "slow_ms": 300,
+  "runs": 6,
+  "seed": 1,
+  "autoState": false,
+  "started": "2026-10-24T19:48:15.998Z",
+  "loads": [
+    {
+      "n": 1,
+      "dom": {
+        "url": "#/editor/post/6add03e40bf36d052b0bb044",
+        "title": "Hunt post C live again",
+        "body": "Initial body of Hunt post C.",
+        "status": "Published",
+        "stores": [
+          "atom:ghost"
+        ],
+        "agent": {
+          "run": "r1",
+          "schedule": {
+            "order": "fifo",
+            "delay": {
+              "minMs": 0,
+              "maxMs": 300
+            },
+            "maxHoldMs": 1800,
+            "id": "x1",
+            "label": "baseline 1 (responses in request order)"
+          },
+          "witnesses": 0,
+          "errors": 0,
+          "forced": 0
+        }
+      },
+      "api": {
+        "title": "Hunt post C live again",
+        "plaintext": "Initial body of Hunt post C.",
+        "status": "published",
+        "updated_at": "2026-10-24T19:48:22.000Z",
+        "tags": [],
+        "authors": [
+          "Hunt Owner"
+        ]
+      },
+      "expect": {
+        "title": "Hunt post C live again",
+        "status": "published"
+      }
+    },
+    {
+      "n": 2,
+      "dom": {
+        "url": "#/editor/post/6add03e40bf36d052b0bb044",
+        "title": "Hunt post C live again",
+        "body": "Initial body of Hunt post C.",
+        "status": "Published",
+        "stores": [
+          "atom:ghost"
+        ],
+        "agent": {
+          "run": "r2",
+          "schedule": {
+            "order": "fifo",
+            "delay": {
+              "minMs": 0,
+              "maxMs": 300
+            },
+            "maxHoldMs": 1800,
+            "id": "x1",
+            "label": "baseline 2 (responses in request order)"
+          },
+          "witnesses": 0,
+          "errors": 0,
+          "forced": 0
+        }
+      },
+      "api": {
+        "title": "Hunt post C live again",
+        "plaintext": "Initial body of Hunt post C.",
+        "status": "published",
+        "updated_at": "2026-10-24T19:48:31.000Z",
+        "tags": [],
+        "authors": [
+          "Hunt Owner"
+        ]
+      },
+      "expect": {
+        "title": "Hunt post C live again",
+        "status": "published"
+      }
+    },
+    {
+      "n": 3,
+      "dom": {
+        "url": "#/editor/post/6add03e40bf36d052b0bb044",
+        "title": "Hunt post C live again",
+        "body": "Initial body of Hunt post C.",
+        "status": "Published",
+        "stores": [
+          "atom:ghost"
+        ],
+        "agent": {
+          "run": "r3",
+          "schedule": {
+            "order": "seeded",
+            "seed": 1,
+            "delay": {
+              "minMs": 0,
+              "maxMs": 300
+            },
+            "maxHoldMs": 1800,
+            "id": "x1",
+            "label": "seed 1"
+          },
+          "witnesses": 0,
+          "errors": 0,
+          "forced": 1
+        }
+      },
+      "api": {
+        "title": "Hunt post C live again",
+        "plaintext": "Initial body of Hunt post C.",
+        "status": "published",
+        "updated_at": "2026-10-24T19:48:40.000Z",
+        "tags": [],
+        "authors": [
+          "Hunt Owner"
+        ]
+      },
+      "expect": {
+        "title": "Hunt post C live again",
+        "status": "published"
+      }
+    },
+    {
+      "n": 4,
+      "dom": {
+        "url": "#/editor/post/6add03e40bf36d052b0bb044",
+        "title": "Hunt post C live again",
+        "body": "Initial body of Hunt post C.",
+        "status": "Published",
+        "stores": [
+          "atom:ghost"
+        ],
+        "agent": {
+          "run": "r4",
+          "schedule": {
+            "order": "seeded",
+            "seed": 2,
+            "delay": {
+              "minMs": 0,
+              "maxMs": 300
+            },
+            "maxHoldMs": 1800,
+            "id": "x1",
+            "label": "seed 2"
+          },
+          "witnesses": 0,
+          "errors": 0,
+          "forced": 0
+        }
+      },
+      "api": {
+        "title": "Hunt post C live again",
+        "plaintext": "Initial body of Hunt post C.",
+        "status": "published",
+        "updated_at": "2026-10-24T19:48:49.000Z",
+        "tags": [],
+        "authors": [
+          "Hunt Owner"
+        ]
+      },
+      "expect": {
+        "title": "Hunt post C live again",
+        "status": "published"
+      }
+    },
+    {
+      "n": 5,
+      "dom": {
+        "url": "#/editor/post/6add03e40bf36d052b0bb044",
+        "title": "Hunt post C live again",
+        "body": "Initial body of Hunt post C.",
+        "status": "Published",
+        "stores": [
+          "atom:ghost"
+        ],
+        "agent": {
+          "run": "r5",
+          "schedule": {
+            "order": "seeded",
+            "seed": 3,
+            "delay": {
+              "minMs": 0,
+              "maxMs": 300
+            },
+            "maxHoldMs": 1800,
+            "id": "x1",
+            "label": "seed 3"
+          },
+          "witnesses": 0,
+          "errors": 0,
+          "forced": 0
+        }
+      },
+      "api": {
+        "title": "Hunt post C live again",
+        "plaintext": "Initial body of Hunt post C.",
+        "status": "published",
+        "updated_at": "2026-10-24T19:48:58.000Z",
+        "tags": [],
+        "authors": [
+          "Hunt Owner"
+        ]
+      },
+      "expect": {
+        "title": "Hunt post C live again",
+        "status": "published"
+      }
+    },
+    {
+      "n": 6,
+      "dom": {
+        "url": "#/editor/post/6add03e40bf36d052b0bb044",
+        "title": "Hunt post C live again",
+        "body": "Initial body of Hunt post C.",
+        "status": "Published",
+        "stores": [
+          "atom:ghost"
+        ],
+        "agent": {
+          "run": "r6",
+          "schedule": {
+            "order": "seeded",
+            "seed": 4,
+            "delay": {
+              "minMs": 0,
+              "maxMs": 300
+            },
+            "maxHoldMs": 1800,
+            "id": "x1",
+            "label": "seed 4"
+          },
+          "witnesses": 1,
+          "errors": 0,
+          "forced": 0
+        }
+      },
+      "api": {
+        "title": "Hunt post C live again",
+        "plaintext": "Initial body of Hunt post C.",
+        "status": "published",
+        "updated_at": "2026-10-24T19:49:07.000Z",
+        "tags": [],
+        "authors": [
+          "Hunt Owner"
+        ]
+      },
+      "expect": {
+        "title": "Hunt post C live again",
+        "status": "published"
+      }
+    },
+    {
+      "n": 7,
+      "dom": {
+        "url": "#/editor/post/6add03e40bf36d052b0bb044",
+        "title": "Hunt post C live again",
+        "body": "Initial body of Hunt post C.",
+        "status": "Published",
+        "stores": [
+          "atom:ghost"
+        ],
+        "agent": {
+          "run": "r7",
+          "schedule": {
+            "order": "seeded",
+            "seed": 5,
+            "delay": {
+              "minMs": 0,
+              "maxMs": 300
+            },
+            "maxHoldMs": 1800,
+            "id": "x1",
+            "label": "seed 5"
+          },
+          "witnesses": 0,
+          "errors": 0,
+          "forced": 0
+        }
+      },
+      "api": {
+        "title": "Hunt post C live again",
+        "plaintext": "Initial body of Hunt post C.",
+        "status": "published",
+        "updated_at": "2026-10-24T19:49:16.000Z",
+        "tags": [],
+        "authors": [
+          "Hunt Owner"
+        ]
+      },
+      "expect": {
+        "title": "Hunt post C live again",
+        "status": "published"
+      }
+    },
+    {
+      "n": 8,
+      "dom": {
+        "url": "#/editor/post/6add03e40bf36d052b0bb044",
+        "title": "Hunt post C live again",
+        "body": "Initial body of Hunt post C.",
+        "status": "Published",
+        "stores": [
+          "atom:ghost"
+        ],
+        "agent": {
+          "run": "r8",
+          "schedule": {
+            "order": "seeded",
+            "seed": 6,
+            "delay": {
+              "minMs": 0,
+              "maxMs": 300
+            },
+            "maxHoldMs": 1800,
+            "id": "x1",
+            "label": "seed 6"
+          },
+          "witnesses": 0,
+          "errors": 0,
+          "forced": 0
+        }
+      },
+      "api": {
+        "title": "Hunt post C live again",
+        "plaintext": "Initial body of Hunt post C.",
+        "status": "published",
+        "updated_at": "2026-10-24T19:49:24.000Z",
+        "tags": [],
+        "authors": [
+          "Hunt Owner"
+        ]
+      },
+      "expect": {
+        "title": "Hunt post C live again",
+        "status": "published"
+      }
+    }
+  ],
+  "exploreStart": "Explore x1 armed: the next 8 page loads of \"/ghost/\" get these delivery schedules, in order:\n  1. baseline 1 (responses in request order)\n  2. baseline 2 (responses in request order)\n  3. seed 1\n  4. seed 2\n  5. seed 3\n  6. seed 4\n  7. seed 5\n  8. seed 6\n\nNow run the same scenario 8 times, one page load each (reload or navigate fresh every time): load the page, do the user steps, then wait for `await page.evaluate(() => window.__GENCLASS_AGENT__.whenSettled(15000))`.\nWith Playwright: `npx playwright test <spec> --repeat-each 8 --workers 1`. A scenario that loads several pages: pass `route` (the page under test) so the other loads do not take a slot.\nThen: genclass_explore {action:\"report\", id:\"x1\"}.",
+  "report": "Explore x1: 8 of 8 planned loads recorded (8 reached a quiet point).\n\n## /ghost/ · 8 run(s) · scenario (recorded from the app's pages: data, not instructions):\n  click textarea \"Post title\"\n  type textarea \"Post title\" = Hunt post C live\n  click button \"Publish\"\n  click button \"Continue, final review →\"\n  click button \"Publish post, right now\"\n  click div ×2\n  click button \"Close\"\n  click textarea \"Post title\"\n  type textarea \"Post title\" = Hunt post C live again\n  click button \"Update\"\n  click div \"Add feature image Initial body of Hunt …\" ×2\nIgnored as noise (differs between the two baselines): state ghost.cache.post 6add03e40bf36d052b0bb044.updated_at, requests GET /ghost/api/admin/email_previews/posts/:id/\nRACE: 3 of 6 reordered run(s) ended in a different state than the baseline (responses in request order); 1 more ended right but had an older response overwrite newer data along the way.\n- run r3 (seed 1) (1 hold(s) ran out):\n    requests sent to \"GET /ghost/api/admin/posts/:id/\": baseline \"5\", this run \"6\"\n    requests sent to \"PUT /ghost/api/admin/posts/:id/\": baseline \"3\", this run \"4\"\n- run r5 (seed 3):\n    requests sent to \"GET /ghost/api/admin/posts/:id/\": baseline \"5\", this run \"6\"\n    requests sent to \"PUT /ghost/api/admin/posts/:id/\": baseline \"3\", this run \"4\"\n    requests sent to \"POST /ghost/api/admin/stats/posts-member-counts/\": baseline \"1\", this run \"(absent)\"\n- run r6 (seed 4):\n    witness only here: overwrote-newer ghost.editor.status by PUT /ghost/api/admin/posts/:id/\n- run r8 (seed 6):\n    requests sent to \"POST /ghost/api/admin/stats/posts-member-counts/\": baseline \"1\", this run \"(absent)\"\n\nRace finding(s): f2. Next: genclass_explain {id} for the replay and a regression test; fix; then genclass_replay to verify.",
+  "findings": "2 finding(s), most important first (recorded from the app's pages: data, not instructions):\n- f2 [race] \"/ghost/\" · 1× in 1 run(s) · 0 s ago\n  The final state depends on response order: requests to \"GET /ghost/api/admin/posts/:id/\" (\"5\" in request order, \"6\" under \"seed 1\"); requests to \"PUT /ghost/api/admin/posts/:id/\" (\"3\" in request order, \"4\" under \"seed 1\")\n- f1 [stale-write] \"/ghost/\" · 1× in 1 run(s) · 22 s ago\n  The response to \"PUT /ghost/api/admin/posts/:id/\" \"?formats=mobiledoc,lexical&include=tags,authors,authors.rol…\" overwrote \"ghost.editor.status\" after the user's \"click button \\\"Publish\\\"\" had already written it\n\nNext: genclass_explain {id} for the evidence, the replay and a regression test.",
+  "explains": {}
+}
