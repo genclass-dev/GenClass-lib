@@ -330,7 +330,7 @@ export function startAnalytics(rt: RuntimeImpl, t: TelemetryClient, ignored: (e:
   const timers = new Set<unknown>();
 
   // the visit: its id, whether the next view is this page load's first, and what the view that opened it sends
-  const self = rt as unknown as { selfStorage: boolean };
+  const owner = rt as unknown as { selfStorage: boolean };
   const skey = VISIT_KEY + (t.token ?? "endpoint");
   const origin0 = g.performance?.timeOrigin;
   const wall = () => (typeof origin0 === "number" ? origin0 + clock.now() : NaN);
@@ -338,14 +338,14 @@ export function startAnalytics(rt: RuntimeImpl, t: TelemetryClient, ignored: (e:
   let firstView = true;
   let entry: Record<string, unknown> | null = null;
   const store = (v: string | null) => {
-    self.selfStorage = true;
+    owner.selfStorage = true;
     try {
       if (v === null) g.localStorage?.removeItem(skey);
       else g.localStorage?.setItem(skey, v);
     } catch {
       /* storage blocked: the visit lasts this page load */
     } finally {
-      self.selfStorage = false;
+      owner.selfStorage = false;
     }
   };
   const keepVisit = () => {
