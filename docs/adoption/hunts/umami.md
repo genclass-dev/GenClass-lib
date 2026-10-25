@@ -11,15 +11,20 @@ explore (12 sessions, 96 loads at 300, 600 and 900 ms of added latency) the box 
 loads**, every one of the 24 serial baselines included, and the list showed the wrong rows in the same 56. Without
 GenClass, Chromium's own network throttling reproduces it in **10 of 10 trials on both pages from 200 ms of added
 round-trip latency** (0 of 10 at 0 and 150 ms), and a Playwright test in Umami's style that holds the first search
-navigation with `page.route` **fails 5 of 5 before the fix and passes 5 of 5 after**. On the fixed build, FIXED_HEADLINE
+navigation with `page.route` **fails 5 of 5 before the fix and passes 5 of 5 after**. On the fixed build no load lost
+text or showed the wrong list: 0 of 96 explore loads, 0 of 120 throttled trials. The fix is 12 lines in `DataGrid.tsx`
+(`umami.patch`, with the test); a draft issue and PR body are in `umami-issue.md`. Nothing was filed upstream.
 
-GenClass's part, measured honestly (section 8): explore's verdict pointed at the search box in 5 of the 12 sessions on
-the broken build, and in each of those its baselines were the broken runs and the runs it listed as racing were the
-correct ones. In the other 7 the bug split the loads into scenario groups of their own (the recorded typed value is part
-of the scenario, and the bug changes it), so explore printed "no race", no verdict, or a RACE line about noise only. On
-the fixed build it printed RACE lines in FIXED_RACE_SESSIONS of 12 sessions, all of them false reports (Next's link
-prefetch counts, relative times, discovered stores), none about the box or the list. No `overwrote-newer` witness fired
-in any load: the box's text lives in `DataGrid`'s own `useState`, which GenClass's React discovery did not pick up.
+GenClass's part, measured honestly (sections 11 and 12): the bug was the hunt brief's prime suspect from reading the
+code; GenClass's explore made it happen on a fast local server where plain typing never shows it (0 of 10 throttled
+trials at 0 ms), and its verdict pointed at the search box in 5 of the 12 sessions on the broken build; in each of those its baselines were the broken runs and the runs it listed as
+racing were the correct ones. In the other 7 the bug split the loads into scenario groups of their own (the recorded
+typed value is part of the scenario, and the bug changes it), so explore printed "no race", no verdict, or a RACE line
+about noise only. On the fixed build (the correct variant) it printed RACE lines in all 12 sessions (64 of 72 seeded
+runs), all of them false reports (Next's link prefetch counts, relative times, discovered stores), none about the box
+or the list, and one fixed load produced 17 stale-write findings from a write attributed to the wrong response. No
+`overwrote-newer` witness fired on the broken build: the box's text lives in `DataGrid`'s own `useState`, which
+GenClass's React discovery did not pick up. The oracles, not explore's verdict, decided every claim here.
 
 ## 1. Versions and commits
 
@@ -315,7 +320,17 @@ emulation through CDP (`Network.emulateNetworkConditions`, latency only), typing
 
 | added round-trip latency | `/websites` lost text, unfixed | `/admin/users` lost text, unfixed | `/websites`, fixed | `/admin/users`, fixed |
 |---|---|---|---|---|
-THROTTLE_ROWS
+| 0 ms | 0 of 10 | 0 of 10 | 0 of 10 | 0 of 10 |
+| 150 ms | 0 of 10 | 0 of 10 | 0 of 10 | 0 of 10 |
+| 200 ms | **10 of 10** (`shopstu`) | **10 of 10** (`annasto`) | 0 of 10 | 0 of 10 |
+| 250 ms | **10 of 10** (`shopstu`) | **10 of 10** (`annasto`) | 0 of 10 | 0 of 10 |
+| 300 ms | **10 of 10** (`shoptu`, `shopstu`) | **10 of 10** (`annato`, `annasto`) | 0 of 10 | 0 of 10 |
+| 400 ms | **10 of 10** (`shoptu`) | **10 of 10** (`annato`, `annao`) | 0 of 10 | 0 of 10 |
+
+At 200 ms and more the space or underscore typed right after the pause is dropped every time (the navigation commits
+while the second part is being typed); at 150 ms it commits before the first key after the pause. These trials check
+the box only (the list follows the box, section 5). Unfixed rows: `results/throttle-unfixed.json` and
+`throttle-unfixed-mid.json`; fixed rows: `results/fixed/throttle-fixed.json`.
 
 **Static checks on the patched tree**: `biome check` on the two changed files is clean; `pnpm lint` reports 6 errors,
 12 warnings and 11 infos, the same counts as a clean `dev` checkout (none in the changed files); `tsc --noEmit` (with a
@@ -329,7 +344,49 @@ patch touches one client component and adds one e2e spec, and the VM has no Dock
 The same 12 explore sessions (2 pages x 2 patterns x `slow_ms` 300, 600, 900; seed 1; 2 baselines and 6 seeded loads
 each, 72 seeded loads) on the patched build (`results/fixed/`):
 
-FIXED_TABLE
+| page, pattern, `slow_ms` | lost text | list wrong | explore verdict | listed runs: box and list / other only |
+|---|---|---|---|---|
+| `/websites`, pause, 300 | 0 of 8 | 0 of 8 | RACE 2 of 6 | 0 / 2 |
+| `/websites`, pause, 600 | 0 of 8 | 0 of 8 | RACE 3 of 6 | 0 / 3 |
+| `/websites`, pause, 900 | 0 of 8 | 0 of 8 | RACE 6 of 6 | 0 / 6 |
+| `/websites`, split, 300 | 0 of 8 | 0 of 8 | RACE 6 of 6 | 0 / 6 |
+| `/websites`, split, 600 | 0 of 8 | 0 of 8 | RACE 6 of 6 | 0 / 6 |
+| `/websites`, split, 900 | 0 of 8 | 0 of 8 | RACE 6 of 6 | 0 / 6 |
+| `/admin/users`, pause, 300 | 0 of 8 | 0 of 8 | RACE 5 of 6 | 0 / 5 |
+| `/admin/users`, pause, 600 | 0 of 8 | 0 of 8 | RACE 6 of 6 | 0 / 6 |
+| `/admin/users`, pause, 900 | 0 of 8 | 0 of 8 | RACE 6 of 6 | 0 / 6 |
+| `/admin/users`, split, 300 | 0 of 8 | 0 of 8 | RACE 6 of 6 (and 17 stale-write findings from one load) | 0 / 6 |
+| `/admin/users`, split, 600 | 0 of 8 | 0 of 8 | RACE 6 of 6 | 0 / 6 |
+| `/admin/users`, split, 900 | 0 of 8 | 0 of 8 | RACE 6 of 6 | 0 / 6 |
+| **total** | **0 of 96** | **0 of 96** | RACE in 12 of 12, 64 of 72 seeded runs listed | **0** / 64 |
+
+By the oracles the fix holds in every load: the box ended with exactly what was typed and the list matched it, in all 24
+baselines and all 72 seeded loads, at every latency; every session formed a single scenario group (the typed value no
+longer changes).
+
+By explore's verdict alone the fixed build does **not** come out clean, and that is GenClass's false-report rate on the
+correct variant, to be read next to the broken build's numbers: RACE lines in 12 of 12 sessions on the fixed build
+against 8 of 12 on the broken one (5 of 12 naming the box). Not one of the 64 runs listed on the fixed build differed in
+the search box, the list query's result or the listed rows. What they differed in:
+
+- request counts, in 58 of the 64 (and nothing else in 34): Next's link prefetches of the rows on screen (`GET
+  /admin/users/:id` 33 runs, `GET /websites/:id` 20, `GET /websites/:id/settings` 16), and the list fetches (`GET
+  /api/admin/users` 13, `GET /api/websites/charts` 10, `GET /api/users/:id/websites` 8): the baselines let the
+  intermediate navigation (`?search=shop`) commit and fetch its list, a seeded run that held it past the second push
+  skips that list (the App Router drops the older navigation), so it makes one fetch fewer and ends in the same state;
+- relative times in the page text, in 28 (`37 minutes ago` against `38 minutes ago`, `about 1 hour ago`);
+- discovered React stores present in the baselines and absent in the run (`baseUiR8`, `baseUiRA`, `baseUiRH`), in 3;
+- a witness only that run had, in 1: the load below.
+
+One fixed load (`/admin/users` split 300, seed 3) recorded 17 `overwrote-newer` witnesses, and the session's findings
+list 17 `stale-write` findings from them: "The response to `GET /admin/websites` overwrote `search.external5.data.count`
+after a newer `GET /api/admin/users` had already written it". `GET /admin/websites` there is a link prefetch (an RSC
+payload for the admin websites page, which cannot write the users list's React Query result); the load ended right by
+both oracles. The write was attributed to the wrong response (section 12). No witness fired on the broken build.
+
+So the fixed-variant check, stated plainly: 0 lost-text loads in 96 explore loads and 120 throttled trials, the
+regression test passing 5 of 5, and explore's own verdict reporting a race in every session for reasons that are all
+false reports, none of them about the code that changed.
 
 ## 12. What GenClass could and could not see on this app
 
@@ -350,7 +407,7 @@ What it did not see, and what that cost:
   discovered stores after the instance's first rendered element, and `WebsitesDataTable` and the `DataGrid` it renders
   share that element; the store GenClass called `search` holds the list query's result, and the box's text appeared in
   no store. Without it, the write that loses the text cannot be seen, and no `overwrote-newer` witness fired in any of
-  the 96 loads (nor in the 96 on the fixed build). The router tree write was also recorded without a cause (`write
+  the 96 broken-build loads (the 17 on the fixed build are false, below). The router tree write was also recorded without a cause (`write
   A_3.state0...` with no `by GET /websites#1`), so the chain from the RSC response to the effect was not linked either.
 - **Which side is wrong.** Explore takes the serial baselines as the reference. Here the baselines were the broken
   runs in all 24 cases (the added latency alone opens the window; the order of responses does not matter), so every
@@ -372,6 +429,12 @@ What it did not see, and what that cost:
   crossed a minute between loads (`37 minutes ago` against `38 minutes ago`: the baselines agreed, so the line was not
   marked as noise), and discovered stores present in one load and absent in another. The Ghost hunt reported the same
   classes.
+- **A write attributed to the wrong response.** In one fixed load, 17 fields of the users list's React Query result
+  (`search.external5.*`) were recorded as written by the response to a link prefetch (`GET /admin/websites`, an RSC
+  payload for another page) over a newer `GET /api/admin/users`, giving 17 `overwrote-newer` witnesses and 17
+  `stale-write` findings on a load that ended right. GenClass's React discovery attributes a write it has no captured
+  setter for to the operation ambient at commit time (`discover/react.ts`); React Query's `useSyncExternalStore`
+  snapshot changed in a commit that ran while the prefetch's response handler was ambient.
 - **A misleading key.** Next's segment prefetch issues a second request for the same path from the first one's
   response handler; the agent's schedule names it `GET /links#1~hedge`, the label it uses for GenClass's own hedges,
   although GenClass ran in observe mode with the model off and sent nothing.
@@ -381,11 +444,17 @@ What it did not see, and what that cost:
 
 ## 13. Time spent
 
-About TIME_TOTAL of wall-clock time in one session (23:24 to TIME_END UTC): setup (GenClass build, Umami clone, install
-and build, PostgreSQL, seeding) about 15 minutes; the harness and the first explore session 10 minutes; the 12-session
-matrix 13 minutes (runs while the regression test and fix were written); evidence session, Playwright and throttling
-runs on the broken build 15 minutes; rebuild, Playwright, the fixed matrix and throttling on the fixed build
-TIME_FIXED; the report the rest.
+About 1 hour 20 minutes of wall-clock time in one session, 23:24 to about 00:45 UTC (2026-10-24/25), with the
+long runs in the background while the next step was written:
+
+| UTC | step |
+|---|---|
+| 23:24 to 23:31 | GenClass build, Umami clone (`dev`), install (11 s), build (89 s), PostgreSQL role and database, seeding |
+| 23:31 to 23:34 | the harness, a smoke load, the first explore session (the bug on the first try) |
+| 23:34 to 23:45 | the 12-session matrix on the broken build (the regression test and the fix written meanwhile) |
+| 23:46 to 00:01 | evidence session (explain, replay), Umami's Playwright test on the broken build, throttled trials |
+| 00:02 to 00:27 | rebuild with the patch (53 s), the Playwright test, the 12-session matrix and throttled trials on the fixed build, `tsc`, lint |
+| 00:27 to 00:45 | the report, the patch file, the issue draft, the PR |
 
 ## 14. Reproducing
 

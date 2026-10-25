@@ -13,7 +13,8 @@ for pull requests against `dev` (`CONTRIBUTING.md`); the patch is `umami.patch` 
 **Describe the bug**
 
 On every list page with a search box (Websites, Admin > Users, Admin > Websites, Admin > Teams, team members and
-websites, Links, Pixels, Boards, and the website Sessions, Events, Replays, Segments, Cohorts and Errors tables: 18
+websites, Links, Pixels, Boards, and the website Sessions, Events, Replays, Segments, Cohorts, Errors and revenue
+sessions tables: 18
 `DataGrid` call sites with `allowSearch`), text typed after a short pause can disappear. If you type, pause long enough
 for the search to start (600 ms), and keep typing before that navigation has finished, the box jumps back to what it
 held when the pause began. What you typed after the pause is gone, the list shows the results for the shorter term,
@@ -25,11 +26,12 @@ typing `shop stu` gave `shopu`, `shoptu` or `shopstu` in our runs.
 **To reproduce**
 
 1. Run Umami 3.4.1 (or `dev`) and sign in; have a few websites, for example `shop studio 1` and `shop site 1`.
-2. In Chrome DevTools > Network, pick the "Slow 4G" preset (any connection where a page navigation takes more than
-   about 200 ms will do).
+2. In Chrome DevTools > Network > Throttling, add a custom profile with 300 ms latency and no bandwidth limit, and
+   select it (any connection where a page navigation takes a few hundred ms will do).
 3. Open `/websites`, click the search box and type `shop`.
-4. Wait about 0.7 s (the URL gets `?search=shop` once the navigation finishes), then type ` stu` straight away.
-5. The box goes back to `shop` while or shortly after you type ` stu`; the list keeps showing every `shop` website.
+4. Wait about 0.7 s (just over the 600 ms search debounce), then type ` stu` straight away.
+5. When the navigation for `?search=shop` lands, the box goes back to `shop` (or to `shop` plus whatever you typed after
+   that moment, such as `shoptu`); the list shows the results for that value and no search for `shop stu` follows.
 
 **Expected behavior**
 
@@ -37,12 +39,20 @@ The box keeps `shop stu`, and after the debounce the URL and the list follow it 
 
 **Measured**
 
-Headless Chromium with the network emulation Chrome DevTools uses (added round-trip latency, no request interception),
-typing `shop` (90 ms per key), a 700 ms pause, then ` stu`; 10 trials per row:
+Headless Chromium with the network emulation DevTools throttling uses (`Network.emulateNetworkConditions`, latency
+only, no request interception), production build on localhost, typing at 90 ms per key with a 700 ms pause; 10 trials
+per cell, counting trials where the box did not end with the full text:
 
-TROTTLE_TABLE
+| added latency | `/websites`: `shop`, pause, ` stu` | `/admin/users`: `anna`, pause, `_sto` |
+|---|---|---|
+| 0 ms | 0 of 10 | 0 of 10 |
+| 150 ms | 0 of 10 | 0 of 10 |
+| 200 ms | 10 of 10 (`shopstu`) | 10 of 10 (`annasto`) |
+| 250 ms | 10 of 10 (`shopstu`) | 10 of 10 (`annasto`) |
+| 300 ms | 10 of 10 (`shoptu`, `shopstu`) | 10 of 10 (`annato`, `annasto`) |
+| 400 ms | 10 of 10 (`shoptu`) | 10 of 10 (`annato`, `annao`) |
 
-The same steps on `/admin/users` (`anna`, pause, `_sto`) behave the same way.
+With the fix below, 0 of 10 at every latency on both pages.
 
 **Cause**
 
@@ -77,8 +87,8 @@ safe: the App Router discards the older navigation.)
 Umami `dev` at 12cdf5777 (3.4.1), Next.js 16.4.2, React 19.3.1, PostgreSQL 16, Chromium 153, production build
 (`pnpm build && pnpm start`).
 
-Found with GenClass (an open-source tool that reorders and delays a page's responses to look for races); the steps above
-reproduce it without it.
+First reproduced with GenClass (an open-source tool that delays and reorders a page's responses to surface races); the
+steps above need nothing but the browser.
 
 ---
 
@@ -103,8 +113,12 @@ change (back and forward, a link to a filtered list) is still copied into the bo
 `tests/e2e/data-grid-search.spec.ts` (Playwright, in the style of `session-modal-dismiss.spec.ts`):
 
 - `keeps text typed while the search navigation is loading`: holds the response of the first search navigation with
-  `page.route` until the second part has been typed, then checks the box, the URL and the list. TEST_BEFORE_AFTER
+  `page.route` until the second part has been typed, then checks the box, the URL and the list. Fails 5 of 5 runs on
+  `dev` (`Expected pattern: /[?&]search=revert(\+|%20)beta(&|$)/`, `Received string:
+  "http://localhost:3000/websites?search=revert&page=1"`); passes 5 of 5 with the fix.
 - `control: going back restores the previous search`: the URL-to-box sync still works for back navigation. Passes before
   and after.
 
-`pnpm lint` (Biome) is clean on both files; `pnpm build` passes.
+Run against a production build (`PLAYWRIGHT_SKIP_WEB_SERVER=1`, `--workers 1` as in CI). `biome check` is clean on both
+files; `pnpm lint` reports the same 6 errors and 12 warnings as `dev` without the change (none in these files);
+`tsc --noEmit` reports no error in `DataGrid.tsx`; `pnpm build` passes.
