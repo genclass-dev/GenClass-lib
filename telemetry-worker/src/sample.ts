@@ -220,5 +220,17 @@ export function sampleStats(rangeParam: string | null, now: Date): Stats {
     typeSeries,
     previous: { sessions: Math.round(sessions * 0.94), detections: Math.round(detections * 1.15), acted: Math.max(0, interventions - 2), ix_views: Math.round(views * 0.91) },
     recent,
+    agent: sampleAgent(now),
   };
+}
+
+/** What a coding agent reported on the sample app: one problem proven fixed, one reproduced and tested, one found. */
+function sampleAgent(now: Date): Stats["agent"] {
+  const t = (minAgo: number) => new Date(now.getTime() - minAgo * 60_000).toISOString();
+  const findings: Stats["agent"]["findings"] = [
+    { id: "f3", kind: "stale-write", route: "/search", found: t(310), replayed: t(42), reproduced: false, tested: t(240), proven: t(42), updated: t(42) },
+    { id: "f7", kind: "duplicate-request", route: "/checkout", found: t(95), replayed: t(80), reproduced: true, tested: t(70), proven: null, updated: t(70) },
+    { id: "f9", kind: "error", route: "/products/:id", found: t(12), replayed: null, reproduced: null, tested: null, proven: null, updated: t(12) },
+  ];
+  return { findings, counts: { found: 3, reproduced: 2, tested: 2, proven: 1 }, last: t(12) };
 }

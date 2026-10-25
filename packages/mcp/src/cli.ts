@@ -35,7 +35,9 @@ const HELP = `genclass-mcp ${VERSION}: GenClass for coding agents
   genclass-mcp config [client] how to add it to an MCP client (${CLIENTS.map((c) => c.id).join(", ")})
 
 Environment: GENCLASS_AGENT_PORT (default ${DEFAULT_PORT}), GENCLASS_STATE_DIR (default .genclass/agent; "none": memory only),
-GENCLASS_DASHBOARD (your dashboard's private link, for genclass_analytics source "production").
+GENCLASS_DASHBOARD (your dashboard's private link, for genclass_analytics source "production"),
+GENCLASS_REPORT ("on", or a dashboard link: report findings, replay verdicts and written tests to that dashboard's
+Loop view; ids, kinds, pages, verdicts and times only, never page text; off unless set).
 `;
 
 function readJson(file: string): Record<string, unknown> | null {

@@ -529,6 +529,7 @@ main.wrap:has(.app){max-width:1360px}
 .flow rect.node{fill:var(--panel);stroke:var(--rule)}
 .flow rect.node.gate{stroke:var(--warn)}
 .flow rect.node.quiet{stroke-dasharray:4 3}
+.flow rect.node.agent{stroke:var(--accent)}
 .flow .nt{font:500 14px var(--sans);fill:var(--ink)}
 .flow .nb{font:12px var(--sans);fill:var(--ink2)}
 .flow .col{font:500 11px var(--mono);fill:var(--ink3);letter-spacing:.06em}
@@ -1016,8 +1017,24 @@ const DASH_JS = `
     return r;
   }
   function edge(g, d, dim){ g.appendChild(svg("path", { d: d, "class": "edge" + (dim ? " dim" : ""), "marker-end": "url(#fa)" })); }
+  // which of the agent's finding kinds answer a dashboard diagnosis (the rest match any kind on the page)
+  var AGENT_KINDS = { stale: ["stale-write", "race"], duplicate: ["duplicate-request"], conflict: ["race", "stale-write"], failing: ["error"], transient: ["error"], slow: ["error"], overload: ["error"] };
+  function agentFor(A, k, where){
+    var kinds = AGENT_KINDS[k], list = (A && A.findings) || [];
+    var byKind = list.filter(function(f){ return !kinds || kinds.indexOf(f.kind) >= 0; });
+    var onPage = byKind.filter(function(f){ return where.some(function(w){ return w.route === f.route; }); });
+    return (onPage.length ? onPage : where.length ? [] : byKind)[0] || null;
+  }
+  function agentLine(f){
+    if (f.proven) return "Agent: " + f.id + " on " + f.route + " reproduced, test written, fix proven " + ago(f.proven) + ".";
+    var parts = [];
+    if (f.found) parts.push("found " + ago(f.found));
+    if (f.reproduced === true) parts.push("replay reproduced"); else if (f.reproduced === false) parts.push("replay not reproduced");
+    if (f.tested) parts.push("test written");
+    return "Agent: " + f.id + " on " + f.route + ": " + (parts.join(", ") || "reported") + ".";
+  }
   function loop(S){
-    var B = S.breakdowns, T0 = S.totals, prev = S.previous || {}, host = document.getElementById("loopsvg"); if (!host) return;
+    var B = S.breakdowns, T0 = S.totals, prev = S.previous || {}, A = S.agent || null, host = document.getElementById("loopsvg"); if (!host) return;
     host.textContent = "";
     var byIssue = issues(B), recentBy = {};
     (S.recent || []).forEach(function(r){ if (r.kind === "detect" && r.diagnosis && r.route) { var m = recentBy[r.diagnosis] = recentBy[r.diagnosis] || {}; m[r.route] = (m[r.route] || 0) + 1; } });
@@ -1039,14 +1056,21 @@ const DASH_JS = `
       if (!where.length && recentBy[x.key]) where = Object.keys(recentBy[x.key]).map(function(r){ return { route: r, count: recentBy[x.key][r] }; }).sort(function(a, b2){ return b2.count - a.count; });
       var pages = where.slice(0, 2).map(function(w2){ return w2.route + " (" + fmt(w2.count) + ")"; }).join(", ");
       var lines = wrapText(t.what || "", 46).slice(0, 2); if (pages) lines.push("on " + pages);
-      node(g, 0, y, 300, NH, null, t.name + ": " + fmt(x.count), lines, color, { s: "problem", k: x.key });
+      var af = agentFor(A, x.key, where);
+      if (af) wrapText(agentLine(af), 46).slice(0, 2).forEach(function(l){ lines.push(l); });
+      node(g, 0, y, 300, NH, af ? "agent" : null, t.name + ": " + fmt(x.count), lines, color, { s: "problem", k: x.key, agent: af ? af.id : "" });
       var top = where.length ? where[0].route : "the page";
       node(g, 370, y, 300, NH, null, "Reproduce, then write the test", wrapText(stepFor(x.key, top), 46).slice(0, 5), null, { s: "agent", k: x.key });
       edge(g, "M300 " + (y + 51) + " H370");
       edge(g, "M670 " + (y + 51) + " C 705 " + (y + 51) + ", 705 75, 740 75");
     });
-    node(g, 740, 24, 260, NH, null, "Fix", wrapText("The agent edits the code with the evidence in causal order from genclass_explain.", 40), null, { s: "fix" });
-    node(g, 740, 24 + R, 260, NH, null, "Prove", wrapText("Replay after the fix: not reproduced. @genclass/playwright posts the report on the pull request.", 40), null, { s: "prove" });
+    var C = (A && A.counts) || {}, proven = ((A && A.findings) || []).filter(function(f){ return f.proven; }).sort(function(a, b2){ return b2.proven < a.proven ? -1 : 1; })[0];
+    var fixLines = wrapText("The agent edits the code with the evidence in causal order from genclass_explain.", 40);
+    if (C.tested) fixLines = fixLines.concat(wrapText("Your agent wrote " + plural(C.tested, "regression test", "regression tests") + " in this period.", 40));
+    node(g, 740, 24, 260, NH, null, "Fix", fixLines, null, { s: "fix" });
+    var proveLines = wrapText("Replay after the fix: not reproduced. @genclass/playwright posts the report on the pull request.", 40);
+    if (proven) proveLines = proveLines.concat(wrapText("Last fix proven: " + proven.id + " on " + proven.route + ", " + ago(proven.proven) + ".", 40));
+    node(g, 740, 24 + R, 260, NH, null, "Prove", proveLines, null, { s: "prove" });
     node(g, 740, 24 + 2 * R, 260, NH, "gate", "Ship: a person decides", wrapText("Reads the test and the report, merges, deploys. Nothing merges itself.", 40), "var(--warn)", { s: "ship" });
     edge(g, "M870 " + (24 + NH) + " V " + (24 + R)); edge(g, "M870 " + (24 + R + NH) + " V " + (24 + 2 * R));
     var d = (T0.detections || 0) - (prev.detections || 0);
@@ -1056,7 +1080,10 @@ const DASH_JS = `
     var lbl = svg("text", { x: 320, y: obsY + 28, "class": "nb" }); lbl.textContent = "then this list shrinks"; g.appendChild(lbl);
     edge(g, "M150 " + obsY + " V " + (24 + (n - 1) * R + NH + 8));
     var foot = document.getElementById("loop-foot");
-    if (foot) foot.textContent = "What the agent found, replayed and fixed stays on the developer's machine today; reporting it here is the next step. Connect an agent: npx -y @genclass/mcp@0.1.0 init in the project and connectAgent(rt) in the dev build. As a service, GenClass runs the loop for your developers, hosted or inside your network.";
+    if (foot) foot.textContent = (A && A.last
+      ? "Your agent reported " + plural(C.found || (A.findings || []).length, "finding", "findings") + " in this period, the last " + ago(A.last) + ": ids, kinds, pages, verdicts and times only, never page text. "
+      : "No agent has reported on this app in this period: reporting is off unless the developer sets GENCLASS_REPORT to this dashboard's link. ")
+      + "Connect an agent: npx -y @genclass/mcp@0.1.0 init in the project and connectAgent(rt) in the dev build. As a service, GenClass runs the loop for your developers, hosted or inside your network.";
   }
   function render(S){
     var live = !!S.lastEvent, st = document.getElementById("status");

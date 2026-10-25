@@ -769,6 +769,134 @@ export interface Stats {
   /** The same totals over the period just before this one (deltas). */
   previous: { sessions: number; detections: number; acted: number; ix_views: number };
   recent: Record<string, unknown>[];
+  /** What the developer's coding agent reported through @genclass/mcp in the period (agentStats); off unless the developer turned reporting on. */
+  agent: AgentStats;
+}
+
+// --------------------------------------------------------------------------------------------- agent reports
+
+/** The finding kinds @genclass/mcp makes (packages/mcp/src/types.ts FindingKind). */
+export const AGENT_KINDS = ["race", "stale-write", "error", "duplicate-request", "detection", "check", "expectation", "intervention"];
+export const AGENT_SCHEMA = "genclass-agent/1";
+export const AGENT_MAX_EVENTS = 50;
+export const AGENT_MAX_BODY = 16 * 1024;
+const AGENT_ID_RE = /^f[0-9]{1,9}$/;
+
+export interface AgentFinding {
+  id: string;
+  kind: string;
+  route: string;
+  found: string | null;
+  replayed: string | null;
+  reproduced: boolean | null;
+  tested: string | null;
+  proven: string | null;
+  updated: string;
+}
+export interface AgentStats {
+  /** The findings reported in the period, newest change first (at most 25). */
+  findings: AgentFinding[];
+  counts: { found: number; reproduced: number; tested: number; proven: number };
+  /** When the agent last reported anything for this app, in the period. */
+  last: string | null;
+}
+
+/** A page route as the dashboard keys it: path only, capped, with id-like segments replaced by :id (as the runtime does). */
+export function normalizeRoute(v: unknown): string | null {
+  if (typeof v !== "string") return null;
+  let r = v.trim();
+  const q = r.search(/[?#]/);
+  if (q >= 0) r = r.slice(0, q);
+  if (!r.startsWith("/")) return null;
+  r = r
+    .split("/")
+    .map((seg) => (/^(\d+|[0-9a-f]{8,}|[0-9a-f-]{32,}|[A-Za-z0-9_-]{20,}|[^@]*@[^@]*)$/i.test(seg) ? ":id" : seg))
+    .join("/");
+  // eslint-disable-next-line no-control-regex
+  r = r.replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2060-\u206f\ufeff]/g, "");
+  if (r.length > 200) r = r.slice(0, 200);
+  return r || "/";
+}
+
+/**
+ * Store what an agent reported (POST /api/projects/<secret>/agent): `found` (kind, route), `replay` (reproduced true or
+ * false; a false after a true marks the fix proven) and `test` (a regression test was written). Anything else in an
+ * event is dropped. Returns how many events were stored, or the reason none were.
+ */
+export async function agentReport(db: D1Like, token: string, body: unknown, now: Date): Promise<{ stored: number } | { error: string }> {
+  if (body === null || typeof body !== "object" || Array.isArray(body)) return { error: "body must be a JSON object" };
+  const b = body as Record<string, unknown>;
+  if (b.schema !== AGENT_SCHEMA) return { error: `schema must be ${AGENT_SCHEMA}` };
+  if (!Array.isArray(b.events)) return { error: "events must be an array" };
+  if (b.events.length > AGENT_MAX_EVENTS) return { error: `at most ${AGENT_MAX_EVENTS} events per request` };
+  const nowMs = now.getTime();
+  const stmts: D1Stmt[] = [];
+  for (const raw of b.events) {
+    if (raw === null || typeof raw !== "object" || Array.isArray(raw)) continue;
+    const e = raw as Record<string, unknown>;
+    const id = typeof e.id === "string" && AGENT_ID_RE.test(e.id) ? e.id : null;
+    const kind = typeof e.kind === "string" && AGENT_KINDS.includes(e.kind) ? e.kind : null;
+    const route = normalizeRoute(e.route);
+    if (!id || !kind || !route) continue;
+    const atMs = typeof e.at === "number" && Number.isFinite(e.at) && Math.abs(e.at - nowMs) < 86_400_000 ? e.at : nowMs;
+    const at = new Date(atMs).toISOString();
+    const iso = now.toISOString();
+    if (e.t === "found") {
+      stmts.push(
+        db
+          .prepare(
+            "INSERT INTO agent_reports (token, finding, kind, route, found, updated) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (token, finding) DO UPDATE SET kind = excluded.kind, route = excluded.route, found = COALESCE(agent_reports.found, excluded.found), updated = excluded.updated",
+          )
+          .bind(token, id, kind, route, at, iso),
+      );
+    } else if (e.t === "replay" && typeof e.reproduced === "boolean") {
+      const r = e.reproduced ? 1 : 0;
+      stmts.push(
+        db
+          .prepare(
+            "INSERT INTO agent_reports (token, finding, kind, route, replayed, reproduced, reproduced_once, proven, updated) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?) ON CONFLICT (token, finding) DO UPDATE SET kind = excluded.kind, route = excluded.route, replayed = excluded.replayed, reproduced = excluded.reproduced, reproduced_once = MAX(agent_reports.reproduced_once, excluded.reproduced_once), proven = CASE WHEN excluded.reproduced = 0 AND agent_reports.reproduced_once = 1 THEN excluded.replayed ELSE agent_reports.proven END, updated = excluded.updated",
+          )
+          .bind(token, id, kind, route, at, r, r, iso),
+      );
+    } else if (e.t === "test") {
+      stmts.push(
+        db
+          .prepare(
+            "INSERT INTO agent_reports (token, finding, kind, route, tested, updated) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (token, finding) DO UPDATE SET kind = excluded.kind, route = excluded.route, tested = excluded.tested, updated = excluded.updated",
+          )
+          .bind(token, id, kind, route, at, iso),
+      );
+    }
+  }
+  if (stmts.length) await db.batch(stmts);
+  return { stored: stmts.length };
+}
+
+/** The agent's reports for the dashboard: the findings changed in the period and the counts. */
+export async function agentStats(db: D1Like, token: string, fromIso: string): Promise<AgentStats> {
+  const r = await db
+    .prepare("SELECT finding, kind, route, found, replayed, reproduced, reproduced_once, tested, proven, updated FROM agent_reports WHERE token = ? AND updated >= ? ORDER BY updated DESC LIMIT 25")
+    .bind(token, fromIso)
+    .all<Record<string, unknown>>();
+  const findings: AgentFinding[] = (r.results ?? []).map((x) => ({
+    id: String(x.finding),
+    kind: String(x.kind),
+    route: String(x.route),
+    found: x.found == null ? null : String(x.found),
+    replayed: x.replayed == null ? null : String(x.replayed),
+    reproduced: x.reproduced == null ? null : !!x.reproduced,
+    tested: x.tested == null ? null : String(x.tested),
+    proven: x.proven == null ? null : String(x.proven),
+    updated: String(x.updated),
+  }));
+  const counts = { found: 0, reproduced: 0, tested: 0, proven: 0 };
+  for (const f of findings) {
+    if (f.found) counts.found++;
+    if (f.reproduced === true || (f.proven && f.replayed)) counts.reproduced++;
+    if (f.tested) counts.tested++;
+    if (f.proven) counts.proven++;
+  }
+  return { findings, counts, last: findings[0]?.updated ?? null };
 }
 
 export async function stats(db: D1Like, p: Project, range: Range, now: Date): Promise<Stats> {
@@ -864,6 +992,7 @@ export async function stats(db: D1Like, p: Project, range: Range, now: Date): Pr
     typeSeries: [...byType.values()],
     previous,
     recent: rows(recent).map((r) => ({ ...r, executed: r.executed === null ? null : !!r.executed, acted: r.acted === null ? null : !!r.acted })),
+    agent: await agentStats(db, p.token, hourly ? `${from}:00:00.000Z` : `${from}T00:00:00.000Z`),
   };
 }
 
@@ -882,6 +1011,7 @@ export async function retention(db: D1Like, now: Date, longer?: { tokens: string
     db.prepare("DELETE FROM hourly WHERE hour < ?").bind(hourKey(new Date(now.getTime() - 48 * 3_600_000))),
     db.prepare(`DELETE FROM recent WHERE t < ?${keep}`).bind(cutoff.toISOString(), ...p),
     db.prepare("DELETE FROM sessions WHERE day < ?").bind(dayKey(new Date(now.getTime() - 2 * 86_400_000))),
+    db.prepare("DELETE FROM agent_reports WHERE updated < ?").bind(cutoff.toISOString()),
   ];
   if (longer) {
     const far = new Date(now.getTime() - Math.max(longer.days, RETENTION_DAYS) * 86_400_000);

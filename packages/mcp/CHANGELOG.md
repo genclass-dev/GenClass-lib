@@ -2,6 +2,13 @@
 
 ## 0.1.0 (unreleased)
 
+- **Opt-in reporting to the app's dashboard** (`GENCLASS_REPORT`; [docs/runtime/AGENT.md](../../docs/runtime/AGENT.md)
+  section 4.5). Set to `on` (with `GENCLASS_DASHBOARD`) or to a dashboard link, the server sends that dashboard each
+  finding the bridge makes, each replay verdict and each regression test written: `POST /api/projects/<secret>/agent`,
+  batched, best effort, ids, kinds, page paths, verdicts and times only, never page text. The dashboard's Loop view
+  then shows, per problem, what the agent reproduced, tested and proved fixed. Off unless set; nothing sent feeds a
+  decision, a finding or a tool result.
+
 - **Explore stops reporting order-dependent bookkeeping as races** ([docs/runtime/AGENT.md](../../docs/runtime/AGENT.md)
   section 5.1, [RESULTS.md](../../docs/runtime/RESULTS.md) section 20). A reordered run is a race only when what the
   page shows, its form values, the requests it sent or its errors differ from the request-order baseline; store values

@@ -211,6 +211,37 @@ start), `clear`. Local processes of the same user only (section 6).
   prompt hook (`genclass-mcp hook`) adds findings changed since the last prompt as additional context. Both carry the
   finding id and kind first and page strings quoted; the agent calls `genclass_explain` for the rest.
 
+### 4.5 Reporting to the dashboard (opt-in)
+
+Everything above stays on the developer's machine. The app's GenClass dashboard has a Loop view (Fig. 3 there) that
+draws the app's production problems and what the agent does with each; by default it cannot know what the agent did,
+and says so. With `GENCLASS_REPORT` set, the MCP server reports, so that view shows per problem: found by an agent,
+replay reproduced, test written, fix proven.
+
+- **Off by default.** `GENCLASS_REPORT=on` reports to the dashboard named by `GENCLASS_DASHBOARD` (the private link);
+  `GENCLASS_REPORT=<link or secret>` names it directly. The sample dashboard is never a target. Unset, nothing is
+  sent, and the dashboard's foot says reporting is off.
+- **What is sent** (`packages/mcp/src/report.ts`): `POST <origin>/api/projects/<secret>/agent`, JSON
+  `{ schema: "genclass-agent/1", events: [...] }`, each event `{ t, id, kind, route, at, reproduced? }`: `found` when
+  the bridge makes a finding (its id, one of the eight kinds, the page path without query or fragment, capped at 200
+  characters, and the time), `replay` with the last verdict `genclass_replay result` gave (true or false; an
+  inconclusive one is not sent), `test` when `genclass_explain` produced the regression test. Never a title, an
+  evidence line, a snapshot, a step, a value, an error message or any other page text. The dashboard's private link
+  is the credential (it already reads the stats); the agent's own API token never leaves the machine.
+- **How it is sent.** Batched (500 ms, at most 50 events a request), best effort: a refusal or a network error is
+  logged once to stderr and never thrown, never retried in a loop, and never changes a finding, a verdict or a tool
+  result. The session that owns the bridge reports; a session following another's bridge sends nothing (the owner
+  already does).
+- **What the dashboard keeps** (`telemetry-worker/src/dashboard.ts` `agentReport`, table `agent_reports`): per
+  token and finding id, the kind, the route (normalised like the runtime's: id-like segments become `:id`), when it
+  was found, the last replay time and verdict, whether it ever reproduced, when a test was written and when the fix
+  was proven: a replay that no longer reproduces it after one that did. 90 days, like the rest. Rate limited per
+  token (`SESSION_LIMIT`), 16 KB a request. Nothing in it feeds a decision: the runtime never reads the dashboard.
+- **How it is shown.** The Loop view matches reports to its rows by kind (`stale-write` and `race` answer stale
+  responses and write races, `duplicate-request` double submits, `error` the failure kinds) and by page, and puts one
+  line on the row ("Agent: f3 on /search reproduced, test written, fix proven 42 min ago"); Fix says how many tests
+  the agent wrote in the period, Prove names the last fix proven. Disclosed in TELEMETRY.md and the package README.
+
 ## 5. Explore and replay
 
 ### 5.1 The explore verdict (`src/compare.ts`)
@@ -366,7 +397,8 @@ This is one page and one bug class, a proof of the mechanism, not a recall figur
 - WebSocket and EventSource messages are recorded, not reordered; failure responses are not held. Both are next.
 - The script-tag build has no agent entry yet (ESM only).
 - Production: today the agent reads production through the dashboard (counts by diagnosis and page) and reproduces
-  locally with `focus` on the flagged signature. Sending production witnesses (the recorded order of a real user's
+  locally with `focus` on the flagged signature, and with `GENCLASS_REPORT` the dashboard shows what it reproduced
+  and fixed (section 4.5). Sending production witnesses (the recorded order of a real user's
   failing session, without page text) is the natural next step and widens what telemetry sends, so it needs the
   owner's OK first (AGENTS.md rule 8).
 - Next measurement: explore on the six demos and the real-apps sweep, reporting races found next to false reports on

@@ -264,6 +264,14 @@ New in `0.3.0` (`0.2.x` ignores a token and sends neither `token` nor `fn`). An 
   creates it with `POST /api/account/projects` instead of `/api/projects`. These account requests carry
   `user-agent: genclass-runtime-cli/<version>`.
 
+### What a coding agent reports (opt-in, from the developer's machine)
+
+The runtime sends nothing of this. When a developer sets `GENCLASS_REPORT` for `@genclass/mcp` (off by default), that
+server on their machine sends the app's dashboard, with the dashboard's private link, the id, kind and page path of
+each finding it made in the app's development build, each replay's verdict (reproduced or not) and when a regression
+test was written; never page text, evidence, snapshots or values. The dashboard keeps them 90 days and shows them in
+its Loop view. Details: [docs/runtime/AGENT.md](../../docs/runtime/AGENT.md) section 4.5.
+
 ## Where it goes
 
 - **Endpoint:** `https://genclass.dev/api/v1/events` (`DEFAULT_TELEMETRY_ENDPOINT`; before 0.2.2 the same worker's
