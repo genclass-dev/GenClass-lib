@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+- **Interaction analytics: visits, where they come from, devices, entry and exit pages, funnels** (inside
+  `analytics: true`, off by default; [docs/runtime/ANALYTICS.md](../../docs/runtime/ANALYTICS.md) sections 1.2 and
+  3.1, TELEMETRY.md "Visits"). A view's first `interactions` event now names its **visit** (`visit`: 16 random hex
+  characters; a visit is page views with no gap over 30 minutes, or until a page load comes from another site or a
+  utm link). The view that opens a visit also sends `entry: true`, `ref` (the referring site's host only), `utm`
+  (`source`, `medium`, `campaign`, cleaned of ids, at most 40 characters each), `device` (desktop, mobile, tablet),
+  `browser` and `os` (families, never the user agent) and `returning` (whether this browser had a visit before). To
+  know that, the runtime keeps **one `localStorage` entry while analytics run**, `genclass.analytics.<token>` (the
+  visit id, its last time, a visited-before flag); `runtime.analytics.stop()` removes it, and every opt-out keeps it
+  from being written. The dashboard's Visitors view adds Sources, Devices (with the collector's country), Sessions
+  (visits per day, pages per visit, one-page visits, returning share), Entry and exit pages and **Funnels** (up to 5
+  of 2 to 6 routes, defined on the dashboard and counted from the routes each visit went through in order); for an
+  app without analytics it is one big "Copy the prompt for your coding agent" button. All of it is in the lazy
+  analytics chunk: the first load is unchanged. No model-visible text changed (`situation-v2.3`). The collector needs
+  migration `0010_visits_funnels.sql` before it is deployed.
+
 - **`dashboard` prints the link to this app's free dashboard.** `npx @genclass/runtime dashboard` prints the link
   to the dashboard of the app in the current folder: the private link in `.genclass.local` (nothing is contacted),
   else the app's page in the signed-in account (one `GET /api/me`), else the account's apps; `--open` also opens it in
