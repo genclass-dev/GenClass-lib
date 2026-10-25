@@ -1,0 +1,83 @@
+################ scan http://127.0.0.1:62400/f/clean.html
+
+  GenClass scan • http://127.0.0.1:62400/f/clean.html
+  ran locally: Chromium 153.0.8010.12, desktop 1280x800, phone 390x844; @genclass/runtime 0.3.0-beta.1 visual checks in observe mode (no telemetry, no model, nothing sent)
+
+  Visual score 100/100  •  ✔ no problems found
+
+  Score: the visual checks scored like the Visual bugs category of the genclass.dev page check (scan-score/4). Accessibility, speed and security too: add --hosted.
+
+exit=0
+################ scan http://127.0.0.1:62400/f/ads.html
+
+  GenClass scan • http://127.0.0.1:62400/f/ads.html
+  ran locally: Chromium 153.0.8010.12, desktop 1280x800, phone 390x844; @genclass/runtime 0.3.0-beta.1 visual checks in observe mode (no telemetry, no model, nothing sent)
+
+  Visual score 51/100  •  3 problems (1 high, 2 medium)
+
+  HIGH
+  ✖ page-overflow-x (phone)
+      article "Council approves the new library budget…"  body > div:nth-of-type(2) > article
+      the page scrolls sideways on a 390 px viewport: body > div:nth-of-type(2) > article "Council approves the new library budget…" ends at 752 px (706 px too wide, a flex or grid item that cannot shrink).
+      fix: body > div:nth-of-type(2) > article { min-width: 0; }
+
+  MEDIUM
+  ✖ ad-heavy x7 (desktop)
+      div "div-gpt-ad-billboard"  #div-gpt-ad-billboard
+      ad slots cover 43% of the page (threshold 30%, Better Ads ad density): 7 ad slots, 46% of the first screen and 43% of the page. Fix: use fewer or smaller ad units: under 30% of the page on phones, no sticky unit over 30% of the screen, and reserve each slot's space so it does not shift the page.
+  ✖ ad-heavy x7 (phone)
+      iframe "Advertisement"  body > div:nth-of-type(2) > aside > iframe:nth-of-type(1)
+      ad slots cover 38% of the page (threshold 30%, Better Ads ad density): 7 ad slots, 38% of the first screen and 38% of the page. Fix: use fewer or smaller ad units: under 30% of the page on phones, no sticky unit over 30% of the screen, and reserve each slot's space so it does not shift the page.
+
+  Score: the visual checks scored like the Visual bugs category of the genclass.dev page check (scan-score/4). Accessibility, speed and security too: add --hosted.
+
+exit=1
+################ scan http://127.0.0.1:62400/f/ads-interstitial.html
+
+  GenClass scan • http://127.0.0.1:62400/f/ads-interstitial.html
+  ran locally: Chromium 153.0.8010.12, desktop 1280x800, phone 390x844; @genclass/runtime 0.3.0-beta.1 visual checks in observe mode (no telemetry, no model, nothing sent)
+
+  Visual score 75/100  •  1 problem (1 high)
+
+  HIGH
+  ✖ ad-heavy (desktop, phone)
+      div "interstitial-ad"  #interstitial-ad
+      an ad (#interstitial-ad "interstitial-ad") covers 100% of the screen on top of the page (threshold 50%: an interstitial): 1 ad slot, 100% of the first screen and 100% of the page. Fix: do not cover the page with an ad before the content: show it inline, or after the visitor's action with a visible close button.
+
+  Score: the visual checks scored like the Visual bugs category of the genclass.dev page check (scan-score/4). Accessibility, speed and security too: add --hosted.
+
+exit=1
+################ scan http://127.0.0.1:62400/f/layout.html
+
+  GenClass scan • http://127.0.0.1:62400/f/layout.html
+  ran locally: Chromium 153.0.8010.12, desktop 1280x800, phone 390x844; @genclass/runtime 0.3.0-beta.1 visual checks in observe mode (no telemetry, no model, nothing sent)
+
+  Visual score 37/100  •  5 problems (2 high, 3 medium)
+
+  HIGH
+  ✖ page-overflow-x (phone)
+      div "One Two Three Four"  div.carousel
+      the page scrolls sideways on a 390 px viewport: div.carousel "One Two Three Four" ends at 624 px (1234 px too wide, a width wider than the viewport).
+      fix: div.carousel { max-width: 100%; }
+  ✖ text-invisible (desktop, phone)
+      button "Buy now"  button.buy
+      text contrast 1.00:1 on button.buy "Buy now", below 1.5:1 (WCAG 2.2 contrast formula; unreadable-text threshold): #ffffff on #ffffff from body.
+      fix: button.buy { color: #767676; }  (Reaches 4.5:1. Set colour and background together on the same selector, add the dark-mode variant, or remove a prefers-color-scheme: dark block the site has no design for.)
+
+  MEDIUM
+  ✖ css-var-undefined (desktop, phone)
+      button "Buy now"  button.buy
+      background: var(--brand-primary) in ".buy" uses a custom property defined nowhere, so background falls back to transparent and the text on button.buy "Buy now" reads at 1.00:1 (below 3:1).
+      fix: :root { --brand-primary: <value>; }  (Define the token, check the theme CSS is imported, or add a fallback: var(--brand-primary, <value>). After a Tailwind v4 or shadcn/ui upgrade, v3-style hsl(var(--x)) can point at tokens that no longer exist.)
+  ✖ image-distorted (desktop, phone)
+      img  img.product
+      an image is squashed on img.product: shown at 300 x 300 px, its file is 600 x 300 (50% aspect mismatch, above 5% and 2 px).
+      fix: img.product { object-fit: cover; }  (Or height: auto when only the width is fixed; width and height attributes should match the file's ratio (600 x 300).)
+  ✖ page-overflow-x (desktop)
+      div  div.wide
+      the page scrolls sideways on a 1280 px viewport: div.wide ends at 1624 px (344 px too wide, a width wider than the viewport).
+      fix: div.wide { max-width: 100%; }
+
+  Score: the visual checks scored like the Visual bugs category of the genclass.dev page check (scan-score/4). Accessibility, speed and security too: add --hosted.
+
+exit=1
