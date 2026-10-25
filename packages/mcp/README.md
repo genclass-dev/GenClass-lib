@@ -15,7 +15,9 @@ An MCP server for Claude Code and other coding agents. It connects to the pages 
 - **Proof.** `genclass_replay` delivers the exact order that produced a bug again, before your fix (reproduced) and
   after it (not reproduced), and `genclass_explain` writes a Playwright test that fails while the bug is there.
 
-Everything stays on your machine. No dependencies.
+Everything stays on your machine. No dependencies. The server is free. For developers who want the loop run for
+them, GenClass runs it as a service under Enterprise: the MCP server, collector and dashboard hosted by GenClass or
+inside your network ([genclass.dev/enterprise](https://genclass.dev/enterprise)).
 
 ## Install
 

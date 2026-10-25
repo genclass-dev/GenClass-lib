@@ -3,7 +3,9 @@
 These are the steps for an agent (Cline or another) that is asked to install GenClass. GenClass is a local MCP server,
 `@genclass/mcp` on npm: it records what happens inside the pages of the user's web app running on this machine,
 re-runs a page with network responses delivered in different orders to find race conditions, replays one exact order,
-and writes a Playwright regression test. It needs no API key and no account, and it sends nothing off the machine.
+and writes a Playwright regression test. It is free, it needs no API key and no account, and it sends nothing off the
+machine. (Closed-loop development as a service, with the MCP server, collector and dashboard run for a customer's
+developers by GenClass or inside their network, is an Enterprise offer: https://genclass.dev/enterprise.)
 
 ## 1. Requirements
 

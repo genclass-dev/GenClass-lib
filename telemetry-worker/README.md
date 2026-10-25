@@ -497,14 +497,19 @@ npx --yes wrangler@4 d1 execute genclass-dashboard --remote --command "
 
 ## Paid plans
 
-The plans live in [`billing/plans.json`](../billing/plans.json) (version 2, 2026-10-22):
+The plans live in [`billing/plans.json`](../billing/plans.json) (version 2, 2026-10-22). Neither is paid by card
+today; this section keeps its name for the Stripe code and the owner steps below, which sold Individual until
+2026-10-22 and sell any plan the file prices above 0:
 
 - **Free** (US$0): the open-source runtime and its on-device model, the dashboard for every app, with 90 days of
   history, export and forwarding, and your own classifier (`custom_model`): a person from GenClass trains a model on
   the app's traffic, bug reports or labelled examples when its owner emails the contact address, and ships it as
-  private model files. Interaction analytics is listed as coming next.
+  private model files, and the `@genclass/mcp` server for coding agents, free on the developer's machine.
+  Interaction analytics is listed as coming next.
 - **Enterprise** (no price: agreed by email with the contact address): everything in Free, a year of history, and
-  GenClass's models run in GenClass's cloud for the buyer's apps, on terms agreed together. It has no Stripe product;
+  GenClass's models run in GenClass's cloud for the buyer's apps, and closed-loop development as a service (the MCP
+  server, collector and dashboard run for the buyer's developers, hosted by GenClass or inside their network), on
+  terms agreed together. It has no Stripe product;
   an account gets it from GenClass's own grant (below).
 
 No plan is sold on Stripe Checkout today. Individual (US$29 a month, lookup key `genclass_individual_monthly`, a year
@@ -910,7 +915,7 @@ test-mode and a live copy unless the dashboard says it is shared):
     goes into `STRIPE_PORTAL_CONFIGURATION_TEST`). Running it again changes only what differs. Then
     `npx --yes wrangler@4 secret put STRIPE_SECRET_KEY` with the test key. Only your account can buy.
 12. **The test card**: on `https://genclass.dev/account/billing` (only `STRIPE_TEST_ACCOUNTS` can buy while the key
-    is a test key) choose Upgrade to Individual and pay with `4242 4242 4242 4242`, any future expiry date and any CVC.
+    is a test key) choose Upgrade to the plan on sale (it read Upgrade to Individual) and pay with `4242 4242 4242 4242`, any future expiry date and any CVC.
     Confirm that Stripe accepted the Checkout Session with `subscription_data[billing_mode][type]=flexible` and
     `payment_method_collection=always` (Developers, Logs: the `POST /v1/checkout/sessions` request answered 200, and
     the subscription shows billing mode flexible). The page shows Individual within a minute, and a `custom_requests`
