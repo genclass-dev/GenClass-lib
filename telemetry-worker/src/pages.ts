@@ -1,10 +1,17 @@
 // HTML for https://genclass.dev/start (get a token) and https://genclass.dev/dashboard/<secret> (the dashboard), and
 // the shell and dashboard the account pages (src/account-pages.ts) reuse: /account/apps/<id> is this dashboard in its
-// account mode (the account's apps in the sidebar, the Connect panel, stats from the account API). Every plan includes
-// the dashboard (billing/plans.json); a plan file that left it out would give the locked account mode (the key and
-// the Connect panel, the plans, no stats), and a locked private link is account-pages.ts lockedLinkPage.
+// account mode (the account's projects in the header's switcher, the Connect dialog's ways in, the agent link, stats
+// from the account API). Every plan includes the dashboard (billing/plans.json); a plan file that left it out would
+// give the locked account mode (the key and the Connect dialog, the plans, no stats), and a locked private link is
+// account-pages.ts lockedLinkPage. The dashboard sits in the Supabase Studio frame (src/studio.ts); /start, the 404
+// and the sign-in pages keep genclass.dev's own look (shell below).
 // No external scripts; styles and fonts only from Google Fonts. Inline <script>/<style> run under a per-response CSP
 // nonce; dynamic text is inserted with textContent in scripts and escaped (esc) in server-rendered HTML.
+
+import { embed, esc } from "./escape.js";
+import { COPY_JS, icon, ICON_LINKS, studioPage, type ProductMenu, type RailItem } from "./studio.js";
+
+export { embed, esc };
 
 /** The first @genclass/runtime that reads project keys (tokens) and has `login`; earlier versions ignore a key. */
 export const KEY_RUNTIME = "0.3.0-beta.0";
@@ -49,20 +56,12 @@ export function securityHeaders(nonce: string, extra: Record<string, string> = {
   };
 }
 
-/** HTML-escape text for element content and quoted attributes. */
-export const esc = (s: string): string => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
-/** JSON safe to embed in <script type="application/json">. */
-export const embed = (v: unknown): string => JSON.stringify(v).replace(/</g, "\\u003c").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
-
 /** The header logo, as on genclass.dev: the mark and the name set in type. */
 export const LOGO =
   '<a class="logo" href="https://genclass.dev/"><img src="https://genclass.dev/brand/mark-64.png?v=2" alt="" width="24" height="24">GenClass</a>';
 
-/** The site's own icons (site/public/brand, apple-touch-icon.png), so every genclass.dev page shows the same one. */
-const ICON_LINKS =
-  '<link rel="icon" href="https://genclass.dev/brand/mark-32.png?v=2" sizes="32x32" type="image/png">' +
-  '<link rel="icon" href="https://genclass.dev/brand/mark-64.png?v=2" sizes="64x64" type="image/png">' +
-  '<link rel="apple-touch-icon" href="https://genclass.dev/apple-touch-icon.png">';
+/** The MCP server for coding agents, pinned as its own install blocks pin it (packages/mcp/src/clients.ts). */
+export const MCP_PKG = "@genclass/mcp@0.1.0";
 
 // The palette, type, buttons, header and focus ring of genclass.dev (site/src/css/base.css and components.css), with
 // the site's values: black ground, bone text, the GenClass mark's green and red-orange, square corners, 1px rules,
@@ -192,39 +191,6 @@ function snippets(tok, ep){
   ].concat(ep ? [] : [["Automatic setup", "Run in your project folder: it detects your setup and wires GenClass (and a token) in for you.",
      'npx ${RUNTIME_PKG} init']]);
 }
-function gcSelect(node){
-  try { var r = document.createRange(); r.selectNodeContents(node); var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r); return true; } catch (e) { return false; }
-}
-// Copy text with the Clipboard API; when the browser refuses (no secure context, the document not focused, an embedded
-// page), copy through a temporary textarea and execCommand, which works on the click itself; failing both, select the
-// text in node so the person can copy it by hand (a textarea fallback is shown selected: one keystroke copies it).
-function gcLegacyCopy(text){
-  try {
-    var ta = document.createElement("textarea"); ta.value = text; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.top = "0"; ta.style.left = "0"; ta.style.opacity = "0";
-    document.body.appendChild(ta); ta.focus(); ta.select(); ta.setSelectionRange(0, text.length);
-    var ok = document.execCommand("copy"); document.body.removeChild(ta); return ok;
-  } catch (e) { return false; }
-}
-function gcCopy(b, text, node){
-  var label = b.getAttribute("data-label") || b.textContent;
-  b.setAttribute("data-label", label);
-  function say(t){ b.textContent = t; clearTimeout(b.gcT); b.gcT = setTimeout(function(){ b.textContent = label; }, 2000); }
-  function fallback(){
-    if (node && node.tagName === "TEXTAREA") { node.hidden = false; node.focus(); node.select(); say("Selected, now copy"); return; }
-    say(node && gcSelect(node) ? "Selected, now copy" : "Could not copy");
-  }
-  // the legacy path first: it needs the click's own activation, which the async Clipboard API's rejection would have spent
-  if (gcLegacyCopy(text)) { say("Copied"); return; }
-  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(function(){ say("Copied"); }, fallback);
-  else fallback();
-}
-function copyBtn(getText, name, getNode){
-  var b = document.createElement("button"); b.type = "button"; b.className = "btn sm ghost"; b.textContent = "Copy";
-  if (name) b.setAttribute("aria-label", "Copy " + name);
-  b.addEventListener("click", function(){ gcCopy(b, getText(), getNode ? getNode() : null); });
-  return b;
-}
-function el(tag, cls, text){ var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
 function renderSnippets(host, tok, ep){
   host.textContent = "";
   snippets(tok, ep || "").forEach(function(s){
@@ -285,7 +251,7 @@ ${ICON_LINKS}
 <body${opts.mesh ? ' class="mesh"' : ""}>
 <a class="skip" href="#${esc(opts.skip ?? "main")}">Skip to content</a>
 ${header}<main class="wrap" id="main">${body}</main>
-<script nonce="${nonce}">${SNIPPETS_JS}${script}</script>
+<script nonce="${nonce}">${COPY_JS}${SNIPPETS_JS}${script}</script>
 ${opts.mesh ? `<canvas data-mesh aria-hidden="true"></canvas>\n<script nonce="${nonce}" src="${MESH_SCRIPT}" defer></script>\n` : ""}</body>
 </html>`;
 }
@@ -372,15 +338,20 @@ export function notFoundPage(nonce: string): string {
 // ------------------------------------------------------------------------------------------------- dashboard
 
 // ---------------------------------------------------------------------------------------------- /dashboard
-// The per-app dashboard: a one-sentence summary, four tiles, problems over time by type, one card per kind of
-// problem (what it means, where it happened, how to fix it), pages, what GenClass did, model health, recent activity.
+// The per-app dashboard, in the Supabase Studio frame (src/studio.ts): a project's views in the rail (Project
+// overview, Problems, Pages, Actions, Activity, Visitors, Health, MCP, Loop, Integrations, Project Settings), the
+// Visitors and Settings product menus, and the Connect dialog. Project overview follows Studio's project home: the
+// name, its status and a one-sentence summary, four stats, the problems chart on the right; then usage cards (page
+// loads, problems, interventions, visits, one bar per hour or day), Get connected, and the problems that need
+// attention, each with a Copy prompt button for a coding agent. Every view can be copied as Markdown for an agent.
 // Chart colours come from genclass.dev's own hues, stepped into the dark chart lightness band (OKLCH L .48-.67): blue,
 // the red-orange the site uses for bugs, a sky blue, amber (the site's warning colour) and violet, in that order (dark
-// only, like the rest of the page). No green, which the brand keeps for "GenClass fixed it". Validated with the dataviz
-// skill's validate_palette.js (adjacent pairs, as the stacks draw them) on 2026-10-17: on #000000 and #0B0B0A all
-// checks pass, worst CVD ΔE 20.7 (deutan; tritan 7.3), normal-vision 24.8, every slot at least 3:1 on the surface (the
-// light palette it replaces, on #FFFFFF: 20.0/31.3).
-// A bar draws only the types it has, so slots that are not palette neighbours can touch; the 2px paper gap between
+// only, like the rest of the page). No green: green is the frame's brand colour (buttons, usage bars, what GenClass
+// did), so a problem type never reads as it. Validated with the dataviz skill's validate_palette.js (adjacent pairs,
+// as the stacks draw them) on 2026-10-17: on #000000 and #0B0B0A all checks pass, worst CVD ΔE 20.7 (deutan; tritan
+// 7.3), normal-vision 24.8; every slot is also at least 3:1 on Studio's canvas #121212 and surface #1f1f1f
+// (test/pages.test.ts measures them).
+// A bar draws only the types it has, so slots that are not palette neighbours can touch; the 2px canvas gap between
 // segments, the legend, the hover breakdown and the table view carry identity there.
 // Five problem types get a slot, the rest share "Other". Possible issues (the lower-confidence tier) are drawn hollow:
 // outlined bars in the muted ink (Fig. 2, one series, so no legend) and ring keys in the type's colour; never in the
@@ -388,210 +359,250 @@ export function notFoundPage(nonce: string): string {
 // Every dynamic string goes through textContent.
 
 export const DASH_CSS = `
-:root{--t1:#3987E5;--t2:#E8552F;--t3:#2AA3C7;--t4:#C98500;--t5:#B964C9;--t0:#88897F;--grid:#1E1F1B}
-h1,h2,h3{letter-spacing:-.03em}
-.dh{margin-top:40px}
-.dh-top{display:flex;flex-wrap:wrap;gap:20px;justify-content:space-between;align-items:flex-end}
-.dh h1{font-size:clamp(30px,4.4vw,46px);font-weight:500;line-height:1.05}
-.meta{font:12.5px var(--mono);color:var(--ink3);display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;margin-top:12px}
+:root{--t1:#3987E5;--t2:#E8552F;--t3:#2AA3C7;--t4:#C98500;--t5:#B964C9;--t0:#88897F;--grid:#262626}
+/* the page header: the project's name on the overview, the view's title elsewhere; the period and the tools */
+.phead{display:flex;flex-wrap:wrap;gap:16px 24px;align-items:flex-start;justify-content:space-between;margin-bottom:28px}
+.phead h1{font-size:30px;line-height:1.2;letter-spacing:-.02em;overflow-wrap:anywhere}
+.phead #vtitle{font-size:24px}
+.phead #vdesc{color:var(--ink3);margin-top:4px;max-width:72ch}
+.tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end}
+.tools #updated{font-size:12px;color:var(--ink3);white-space:nowrap}
+.ov-meta{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-top:10px;font-size:13px;color:var(--ink3)}
 .live{display:inline-flex;align-items:center;gap:7px;color:var(--ink2)}
 .live i{width:7px;height:7px;border-radius:50%;background:var(--ink3);display:inline-block}
-.live.on i{background:var(--accent-f)}
-.ctl{display:flex;gap:10px;align-items:center}
-.seg{display:inline-flex;border:1px solid var(--rule2);border-radius:0;overflow:hidden}
-.seg button{border:0;background:transparent;color:var(--ink);padding:8px 14px;font:500 13px var(--sans);cursor:pointer}
-.seg button+button{border-left:1px solid var(--rule2)}
-.seg button[aria-pressed=true]{background:var(--ink);color:var(--paper)}
-.summary{margin-top:24px;font-size:clamp(18px,2.1vw,21px);line-height:1.5;max-width:68ch}
-.summary b{font-weight:500}
-.statrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(150px,100%),1fr));border-top:1px solid var(--rule2);margin-top:32px}
-.statrow>div{padding:18px 20px 20px 0;border-bottom:1px solid var(--rule);min-width:0}
-.statrow .k{font:500 12px var(--mono);color:var(--ink3)}
-.statrow .v{font:500 40px/1.05 var(--display);letter-spacing:-.03em;margin-top:10px;font-variant-numeric:tabular-nums}
-.statrow .s{font-size:13.5px;color:var(--ink2);margin-top:6px}
-.blk{margin-top:60px}
-.blk-h{display:flex;flex-wrap:wrap;gap:6px 20px;align-items:baseline;justify-content:space-between;padding-bottom:12px;border-bottom:1px solid var(--rule2)}
-.blk-h h2{font-size:22px;font-weight:500;margin:0}
-.blk-h .aside{font-size:13.5px;color:var(--ink3)}
-.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;color:var(--ink2);margin-top:14px}
-.legend span{display:inline-flex;align-items:center;gap:7px}
-.key{width:8px;height:8px;border-radius:0;display:inline-block;flex:none}
+.live.on i{background:var(--accent)}
+.seg{display:inline-flex;border:1px solid #393939;border-radius:6px;overflow:hidden;background:var(--s75)}
+.seg button{border:0;background:transparent;color:var(--ink2);height:26px;padding:0 10px;font:12px var(--sans);cursor:pointer}
+.seg button+button{border-left:1px solid #393939}
+.seg button:hover{color:var(--ink)}
+.seg button[aria-pressed=true]{background:var(--s300);color:var(--ink)}
+@media (pointer:coarse){.seg button{height:40px}}
+/* Project overview: Studio's top section (name, stats; the chart on the right), usage cards, Get connected, issues */
+.ovtop{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:32px;align-items:start}
+.summary{font-size:15px;line-height:1.6;color:var(--ink2);max-width:62ch}
+.summary b{font-weight:500;color:var(--ink)}
+.statrow{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0;margin-top:28px;border:1px solid var(--rule);border-radius:6px;background:var(--panel);overflow:hidden}
+.statrow>div{padding:16px 18px;min-width:0;border-bottom:1px solid var(--rule)}
+.statrow>div:nth-child(odd){border-right:1px solid var(--rule)}
+.statrow>div:nth-last-child(-n+2){border-bottom:0}
+.statrow .k{font:12px var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--ink2)}
+.statrow .v{font:400 26px/1.15 var(--display);letter-spacing:-.02em;margin-top:8px;font-variant-numeric:tabular-nums}
+.statrow .s{font-size:12.5px;color:var(--ink3);margin-top:4px}
+.usage{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+.ucard{display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--rule);border-radius:6px;padding:18px 18px 12px;min-height:220px;min-width:0}
+.ucard .k{font:12px var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--ink2)}
+.ucard .v{font:400 22px var(--display);margin-top:4px;font-variant-numeric:tabular-nums}
+.ucard .d{font-size:12px;color:var(--ink3);margin-top:2px}
+.ucard svg{margin-top:auto;width:100%;height:110px;display:block}
+.ucard .ax{display:flex;justify-content:space-between;font:11px var(--mono);color:var(--ink3);margin-top:6px}
+.uh{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between;margin:48px 0 16px}
+.uh h2{font-size:18px;color:var(--ink2)}
+.uh h2 b{color:var(--ink);font-weight:400}
+.getc{border:1px dashed var(--rule2);border-radius:6px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));background:var(--s75)}
+.getc>*{display:flex;gap:12px;align-items:flex-start;padding:18px 20px;text-align:left;background:none;border:0;color:inherit;font:inherit;cursor:pointer;text-decoration:none;min-width:0}
+.getc>*+*{border-left:1px solid var(--rule)}
+.getc>*:hover{background:var(--s200)}
+.getc .ic{color:var(--ink3);margin-top:2px}
+.getc>*:hover .ic{color:var(--ink)}
+.getc b{display:block;font-weight:400;font-size:14px;color:var(--ink)}
+.getc span{display:block;font-size:13px;color:var(--ink3);margin-top:2px}
+.adv{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.adv article{display:flex;flex-direction:column;gap:10px;background:var(--panel);border:1px solid var(--rule);border-radius:6px;padding:16px 18px;min-width:0}
+.adv article .top{display:flex;justify-content:space-between;gap:12px;align-items:center}
+.adv article h3{display:flex;align-items:center;gap:8px;font-size:14px}
+.adv article p{font-size:13px;color:var(--ink3);line-height:1.5}
+.adv article .acts{display:flex;gap:8px;margin-top:auto;padding-top:4px}
+.adv .none{grid-column:1/-1;display:flex;flex-direction:column;align-items:center;gap:8px;padding:48px 16px;border:1px solid var(--rule);border-radius:6px;color:var(--ink3);font-size:13px}
+@media (max-width:1100px){.usage{grid-template-columns:repeat(2,minmax(0,1fr))}.getc{grid-template-columns:repeat(2,minmax(0,1fr))}.getc>*:nth-child(3){border-left:0}.getc>*:nth-child(n+3){border-top:1px solid var(--rule)}.adv{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:900px){.ovtop{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:620px){.usage,.adv,.getc{grid-template-columns:minmax(0,1fr)}.getc>*+*{border-left:0;border-top:1px solid var(--rule)}.statrow{grid-template-columns:minmax(0,1fr)}.statrow>div{border-right:0!important;border-bottom:1px solid var(--rule)!important}.statrow>div:last-child{border-bottom:0!important}}
+/* sections are Studio panels: a header row and the content under it */
+.blk{background:var(--panel);border:1px solid var(--rule);border-radius:6px;padding:0 20px 20px;margin-top:20px;min-width:0}
+.blk-h{display:flex;flex-wrap:wrap;gap:4px 16px;align-items:center;justify-content:space-between;margin:0 -20px 16px;padding:12px 20px;border-bottom:1px solid var(--rule);min-height:48px}
+.blk-h h2{font-size:14px;color:var(--ink);margin:0}
+.blk-h .aside{font-size:12px;color:var(--ink3)}
+.two{display:grid;gap:20px;grid-template-columns:repeat(auto-fit,minmax(min(420px,100%),1fr));margin-top:20px}
+.two>.blk{margin-top:0}
+.ovtop .blk{margin-top:0}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--ink2);margin-top:4px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.key{width:8px;height:8px;border-radius:2px;display:inline-block;flex:none}
 .key.ring{background:transparent;border:1.5px solid var(--ink3)}
-.poss-fig{margin-top:40px}
-.poss-h{display:flex;flex-wrap:wrap;gap:6px 20px;align-items:baseline;justify-content:space-between;padding-bottom:10px;border-bottom:1px solid var(--rule)}
-.poss-h h3{font:500 17px var(--sans);letter-spacing:-.01em}
-.poss-h .aside{font-size:13.5px;color:var(--ink3)}
-.poss-note{font-size:14px;color:var(--ink2);margin-top:12px;max-width:72ch}
-.find.poss .n{font-weight:500;color:var(--ink2)}
+.poss-fig{margin-top:28px}
+.poss-h{display:flex;flex-wrap:wrap;gap:6px 20px;align-items:baseline;justify-content:space-between;padding-bottom:8px;border-bottom:1px solid var(--rule)}
+.poss-h h3{font-size:14px}
+.poss-h .aside{font-size:12px;color:var(--ink3)}
+.poss-note{font-size:13px;color:var(--ink3);margin-top:12px;max-width:80ch}
+.find.poss .n{color:var(--ink2)}
 table.dt td.poss-n{color:var(--ink3)}
 figure{margin:0}
-figcaption{font:12px var(--mono);color:var(--ink3);margin-top:12px}
-.plot{position:relative;margin-top:14px}
+figcaption{font-size:12px;color:var(--ink3);margin-top:12px;line-height:1.5}
+.plot{position:relative;margin-top:12px}
 .plot svg{display:block;width:100%;height:auto;overflow:visible}
-.plot text{font:12px var(--mono);fill:var(--ink3)}
-.tip{position:absolute;pointer-events:none;background:var(--panel);border:1px solid var(--rule2);border-radius:0;padding:9px 11px;font-size:13px;min-width:160px;z-index:2}
-.tip .t{font:500 13px var(--sans);margin-bottom:5px}
+.plot text{font:11px var(--mono);fill:var(--ink3)}
+.tip{position:absolute;pointer-events:none;background:var(--ovl);border:1px solid #333;border-radius:6px;padding:8px 10px;font-size:12px;min-width:160px;z-index:2;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.tip .t{font-size:12px;color:var(--ink);margin-bottom:5px}
 .tip .r{display:flex;align-items:center;gap:8px;justify-content:space-between}
-.tip .r span:first-child{display:inline-flex;align-items:center;gap:7px;color:var(--ink2)}
-.tip .r b{font-variant-numeric:tabular-nums;font-weight:500}
-.finds{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(330px,100%),1fr));column-gap:44px}
-.find{padding:24px 0;border-bottom:1px solid var(--rule);display:grid;gap:11px;align-content:start;min-width:0}
+.tip .r span:first-child{display:inline-flex;align-items:center;gap:6px;color:var(--ink2)}
+.tip .r b{font-variant-numeric:tabular-nums;font-weight:400}
+/* Problems: one card per kind, as Studio's advisor cards */
+.finds{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(340px,100%),1fr));gap:16px}
+.find{background:var(--s75);border:1px solid var(--rule);border-radius:6px;padding:16px 18px;display:grid;gap:10px;align-content:start;min-width:0}
 .find .top{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
-.find h3{font:500 17px var(--sans);letter-spacing:-.01em;display:flex;align-items:center;gap:9px}
+.find h3{font-size:14px;display:flex;align-items:center;gap:8px}
 .find .nw{text-align:right;white-space:nowrap}
-.find .n{font:500 30px/1 var(--display);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
-.find .share{display:block;font:12px var(--mono);color:var(--ink3);margin-top:4px}
-.find p{font-size:14.5px;color:var(--ink2)}
+.find .n{font:400 22px/1 var(--display);font-variant-numeric:tabular-nums}
+.find .share{display:block;font:11px var(--mono);color:var(--ink3);margin-top:4px}
+.find p{font-size:13px;color:var(--ink2);line-height:1.55}
 .find p.fix b{color:var(--ink);font-weight:500}
-.where{list-style:none;display:grid;gap:3px}
-.where li{display:flex;justify-content:space-between;gap:12px;font:13px var(--mono)}
-.where li code{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;font:inherit}
+.find .acts{display:flex;gap:8px;flex-wrap:wrap}
+.where{list-style:none;display:grid;gap:2px}
+.where li{display:flex;justify-content:space-between;gap:12px;font:12px var(--mono);padding:3px 0;border-bottom:1px dashed var(--rule)}
+.where li code{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;font:inherit;color:var(--ink2)}
 .where li span{color:var(--ink3);font-variant-numeric:tabular-nums;flex:none}
 .spark{display:block;width:100%;height:24px}
-.two{display:grid;gap:56px 48px;grid-template-columns:repeat(auto-fit,minmax(min(340px,100%),1fr))}
-table.dt{width:100%;border-collapse:collapse;font-size:14px}
-table.dt th{font:500 12px var(--mono);color:var(--ink3);text-align:left;padding:12px 14px 10px 0;border-bottom:1px solid var(--rule);white-space:nowrap}
-table.dt td{padding:11px 14px 11px 0;border-bottom:1px solid var(--rule);vertical-align:middle;white-space:nowrap}
+table.dt{width:100%;border-collapse:collapse;font-size:13px}
+table.dt th{font:400 12px var(--sans);color:var(--ink3);background:var(--s75);text-align:left;padding:8px 12px;border-bottom:1px solid var(--rule);white-space:nowrap}
+table.dt td{padding:9px 12px;border-bottom:1px solid var(--rule);vertical-align:middle;white-space:nowrap}
+table.dt tr:last-child td{border-bottom:0}
+table.dt tbody tr:hover td{background:#ffffff06}
 table.dt .num{text-align:right;font-variant-numeric:tabular-nums}
-table.dt td.route{font:13px var(--mono);max-width:240px;overflow:hidden;text-overflow:ellipsis}
-table.dt td.wide{width:45%}
+table.dt td.route{font:12.5px var(--mono);max-width:260px;overflow:hidden;text-overflow:ellipsis;color:var(--ink2)}
+table.dt td.wide{width:40%}
+.blk .tablewrap,.blk>table.dt,.blk>div>table.dt{margin:0 -20px;width:calc(100% + 40px)}
+.blk .tablewrap table.dt{width:100%;margin:0}
+.blk table.dt th:first-child,.blk table.dt td:first-child{padding-left:20px}
+.blk table.dt th:last-child,.blk table.dt td:last-child{padding-right:20px}
 .mix{display:flex;gap:2px;height:6px}
-.mix i{display:block;height:6px;border-radius:0;min-width:3px}
+.mix i{display:block;height:6px;border-radius:2px;min-width:3px}
 .chip{display:inline-flex;align-items:center;gap:7px}
-.did-a{color:var(--accent);font-weight:500}
-dl.health{display:grid;grid-template-columns:minmax(150px,230px) minmax(0,1fr)}
-dl.health dt,dl.health dd{padding:15px 0;border-bottom:1px solid var(--rule)}
-dl.health dt{font:500 12.5px var(--mono);color:var(--ink3);padding-right:18px}
-dl.health .v{font:500 18px var(--display);letter-spacing:-.01em}
-dl.health .s{font-size:13.5px;color:var(--ink2);margin-top:3px}
-dl.health ul{list-style:none;margin-top:6px;display:grid;gap:2px;font:12.5px var(--mono);color:var(--ink2)}
-.ok-t{font:500 12.5px var(--mono);color:var(--accent);margin-left:8px}
-.bad-t{font:500 12.5px var(--mono);color:var(--warn);margin-left:8px}
+.did-a{color:var(--accent)}
+dl.health{display:grid;grid-template-columns:minmax(150px,240px) minmax(0,1fr)}
+dl.health dt,dl.health dd{padding:14px 0;border-bottom:1px solid var(--rule)}
+dl.health dt:last-of-type,dl.health dd:last-of-type{border-bottom:0}
+dl.health dt{font-size:13px;color:var(--ink3);padding-right:18px}
+dl.health .v{font:400 16px var(--display)}
+dl.health .s{font-size:12.5px;color:var(--ink3);margin-top:3px}
+dl.health ul{list-style:none;margin-top:6px;display:grid;gap:2px;font:12px var(--mono);color:var(--ink2)}
+.ok-t,.bad-t{display:inline-flex;align-items:center;height:18px;padding:0 7px;border-radius:999px;font:500 10px/1 var(--mono);text-transform:uppercase;letter-spacing:.05em;margin-left:10px;vertical-align:middle}
+.ok-t{color:var(--accent);background:var(--accent-t);border:1px solid #0f5a37}
+.bad-t{color:var(--amber);background:var(--amber-t);border:1px solid #5c3d06}
 @media (max-width:560px){dl.health{grid-template-columns:1fr}dl.health dt{border-bottom:0;padding-bottom:0}}
-.quiet{padding:36px 0;color:var(--ink3);font-size:14.5px}
-details.more{border-top:1px solid var(--rule);padding:16px 0}
-details.more summary{font:500 15px var(--sans);cursor:pointer}
-.kv{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:20px 40px}
-.kv h2{font:500 14px var(--sans);margin-bottom:8px}
-.first{border-top:1px solid var(--rule2);padding:22px 0;margin-top:32px;max-width:72ch}
-.first p{font-size:15px;color:var(--ink2)}
-.dfoot{margin:64px 0 36px;padding-top:18px;border-top:1px solid var(--rule);font-size:13px;color:var(--ink3);max-width:90ch}
+.quiet{padding:28px 0;color:var(--ink3);font-size:13px;text-align:center}
+details.more{border-top:1px solid var(--rule);padding:14px 0 0;margin-top:16px}
+details.more summary{font-size:13px;color:var(--ink2);cursor:pointer}
+details.more summary:hover{color:var(--ink)}
+.kv{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:20px 32px}
+.kv h2{font-size:13px;color:var(--ink2);margin-bottom:8px}
+.bars{list-style:none;display:grid;gap:6px}
+.bars li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;font-size:12px}
+.bars .k{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono);color:var(--ink2)}
+.bars .n{font-variant-numeric:tabular-nums;color:var(--ink3)}
+.bars .track{grid-column:1/-1;height:4px;border-radius:2px;background:var(--s300)}
+.bars .fill{height:4px;border-radius:2px;background:var(--accent)}
+.empty{color:var(--ink3);font-size:12px}
+/* Getting started (no data yet): Studio's onboarding panel */
+.first{padding:24px}
+.first h2{font-size:18px}
+.first>p{font-size:13.5px;color:var(--ink3);margin-top:6px;max-width:80ch;line-height:1.55}
+.steps{list-style:none;margin-top:20px;display:grid;gap:0;border:1px solid var(--rule);border-radius:6px;overflow:hidden}
+.steps li{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:14px;align-items:center;padding:14px 16px;background:var(--s75)}
+.steps li+li{border-top:1px solid var(--rule)}
+.steps .no{width:24px;height:24px;border-radius:50%;border:1px solid var(--rule2);display:flex;align-items:center;justify-content:center;font:12px var(--mono);color:var(--ink2)}
+.steps b{font-weight:400;color:var(--ink);font-size:14px}
+.steps li>div>span{display:block;font-size:13px;color:var(--ink3);margin-top:2px}
+@media (max-width:620px){.steps li{grid-template-columns:28px minmax(0,1fr)}.steps li .btn{grid-column:2;justify-self:start}}
+.dfoot{margin:48px 0 0;padding-top:16px;border-top:1px solid var(--rule);font-size:12px;color:var(--ink3);max-width:110ch;line-height:1.6}
 .dfoot a{color:var(--ink2)}
-main.wrap:has(.app){max-width:1360px}
-.app{display:grid;grid-template-columns:232px minmax(0,1fr);gap:0 48px;align-items:start}
-.side{position:sticky;top:65px;align-self:start;max-height:calc(100vh - 65px);overflow-y:auto;scrollbar-width:thin;padding:28px 24px 28px 16px;margin-left:-16px;border-right:1px solid var(--rule);min-height:calc(100vh - 65px)}
-.side .proj{font:500 15px var(--sans);letter-spacing:-.01em;overflow-wrap:anywhere}
-.side .proj small{display:block;font:12px var(--mono);color:var(--ink3);margin-top:4px;font-weight:400}
-.side .live{margin-top:10px;font:12px var(--mono)}
-.side .seg{margin-top:18px;display:flex;width:100%}
-.side .seg button{flex:1;padding:7px 4px;font-size:12.5px}
-.side .grp{font:500 11.5px var(--mono);color:var(--ink3);margin:26px 0 8px}
-.side nav a{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 10px;margin:0 -10px;border-radius:0;font-size:14px;color:var(--ink2);text-decoration:none}
-.side nav a:hover{color:var(--ink);background:var(--panel)}
-.side nav a[aria-current=true]{color:var(--accent);background:var(--accent-t);font-weight:500}
-.side nav a[aria-current=true] span{color:var(--accent)}
-.side nav a span{font:12px var(--mono);color:var(--ink3);font-weight:400}
-.side .out a{display:block;font-size:13.5px;color:var(--ink2);text-decoration:none;padding:5px 0}
-.side .out a:hover{color:var(--ink)}
-.side .btn{width:100%;margin-top:14px}
-.side nav a[aria-current=page]{color:var(--ink);background:var(--panel);font-weight:500}
-.side nav.apps a{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.side nav.apps a.new{color:var(--accent);font-weight:500}
-#period{display:contents}
-.side .out form{display:block}
-.side .out button.lnk{display:block;font-size:13.5px;color:var(--ink2);padding:5px 0}
-.side .out button.lnk:hover{color:var(--ink)}
-.connect{margin-top:36px}
-.connect .keyrow{display:grid;grid-template-columns:minmax(150px,230px) minmax(0,1fr);padding:18px 0;border-bottom:1px solid var(--rule)}
-.connect .keyrow .k{font:500 12.5px var(--mono);color:var(--ink3);padding-top:7px}
-.connect .kval{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;min-width:0}
-.connect .kval code{font:500 16px var(--mono);overflow-wrap:anywhere}
-.connect .kn{grid-column:2;font-size:13.5px;color:var(--ink2);margin-top:8px;max-width:62ch}
-.connect .ways{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(380px,100%),1fr));gap:0 48px}
-.connect .way{padding:22px 0;border-bottom:1px solid var(--rule);min-width:0;display:grid;grid-template-columns:minmax(0,1fr);gap:10px;align-content:start}
-.connect .way>*{min-width:0}
-.connect .eb{font:500 12.5px var(--mono);letter-spacing:.04em;text-transform:uppercase;color:var(--accent)}
-.connect h3{font:500 17px var(--sans);letter-spacing:-.01em}
-.connect .way p{font-size:14.5px;color:var(--ink2);max-width:62ch}
-.connect .sh{display:flex;justify-content:space-between;align-items:center;gap:10px;font:500 12px var(--mono);color:var(--ink3);margin-top:4px}
-.connect pre.code{white-space:pre-wrap;overflow-wrap:anywhere}
-.connect .cnote{margin-top:18px;padding:12px 0 12px 14px;border-left:3px solid var(--warn);font-size:14.5px;line-height:1.5;color:var(--ink2);max-width:80ch}
-.connect .cnote b{color:var(--warn);font-weight:500}
-.cstat{display:flex;align-items:center;gap:9px;padding:16px 0;font:500 13.5px var(--mono);color:var(--ink2);border-bottom:1px solid var(--rule2)}
-.cstat i{width:8px;height:8px;border-radius:50%;background:var(--ink3);flex:none;animation:gcpulse 1.6s ease-in-out infinite}
-.cstat.on{color:var(--accent)}
-.cstat.on i{background:var(--accent-f);animation:none}
+/* the Connect dialog: its status line, tabs, the key, the ways in, the copy-prompt blocks */
+.cstat{display:flex;align-items:center;gap:9px;padding:10px 12px;margin-bottom:4px;font-size:13px;color:var(--ink2);border:1px solid var(--rule);border-radius:6px;background:var(--s75)}
+.cstat i{width:8px;height:8px;border-radius:50%;background:var(--amber);flex:none;animation:gcpulse 1.6s ease-in-out infinite}
+.cstat.on{color:var(--accent);border-color:#0f5a37;background:var(--accent-t)}
+.cstat.on i{background:var(--accent);animation:none}
 @keyframes gcpulse{50%{opacity:.3}}
 @media (prefers-reduced-motion:reduce){.cstat i{animation:none}}
-.connect .fine{font-size:13px;color:var(--ink3);margin-top:14px;max-width:90ch}
-/* the analytics setup: one big button that copies the prompt for a coding agent, two lines under it */
-.btn.xl{min-height:58px;padding:0 30px;font-size:17px;font-weight:600}
-.cprompt{padding:26px 0;display:grid;justify-items:start;gap:12px}
-.cprompt .cp-sub{font-size:14px;color:var(--ink2);max-width:64ch;line-height:1.5}
-.cprompt textarea.cp-text{width:100%;max-width:72ch;min-height:150px;padding:10px 12px;font:12.5px/1.5 var(--mono);color:var(--ink);background:var(--panel);border:1px solid var(--rule2);resize:vertical}
-.connect .cana{padding:22px 0 0;border-bottom:1px solid var(--rule)}
-.connect .cana .cprompt{padding-top:12px}
-@media (max-width:560px){.cprompt .btn.xl{width:100%;white-space:normal;text-align:center;padding:12px 18px}}
+.connect .cnote,.cnote{margin:0 0 12px;padding:10px 14px;border:1px solid #5c3d06;border-radius:6px;background:var(--amber-t);font-size:13px;line-height:1.5;color:var(--ink2)}
+.cnote b{color:var(--amber);font-weight:500}
+.connect .keyrow,.keyrow{display:grid;grid-template-columns:minmax(140px,200px) minmax(0,1fr);gap:8px 16px;padding:14px 0;border-bottom:1px solid var(--rule)}
+.keyrow:last-child{border-bottom:0}
+.keyrow .k{font-size:13px;color:var(--ink2);padding-top:5px}
+.kval{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;min-width:0}
+.kval code{font:13px var(--mono);background:var(--ctl);border:1px solid var(--rule2);border-radius:6px;padding:5px 10px;overflow-wrap:anywhere;min-width:0}
+.keyrow .kn{grid-column:2;font-size:12.5px;color:var(--ink3);max-width:70ch}
+.connect .ways{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(360px,100%),1fr));gap:16px}
+.connect .way{border:1px solid var(--rule);border-radius:6px;padding:16px;min-width:0;display:grid;grid-template-columns:minmax(0,1fr);gap:10px;align-content:start;background:var(--s75)}
+.connect .way>*{min-width:0}
+.eb{font:12px var(--mono);letter-spacing:.04em;text-transform:uppercase;color:var(--ink3)}
+.connect h3{font-size:14px}
+.connect .way p{font-size:13px;color:var(--ink3);max-width:62ch}
+.sh{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:12px;color:var(--ink3);margin-top:4px}
+.connect pre.code,.mcpc pre.code{white-space:pre-wrap;overflow-wrap:anywhere}
+.fine{font-size:12px;color:var(--ink3);margin-top:12px;max-width:100ch;line-height:1.55}
+.fine code,.cp-sub code{font-size:11.5px}
+.kn .lnk,.fine .lnk{color:var(--ink2);text-decoration:underline;text-underline-offset:3px}
+.kn .lnk:hover{color:var(--ink)}
+.cprompt{padding:8px 0 4px;display:grid;justify-items:start;gap:10px}
+.cprompt .cp-sub{font-size:13px;color:var(--ink3);max-width:64ch;line-height:1.5}
+.cprompt textarea.cp-text{width:100%;max-width:72ch;min-height:150px;padding:10px 12px;font:12.5px/1.5 var(--mono);color:var(--ink);background:var(--ctl);border:1px solid var(--rule2);border-radius:6px;resize:vertical}
+.connect .cana{padding:0}
+@media (max-width:560px){.cprompt .btn.xl{width:100%;white-space:normal;text-align:center;padding:10px 16px}.keyrow{grid-template-columns:1fr}.keyrow .kn{grid-column:1}}
+/* the private link's snippets (renderSnippets, as on /start): one card each */
+.snip{border:1px solid var(--rule);border-radius:6px;padding:14px 16px;background:var(--s75);min-width:0}
+.snip>*+*{margin-top:8px}
+.snip .row.between{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.snip h2{font-size:14px}
+.snip p{font-size:12.5px;color:var(--ink3)}
+.snip pre.code{white-space:pre-wrap;overflow-wrap:anywhere}
+#snips.stack>*+*{margin-top:12px}
+/* MCP: the client picker, the options, the configuration, the tools */
+.mcpc .clients{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+.mcpc .clients button{height:28px;padding:0 10px;border-radius:6px;border:1px solid #393939;background:var(--s75);color:var(--ink2);font:13px var(--sans);cursor:pointer}
+.mcpc .clients button:hover{color:var(--ink);border-color:#4d4d4d}
+.mcpc .clients button[aria-pressed=true]{background:var(--s300);color:var(--ink);border-color:#4d4d4d}
+.mcpc .opts{display:flex;flex-wrap:wrap;gap:8px 20px;margin:4px 0 14px;font-size:13px;color:var(--ink2)}
+.mcpc .opts label{display:inline-flex;gap:8px;align-items:center;cursor:pointer;color:var(--ink2)}
+.mcpc .opts input{accent-color:#3ecf8e;width:14px;height:14px}
+.mcpc .where{margin:0 0 6px;border:0;font:12.5px var(--sans);color:var(--ink3);display:block}
+.mcpc .acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;align-items:center}
+.mcpc .warn{font-size:12.5px;color:var(--amber);margin-top:10px}
+.alink{display:grid;gap:10px}
+.alink .err{font-size:13px;color:var(--warn)}
+.alink .err:empty{display:none}
+.tools-t td:first-child{font:12.5px var(--mono);color:var(--ink)}
+table.dt.tools-t td{white-space:normal}
 /* funnels (Fig. 4): one row per step, the bar's length the share of the first step */
-.fun{padding:18px 0;border-bottom:1px solid var(--rule)}
-.fun h3{font:500 16px var(--sans);letter-spacing:-.01em;margin-bottom:10px}
+.fun{padding:14px 0;border-bottom:1px solid var(--rule)}
+.fun h3{font-size:14px;margin-bottom:10px}
 .fun table td.route{max-width:340px}
-.fun .drop{font:12.5px var(--mono);color:var(--ink3)}
-.funedit{display:grid;gap:14px;padding:18px 0;max-width:720px}
+.fun .drop{font:12px var(--mono);color:var(--ink3)}
+.funedit{display:grid;gap:14px;padding:16px 0;max-width:720px}
 .funedit .fe{display:grid;grid-template-columns:minmax(0,220px) minmax(0,1fr) auto;gap:10px;align-items:start}
-.funedit input,.funedit textarea{width:100%;background:var(--paper);color:var(--ink);border:1px solid var(--line);padding:9px 11px;font:14px var(--mono);border-radius:0}
-.funedit textarea{min-height:96px;resize:vertical}
-.funedit input:focus-visible,.funedit textarea:focus-visible{outline:1px solid var(--accent);outline-offset:0;border-color:var(--accent)}
 .funedit .acts{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
-.funedit .err{font-size:14px;color:var(--warn)}
+.funedit .err{font-size:13px;color:var(--warn)}
 @media (max-width:620px){.funedit .fe{grid-template-columns:1fr}}
-@media (max-width:560px){.connect .keyrow{grid-template-columns:1fr}.connect .kn{grid-column:1}.connect .keyrow .k{padding-top:0;margin-bottom:6px}}
-.mainc{min-width:0;padding-bottom:20px}
-.lock{margin-top:28px;padding:22px 0;border-top:1px solid var(--rule2);border-bottom:1px solid var(--rule);max-width:72ch}
-.lock h2{font:500 clamp(22px,3vw,28px)/1.15 var(--display);letter-spacing:-.02em;margin:0}
-.lock p{font-size:16px;color:var(--ink2);margin-top:8px}
-.lock .acts{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
-.lock .err{font-size:14px;color:var(--warn);margin-top:10px}
+.mainc{min-width:0}
+.lock{padding:24px}
+.lock h2{font-size:18px}
+.lock p{font-size:14px;color:var(--ink2);margin-top:6px}
+.lock .acts{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
+.lock .err{font-size:13px;color:var(--warn);margin-top:10px}
 .lock .err:empty{display:none}
-.mainc .dh{margin-top:32px}
-/* views: the sidebar shows one view at a time (DASH_JS show()); without the script every section shows */
-.vh{display:none!important}
-.side nav.snav a{justify-content:flex-start}
-.side nav.snav a span{margin-left:auto}
-.snav a::before{content:"";width:16px;height:16px;flex:none;background:currentColor;opacity:.8;-webkit-mask:var(--ic) center/16px no-repeat;mask:var(--ic) center/16px no-repeat}
-.snav a[href="#top"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Crect x=%223%22 y=%223%22 width=%227%22 height=%229%22 rx=%221%22/%3E%3Crect x=%2214%22 y=%223%22 width=%227%22 height=%225%22 rx=%221%22/%3E%3Crect x=%2214%22 y=%2212%22 width=%227%22 height=%229%22 rx=%221%22/%3E%3Crect x=%223%22 y=%2216%22 width=%227%22 height=%225%22 rx=%221%22/%3E%3C/svg%3E")}.snav a[href="#found"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z%22/%3E%3Cpath d=%22M12 9v4M12 17h.01%22/%3E%3C/svg%3E")}.snav a[href="#where"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z%22/%3E%3Cpath d=%22M14 2v6h6M16 13H8M16 17H8M10 9H8%22/%3E%3C/svg%3E")}.snav a[href="#did"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z%22/%3E%3Cpath d=%22m9 12 2 2 4-4%22/%3E%3C/svg%3E")}.snav a[href="#recent-s"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M22 12h-4l-3 9L9 3l-3 9H2%22/%3E%3C/svg%3E")}.snav a[href="#visits"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M9 9l5 12 1.8-5.2L21 14z%22/%3E%3Cpath d=%22M7.2 2.2 8 5.1M5.1 8l-2.9-.8M14 4.1 12 6M6 12l-1.9 2%22/%3E%3C/svg%3E")}.snav a[href="#health-s"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M19 14c1.5-1.5 3-3.2 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.8 0-3 .5-4.5 2-1.5-1.5-2.7-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4 3 5.5l7 7z%22/%3E%3C/svg%3E")}.snav a[href="#setup"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M12 22v-5M9 8V2M15 8V2M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8z%22/%3E%3C/svg%3E")}.snav a[href="#connect"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M12 22v-5M9 8V2M15 8V2M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8z%22/%3E%3C/svg%3E")}.snav a[href="#forwarding"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22m22 2-7 20-4-9-9-4z%22/%3E%3Cpath d=%22M22 2 11 13%22/%3E%3C/svg%3E")}.snav a[href="#export"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3%22/%3E%3C/svg%3E")}
-.snav a[href="#loop"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M20 12a8 8 0 1 1-2.3-5.7%22/%3E%3Cpath d=%22M20 3v5h-5%22/%3E%3C/svg%3E")}
 /* the closed loop (Fig. 3): an SVG the script builds from the stats; one row per problem kind, the shared chain on the right */
-.loop-lead,.loop-foot{font-size:14.5px;color:var(--ink2);max-width:80ch;margin-top:14px}
-.flowwrap{overflow-x:auto;margin-top:18px}
+.loop-lead,.loop-foot{font-size:13px;color:var(--ink3);max-width:90ch;margin-top:4px;line-height:1.55}
+.loop-foot{margin-top:14px}
+.flowwrap{overflow-x:auto;margin-top:16px}
 .flow{display:block;width:100%;min-width:760px;height:auto;font-family:var(--sans)}
-.flow rect.node{fill:var(--panel);stroke:var(--rule)}
+.flow rect.node{fill:var(--s75);stroke:var(--rule2)}
 .flow rect.node.gate{stroke:var(--warn)}
 .flow rect.node.quiet{stroke-dasharray:4 3}
 .flow rect.node.agent{stroke:var(--accent)}
-.flow .nt{font:500 14px var(--sans);fill:var(--ink)}
+.flow .nt{font:500 13.5px var(--sans);fill:var(--ink)}
 .flow .nb{font:12px var(--sans);fill:var(--ink2)}
 .flow .col{font:500 11px var(--mono);fill:var(--ink3);letter-spacing:.06em}
 .flow .edge{fill:none;stroke:var(--ink3);stroke-width:1.2}
 .flow .edge.dim{stroke-dasharray:5 4}
 .flow marker path{fill:var(--ink3)}
-.crumbs{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font:12.5px var(--mono);color:var(--ink3);margin-bottom:10px}
-.crumbs a{color:var(--ink2);text-decoration:none}
-.crumbs a:hover{color:var(--ink)}
-.dh .meta .btn{margin-left:4px}
-@media (pointer:coarse){header.top{background:var(--paper);backdrop-filter:none;-webkit-backdrop-filter:none}}
-@media (max-width:920px){
-  .app{grid-template-columns:minmax(0,1fr)}
-  .side{position:sticky;top:65px;z-index:5;max-height:none;min-height:0;overflow:visible;padding:10px 0;margin-left:0;border-right:0;border-bottom:1px solid var(--rule);background:var(--paper);display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center}
-  .side .proj,.side .grp,.side .out,.side .live,.side .btn{display:none}
-  .side .seg{margin-top:0;width:auto}
-  .side .seg button{flex:none;padding:6px 10px}
-  .side nav{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;flex:1;min-width:0}
-  .side nav a{margin:0;white-space:nowrap;padding:6px 10px;font-size:13px}
-  .side nav a span{display:none}
-  .side nav.apps{display:none}
-  html:has(.app>.side:not(.acct)){scroll-padding-top:125px}
-}
+.dash-only{display:contents}
 `;
 
 const DASH_JS = `
@@ -601,7 +612,7 @@ const DASH_JS = `
   var statsUrl = P.statsUrl || ("/api/projects/" + encodeURIComponent(secret));
   var range = "7d";
   try { var saved = localStorage.getItem("gc.dash.range"); if (/^(24h|7d|30d|90d|1y)$/.test(saved || "") && document.querySelector('.seg button[data-r="' + saved + '"]')) range = saved; } catch (e) {}
-  var nf = new Intl.NumberFormat();
+  var nf = new Intl.NumberFormat(), MCP = "${MCP_PKG}", shownS = null;
   function fmt(n){ return nf.format(Math.round(n || 0)); }
   function plural(n, one, many){ return fmt(n) + " " + (Math.round(n) === 1 ? one : many); }
   var RANGE = { "24h": "In the last 24 hours", "7d": "In the last 7 days", "30d": "In the last 30 days", "90d": "In the last 90 days", "1y": "In the last year" };
@@ -812,27 +823,96 @@ const DASH_JS = `
     vals.forEach(function(v, i){ if (!v) return; var h = Math.max(2, 22 * v / max); g.appendChild(svg("rect", { x: i * 10 + 3, y: 23 - h, width: 4, height: h, rx: 1, fill: colorOf(slotOf(d)) })); });
     return g;
   }
+  // where a kind of problem happened: the type x page counts, else the pages of the recent rows
+  function whereOf(S, k){
+    var w = (issues(S.breakdowns)[k] || []).slice().sort(function(a, b){ return b.count - a.count; });
+    if (w.length) return w;
+    var m = {};
+    (S.recent || []).forEach(function(r){ if (r.kind === "detect" && r.diagnosis === k && r.route) m[r.route] = (m[r.route] || 0) + 1; });
+    return Object.keys(m).map(function(r){ return { route: r, count: m[r] }; }).sort(function(a, b){ return b.count - a.count; });
+  }
+  function lower(s){ return s.charAt(0).toLowerCase() + s.slice(1); }
+  // what a coding agent gets from Copy prompt for one kind of problem: what, where, the usual fix, the MCP steps
+  function fixPrompt(k, n, where){
+    var t = T(k), pages = where.slice(0, 4).map(function(w){ return w.route + " (" + fmt(w.count) + ")"; }).join(", ");
+    var out = ["Fix a problem GenClass found in production in this web app (" + P.name + "): " + lower(t.name) + ", " + plural(n, "time", "times") + " " + lower(RANGE[range]) + (pages ? ", on " + pages : "") + ".", ""];
+    if (t.what) out.push("What it means: " + t.what);
+    if (t.fix) out.push("How it is usually fixed: " + t.fix);
+    out.push("", "Use the GenClass MCP server (" + MCP + "; the project's MCP page in the GenClass dashboard says how to add it):",
+      "1. genclass_findings, then genclass_explain on the finding that matches. " + stepFor(k, where.length ? where[0].route : "the page"),
+      "2. Find the code behind it and fix it; keep the regression test genclass_explain generates.",
+      "3. Replay the recorded order again with genclass_replay: it must say not reproduced.",
+      "4. Tell me what you changed, the test you added and the replay's verdict.");
+    return out.join("\\n");
+  }
+  function promptBtn(k, n, where, cls){
+    var b = el("button", cls || "btn sm ghost", "Copy prompt"); b.type = "button";
+    b.setAttribute("data-copy", fixPrompt(k, n, where)); b.setAttribute("aria-label", "Copy a prompt to fix " + lower(T(k).name));
+    return b;
+  }
   function cards(S){
-    var B = S.breakdowns, host = document.getElementById("issues"), byIssue = issues(B); host.textContent = "";
+    var B = S.breakdowns, host = document.getElementById("issues"); host.textContent = "";
     var list = (B.detect_diagnosis || []).filter(function(x){ return x.key !== "expected"; }), total = sum(list);
     document.getElementById("issuesempty").classList.toggle("hidden", list.length > 0);
-    var recentBy = {};
-    (S.recent || []).forEach(function(r){ if (r.kind === "detect" && r.diagnosis && r.route) { var m = recentBy[r.diagnosis] = recentBy[r.diagnosis] || {}; m[r.route] = (m[r.route] || 0) + 1; } });
     list.forEach(function(x){
       var t = T(x.key), c = el("article", "find");
       var top = el("div", "top"), h = el("h3"); h.appendChild(key(colorOf(slotOf(x.key)))); h.appendChild(document.createTextNode(t.name)); top.appendChild(h);
       var nw = el("div", "nw"); nw.appendChild(el("span", "n", fmt(x.count))); nw.appendChild(el("span", "share", total ? Math.round(100 * x.count / total) + "% of problems" : "")); top.appendChild(nw); c.appendChild(top);
       c.appendChild(spark(S, x.key));
       if (t.what) c.appendChild(el("p", null, t.what));
-      var where = (byIssue[x.key] || []).slice().sort(function(a, b){ return b.count - a.count; });
-      if (!where.length && recentBy[x.key]) where = Object.keys(recentBy[x.key]).map(function(r){ return { route: r, count: recentBy[x.key][r] }; }).sort(function(a, b){ return b.count - a.count; });
+      var where = whereOf(S, x.key);
       if (where.length) {
         var ul = el("ul", "where");
         where.slice(0, 4).forEach(function(w){ var li = el("li"); li.appendChild(el("code", null, w.route)); li.appendChild(el("span", null, fmt(w.count))); ul.appendChild(li); });
         c.appendChild(ul);
       }
       if (t.fix) { var f = el("p", "fix"); f.appendChild(el("b", null, "Fix: ")); f.appendChild(document.createTextNode(t.fix)); c.appendChild(f); }
+      var acts = el("div", "acts"); acts.appendChild(promptBtn(x.key, x.count, where)); c.appendChild(acts);
       host.appendChild(c);
+    });
+  }
+  // Project overview: the kinds of problems that need attention first (Studio's advisor cards), each with its prompt
+  function advisor(S){
+    var host = document.getElementById("advisor"); if (!host) return; host.textContent = "";
+    var list = (S.breakdowns.detect_diagnosis || []).filter(function(x){ return x.key !== "expected"; });
+    var lead = document.getElementById("advn");
+    if (lead) lead.textContent = list.length ? plural(list.length, "kind of problem needs", "kinds of problems need") + " attention" : "GenClass found no problems";
+    if (!list.length) { var none = el("div", "none"); none.appendChild(el("p", null, "Nothing broke " + lower(RANGE[range]) + ". GenClass only reports situations that stand out, so a quiet stretch is normal.")); host.appendChild(none); return; }
+    list.slice(0, 3).forEach(function(x){
+      var t = T(x.key), a = el("article"), top = el("div", "top"), h = el("h3");
+      h.appendChild(key(colorOf(slotOf(x.key)))); h.appendChild(document.createTextNode(t.name)); top.appendChild(h);
+      top.appendChild(el("span", "bdg" + (x.count >= 10 ? " destructive" : " warning"), plural(x.count, "time", "times"))); a.appendChild(top);
+      var where = whereOf(S, x.key);
+      a.appendChild(el("p", null, (where.length ? "On " + where.slice(0, 2).map(function(w){ return w.route; }).join(", ") + ". " : "") + (t.what || "")));
+      var acts = el("div", "acts"), v = el("a", "btn sm ghost", "View"); v.href = "#found"; v.setAttribute("data-goto", "found");
+      acts.appendChild(promptBtn(x.key, x.count, where)); acts.appendChild(v); a.appendChild(acts);
+      host.appendChild(a);
+    });
+  }
+  // Project overview: four usage cards (Studio's request charts), one bar per hour or day
+  function usage(S){
+    var host = document.getElementById("usage"); if (!host) return; host.textContent = "";
+    var hourly = S.range === "24h", rows = S.series || [], T0 = S.totals, prev = S.previous || {};
+    var lead = document.getElementById("ulead"); if (lead) lead.textContent = fmt(T0.sessions);
+    var ix = (T0.ix_sessions || 0) > 0 || rows.some(function(b){ return b.ix_sessions; });
+    // the number is the period's total (exact, from the totals); the bars are the series, one per hour or day
+    [["Page loads", "sessions", "var(--accent)", prev.sessions, T0.sessions], ["Problems found", "detections", "var(--t2)", prev.detections, T0.detections],
+     ["Stepped in", "acted", "var(--accent)", prev.acted, T0.interventions],
+     ix ? ["Visits", "ix_sessions", "var(--accent)", prev.ix_sessions, T0.ix_sessions] : ["Possible issues", "possible", "var(--ink3)", null, T0.possible]].forEach(function(c){
+      var total = typeof c[4] === "number" ? c[4] : rows.reduce(function(s, b){ return s + (b[c[1]] || 0); }, 0), card = el("div", "ucard");
+      card.appendChild(el("div", "k", c[0])); card.appendChild(el("div", "v", fmt(total)));
+      card.appendChild(el("div", "d", typeof c[3] === "number" ? delta(total, c[3]) || "\\u00a0" : "\\u00a0"));
+      var n = Math.max(rows.length, 1), max = Math.max.apply(null, rows.map(function(b){ return b[c[1]] || 0; }).concat([1]));
+      var g = svg("svg", { viewBox: "0 0 " + (n * 10) + " 100", preserveAspectRatio: "none", role: "img", "aria-label": c[0] + " per " + (hourly ? "hour" : "day") });
+      g.appendChild(svg("line", { x1: 0, x2: n * 10, y1: 99.5, y2: 99.5, stroke: "var(--rule2)", "stroke-width": 1, "vector-effect": "non-scaling-stroke" }));
+      rows.forEach(function(b, i){
+        var v = b[c[1]] || 0; if (!v) return;
+        var h = Math.max(2, 96 * v / max), r = svg("rect", { x: i * 10 + 1.5, y: 99 - h, width: 7, height: h, rx: 1, fill: c[2] });
+        var tt = svg("title", {}); tt.textContent = label(b.bucket, hourly) + ": " + fmt(v); r.appendChild(tt); g.appendChild(r);
+      });
+      card.appendChild(g);
+      var ax = el("div", "ax"); ax.appendChild(el("span", null, rows.length ? label(rows[0].bucket, hourly) : "")); ax.appendChild(el("span", null, rows.length ? label(rows[rows.length - 1].bucket, hourly) : "")); card.appendChild(ax);
+      host.appendChild(card);
     });
   }
   // the lower-confidence tier: its own cards (ring keys), never merged into the ones above
@@ -1059,7 +1139,7 @@ const DASH_JS = `
     document.getElementById("ixsetup").classList.toggle("hidden", on);
     ["ixsum", "ixpages"].forEach(function(id){ document.getElementById(id).classList.toggle("hidden", !on); });
     IX_SECTIONS.forEach(function(id){ var e = document.getElementById(id); if (e) e.classList.toggle("hidden", !on || (!nv && /^ix-(sources|devices|entry)$/.test(id))); });
-    document.getElementById("c-visits").textContent = on ? fmt(views) : "";
+    var cv = document.getElementById("c-visits"); if (cv) cv.textContent = on ? fmt(views) : "";
     if (!on) return ixOld(B);
     var dl = el("dl", "health"), prev = (S.previous || {}).ix_views;
     row(dl, "Page views", fmt(views), typeof prev === "number" && prev ? (views >= prev ? "+" : "") + share(views - prev, prev) + " on the previous period" : "page loads and in-app route changes");
@@ -1355,47 +1435,217 @@ const DASH_JS = `
     if (foot) foot.textContent = (A && A.last
       ? "Your agent reported " + plural(C.found || (A.findings || []).length, "finding", "findings") + " in this period, the last " + ago(A.last) + ": ids, kinds, pages, verdicts and times only, never page text. "
       : "No agent has reported on this app in this period: reporting is off unless the developer sets GENCLASS_REPORT to this dashboard's link. ")
-      + "Connect an agent: npx -y @genclass/mcp@0.1.0 init in the project and connectAgent(rt) in the dev build. As a service, GenClass runs the loop for your developers, hosted or inside your network.";
+      + "Connect an agent on this project's MCP page (" + MCP + ") and connectAgent(rt) in the dev build. As a service, GenClass runs the loop for your developers, hosted or inside your network.";
   }
+
+  // ---------- Copy as Markdown: the period's numbers as a short report a person or a coding agent can read
+  function markdown(S){
+    var T0 = S.totals, B = S.breakdowns, out = [], sumEl = document.getElementById("summary");
+    out.push("# " + P.name + " (GenClass dashboard)", "", RANGE[S.range] + ", to " + String(S.generated).slice(0, 16).replace("T", " ") + " UTC. " + (sumEl ? sumEl.textContent : ""), "");
+    out.push("| Metric | Value |", "| --- | ---: |");
+    [["Page loads", T0.sessions], ["Decisions", T0.decisions], ["Problems found", T0.detections], ["Possible issues (lower confidence, not problems)", T0.possible],
+     ["Pages with a problem", count(S, "detect_route")], ["Times GenClass stepped in", T0.interventions], ["Visits", T0.ix_sessions], ["Page views", T0.ix_views]].forEach(function(r){
+      if (typeof r[1] === "number") out.push("| " + r[0] + " | " + fmt(r[1]) + " |");
+    });
+    var list = (B.detect_diagnosis || []).filter(function(x){ return x.key !== "expected"; });
+    out.push("", "## Problems by type", "");
+    if (!list.length) out.push("None in this period.", "");
+    list.forEach(function(x){
+      var t = T(x.key), w = whereOf(S, x.key).slice(0, 4);
+      out.push("### " + t.name + ": " + fmt(x.count), "");
+      if (t.what) out.push(t.what, "");
+      if (w.length) out.push("Pages: " + w.map(function(p){ return "\`" + p.route + "\` (" + fmt(p.count) + ")"; }).join(", "), "");
+      if (t.fix) out.push("Fix: " + t.fix, "");
+    });
+    var acts = B.intervention || [];
+    if (acts.length) {
+      out.push("## What GenClass did", "", "| Action | Times |", "| --- | ---: |");
+      acts.slice(0, 8).forEach(function(x){ out.push("| " + (ACTIONS[x.key] || x.key) + " | " + fmt(x.count) + " |"); });
+      out.push("");
+    }
+    var rec = (S.recent || []).slice(0, 10);
+    if (rec.length) {
+      out.push("## Latest detections", "", "| Time (UTC) | Page | What | Confidence | GenClass |", "| --- | --- | --- | ---: | --- |");
+      rec.forEach(function(r){
+        var did = r.kind === "acted" && r.executed && r.ran && r.ran !== "deliver" && r.ran !== "send" && r.ran !== "apply";
+        out.push("| " + String(r.t).slice(0, 16).replace("T", " ") + " | " + (r.route || "-") + " | " + (r.diagnosis ? T(r.diagnosis).name : (r.trigger || "-")) + " | " + (typeof r.confidence === "number" ? Math.round(r.confidence * 100) + "%" : "-") + " | " + (did ? (ACTIONS[r.ran] || r.ran) : "Reported") + " |");
+      });
+      out.push("");
+    }
+    out.push("Counts only: GenClass stores no text from the app's pages. Guide: https://genclass.dev/docs/dashboard");
+    return out.join("\\n");
+  }
+
+  // ---------- MCP: how a coding agent reads this project through @genclass/mcp, the agent link, the prompt
+  // The agent link is the dashboard link the MCP server reads production numbers from (GENCLASS_DASHBOARD): on a
+  // private link, this page's own address; in an account, one the person creates here (shown once).
+  var agentLink = P.account ? null : secret === "sample" ? "sample" : location.origin + "/dashboard/" + secret;
+  var CLIENTS = [["claude-code", "Claude Code"], ["cursor", "Cursor"], ["vscode", "VS Code"], ["codex", "Codex"], ["claude-desktop", "Claude Desktop"], ["windsurf", "Windsurf"], ["gemini", "Gemini CLI"]];
+  var mcpOpt = { client: "claude-code", link: true, report: false };
+  try { var mc = localStorage.getItem("gc.mcp.client"); if (CLIENTS.some(function(c){ return c[0] === mc; })) mcpOpt.client = mc; } catch (e) {}
+  function mcpEnv(){
+    var e = {};
+    if (mcpOpt.link && agentLink) e.GENCLASS_DASHBOARD = agentLink;
+    if (mcpOpt.report && agentLink && agentLink !== "sample") e.GENCLASS_REPORT = "on";
+    return e;
+  }
+  function mcpName(id){ return (CLIENTS.filter(function(c){ return c[0] === id; })[0] || CLIENTS[0])[1]; }
+  function mcpConfig(id){
+    var env = mcpEnv(), keys = Object.keys(env), srv = { command: "npx", args: ["-y", MCP] }, priv = !!env.GENCLASS_DASHBOARD && agentLink !== "sample";
+    if (keys.length) srv.env = env;
+    function j(v){ return JSON.stringify(v, null, 2); }
+    var mine = " (your own file, so the link stays out of the repository)";
+    switch (id) {
+      case "claude-code": return { where: priv ? "Run it in the project folder. Without --scope the server and its link stay in your own Claude Code settings, out of .mcp.json." : "Run it in the project folder. --scope project writes .mcp.json, so everyone on the project gets the server.",
+        code: "claude mcp add " + (priv ? "" : "--scope project ") + "genclass " + keys.map(function(k){ return "-e " + k + "=" + env[k] + " "; }).join("") + "-- npx -y " + MCP };
+      case "cursor": return { where: priv ? "~/.cursor/mcp.json" + mine + ":" : ".cursor/mcp.json in the project, or ~/.cursor/mcp.json for every project:", code: j({ mcpServers: { genclass: srv } }) };
+      case "vscode": return { where: priv ? "Command palette, MCP: Open User Configuration" + mine + ":" : ".vscode/mcp.json in the project:", code: j({ servers: { genclass: srv } }) };
+      case "codex": return { where: "~/.codex/config.toml. The first start downloads the package, so allow 30 seconds:", code: "[mcp_servers.genclass]\\ncommand = \\"npx\\"\\nargs = [\\"-y\\", \\"" + MCP + "\\"]\\nstartup_timeout_sec = 30" + (keys.length ? "\\n\\n[mcp_servers.genclass.env]\\n" + keys.map(function(k){ return k + " = \\"" + env[k] + "\\""; }).join("\\n") : "") };
+      case "claude-desktop": return { where: "Settings, Developer, Edit Config (claude_desktop_config.json):", code: j({ mcpServers: { genclass: srv } }) };
+      case "windsurf": return { where: "~/.codeium/windsurf/mcp_config.json:", code: j({ mcpServers: { genclass: srv } }) };
+      default: return { where: priv ? "~/.gemini/settings.json" + mine + ":" : ".gemini/settings.json in the project, or ~/.gemini/settings.json for every project:", code: j({ mcpServers: { genclass: srv } }) };
+    }
+  }
+  function mcpPrompt(){
+    var id = mcpOpt.client, c = mcpConfig(id), prod = !!mcpEnv().GENCLASS_DASHBOARD;
+    var out = ["Connect this project to GenClass through its MCP server (" + MCP + "), so you can read this app's production problems and see what happens inside its pages while you develop.", "",
+      "1. Add the server to " + mcpName(id) + ". " + c.where, "", c.code, ""];
+    if (prod && agentLink !== "sample") out.push("Keep the dashboard link out of files you commit: anyone with it can read this app's stats.", "");
+    out.push("2. Reload " + mcpName(id) + "'s MCP servers, then call genclass_setup and add the development-only lines it prints (connectAgent in the dev build). Start the dev server and load a page.");
+    out.push(prod ? "3. Call genclass_status to check that the page is connected, then genclass_analytics with source \\"production\\" for this app's numbers: page loads, problems by type and page, the latest decisions."
+      : "3. Call genclass_status to check that the page is connected. Production numbers need GENCLASS_DASHBOARD, the agent link from this project's MCP page in the GenClass dashboard.");
+    out.push("4. Tell me what you changed and what genclass_status" + (prod ? " and genclass_analytics" : "") + " report.");
+    return out.join("\\n");
+  }
+  function mcpRender(host){
+    host.textContent = "";
+    var bar = el("div", "clients"); bar.setAttribute("role", "group"); bar.setAttribute("aria-label", "Coding agent");
+    CLIENTS.forEach(function(c){
+      var b = el("button", null, c[1]); b.type = "button"; b.setAttribute("aria-pressed", String(c[0] === mcpOpt.client));
+      b.addEventListener("click", function(){ mcpOpt.client = c[0]; try { localStorage.setItem("gc.mcp.client", c[0]); } catch (e) {} mcpAll(); });
+      bar.appendChild(b);
+    });
+    host.appendChild(bar);
+    var opts = el("div", "opts");
+    function opt(k, text, off){
+      var l = el("label"), i = el("input"); i.type = "checkbox"; i.checked = !off && !!mcpOpt[k]; i.disabled = !!off;
+      i.addEventListener("change", function(){ mcpOpt[k] = i.checked; mcpAll(); });
+      l.appendChild(i); l.appendChild(document.createTextNode(text)); opts.appendChild(l);
+    }
+    opt("link", "Production numbers (GENCLASS_DASHBOARD)", !agentLink);
+    opt("report", "Report findings to the Loop view (GENCLASS_REPORT)", !agentLink || agentLink === "sample");
+    host.appendChild(opts);
+    var c = mcpConfig(mcpOpt.client);
+    host.appendChild(el("p", "where", c.where)); host.appendChild(el("pre", "code", c.code));
+    if (!agentLink) host.appendChild(el("p", "warn", "No agent link yet: this setup reads the pages on your machine only. Create one under Agent access for production numbers."));
+    var acts = el("div", "acts"), cp = el("button", "btn sm", "Copy prompt"), cc = el("button", "btn sm ghost", "Copy configuration");
+    cp.type = "button"; cc.type = "button";
+    cp.setAttribute("data-copy", mcpPrompt()); cp.setAttribute("aria-label", "Copy the prompt that sets up the MCP server in " + mcpName(mcpOpt.client));
+    cc.setAttribute("data-copy", c.code);
+    acts.appendChild(cp); acts.appendChild(cc); host.appendChild(acts);
+  }
+  function mcpAll(){ [].slice.call(document.querySelectorAll("[data-mcp]")).forEach(mcpRender); }
+  // the agent link boxes (MCP view, Project Settings): show the link once it is known; Create makes one (account mode)
+  function alinkShow(){
+    // the JSON this page reads, at the agent link's API address (the link's secret is the key; the sample is open)
+    var ju = document.getElementById("jsonurl");
+    if (ju && agentLink) ju.textContent = "curl -s \\"" + (agentLink === "sample" ? location.origin + "/api/projects/sample" : agentLink.replace("/dashboard/", "/api/projects/")) + "?range=7d\\"";
+    [].slice.call(document.querySelectorAll(".alink")).forEach(function(box){
+      var out = box.querySelector(".alink-out"), code = box.querySelector(".alink-out code"), cb = box.querySelector(".alink-out [data-copy]"), st = box.querySelector(".alink-st"), b = box.querySelector("[data-mklink]");
+      if (!agentLink) return;
+      if (code) code.textContent = agentLink;
+      if (cb) cb.setAttribute("data-copy", agentLink);
+      if (out) out.classList.remove("hidden");
+      if (st && P.account) st.textContent = "On. Copy it now: GenClass keeps only its hash, so this page cannot show it again.";
+      if (b) { b.disabled = false; b.textContent = "Make a new agent link"; b.setAttribute("data-on", "1"); b.removeAttribute("data-armed"); }
+    });
+  }
+  document.addEventListener("click", function(e){
+    var b = e.target && e.target.closest ? e.target.closest("[data-mklink]") : null; if (!b || !P.account) return;
+    var box = b.closest(".alink"), err = box ? box.querySelector(".err") : null;
+    // a link already exists: the first click asks, the second (within 6 s) replaces it and the old one stops working
+    if (b.getAttribute("data-on") === "1" && b.getAttribute("data-armed") !== "1") {
+      var was = b.textContent; b.setAttribute("data-armed", "1"); b.textContent = "Confirm: the old link stops working";
+      setTimeout(function(){ if (b.getAttribute("data-armed") === "1" && !b.disabled) { b.removeAttribute("data-armed"); b.textContent = was; } }, 6000);
+      return;
+    }
+    b.disabled = true; if (err) err.textContent = "";
+    fetch("/api/account/projects/" + encodeURIComponent(P.id) + "/link", { method: "POST", credentials: "same-origin", headers: { accept: "application/json", "content-type": "application/json" }, body: "{}" })
+      .then(function(r){ return r.json().catch(function(){ return {}; }).then(function(j){ if (!r.ok) throw new Error((j && j.error) || "HTTP " + r.status); return j; }); })
+      .then(function(j){ agentLink = j.dashboardUrl; mcpOpt.link = true; alinkShow(); mcpAll(); })
+      .catch(function(x){ if (err) err.textContent = "Not created: " + x.message + "."; b.disabled = false; b.removeAttribute("data-armed"); });
+  });
+
   function render(S){
-    var live = !!S.lastEvent, st = document.getElementById("status");
-    st.classList.toggle("on", live);
-    document.getElementById("statust").textContent = live ? "Last event " + ago(S.lastEvent) : "Waiting for the first event";
+    shownS = S;
+    var live = !!S.lastEvent, st = document.getElementById("status"), stt = document.getElementById("statust"), hs = document.getElementById("hstatus");
+    if (st) st.classList.toggle("on", live);
+    if (stt) stt.textContent = live ? "Last event " + ago(S.lastEvent) : "Waiting for the first event";
+    if (hs) { hs.className = "bdg " + (live ? "brand" : "warning"); if (hs.lastChild) hs.lastChild.textContent = live ? "Live" : "Waiting"; }
+    // a private link has no account to poll: the Connect dialog's status line follows the stats instead
+    if (!P.account) {
+      var cs = document.getElementById("cstatus"), cst = document.getElementById("cstatust"), cp = document.getElementById("cpoll");
+      if (cs) cs.classList.toggle("on", live);
+      if (cst) cst.textContent = live ? "Connected. Last event " + ago(S.lastEvent) : "Waiting for the first event from this app";
+      if (cp) cp.classList.add("hidden");
+    }
     document.getElementById("updated").textContent = "Updated " + new Date(S.generated).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-    document.getElementById("nodata").classList.toggle("hidden", live || !!P.account);
+    document.getElementById("nodata").classList.toggle("hidden", live);
     document.getElementById("content").classList.toggle("hidden", !live);
-    var per = document.getElementById("period"); if (per) per.classList.toggle("hidden", !live);
-    if (!live) { var ins = document.getElementById("install"); if (ins) ins.open = true; return; }
-    summary(S); tiles(S); trend(S); possibleTrend(S); cards(S); possibleCards(S); pages(S); acted(S); health(S); loop(S); recent(S); visits(S); advanced(S);
+    ["period", "mdcopy"].forEach(function(id){ var n = document.getElementById(id); if (n) n.classList.toggle("hidden", !live); });
+    if (!live) return;
+    summary(S); tiles(S); usage(S); advisor(S); trend(S); possibleTrend(S); cards(S); possibleCards(S); pages(S); acted(S); health(S); loop(S); recent(S); visits(S); advanced(S);
     var B2 = S.breakdowns, T2 = S.totals;
-    document.getElementById("c-trend").textContent = fmt(T2.detections);
-    document.getElementById("c-found").textContent = String((B2.detect_diagnosis || []).filter(function(x){ return x.key !== "expected"; }).length);
-    document.getElementById("c-pages").textContent = String(count(S, "detect_route"));
-    document.getElementById("c-did").textContent = fmt(T2.interventions);
+    function put(id, t){ var n = document.getElementById(id); if (n) n.textContent = t; }
+    put("c-trend", fmt(T2.detections));
+    put("c-found", String((B2.detect_diagnosis || []).filter(function(x){ return x.key !== "expected"; }).length));
+    put("c-pages", String(count(S, "detect_route")));
+    put("c-did", fmt(T2.interventions));
   }
 
   document.getElementById("pname").textContent = P.name;
-  document.getElementById("sname").textContent = P.name;
-  var crumb = document.getElementById("crumb"); if (crumb) crumb.textContent = P.name;
-  // Views: each sidebar link opens one view (the sections marked data-v with it); the header stays. The hash names
-  // the link, so a view can be linked to and the back button works. While an app waits for its first event the view
-  // is Connect.
+  // Views: each rail or product-menu link opens one view (the parts marked data-v with it; a part may name several);
+  // the header stays. The hash names the link, so a view can be linked to and the back button works. #connect (and
+  // #setup, its old name) opens the Connect dialog over the overview.
   (function(){
-    var VIEW = { top: "overview", trend: "overview", found: "problems", where: "pages", did: "pages", "recent-s": "activity", visits: "visitors", "health-s": "health", loop: "loop", connect: "connect", setup: "setup", forwarding: "forwarding", "export": "export" };
-    var links = [].slice.call(document.querySelectorAll(".snav a"));
+    var VIEW = { top: "overview", trend: "overview", usage: "overview", advisor: "overview", getc: "overview", found: "problems", "possible-s": "problems", where: "pages", did: "pages",
+      "recent-s": "activity", visits: "visitors", "ix-sources": "visitors", "ix-devices": "visitors", "ix-sessions": "visitors", "ix-entry": "visitors", "ix-funnels": "visitors", clicks: "visitors", moves: "visitors",
+      "health-s": "health", adv: "health", loop: "loop", mcp: "mcp", "mcp-tools": "mcp", "mcp-json": "mcp", settings: "settings", keys: "settings", forwarding: "forwarding", "export": "export" };
+    var TITLE = {
+      problems: ["Problems", "Each kind of problem GenClass found in this period: where it happened, how to fix it, and a prompt for your coding agent."],
+      pages: ["Pages and actions", "The pages with the most problems, and what GenClass did about them."],
+      activity: ["Activity", "The latest detections and interventions, newest first."],
+      visitors: ["Visitors", "How visitors use this app: interaction analytics, for apps that turn them on."],
+      health: ["Health", "Whether GenClass could watch your pages at all: model loads, decision time, what was not checked."],
+      loop: ["Loop", "What broke on this app, and what your coding agent does with each problem."],
+      mcp: ["MCP", "Let your coding agent read this project: production problems through @genclass/mcp, and what happens inside your pages while you develop."],
+      settings: ["Project Settings", "This project's name, key and agent access."],
+      forwarding: ["Integrations", "Send each new detection where you already look."],
+      "export": ["Export", "Every event GenClass received for this app, as a file or through the API."]
+    };
+    var PARENT = { "export": "settings" }, SCROLL = { did: 1, "possible-s": 1, "ix-sources": 1, "ix-devices": 1, "ix-sessions": 1, "ix-entry": 1, "ix-funnels": 1, clicks: 1, moves: 1, keys: 1, usage: 1, advisor: 1, getc: 1, adv: 1, "mcp-tools": 1, "mcp-json": 1 };
+    var links = [].slice.call(document.querySelectorAll(".snav a, .sb-pm a"));
     var parts = [].slice.call(document.querySelectorAll("[data-v]"));
+    var current = null;
+    function has(s, v){ return (" " + s.getAttribute("data-v") + " ").indexOf(" " + v + " ") >= 0; }
+    function inRail(a){ return !!(a.closest && a.closest(".snav")); }
+    function hrefOf(a){ return (a.getAttribute("href") || "").slice(1); }
     function show(id, jump){
+      if (id === "connect" || id === "setup") { if (!current) show("top", false); return typeof gcModal === "function" && gcModal("m-connect", id === "setup" ? "fw" : null); }
       var v = VIEW[id];
-      if (!v || !parts.some(function(s){ return s.getAttribute("data-v") === v; })) return false;
-      if (id === "setup") { var d = document.getElementById("install"); if (d) d.open = true; }
-      if (id === "connect") { var cn = document.getElementById("connect"); if (cn) cn.classList.remove("hidden"); }
-      parts.forEach(function(s){ s.classList.toggle("vh", s.getAttribute("data-v") !== v); });
-      var cur = links.filter(function(a){ return a.getAttribute("href") === "#" + id; })[0] || links.filter(function(a){ return VIEW[a.getAttribute("href").slice(1)] === v; })[0];
-      links.forEach(function(a){ a.setAttribute("aria-current", String(a === cur)); });
-      // the breadcrumb ends with the view's name (the link's label, without its count)
-      var cv = document.getElementById("crumbv");
-      if (cv) cv.textContent = cur && v !== "overview" ? " / " + (cur.firstChild && cur.firstChild.nodeType === 3 ? cur.firstChild.nodeValue : cur.textContent).trim() : "";
-      if (jump) { var t = document.getElementById(id); if (id === "did" && t) t.scrollIntoView(); else window.scrollTo(0, 0); }
+      if (!v || !parts.some(function(s){ return has(s, v); })) return false;
+      current = v;
+      parts.forEach(function(s){ s.classList.toggle("vh", !has(s, v)); });
+      var rv = PARENT[v] || v;
+      var r = links.filter(function(a){ return inRail(a) && hrefOf(a) === id; })[0] || links.filter(function(a){ return inRail(a) && VIEW[hrefOf(a)] === rv; })[0];
+      var m = links.filter(function(a){ return !inRail(a) && hrefOf(a) === id; })[0] || links.filter(function(a){ return !inRail(a) && VIEW[hrefOf(a)] === v; })[0];
+      links.forEach(function(a){ a.setAttribute("aria-current", String(a === r || a === m)); });
+      var t = TITLE[v], vt = document.getElementById("vtitle"), vd = document.getElementById("vdesc");
+      if (vt) { vt.textContent = t ? t[0] : ""; vt.classList.toggle("hidden", !t); }
+      if (vd) { vd.textContent = t ? t[1] : ""; vd.classList.toggle("hidden", !t); }
+      document.title = (t ? t[0] + " | " : "") + P.name + " | GenClass dashboard";
+      if (document.body) document.body.classList.remove("sb-open");
+      if (jump) { var tg = document.getElementById(id); if (SCROLL[id] && tg && tg.scrollIntoView) tg.scrollIntoView(); else if (window.scrollTo) window.scrollTo(0, 0); }
       return true;
     }
     function go(e, id){
@@ -1403,21 +1653,22 @@ const DASH_JS = `
       if (e) e.preventDefault();
       try { history.replaceState(null, "", "#" + id); } catch (x) {}
     }
-    links.concat([].slice.call(document.querySelectorAll("a[data-goto]"))).forEach(function(a){
-      a.addEventListener("click", function(e){ go(e, a.getAttribute("data-goto") || a.getAttribute("href").slice(1)); });
+    document.addEventListener("click", function(e){
+      var a = e.target && e.target.closest ? e.target.closest("a[data-goto], .snav a, .sb-pm a") : null; if (!a) return;
+      var id = a.getAttribute("data-goto") || (hrefOf(a) && (a.getAttribute("href") || "").charAt(0) === "#" ? hrefOf(a) : "");
+      if (id) go(e, id);
     });
     window.addEventListener("hashchange", function(){ show(location.hash.slice(1), true); });
-    var per = document.getElementById("period");
-    var first = location.hash.slice(1);
-    if (!show(first, false)) show(per && per.classList.contains("hidden") ? "connect" : "top", false);
+    if (!show(location.hash.slice(1), false)) show("top", false);
   })();
-  document.title = P.name + " | GenClass dashboard";
-  document.querySelectorAll("#ixsetup [data-copy]").forEach(function(b){ b.addEventListener("click", function(){ gcCopy(b, b.getAttribute("data-copy"), b.parentNode ? b.parentNode.querySelector("textarea.cp-text") : null); }); });
   if (document.getElementById("ptok")) {
     document.getElementById("ptok").textContent = P.token;
     document.getElementById("ptokc").appendChild(copyBtn(function(){ return P.token; }, "token", function(){ return document.getElementById("ptok"); }));
     renderSnippets(document.getElementById("snips"), P.token, P.endpoint || "");
   }
+  mcpAll(); alinkShow();
+  var mdb = document.getElementById("mdcopy");
+  if (mdb) mdb.addEventListener("click", function(){ if (shownS) gcCopy(mdb, markdown(shownS), null); });
   var btn = document.getElementById("refresh");
   function load(){
     btn.disabled = true;
@@ -1444,19 +1695,13 @@ const DASH_JS = `
   load();
 })();`;
 
-// The Connect panel (account mode): the project API key, the two ways to wire it in, and a status line that polls the
-// account's app list every 5 s until this app's first batch arrives. Shown at the top until then; afterwards it is
-// hidden and the sidebar's "Connect" link brings it back.
+// The Connect dialog's status line (account mode): it polls the account's project list every 5 s until this app's
+// first batch arrives, then refreshes the page's stats (the overview's Getting started gives way to the data). The
+// dialog's Copy buttons are the frame's (studio.ts, one delegated handler).
 const CONNECT_JS = `
 (function(){
   var P = JSON.parse(document.getElementById("project").textContent);
   var box = document.getElementById("connect"); if (!box) return;
-  box.querySelectorAll("[data-copy]").forEach(function(b){
-    b.addEventListener("click", function(){
-      var at = b.getAttribute("data-target");
-      gcCopy(b, b.getAttribute("data-copy"), at ? document.getElementById(at) : null);
-    });
-  });
   var st = document.getElementById("cstatus"), stt = document.getElementById("cstatust"), poll = document.getElementById("cpoll");
   // "at 14:02" today; "Oct 11, 2:02 PM" on another day, so a week-old first event does not read as this afternoon
   function when(iso){
@@ -1491,8 +1736,11 @@ export interface DashboardOptions {
   endpoint?: string | null;
   /** The origin account dashboards live on (AUTH_ORIGIN), for the link in the analytics prompt; default genclass.dev. */
   origin?: string;
-  /** Owned-app mode (/account/apps/<id>): the account's apps in the sidebar, the Connect panel, account stats API. */
-  account?: { apps: { id: string; name: string }[]; current: string; email: string | null };
+  /**
+   * Owned-app mode (/account/apps/<id>): the account's projects (the header's switcher), the signed-in person (the
+   * account menu; the organization is named after them) and the plan's name (the organization's badge).
+   */
+  account?: { apps: { id: string; name: string }[]; current: string; email: string | null; plan?: string | null };
   /** The project's id (account mode). */
   id?: string;
   /** When the app's first batch arrived (account mode; null while waiting). */
@@ -1501,7 +1749,7 @@ export interface DashboardOptions {
   privateLink?: boolean;
   /**
    * Whether a @genclass/runtime that reads project keys (KEY_RUNTIME or later, any dist-tag) is on npm (RUNTIME_ON_NPM);
-   * until then the Connect panel, and the setup notes of a private-link dashboard, say so first.
+   * until then the Connect dialog, and the setup notes of a private-link dashboard, say so first.
    */
   runtimeReady?: boolean;
   /** Account mode: the time ranges the account's plan shows (src/plans.ts); default 24 h, 7 and 30 days. */
@@ -1512,13 +1760,13 @@ export interface DashboardOptions {
   extra?: { html: string; script: string };
   /**
    * Account mode, locked: the account's plan has no dashboard (a plan file without it; none today). The page keeps
-   * the app's key and the Connect panel and links the plans; no stats are loaded.
+   * the app's key and the Connect section and links the plans; no stats are loaded.
    */
   locked?: boolean;
 }
 
 const RANGE_LABELS: Record<string, string> = { "24h": "24 h", "7d": "7 days", "30d": "30 days", "90d": "90 days", "1y": "1 year" };
-/** Short labels when a plan shows more than three ranges (five buttons fit the sidebar only this way). */
+/** Short labels when a plan shows more than three ranges (five buttons fit the toolbar only this way). */
 const RANGE_SHORT: Record<string, string> = { "24h": "24h", "7d": "7d", "30d": "30d", "90d": "90d", "1y": "1y" };
 
 function rangeButtons(ranges: string[]): string {
@@ -1531,9 +1779,6 @@ function rangeButtons(ranges: string[]): string {
     .join("");
 }
 
-/** More apps than this and the sidebar lists only the current one, with a link to all of them. */
-const SIDEBAR_APPS = 4;
-
 /**
  * This collector's own ingest URL when it is not genclass.dev's: a collector self-hosted from wrangler.selfhost.toml
  * (private mode), or `wrangler dev`. Its snippets then name it, or the pages would send to genclass.dev.
@@ -1545,6 +1790,15 @@ export function ownEndpoint(env: { DASHBOARD_ORIGIN?: string; AUTH_ORIGIN?: stri
 
 /** The origin dashboard links use (DashboardOptions.origin, default genclass.dev). */
 const ORIGIN_OF = (o: DashboardOptions): string => (o.origin ?? "https://genclass.dev").replace(/\/+$/, "");
+
+/**
+ * The organization's name in the Studio frame: an account has no name of its own, so it is named after the person,
+ * as Studio names a personal organization ("ada's Org"); "Personal" when there is nothing to name it after.
+ */
+export function orgName(who: string | null | undefined): string {
+  const base = (who ?? "").replace(/^@/, "").split("@")[0]!.trim();
+  return base ? `${base}'s Org` : "Personal";
+}
 
 /**
  * The prompt the "Copy the prompt for your coding agent" buttons copy: install or upgrade the runtime, turn analytics on
@@ -1567,13 +1821,53 @@ export function analyticsPrompt(token: string, where: string, endpoint: string |
   ].join("\n");
 }
 
+/**
+ * The prompt the Connect dialog's Framework tab copies: install the runtime and start it with this project's key in
+ * observe mode (it only reports), a dev-server check, and where the first events come from.
+ */
+export function installPrompt(token: string, endpoint: string | null = null): string {
+  const ep = endpoint ? `, telemetry: { endpoint: "${endpoint}" }` : "";
+  return [
+    "Add GenClass to this web app with its project key, so the app's GenClass dashboard shows what breaks for its users in production (double submits, stale responses, failing endpoints, write races).",
+    "",
+    `1. Install the runtime with the project's package manager: npm install ${RUNTIME_PKG} (or pnpm add / yarn add / bun add).`,
+    `2. Start it as early as possible in the browser entry (main.ts, the root layout or the root component), with this project's key ${token}:`,
+    '   import { GenClass } from "@genclass/runtime";',
+    `   GenClass.init({ token: "${token}"${ep} });`,
+    `   Without a bundler, put this in the HTML head instead: <script src="${CDN_SCRIPT}" data-token="${token}"></script>`,
+    "   The key is public: it can only add telemetry to this app, so it belongs in front-end code.",
+    "3. Keep the default mode, observe: GenClass reports and never changes what the app does.",
+    "4. Run the dev server and load a page to check that the app builds and runs without errors. Local hosts (localhost, private networks) send nothing by default, so the first events come from the deployed site.",
+    "5. Tell me what you changed.",
+  ].join("\n");
+}
+
 /** One big primary button that copies analyticsPrompt, and at most two lines under it. */
 function promptBlock(token: string, where: string, endpoint: string | null, sub: string): string {
   const prompt = analyticsPrompt(token, where, endpoint);
   return `<div class="cprompt"><button class="btn green xl" type="button" data-copy="${esc(prompt)}">Copy the prompt for your coding agent</button><p class="cp-sub">${sub}</p><textarea class="cp-text" readonly hidden aria-label="The prompt, to copy by hand" rows="8">${esc(prompt)}</textarea></div>`;
 }
 
-function connectPanel(token: string, connected: boolean, runtimeReady: boolean, endpoint: string | null = null, analytics = ""): string {
+interface ConnectOptions {
+  token: string;
+  /** Account mode: the CLI's login, the key server-rendered, the status line that polls. */
+  account: boolean;
+  runtimeReady: boolean;
+  endpoint: string | null;
+  /** The analytics tab's copy-prompt block (promptBlock). */
+  analytics: string;
+  /** The MCP tab (the page script renders it; the locked page has no script for it). Default true. */
+  mcp?: boolean;
+}
+
+/**
+ * The Connect section (Studio's Connect dialog): a status line, then tabs. Framework: a prompt for a coding agent and
+ * the ways in (the CLI's login, or the key pasted into code, a script tag or a meta tag). API Keys: the project key.
+ * MCP: the agent's MCP server (rendered by the page script). Analytics: the analytics prompt. On a private link the
+ * snippets and the key are filled in by the page script (#snips, #ptok), as /start does.
+ */
+function connectSection(c: ConnectOptions): string {
+  const { token, endpoint } = c;
   const t = esc(token);
   // a self-hosted collector's endpoint goes in GenClass.init or window.GENCLASS_CONFIG (a meta tag may only name
   // same-origin URLs, src/cdn/config.ts)
@@ -1589,17 +1883,11 @@ function connectPanel(token: string, connected: boolean, runtimeReady: boolean, 
     const id = `csnip${++n}`;
     return `<div><div class="sh"><span>${label}</span><button class="btn sm ghost" type="button" data-copy="${esc(code)}" data-target="${id}" aria-label="Copy ${name}">Copy</button></div><pre class="code" id="${id}" tabindex="0" aria-label="${esc(label)}">${esc(code)}</pre></div>`;
   };
-  const notYet = runtimeReady ? "" : `<p class="cnote" id="cnote">${NOT_ON_NPM} So this line keeps waiting.</p>`;
-  return `<section class="connect${connected ? " hidden" : ""}" id="connect" data-v="connect" aria-labelledby="connect-h">
-  <div class="blk-h"><h2 id="connect-h">Connect this app</h2><span class="aside">Needs @genclass/runtime ${KEY_RUNTIME} or later</span></div>
-  ${notYet}
-  <div class="keyrow">
-    <div class="k">Project API key</div>
-    <div class="kval"><code id="ckey">${t}</code><button class="btn sm ghost" type="button" data-copy="${t}" data-target="ckey" aria-label="Copy the project API key">Copy</button></div>
-    <p class="kn">Public, and safe in front-end code: it can only add telemetry to this app. It cannot open this dashboard or change anything.</p>
-  </div>
-  <p class="cstat" id="cstatus" aria-live="polite"><i></i><span id="cstatust">Waiting for the first event from this app</span></p>
-  <div class="ways">
+  const notYet = c.runtimeReady ? "" : `<p class="cnote" id="cnote">${NOT_ON_NPM} So this line keeps waiting.</p>`;
+  const install = installPrompt(token, endpoint);
+  const ask = `<div class="cprompt"><button class="btn green xl" type="button" data-copy="${esc(install)}">Copy the prompt for your coding agent</button><p class="cp-sub">Paste it into Claude Code, Cursor or Codex: it installs GenClass in this app with this project's key.</p><textarea class="cp-text" readonly hidden aria-label="The prompt, to copy by hand" rows="8">${esc(install)}</textarea></div>`;
+  const ways = c.account
+    ? `<div class="ways">
     ${
       endpoint
         ? ""
@@ -1607,7 +1895,7 @@ function connectPanel(token: string, connected: boolean, runtimeReady: boolean, 
       <div class="eb">1 · Run in your project</div>
       <h3>Sign in from the terminal</h3>
       ${snip("In the app's folder", "the login command", `npx ${RUNTIME_PKG} login`)}
-      <p>Signs you in and connects the app in that folder: you pick this app, it shows the change to your files, and writes the key after you agree.</p>
+      <p>Signs you in and connects the app in that folder: you pick this project, it shows the change to your files, and writes the key after you agree.</p>
     </div>`
     }
     <div class="way">
@@ -1617,12 +1905,110 @@ function connectPanel(token: string, connected: boolean, runtimeReady: boolean, 
       ${snip("Script tag", "the script tag", tag)}
       ${snip(endpoint ? "With a bundler" : "Meta tag, with a bundler", endpoint ? "the bundler setup" : "the meta tag", meta)}
     </div>
-  </div>
-  ${analytics ? `<div class="cana"><div class="eb">Visitor analytics</div>${analytics}</div>` : ""}
-  <p class="fine" id="canalytics">Interaction analytics (the Visitors view) need @genclass/runtime ${ANALYTICS_RUNTIME} or later and <code>analytics: true</code>: <code>npm install ${RUNTIME_PKG}</code>. Earlier versions ignore the option without a word.</p>
+  </div>`
+    : `<div id="snips" class="stack"></div>`;
+  const key = c.account
+    ? `<div class="kval"><code id="ckey">${t}</code><button class="btn sm ghost" type="button" data-copy="${t}" data-target="ckey" aria-label="Copy the project API key">Copy</button></div>`
+    : `<div class="kval"><code id="ptok" class="mono brk">${t}</code><span id="ptokc"></span></div>`;
+  const tab = (id: string, label: string, on: boolean) =>
+    `<button type="button" role="tab" id="tab-${id}" aria-controls="tp-${id}" aria-selected="${on}"${on ? "" : ' tabindex="-1"'}>${label}</button>`;
+  return `<section class="connect" id="connect" aria-labelledby="connect-h">
+  ${notYet}
+  <p class="cstat" id="cstatus" aria-live="polite"><i></i><span id="cstatust">Waiting for the first event from this app</span></p>
+  <div class="sb-tabs" role="tablist" aria-label="Ways to connect">${tab("fw", "Framework", true)}${tab("keys", "API Keys", false)}${c.mcp === false ? "" : tab("mcp", "MCP", false)}${c.analytics ? tab("ana", "Analytics", false) : ""}</div>
+  <div class="tabp on" role="tabpanel" id="tp-fw" aria-labelledby="tab-fw">
+  ${ask}
+  ${ways}
   <p class="fine">The key needs @genclass/runtime ${KEY_RUNTIME} or later: 0.2.x does not send it. Events arrive in batches every 10 seconds.
   Local hosts (localhost, *.local, *.test, private networks) do not send by default, even with a key (telemetry: true or a telemetry options object opts them in), so the first event usually comes from your deployed site.<span id="cpoll"> The status line above checks every 5 seconds.</span></p>
+  </div>
+  <div class="tabp" role="tabpanel" id="tp-keys" aria-labelledby="tab-keys">
+  <div class="keyrow">
+    <div class="k">Project API key</div>
+    ${key}
+    <p class="kn">Public, and safe in front-end code: it can only add telemetry to this app. It cannot open this dashboard or change anything.</p>
+  </div>
+  </div>
+  ${
+    c.mcp === false
+      ? ""
+      : `<div class="tabp" role="tabpanel" id="tp-mcp" aria-labelledby="tab-mcp">
+  <div class="mcpc" data-mcp></div>
+  <p class="fine">The agent link, the tools your agent gets and this project's JSON are on the <a href="#mcp" data-goto="mcp" data-close>MCP page</a>.</p>
+  </div>`
+  }
+  ${
+    c.analytics
+      ? `<div class="tabp" role="tabpanel" id="tp-ana" aria-labelledby="tab-ana">
+  <div class="cana"><div class="eb">Visitor analytics</div>${c.analytics}</div>
+  <p class="fine" id="canalytics">Interaction analytics (the Visitors view) need @genclass/runtime ${ANALYTICS_RUNTIME} or later and <code>analytics: true</code>: <code>npm install ${RUNTIME_PKG}</code>. Earlier versions ignore the option without a word.</p>
+  </div>`
+      : ""
+  }
 </section>`;
+}
+
+/** The Connect section in Studio's dialog (opened by the header's Connect button, #connect, Getting started). */
+function connectDialog(c: ConnectOptions): string {
+  return `<div class="sb-modal" id="m-connect" role="dialog" aria-modal="true" aria-labelledby="connect-h"><div class="sb-mbox">
+<div class="sb-mh"><div><h2 id="connect-h">Connect to your project</h2><p>Add the key to your app, connect your coding agent, or turn on visitor analytics.</p></div><button class="sb-x" type="button" data-close aria-label="Close">${icon("x", 16)}</button></div>
+<div class="sb-mb">${connectSection(c)}</div></div></div>`;
+}
+
+/**
+ * The agent link box (MCP and Project Settings): the dashboard link the MCP server reads production numbers from.
+ * Account mode: none yet, or one made before (kept only as a hash); Create makes one and shows it once. A private
+ * link is its own agent link; the page script fills it in.
+ */
+function agentAccess(acct: boolean, privateLink: boolean): string {
+  const out =
+    '<div class="alink-out hidden"><div class="kval"><code></code><button class="btn sm ghost" type="button" data-copy="" aria-label="Copy the agent link">Copy</button></div></div>';
+  if (!acct)
+    return `<div class="alink"><div class="keyrow"><div class="k">Agent link</div><div class="kval"><span class="alink-st">This page's own address</span></div>
+<p class="kn">On a private link, the link itself is what the MCP server reads (GENCLASS_DASHBOARD). Anyone with it can see these stats: keep it out of files you commit.</p></div>${out}</div>`;
+  return `<div class="alink"><div class="keyrow"><div class="k">Agent link</div><div class="kval"><span class="alink-st">${
+    privateLink ? "On: made earlier. GenClass keeps only its hash, so it cannot be shown again." : "None yet."
+  }</span></div>
+<p class="kn">The link your agent's MCP server reads this project's production numbers from (GENCLASS_DASHBOARD). It opens these stats, read only, to anyone who has it: keep it out of files you commit. Making a new one turns the old one off; you can also turn it off on the Projects page.</p></div>
+${out}<div class="row"><button class="btn sm" type="button" data-mklink${privateLink ? ' data-on="1"' : ""}>${privateLink ? "Make a new agent link" : "Create agent link"}</button></div><p class="err" role="alert"></p></div>`;
+}
+
+/** What the MCP server gives a coding agent (packages/mcp/src/tools.ts), for the MCP view's table. */
+const MCP_TOOLS: [string, string][] = [
+  ["genclass_analytics", 'This project\'s production numbers with source "production": page loads, problems by type and page, the latest decisions (needs the agent link). Local timings and error rates with "local".'],
+  ["genclass_findings", "What broke on the pages running on your machine: stale responses, double submits, write races and errors, newest first."],
+  ["genclass_explain", "One finding in causal order (the click, the requests, the order they arrived, the state they wrote) and a regression test for it."],
+  ["genclass_explore", "Runs the same steps again with the network answering in different orders, to find races a fast machine hides."],
+  ["genclass_replay", "Replays one exact order: before a fix it reproduces the problem, after it the verdict is not reproduced."],
+  ["genclass_status", "Which pages are connected to the server right now."],
+  ["genclass_setup", "The development-only lines that connect the app's dev build (connectAgent)."],
+  ["genclass_clear", "Forgets what was recorded."],
+];
+
+/** The MCP view: connect a coding agent (client, options, configuration, prompt), the agent link, the tools, the data. */
+function mcpView(acct: boolean, privateLink: boolean): string {
+  return `<div id="mcp" data-v="mcp">
+<section class="blk">
+  <div class="blk-h"><h2>Connect your coding agent</h2><span class="aside">${MCP_PKG}: runs on your machine, no dependencies</span></div>
+  <p class="poss-note">The server shows your agent what happens inside this app's pages while you develop, re-runs them with the network answering in different orders to find races, and reads this project's production numbers through the agent link. Pick your agent, then paste the prompt into it or add the configuration yourself.</p>
+  <div class="mcpc mt-l" data-mcp></div>
+</section>
+<section class="blk" id="mcp-access">
+  <div class="blk-h"><h2>Agent access</h2><span class="aside">GENCLASS_DASHBOARD</span></div>
+  ${agentAccess(acct, privateLink)}
+</section>
+<section class="blk" id="mcp-tools">
+  <div class="blk-h"><h2>What your agent can do</h2><span class="aside">${MCP_TOOLS.length} tools</span></div>
+  <div class="tablewrap"><table class="dt tools-t"><thead><tr><th>Tool</th><th>What it gives your agent</th></tr></thead><tbody>
+  ${MCP_TOOLS.map(([n, d]) => `<tr><td>${n}</td><td>${esc(d)}</td></tr>`).join("\n  ")}
+  </tbody></table></div>
+</section>
+<section class="blk" id="mcp-json">
+  <div class="blk-h"><h2>Read this project as data</h2><span class="aside">For agents and scripts</span></div>
+  <p class="poss-note">Copy as Markdown (top right, on every view) copies the period's numbers as a short report to paste into a chat. The same stats are JSON at the agent link's API address, read only:</p>
+  <pre class="code mt-s" id="jsonurl">Create an agent link above: its stats are at /api/projects/&lt;the link's secret&gt;?range=7d.</pre>
+</section>
+</div>`;
 }
 
 export function dashboardPage(
@@ -1632,116 +2018,182 @@ export function dashboardPage(
 ): string {
   const acct = opts.account;
   if (acct && opts.locked) return lockedDashboardPage(nonce, project, { ...opts, account: acct });
-  const waiting = !!acct && !project.lastEvent;
+  const waiting = !project.lastEvent;
   const data = acct
     ? { ...project, id: opts.id, firstEvent: opts.firstEvent ?? null, statsUrl: `/api/account/projects/${opts.id}/stats`, funnelsUrl: `/api/account/projects/${opts.id}/funnels`, account: true }
     : opts.endpoint
       ? { ...project, endpoint: opts.endpoint }
       : project;
-  const apps = acct ? accountApps(acct) : "";
-  const setup = acct
-    ? ""
-    : `<section class="blk" id="setup" data-v="setup"><details class="more" id="install"><summary>Setup: your token and install snippets</summary>
-  <div class="row small mt-s"><span class="muted">Token</span><code id="ptok" class="mono brk"></code><span id="ptokc"></span></div>
-  ${opts.runtimeReady === true ? "" : `<p class="note small mt-s">${NOT_ON_NPM}</p>`}
-  <p class="muted small mt-s">The token needs @genclass/runtime ${KEY_RUNTIME} or later. ${LOCAL_HOSTS}</p>
-  <div id="snips" class="stack mt-s"></div></details></section>`;
+  const t = esc(project.token);
+  const keep = opts.keepDays ?? 90;
   const report = '<a href="https://github.com/genclass-dev/GenClass-lib/issues/new?title=False%20detection%3A%20">Report a false detection</a>';
   const privacy = acct
     ? `${
         opts.privateLink
-          ? "This app also has the private dashboard link it had before it joined your account, and anyone with that link can see these stats. You can turn the link off on your <a href=\"/account#apps\">account page</a>."
+          ? "This app also has the private dashboard link it had before it joined your account, and anyone with that link can see these stats. You can turn the link off on your <a href=\"/account#apps\">Projects page</a>."
           : "Only you can open this page, while signed in."
-      } <a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md">What is collected</a> · ${report} · <a href="/account">All apps</a>`
+      } <a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md">What is collected</a> · ${report} · <a href="/account">All projects</a> · <a href="/account/billing">Plan and billing</a>`
     : `Keep this link private: anyone with it can see these stats. <a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md">What is collected</a> · <a href="/start">Get another token</a>`;
-  // Account mode: Connect has its own group; while the app waits for its first event the range control and the section
-  // links (which point into the hidden stats) stay hidden, and render() shows them when data arrives.
-  const sections = `<div class="seg" role="group" aria-label="Time range">
-    ${rangeButtons(opts.ranges ?? ["24h", "7d", "30d"])}
-  </div>
-  <div class="grp">This period</div>
-  <nav class="snav" id="snav" aria-label="Sections">
-    <a href="#top">Overview <span id="c-trend"></span></a>
-    <a href="#found">Problems <span id="c-found"></span></a>
-    <a href="#where">Pages <span id="c-pages"></span></a>
-    <a href="#did">Actions <span id="c-did"></span></a>
-    <a href="#recent-s">Activity</a>
-    <a href="#visits" id="nav-visits">Visitors <span id="c-visits"></span></a>
-    <a href="#health-s">Health</a>
-    <a href="#loop">Loop</a>
-    ${acct ? "" : '<a href="#setup">Setup</a>'}
-  </nav>`;
-  const help = `<div class="grp">Help</div>
-  <div class="out">
-    <a href="https://genclass.dev/docs/dashboard">Dashboard guide</a>
-    <a href="https://genclass.dev/docs">Docs</a>
-    <a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md">What is collected</a>
-    ${report}
-    <a href="https://discord.gg/kN9kRnFtZm">Discord</a>
-  </div>`;
-  const side = acct
-    ? `<div class="grp">Setup</div>
-  <nav class="snav" id="cnav" aria-label="Setup"><a href="#connect"${waiting ? ' aria-current="true"' : ""}>Connect</a>${opts.extra ? '<a href="#forwarding">Forwarding</a><a href="#export">Export</a>' : ""}</nav>
-  <div id="period"${waiting ? ' class="hidden"' : ""}>
-  ${sections}
-  </div>
-  ${apps}
-  ${help}`
-    : `${sections}
-  ${help}`;
+  const where = acct && opts.id ? `this app's GenClass dashboard, under Visitors (${ORIGIN_OF(opts)}/account/apps/${opts.id}#visits)` : "this app's GenClass dashboard (the private link I opened it from), under Visitors";
+  const connect = connectDialog({
+    token: project.token,
+    account: !!acct,
+    runtimeReady: opts.runtimeReady === true,
+    endpoint: opts.endpoint ?? null,
+    analytics: promptBlock(project.token, where, opts.endpoint ?? null, "Page views, visits, sources, devices and funnels on this dashboard. Paste the prompt into your coding agent and it turns them on."),
+  });
+  const settings = `<div id="settings" data-v="settings">
+<section class="blk">
+  <div class="blk-h"><h2>General</h2></div>
+  <div class="keyrow"><div class="k">Project name</div><div class="kval"><span>${esc(project.name)}</span></div></div>
+  ${acct && opts.id ? `<div class="keyrow"><div class="k">Project ID</div><div class="kval"><code id="sid">${esc(opts.id)}</code><button class="btn sm ghost" type="button" data-copy="${esc(opts.id)}" data-target="sid" aria-label="Copy the project ID">Copy</button></div></div>` : ""}
+  <div class="keyrow"><div class="k">Created</div><div class="kval"><span>${project.created ? esc(project.created.slice(0, 10)) : "-"}</span></div></div>
+  <div class="keyrow"><div class="k">Data kept</div><div class="kval"><span>${keep >= 365 ? "1 year" : `${keep} days`} (hourly detail 48 hours)</span></div></div>
+  <div class="keyrow"><div class="k">Owner</div><div class="kval"><span>${acct ? esc(orgName(acct.email)) : "Anyone with this private link"}</span></div>${acct ? "" : '<p class="kn">To keep it with your other projects, <a href="/login?next=%2Faccount%3Fclaim%3D1">sign in</a> and add this dashboard to your account.</p>'}</div>
+</section>
+<section class="blk" id="keys">
+  <div class="blk-h"><h2>API keys</h2><span class="aside">Needs @genclass/runtime ${KEY_RUNTIME} or later</span></div>
+  <div class="keyrow"><div class="k">Project key</div><div class="kval"><code id="skey">${t}</code><button class="btn sm ghost" type="button" data-copy="${t}" data-target="skey" aria-label="Copy the project key">Copy</button></div>
+  <p class="kn">Public: it goes in the app's code and only lets data be sent. It cannot open this dashboard or change anything. <button class="lnk" type="button" data-open="m-connect" data-tab="fw">How to add it</button></p></div>
+</section>
+<section class="blk">
+  <div class="blk-h"><h2>Agent access</h2><span class="aside">For @genclass/mcp</span></div>
+  ${agentAccess(!!acct, !!opts.privateLink)}
+</section>
+</div>`;
+  // the rail (Studio's project navigation), the product menus of the views with sub-pages, the command menu's extras
+  const rail: RailItem[][] = [
+    [{ href: "#top", label: "Project overview", icon: "home", count: "c-trend" }],
+    [
+      { href: "#found", label: "Problems", icon: "alert", count: "c-found" },
+      { href: "#where", label: "Pages", icon: "file", count: "c-pages" },
+      { href: "#did", label: "Actions", icon: "shield", count: "c-did" },
+      { href: "#recent-s", label: "Activity", icon: "list" },
+    ],
+    [
+      { href: "#visits", label: "Visitors", icon: "pointer", count: "c-visits", id: "nav-visits" },
+      { href: "#health-s", label: "Health", icon: "heart" },
+    ],
+    [
+      { href: "#mcp", label: "MCP", icon: "bot" },
+      { href: "#loop", label: "Loop", icon: "loop" },
+      ...(opts.extra ? [{ href: "#forwarding", label: "Integrations", icon: "blocks" } as RailItem] : []),
+    ],
+  ];
+  const menus: ProductMenu[] = [
+    {
+      title: "Problems",
+      view: "problems pages",
+      groups: [
+        { label: "Found", items: [{ href: "#found", label: "Problems found" }, { href: "#possible-s", label: "Possible issues" }] },
+        { label: "Where", items: [{ href: "#where", label: "Pages" }, { href: "#did", label: "What GenClass did" }] },
+      ],
+    },
+    {
+      title: "Visitors",
+      view: "visitors",
+      groups: [
+        {
+          label: "Analytics",
+          items: [
+            { href: "#visits", label: "Overview" },
+            { href: "#ix-sessions", label: "Sessions" },
+            { href: "#ix-sources", label: "Sources" },
+            { href: "#ix-devices", label: "Devices" },
+            { href: "#ix-entry", label: "Entry and exit pages" },
+            { href: "#ix-funnels", label: "Funnels" },
+          ],
+        },
+        { label: "Behaviour", items: [{ href: "#clicks", label: "Clicks" }, { href: "#moves", label: "Navigation" }] },
+      ],
+    },
+    {
+      title: "Project Settings",
+      view: "settings forwarding export",
+      groups: [
+        { label: "Configuration", items: [{ href: "#settings", label: "General" }, { href: "#keys", label: "API keys" }] },
+        ...(opts.extra ? [{ label: "Data", items: [{ href: "#forwarding", label: "Integrations" }, { href: "#export", label: "Export" }] }] : []),
+      ],
+    },
+  ];
   const body = `
 <script type="application/json" id="project">${embed(data)}</script>
-<style nonce="${nonce}">${DASH_CSS}</style>
-<div class="app">
-<aside class="side" aria-label="Dashboard">
-  <div class="proj"><span id="sname"></span><small>Dashboard</small></div>
-  <div class="live" id="status"><i></i><span id="statust">Loading</span></div>
-  ${side}
-</aside>
-<div class="mainc" id="mc" tabindex="-1">
-<section class="dh" id="top">
-  <nav class="crumbs" aria-label="Breadcrumb">${acct ? '<a href="/account">Apps</a>' : "<span>Private link</span>"}<span aria-hidden="true">/</span><span id="crumb"></span><span id="crumbv"></span></nav>
-  <h1 id="pname"></h1>
-  <div class="meta"><span id="updated"></span><button class="btn ghost sm" id="refresh" type="button">Refresh</button>${acct ? '<a class="btn sm" href="#connect" data-goto="connect">Connect</a>' : ""}<a class="btn ghost sm" href="https://genclass.dev/docs/dashboard">Dashboard guide</a></div>
-  <p class="summary" id="summary" data-v="overview"></p>
-</section>
-${acct ? connectPanel(project.token, !!project.lastEvent, opts.runtimeReady === true, opts.endpoint ?? null, promptBlock(project.token, `this app's GenClass dashboard, under Visitors (${ORIGIN_OF(opts)}/account/apps/${opts.id ?? ""}#visits)`, opts.endpoint ?? null, "Page views, visits, sources, devices and funnels on this dashboard. Paste the prompt into your coding agent and it turns them on.")) : ""}
-<section id="nodata" class="first hidden" data-v="overview"><p>No data yet. Add the snippet under Setup to your app, load a page, and come back in a minute.
+<div class="sb-page" id="mc" tabindex="-1">
+<header class="phead" id="top">
+  <div class="minw0">
+    <h1 id="pname" data-v="overview"></h1>
+    <h1 id="vtitle" class="hidden"></h1>
+    <p id="vdesc" class="hidden"></p>
+    <div class="ov-meta" data-v="overview"><span class="live" id="status"><i></i><span id="statust">Loading</span></span><span>Project key <code>${t}</code></span></div>
+  </div>
+  <div class="tools" data-v="overview problems pages activity visitors health loop"><span id="updated"></span><div id="period"${waiting ? ' class="hidden"' : ""}><div class="seg" role="group" aria-label="Time range">${rangeButtons(opts.ranges ?? ["24h", "7d", "30d"])}</div></div><button class="btn sm ghost" id="refresh" type="button">Refresh</button><button class="btn sm ghost hidden" id="mdcopy" type="button">Copy as Markdown</button></div>
+</header>
+${connect}
+<section id="nodata" class="blk first hidden" data-v="overview problems pages activity visitors health loop">
+  <h2>Connect your app</h2>
+  <p>No data yet. Add the key to your app, load a page, and come back in a minute.
 Events arrive in batches every 10 seconds and when a tab is hidden. The token needs @genclass/runtime ${KEY_RUNTIME} or later; earlier
-versions ignore it. ${LOCAL_HOSTS} Your deployed site sends by default.</p></section>
-<div id="content" class="hidden">
-<div class="statrow" id="tiles" data-v="overview"></div>
-<section class="blk" id="trend" data-v="overview">
-  <div class="blk-h"><h2>Problems found</h2><span class="aside" id="trendn"></span></div>
-  <figure>
-    <div class="legend" id="legend"></div>
-    <div class="plot" id="trendplot"></div>
-    <figcaption>Fig. 1. Problems GenClass found, per <span id="unit">day</span>, by type. Hover a bar for its breakdown.</figcaption>
-  </figure>
-  <figure class="poss-fig hidden" id="possfig">
-    <div class="poss-h"><h3>Possible issues</h3><span class="aside" id="possn"></span></div>
-    <div class="plot" id="possplot"></div>
-    <figcaption>Fig. 2. Possible issues per <span id="unit2">day</span>: problems the model leaned towards with less confidence than it reports at (observe mode, from the eager setting's threshold up). Not counted in Fig. 1.</figcaption>
-  </figure>
-  <details class="more"><summary>Table view</summary><div id="trendtable" class="mt-s"></div></details>
+versions ignore it. ${LOCAL_HOSTS} Your deployed site sends by default.</p>
+  <ol class="steps">
+    <li><span class="no">1</span><div><b>Add GenClass with this project's key</b><span>A prompt for your coding agent, the terminal's login, or one line of code.</span></div><button class="btn sm" type="button" data-open="m-connect" data-tab="fw">Connect</button></li>
+    <li><span class="no">2</span><div><b>Load a page of your deployed site</b><span>The first event arrives within about 10 seconds; this page updates by itself.</span></div><span class="bdg warning"><i></i>Waiting</span></li>
+    <li><span class="no">3</span><div><b>Connect your coding agent</b><span>With the MCP server your agent reads these numbers and replays what broke.</span></div><a class="btn sm ghost" href="#mcp" data-goto="mcp">Set up MCP</a></li>
+    <li><span class="no">4</span><div><b>Turn on visitor analytics</b><span>Page views, sources, devices and funnels, from one prompt.</span></div><button class="btn sm ghost" type="button" data-open="m-connect" data-tab="ana">Copy prompt</button></li>
+  </ol>
 </section>
+<div id="content" class="hidden">
+<div class="ovtop" data-v="overview">
+  <div class="minw0">
+    <p class="summary" id="summary"></p>
+    <div class="statrow" id="tiles"></div>
+  </div>
+  <section class="blk" id="trend">
+    <div class="blk-h"><h2>Problems found</h2><span class="aside" id="trendn"></span></div>
+    <figure>
+      <div class="legend" id="legend"></div>
+      <div class="plot" id="trendplot"></div>
+      <figcaption>Fig. 1. Problems GenClass found, per <span id="unit">day</span>, by type. Hover a bar for its breakdown.</figcaption>
+    </figure>
+    <figure class="poss-fig hidden" id="possfig">
+      <div class="poss-h"><h3>Possible issues</h3><span class="aside" id="possn"></span></div>
+      <div class="plot" id="possplot"></div>
+      <figcaption>Fig. 2. Possible issues per <span id="unit2">day</span>: problems the model leaned towards with less confidence than it reports at (observe mode, from the eager setting's threshold up). Not counted in Fig. 1.</figcaption>
+    </figure>
+    <details class="more"><summary>Table view</summary><div id="trendtable" class="mt-s"></div></details>
+  </section>
+</div>
+<div class="uh" data-v="overview"><h2><b id="ulead"></b> page loads</h2><span class="muted small">One bar per hour or day of the period</span></div>
+<div class="usage" id="usage" data-v="overview"></div>
+<div class="uh" data-v="overview"><h2>Get connected</h2></div>
+<div class="getc" id="getc" data-v="overview">
+  <button type="button" data-open="m-connect" data-tab="fw">${icon("plug", 18)}<div><b>Install GenClass</b><span>The key, the snippets and a prompt for your agent</span></div></button>
+  <a href="#mcp" data-goto="mcp">${icon("bot", 18)}<div><b>Connect your coding agent</b><span>MCP for Claude Code, Cursor, Codex and more</span></div></a>
+  <button type="button" data-open="m-connect" data-tab="ana">${icon("pointer", 18)}<div><b>Turn on visitor analytics</b><span>One prompt for your coding agent</span></div></button>
+  <a href="https://genclass.dev/docs/dashboard">${icon("book", 18)}<div><b>Read the dashboard guide</b><span>What each view means and how to act on it</span></div></a>
+</div>
+<div class="uh" data-v="overview"><h2 id="advn">Problems that need attention</h2><a class="btn sm ghost" href="#found" data-goto="found">All problems</a></div>
+<div class="adv" id="advisor" data-v="overview"></div>
 <section class="blk" id="found" data-v="problems">
   <div class="blk-h"><h2>What GenClass found</h2><span class="aside">Each kind of problem, where it happened and how to fix it</span></div>
   <div class="finds" id="issues"></div>
   <p class="quiet hidden" id="issuesempty">No problems found in this period.</p>
-  <div id="possible-s" class="hidden mt-l">
-    <div class="poss-h"><h3>Possible issues, lower confidence</h3><span class="aside">Not counted as problems</span></div>
-    <p class="poss-note">By default in observe mode GenClass also reports problems the model leaned towards with less confidence than it reports at, from the eager setting's threshold up; the console marks them (possible). Worth a look when one keeps coming back on the same page.</p>
-    <div class="finds" id="possible"></div>
-  </div>
 </section>
-<section class="blk two" id="where" data-v="pages">
-  <div><div class="blk-h"><h2>Pages</h2><span class="aside">Table 1. Pages with the most problems</span></div><div id="pages"></div></div>
-  <div id="did"><div class="blk-h"><h2>What GenClass did</h2><span class="aside">Table 2. Actions it took</span></div><div id="acted"></div></div>
+<section class="blk hidden" id="possible-s" data-v="problems">
+  <div class="blk-h"><h2>Possible issues, lower confidence</h2><span class="aside">Not counted as problems</span></div>
+  <p class="poss-note">By default in observe mode GenClass also reports problems the model leaned towards with less confidence than it reports at, from the eager setting's threshold up; the console marks them (possible). Worth a look when one keeps coming back on the same page.</p>
+  <div class="finds mt-l" id="possible"></div>
 </section>
+<div class="two" id="where" data-v="pages">
+  <section class="blk"><div class="blk-h"><h2>Pages</h2><span class="aside">Table 1. Pages with the most problems</span></div><div id="pages"></div></section>
+  <section class="blk" id="did"><div class="blk-h"><h2>What GenClass did</h2><span class="aside">Table 2. Actions it took</span></div><div id="acted"></div></section>
+</div>
 <section class="blk" id="health-s" data-v="health">
   <div class="blk-h"><h2>Health</h2><span class="aside">Whether GenClass could watch your pages at all</span></div>
   <div id="health"></div>
+</section>
+<section class="blk" id="adv-s" data-v="health">
+  <div class="blk-h"><h2>All breakdowns</h2><span class="aside">Every counter in the period, top 10 each</span></div>
+  <div class="kv" id="adv"></div>
 </section>
 <section class="blk" id="recent-s" data-v="activity">
   <div class="blk-h"><h2>Recent activity</h2><span class="aside">Table 3. The latest 50 detections and interventions</span></div>
@@ -1751,35 +2203,35 @@ versions ignore it. ${LOCAL_HOSTS} Your deployed site sends by default.</p></sec
 </section>
 <section class="blk" id="visits" data-v="visitors">
   <div class="blk-h"><h2>How visitors use this app</h2><span class="aside">Interaction analytics, for apps that turn them on</span></div>
-  <div id="ixsetup" class="hidden">${promptBlock(project.token, acct && opts.id ? `this app's GenClass dashboard, under Visitors (${ORIGIN_OF(opts)}/account/apps/${opts.id}#visits)` : "this app's GenClass dashboard (the private link I opened it from), under Visitors", opts.endpoint ?? null, "This app has not turned visitor analytics on. Paste the prompt into your coding agent (Claude Code, Cursor, Codex) and it sets them up.")}<p class="fine" id="ixver">They need @genclass/runtime ${ANALYTICS_RUNTIME} or later (<code>npm install ${RUNTIME_PKG}</code>); earlier versions ignore <code>analytics: true</code> without a word.<span id="ixold"></span></p></div>
+  <div id="ixsetup" class="hidden">${promptBlock(project.token, where, opts.endpoint ?? null, "This app has not turned visitor analytics on. Paste the prompt into your coding agent (Claude Code, Cursor, Codex) and it sets them up.")}<p class="fine" id="ixver">They need @genclass/runtime ${ANALYTICS_RUNTIME} or later (<code>npm install ${RUNTIME_PKG}</code>); earlier versions ignore <code>analytics: true</code> without a word.<span id="ixold"></span></p></div>
   <div id="ixsum"></div>
   <div id="ixpages" class="mt-l"></div>
-</section>
-<section class="blk two hidden" id="ix-sources" data-v="visitors">
-  <div><div class="blk-h"><h2>Sources</h2><span class="aside">Table 7. The site each visit came from</span></div><div id="ixref"></div></div>
-  <div><div class="blk-h"><h2>Campaigns</h2><span class="aside">Table 8. Visits from links with utm values</span></div><div id="ixutm"></div></div>
-</section>
-<section class="blk hidden" id="ix-devices" data-v="visitors">
-  <div class="blk-h"><h2>Devices</h2><span class="aside">Table 9. Device, browser, system, country and new or returning, per visit</span></div>
-  <div class="kv mt-s" id="ixdev"></div>
 </section>
 <section class="blk hidden" id="ix-sessions" data-v="visitors">
   <div class="blk-h"><h2>Sessions</h2><span class="aside">A visit: page views with no gap over 30 minutes</span></div>
   <div id="ixsess"></div>
 </section>
-<section class="blk two hidden" id="ix-entry" data-v="visitors">
-  <div><div class="blk-h"><h2>Entry pages</h2><span class="aside">Table 10. Where visits started</span></div><div id="ixentry"></div></div>
-  <div><div class="blk-h"><h2>Exit pages</h2><span class="aside">Table 11. Where visits ended</span></div><div id="ixexit"></div></div>
+<div class="two hidden" id="ix-sources" data-v="visitors">
+  <section class="blk"><div class="blk-h"><h2>Sources</h2><span class="aside">Table 7. The site each visit came from</span></div><div id="ixref"></div></section>
+  <section class="blk"><div class="blk-h"><h2>Campaigns</h2><span class="aside">Table 8. Visits from links with utm values</span></div><div id="ixutm"></div></section>
+</div>
+<section class="blk hidden" id="ix-devices" data-v="visitors">
+  <div class="blk-h"><h2>Devices</h2><span class="aside">Table 9. Device, browser, system, country and new or returning, per visit</span></div>
+  <div class="kv" id="ixdev"></div>
 </section>
+<div class="two hidden" id="ix-entry" data-v="visitors">
+  <section class="blk"><div class="blk-h"><h2>Entry pages</h2><span class="aside">Table 10. Where visits started</span></div><div id="ixentry"></div></section>
+  <section class="blk"><div class="blk-h"><h2>Exit pages</h2><span class="aside">Table 11. Where visits ended</span></div><div id="ixexit"></div></section>
+</div>
 <section class="blk hidden" id="ix-funnels" data-v="visitors">
   <div class="blk-h"><h2>Funnels</h2><span class="aside">Fig. 4. Visits that reached each step, in order</span></div>
   <div id="ixfun"></div>
   <div id="ixfunedit"></div>
 </section>
-<section class="blk two hidden" id="clicks" data-v="visitors">
-  <div><div class="blk-h"><h2>Most clicked</h2><span class="aside">Table 5. Elements by clicks</span></div><div id="ixclicks"></div></div>
-  <div><div class="blk-h"><h2>Rage and dead clicks</h2><span class="aside">Table 6. Where clicks went nowhere</span></div><div id="ixflags"></div></div>
-</section>
+<div class="two hidden" id="clicks" data-v="visitors">
+  <section class="blk"><div class="blk-h"><h2>Most clicked</h2><span class="aside">Table 5. Elements by clicks</span></div><div id="ixclicks"></div></section>
+  <section class="blk"><div class="blk-h"><h2>Rage and dead clicks</h2><span class="aside">Table 6. Where clicks went nowhere</span></div><div id="ixflags"></div></section>
+</div>
 <section class="blk hidden" id="moves" data-v="visitors">
   <div class="blk-h"><h2>How visitors move through this app</h2><span class="aside">Navigation paths, for apps that turn on interaction analytics</span></div>
   <div id="ixmoves"></div>
@@ -1787,7 +2239,6 @@ versions ignore it. ${LOCAL_HOSTS} Your deployed site sends by default.</p></sec
   <div id="ixsteps" class="mt-l"></div>
   <div id="ixexits" class="mt-l"></div>
 </section>
-<section class="blk" data-v="health"><details class="more"><summary>All breakdowns</summary><div class="kv mt-s" id="adv"></div></details></section>
 <section class="blk" id="loop" data-v="loop" aria-labelledby="loop-h">
   <div class="blk-h"><h2 id="loop-h">Closed-loop development</h2><span class="aside">Fig. 3. What broke on this app, and what your agent does with each</span></div>
   <p class="loop-lead">Each problem GenClass found in this period, the steps your coding agent takes on it through <a href="https://genclass.dev/docs/mcp">@genclass/mcp</a>, and the three steps every fix shares. A person ships; the loop closes when this list shrinks.</p>
@@ -1795,40 +2246,43 @@ versions ignore it. ${LOCAL_HOSTS} Your deployed site sends by default.</p></sec
   <p class="loop-foot" id="loop-foot"></p>
 </section>
 </div>
-${setup}
+${mcpView(!!acct, !!opts.privateLink)}
+${settings}
 ${opts.extra?.html ?? ""}
 <footer class="dfoot">This page shows counts only: the kind of problem, the page route, confidence, what GenClass did and how fast it
 decided, and, for apps that turn on interaction analytics, page views, time on page, scroll depth and clicks per element (named by a
 selector or a name the app gave it, never its text), the path between pages within a page load, and per visit the pages in order,
-the referring site, campaign, device type, browser, system, country and whether the browser visited before. No text from your pages, no IP addresses and no user agents are stored. Data is kept ${(opts.keepDays ?? 90) >= 365 ? "1 year" : `${opts.keepDays ?? 90} days`} (hourly detail 48 hours). ${privacy}</footer>
-</div>
+the referring site, campaign, device type, browser, system, country and whether the browser visited before. No text from your pages, no IP addresses and no user agents are stored. Data is kept ${keep >= 365 ? "1 year" : `${keep} days`} (hourly detail 48 hours). ${privacy}</footer>
 </div>`;
-  return shell(
-    nonce,
-    `${project.name} | GenClass dashboard`,
+  return studioPage(nonce, {
+    title: `${project.name} | GenClass dashboard`,
+    account: !!acct,
+    org: acct ? { name: orgName(acct.email), plan: acct.plan ?? "Free", href: "/account" } : null,
+    projects: acct?.apps ?? [],
+    project: { name: project.name, id: acct?.current },
+    status: `<span class="bdg ${waiting ? "warning" : "brand"}" id="hstatus"><i></i><span>${waiting ? "Waiting" : "Live"}</span></span>`,
+    connect: waiting ? "primary" : "default",
+    user: acct ? { label: acct.email ?? "Your account", sub: orgName(acct.email) } : null,
+    rail,
+    railEnd: [{ href: "#settings", label: "Project Settings", icon: "settings" }],
+    railLabel: "Project",
+    menus,
+    commands: [
+      { group: "Actions", label: "Connect to your project", href: "#connect", icon: "plug" },
+      { group: "Actions", label: "Set up the MCP server", href: "#mcp", icon: "bot" },
+      ...(acct ? [{ group: "Actions", label: "New project", href: "/account/new", icon: "plus" as const }] : []),
+      { group: "Help", label: "Dashboard guide", href: "https://genclass.dev/docs/dashboard", icon: "book" },
+    ],
+    css: DASH_CSS,
     body,
-    acct ? DASH_JS + CONNECT_JS + (opts.extra?.script ?? "") : DASH_JS,
-    acct ? { nav: SIGNED_IN_NAV, account: true, skip: "mc" } : { skip: "mc" },
-  );
-}
-
-/** The sidebar's app links in account mode (more than SIDEBAR_APPS collapse to the current one). */
-function accountApps(acct: NonNullable<DashboardOptions["account"]>): string {
-  const many = acct.apps.length > SIDEBAR_APPS;
-  const shown = many ? acct.apps.filter((a) => a.id === acct.current) : acct.apps;
-  const links =
-    shown.map((a) => `<a href="/account/apps/${esc(a.id)}"${a.id === acct.current ? ' aria-current="page"' : ""}>${esc(a.name)}</a>`).join("") +
-    (many ? `<a href="/account#apps">All apps <span>${acct.apps.length}</span></a>` : "");
-  return `<div class="grp">Your apps</div>
-  <nav class="apps" aria-label="Your apps">${links}<a class="new" href="/account#new-app">New app</a></nav>
-  <div class="grp">Account</div>
-  <div class="out"><a href="/account">Account</a><a href="/account/billing">Plan and billing</a><form method="post" action="/logout"><button class="lnk" type="submit">Sign out</button></form></div>`;
+    script: SNIPPETS_JS + (acct ? DASH_JS + CONNECT_JS + (opts.extra?.script ?? "") : DASH_JS),
+  });
 }
 
 /**
  * /account/apps/<id> for an account whose plan has no dashboard (a plan file without it; none today): the app's name,
- * the plans, then the Connect panel (connecting is free: the app's data is collected so the dashboard starts with it).
- * No stats are fetched.
+ * the plans, then the Connect section (connecting is free: the app's data is collected so the dashboard starts with
+ * it). No stats are fetched.
  */
 function lockedDashboardPage(
   nonce: string,
@@ -1837,30 +2291,35 @@ function lockedDashboardPage(
 ): string {
   const data = { ...project, id: opts.id, firstEvent: opts.firstEvent ?? null, account: true, locked: true };
   const privacy = opts.privateLink
-    ? "This app also has the private dashboard link it had before it joined your account; once its plan has the dashboard, anyone with that link can see its stats. You can turn the link off on your <a href=\"/account#apps\">account page</a>."
+    ? "This app also has the private dashboard link it had before it joined your account; once its plan has the dashboard, anyone with that link can see its stats. You can turn the link off on your <a href=\"/account#apps\">Projects page</a>."
     : "Only you can open this page, while signed in.";
   const body = `
 <script type="application/json" id="project">${embed(data)}</script>
-<style nonce="${nonce}">${DASH_CSS}</style>
-<div class="app">
-<aside class="side" aria-label="Dashboard">
-  <div class="proj"><span id="sname">${esc(project.name)}</span><small>Dashboard</small></div>
-  <div class="grp">Setup</div>
-  <nav class="snav" id="cnav" aria-label="Setup"><a href="#connect" aria-current="true">Connect</a></nav>
-  ${accountApps(opts.account)}
-</aside>
-<div class="mainc" id="mc" tabindex="-1">
-<section class="dh" id="top">
-  <h1 id="pname">${esc(project.name)}</h1>
-</section>
-<section class="lock" id="lock" aria-labelledby="lock-h">
+<div class="sb-page" id="mc" tabindex="-1">
+<header class="phead" id="top"><div class="minw0"><h1 id="pname">${esc(project.name)}</h1></div></header>
+<section class="blk lock" id="lock" aria-labelledby="lock-h">
   <h2 id="lock-h">This app's plan has no dashboard.</h2>
   <p>Pick a plan to open it.</p>
   <div class="acts"><a class="btn green" href="/account/billing">See plans</a></div>
 </section>
-${connectPanel(project.token, false, opts.runtimeReady === true, opts.endpoint ?? null)}
-<footer class="dfoot">${privacy} <a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md">What is collected</a> · <a href="/account">All apps</a></footer>
-</div>
+<section class="blk">
+  <div class="blk-h"><h2 id="connect-h">Connect to your project</h2></div>
+  ${connectSection({ token: project.token, account: true, runtimeReady: opts.runtimeReady === true, endpoint: opts.endpoint ?? null, analytics: "", mcp: false })}
+</section>
+<footer class="dfoot">${privacy} <a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md">What is collected</a> · <a href="/account">All projects</a></footer>
 </div>`;
-  return shell(nonce, `${project.name} | GenClass dashboard`, body, CONNECT_JS, { nav: SIGNED_IN_NAV, account: true, skip: "mc" });
+  return studioPage(nonce, {
+    title: `${project.name} | GenClass dashboard`,
+    account: true,
+    org: { name: orgName(opts.account.email), plan: opts.account.plan ?? null, href: "/account" },
+    projects: opts.account.apps,
+    project: { name: project.name, id: opts.account.current },
+    user: { label: opts.account.email ?? "Your account", sub: orgName(opts.account.email) },
+    rail: [[{ href: "#top", label: "Project overview", icon: "home", current: true }]],
+    railEnd: [{ href: "/account/billing", label: "Plans", icon: "receipt" }],
+    railLabel: "Project",
+    css: DASH_CSS,
+    body,
+    script: CONNECT_JS,
+  });
 }
