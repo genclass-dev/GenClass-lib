@@ -111,6 +111,8 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: The fixture end to end (buggy page flagged, fixed page and latency-only run clean, report rendered)
+        # shell: bash runs with pipefail, so a failing run.mjs fails the step even though tee succeeds
+        shell: bash
         run: node packages/playwright/test/e2e/run.mjs | tee "$RUNNER_TEMP/e2e.log"
 
       - name: Summary

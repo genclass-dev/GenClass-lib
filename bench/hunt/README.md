@@ -69,7 +69,7 @@ node bench/hunt/scenarios/e2e-search-server.mjs --port 4778 --fixed &
 GENCLASS_APP_URL=http://127.0.0.1:4778 npx playwright test --config bench/hunt/results/e2e-buggy/tests/playwright.config.mjs
 ```
 
-The committed reports are in `results/e2e-*/`; RESULTS.md section 17 has the counts.
+The committed reports are in `results/e2e-*/`; RESULTS.md section 18 has the counts.
 
 ## A real app: Strapi 5.59.0 (`results/sample/`)
 
