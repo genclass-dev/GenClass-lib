@@ -159,6 +159,15 @@ export function installXHR(host: NetHost): (() => void) | null {
     else ((host.global.console as Console | undefined) ?? globalThis.console)?.error?.(e);
   };
 
+  /** rt.summary().requests: the app set responseType "json" and the answer's Content-Type is not JSON. */
+  const jsonCheck = (xhr: XMLHttpRequest, op: OpRec): void => {
+    try {
+      if (xhr.responseType == "json" && !/json/i.test(xhr.getResponseHeader("content-type") ?? "")) host.notJson?.(op);
+    } catch {
+      /* exotic XHR: not counted */
+    }
+  };
+
   /** The response completed: ask the delivery gate once (synchronously); successful responses only. */
   const arrive = (xhr: XMLHttpRequest, st: XhrState): void => {
     if (st.dlv !== "none") return;
@@ -168,6 +177,7 @@ export function installXHR(host: NetHost): (() => void) | null {
     const status = xhr.status;
     if (!status || FAILURE_STATUS(status)) return; // failures: detection only, at loadend
     host.endOp(op, "ok", { code: status });
+    jsonCheck(xhr, op);
     host.ctx.stick(op);
     if (!host.gated(op)) return;
     // the response is in memory: `body.now` reads it synchronously (when the delivery cannot be held, the gate
@@ -399,6 +409,7 @@ export function installXHR(host: NetHost): (() => void) | null {
       }
       const failed = FAILURE_STATUS(status);
       host.endOp(op, failed ? "error" : "ok", { code: status, ...(failed ? { errorText: `HTTP ${status}`, failure: true } : {}) });
+      jsonCheck(xhr, op);
       if (failed && host.gated(op)) host.trigger({ trigger: "failure", op, req, failure: { kind: "http", status, statusText: xhr.statusText, durMs: (op.end ?? 0) - op.start } }, passiveOnly(), { hold: false, priority: 1 });
     };
     const doSend = () => {

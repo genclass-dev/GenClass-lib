@@ -86,6 +86,8 @@ export interface NetHost {
   deliver(o: { op: OpRec; req: ReqMeta; status: number; body?: () => Promise<unknown> }, release: () => void): void;
   /** A successful response arrived (any method): its parsed JSON body, read from a clone, for read-your-writes. */
   noteResponse?(o: { op: OpRec; req: ReqMeta; status: number; body: () => Promise<unknown> }): void;
+  /** The answer was read or asked for as JSON and its Content-Type is not JSON (rt.summary().requests, reporting only). */
+  notJson?(op: OpRec): void;
   /** A request identity that matches nothing else (bodies that cannot be read cheaply). */
   uniqueId(): string;
   /** Set a request's identity once known (after reading its body) and register it. */

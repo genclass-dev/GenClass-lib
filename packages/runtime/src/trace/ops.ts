@@ -21,6 +21,8 @@ export interface OpRec extends Op {
   startSeq: number;
   method?: string;
   url?: string;
+  /** Counted as not JSON in rt.summary().requests (once per request). */
+  nj?: 1;
   /** Error message/name for failed ops. */
   errorText?: string;
   /** Instantaneous op (user action, timer tick, ws message). */
