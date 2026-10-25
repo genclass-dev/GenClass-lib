@@ -306,10 +306,12 @@ New in `0.3.0` (`0.2.x` ignores a token and sends neither `token` nor `fn`). An 
 ### What a coding agent reports (opt-in, from the developer's machine)
 
 The runtime sends nothing of this. When a developer sets `GENCLASS_REPORT` for `@genclass/mcp` (off by default), that
-server on their machine sends the app's dashboard, with the dashboard's private link, the id, kind and page path of
-each finding it made in the app's development build, each replay's verdict (reproduced or not) and when a regression
-test was written; never page text, evidence, snapshots or values. The dashboard keeps them 90 days and shows them in
-its Loop view. Details: [docs/runtime/AGENT.md](../../docs/runtime/AGENT.md) section 4.5.
+server on their machine mirrors its log of the loop to the app's dashboard, with the dashboard's private link: the id,
+kind and page path of each finding it made in the app's development build, when the agent read its evidence, each
+replay armed and its verdict (reproduced or not), when a regression test was written, each explore report (how many
+page loads it compared and how many races it found) and each clear; never page text, evidence, snapshots or values.
+The dashboard keeps them 90 days (at most 500 log rows per app) and shows them in its Closed-loop development view.
+Details: [docs/runtime/AGENT.md](../../docs/runtime/AGENT.md) section 4.5.
 
 ## Where it goes
 

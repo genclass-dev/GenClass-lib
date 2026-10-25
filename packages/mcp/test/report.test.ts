@@ -1,7 +1,7 @@
 // Dashboard reporting (AGENT.md section 4.5): off by default, where it goes, what one event carries and never carries,
 // batching, failures swallowed, and the API wrapper that hears replay verdicts and written tests.
 import { describe, expect, it } from "vitest";
-import { createReporter, reportEvent, reportRoute, reportTarget, REPORT_SCHEMA } from "../src/report.js";
+import { createReporter, exploreEvent, reportEvent, reportRoute, reportTarget, REPORT_SCHEMA } from "../src/report.js";
 import { reportingApi } from "../src/server.js";
 import type { Finding } from "../src/types.js";
 import type { Store } from "../src/store.js";
@@ -34,6 +34,11 @@ describe("report events", () => {
     expect(reportRoute("javascript:alert(1)")).toBe("/");
     expect(reportRoute("/" + "x".repeat(400))).toHaveLength(200);
     expect(JSON.stringify(e)).not.toMatch(/overwrote|secret|search\.results|q=rea/);
+    // the other steps of the loop: the evidence read, a replay armed, an explore report (counts only), a clear
+    expect(reportEvent("explain", finding(), 1002)).toEqual({ t: "explain", id: "f3", kind: "stale-write", route: "/search", at: 1002 });
+    expect(reportEvent("armed", finding(), 1003)).toEqual({ t: "armed", id: "f3", kind: "stale-write", route: "/search", at: 1003 });
+    expect(exploreEvent({ route: "/search?q=x", runs: 8, races: 1 }, 1004)).toEqual({ t: "explore", at: 1004, runs: 8, races: 1, route: "/search" });
+    expect(exploreEvent({ runs: -2, races: 1e9 }, 1005)).toEqual({ t: "explore", at: 1005, runs: 0, races: 1_000_000 });
   });
 
   it("batches to POST <origin>/api/projects/<secret>/agent with the schema, flushes on close, swallows failures and logs once", async () => {
@@ -52,6 +57,11 @@ describe("report events", () => {
     r.replay(finding(), true);
     r.replay(finding(), null); // inconclusive: nothing to report
     r.test(finding({ id: "f4", kind: "duplicate-request", route: "/checkout" }));
+    r.explain(finding());
+    r.armed(finding());
+    r.explore({ route: "/search", runs: 8, races: 1 });
+    r.cleared("findings");
+    r.cleared("bogus" as never);
     expect(calls).toHaveLength(0); // not sent yet: batched
     await r.flush();
     expect(calls).toHaveLength(1);
@@ -61,6 +71,11 @@ describe("report events", () => {
       { t: "found", id: "f3", kind: "stale-write", route: "/search", at: 5000 },
       { t: "replay", id: "f3", kind: "stale-write", route: "/search", at: 5001, reproduced: true },
       { t: "test", id: "f4", kind: "duplicate-request", route: "/checkout", at: 5001 },
+      { t: "explain", id: "f3", kind: "stale-write", route: "/search", at: 5001 },
+      { t: "armed", id: "f3", kind: "stale-write", route: "/search", at: 5001 },
+      { t: "explore", at: 5001, runs: 8, races: 1, route: "/search" },
+      { t: "cleared", at: 5001, what: "findings" },
+      { t: "cleared", at: 5001, what: "all" },
     ] });
     fail = true;
     r.found(finding({ id: "f5" }));
@@ -72,16 +87,51 @@ describe("report events", () => {
     expect(logs[0]).toContain("dashboard report failed");
   });
 
-  it("the API wrapper reports the last replay verdict and a written test, and changes nothing the agent gets", () => {
+  it("the API wrapper reports the evidence read, the test written, a replay armed, the last replay verdict, an explore report and a clear, and changes nothing the agent gets", () => {
     const f = finding();
     const store = { findings: new Map([[f.id, f]]) } as unknown as Store;
     const got: string[] = [];
-    const reporter = { target: { origin: "o", secret: "s" }, found: () => got.push("found"), replay: (_f: Finding, v: boolean | null) => got.push(`replay:${v}`), test: () => got.push("test"), flush: async () => {}, close: async () => {} };
-    const api = reportingApi((m, p) => (m === "replay.result" ? { finding: f, results: [{ reproduced: true }, { reproduced: false }] } : m === "finding" ? ((p as { id: string }).id === "f3" ? { finding: f, test: "..." } : null) : m === "status" ? { ok: 1 } : null), store, reporter);
+    const reporter = {
+      target: { origin: "o", secret: "s" },
+      found: () => got.push("found"),
+      explain: (x: Finding) => got.push(`explain:${x.id}`),
+      armed: (x: Finding) => got.push(`armed:${x.id}`),
+      replay: (_f: Finding, v: boolean | null) => got.push(`replay:${v}`),
+      test: () => got.push("test"),
+      explore: (o: { route?: string; runs: number; races: number }) => got.push(`explore:${o.route}:${o.runs}:${o.races}`),
+      cleared: (w: string) => got.push(`cleared:${w}`),
+      flush: async () => {},
+      close: async () => {},
+    };
+    const api = reportingApi(
+      (m, p) =>
+        m === "replay.result"
+          ? { finding: f, results: [{ reproduced: true }, { reproduced: false }] }
+          : m === "replay.arm"
+            ? ((p as { id: string }).id === "f3" ? { finding: "f3", spec: {}, route: f.route, remaining: 1 } : (p as { id: string }).id === "f404" ? null : { error: "gone" })
+            : m === "finding"
+              ? ((p as { id: string }).id === "f3" ? { finding: f, test: "..." } : (p as { id: string }).id === "f3-notest" ? { finding: f, test: null } : null)
+              : m === "explore.report"
+                ? { session: { route: "/search" }, runs: [1, 2, 3], findings: [1] }
+                : m === "clear"
+                  ? { ok: true }
+                  : m === "status"
+                    ? { ok: 1 }
+                    : null,
+      store,
+      reporter,
+    );
     expect(api("replay.result", { id: "f3" })).toEqual({ finding: f, results: [{ reproduced: true }, { reproduced: false }] });
+    expect(api("replay.arm", { id: "f3" })).toEqual({ finding: "f3", spec: {}, route: f.route, remaining: 1 });
+    expect(api("replay.arm", { id: "f404" })).toBeNull();
+    expect(api("replay.arm", { id: "f5" })).toEqual({ error: "gone" });
     expect(api("finding", { id: "f3" })).toEqual({ finding: f, test: "..." });
+    expect(api("finding", { id: "f3-notest" })).toEqual({ finding: f, test: null }); // explained, no test to report
     expect(api("finding", { id: "f404" })).toBeNull();
+    expect(api("explore.report", {})).toEqual({ session: { route: "/search" }, runs: [1, 2, 3], findings: [1] });
+    expect(api("clear", { what: "runs" })).toEqual({ ok: true });
+    expect(api("clear", {})).toEqual({ ok: true });
     expect(api("status", {})).toEqual({ ok: 1 });
-    expect(got).toEqual(["replay:false", "test"]);
+    expect(got).toEqual(["replay:false", "armed:f3", "explain:f3", "test", "explain:f3", "explore:/search:3:1", "cleared:runs", "cleared:all"]);
   });
 });

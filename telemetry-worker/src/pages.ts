@@ -195,12 +195,28 @@ function snippets(tok, ep){
 function gcSelect(node){
   try { var r = document.createRange(); r.selectNodeContents(node); var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r); return true; } catch (e) { return false; }
 }
-// Copy text with the Clipboard API; when the browser refuses, select it in node so the person can copy it by hand.
+// Copy text with the Clipboard API; when the browser refuses (no secure context, the document not focused, an embedded
+// page), copy through a temporary textarea and execCommand, which works on the click itself; failing both, select the
+// text in node so the person can copy it by hand.
+function gcLegacyCopy(text){
+  try {
+    var ta = document.createElement("textarea"); ta.value = text; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.top = "0"; ta.style.left = "0"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.focus(); ta.select(); ta.setSelectionRange(0, text.length);
+    var ok = document.execCommand("copy"); document.body.removeChild(ta); return ok;
+  } catch (e) { return false; }
+}
 function gcCopy(b, text, node){
   var label = b.getAttribute("data-label") || b.textContent;
   b.setAttribute("data-label", label);
   function say(t){ b.textContent = t; clearTimeout(b.gcT); b.gcT = setTimeout(function(){ b.textContent = label; }, 2000); }
-  function fallback(){ say(node && gcSelect(node) ? "Selected, now copy" : "Could not copy"); }
+  // a textarea fallback (the big prompt button): show it selected, so one keystroke copies it
+  function fallback(){
+    if (node && node.tagName === "TEXTAREA") { node.hidden = false; node.focus(); node.select(); say("Selected, now copy"); return; }
+    say(node && gcSelect(node) ? "Selected, now copy" : "Could not copy");
+  }
+  // the legacy path first: it needs the click's own activation, which the async Clipboard API's rejection would have spent
+  var legacy = gcLegacyCopy(text);
+  if (legacy) { say("Copied"); return; }
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(function(){ say("Copied"); }, fallback);
   else fallback();
 }
@@ -514,6 +530,7 @@ main.wrap:has(.app){max-width:1360px}
 .btn.xl{min-height:58px;padding:0 30px;font-size:17px;font-weight:600}
 .cprompt{padding:26px 0;display:grid;justify-items:start;gap:12px}
 .cprompt .cp-sub{font-size:14px;color:var(--ink2);max-width:64ch;line-height:1.5}
+.cprompt textarea.cp-text{width:100%;max-width:72ch;min-height:150px;padding:10px 12px;font:12.5px/1.5 var(--mono);color:var(--ink);background:var(--panel);border:1px solid var(--rule2);resize:vertical}
 .connect .cana{padding:22px 0 0;border-bottom:1px solid var(--rule)}
 .connect .cana .cprompt{padding-top:12px}
 @media (max-width:560px){.cprompt .btn.xl{width:100%;white-space:normal;text-align:center;padding:12px 18px}}
@@ -560,6 +577,14 @@ main.wrap:has(.app){max-width:1360px}
 .flow .edge{fill:none;stroke:var(--ink3);stroke-width:1.2}
 .flow .edge.dim{stroke-dasharray:5 4}
 .flow marker path{fill:var(--ink3)}
+/* Fig. 3, the stages of the loop: the count of the period's findings that reached each, the back edges dashed */
+.flow .nn{font:500 28px var(--sans);fill:var(--ink);font-variant-numeric:tabular-nums}
+.flow .nn.off{fill:var(--ink3)}
+.flow .el{font:11.5px var(--mono);fill:var(--ink3)}
+.flow rect.node.stage.closed{stroke:var(--accent)}
+.flow rect.node.stage.on{stroke:var(--ink2)}
+.blk-h.sub{margin-top:44px;border-bottom-color:var(--rule)}
+.blk-h.sub h3{font-size:17px;font-weight:500;margin:0}
 .crumbs{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font:12.5px var(--mono);color:var(--ink3);margin-bottom:10px}
 .crumbs a{color:var(--ink2);text-decoration:none}
 .crumbs a:hover{color:var(--ink)}
@@ -1342,6 +1367,79 @@ const DASH_JS = `
       : "No agent has reported on this app in this period: reporting is off unless the developer sets GENCLASS_REPORT to this dashboard's link. ")
       + "Connect an agent: npx -y @genclass/mcp@0.1.0 init in the project and connectAgent(rt) in the dev build. As a service, GenClass runs the loop for your developers, hosted or inside your network.";
   }
+  // ---------- Fig. 3, the stages of the loop: how many of the period's findings reached each, and the two ways back
+  var STAGES = [
+    ["found", "Issue found", "Recorded in the dev build and handed to the agent."],
+    ["reproduced", "Reproduced", "genclass_replay delivered the same order again: the bug showed."],
+    ["fixed", "Fix proven", "After the fix, the same order no longer reproduces it."],
+    ["closed", "Closed", "A regression test guards the fix. A person ships."]
+  ];
+  function stages(S){
+    var A = S.agent || {}, G = A.stages || {}, host = document.getElementById("loopstages"); if (!host) return;
+    host.textContent = "";
+    var on = !!(A.last || (A.log && A.log.length) || (A.findings && A.findings.length));
+    var W = 1000, NW = 178, NH = 108, Y = 14, X = [0, 274, 548, 822], H = Y + NH + 76;
+    host.setAttribute("viewBox", "0 0 " + W + " " + H);
+    var defs = svg("defs"), m = svg("marker", { id: "fb", viewBox: "0 0 10 10", refX: "9", refY: "5", markerWidth: "7", markerHeight: "7", orient: "auto-start-reverse" });
+    m.appendChild(svg("path", { d: "M0 0L10 5L0 10z" })); defs.appendChild(m); host.appendChild(defs);
+    var g = svg("g"); host.appendChild(g);
+    STAGES.forEach(function(st, i){
+      var x = X[i], n = G[st[0]] || 0, cls = "node stage" + (on && n ? " on" : "") + (st[0] === "closed" && on && n ? " closed" : "") + (on ? "" : " quiet");
+      var r = svg("rect", { x: x, y: Y, width: NW, height: NH, rx: 2, "class": cls, "data-stage": st[0], "data-n": on ? String(n) : "" }); g.appendChild(r);
+      var t = svg("text", { x: x + 14, y: Y + 20, "class": "nt" }); t.textContent = st[1]; g.appendChild(t);
+      var num = svg("text", { x: x + 14, y: Y + 54, "class": "nn" + (on ? "" : " off") }); num.textContent = on ? fmt(n) : "\u2013"; g.appendChild(num);
+      var body = svg("text", { x: x + 14, y: Y + 74, "class": "nb" });
+      wrapText(st[2], 27).slice(0, 3).forEach(function(l, j){ var ts = svg("tspan", { x: x + 14, dy: j ? 13.5 : 0 }); ts.textContent = l; body.appendChild(ts); });
+      g.appendChild(body);
+    });
+    // forward: what moves an issue to the next stage
+    [["replay", 0], ["fix, replay", 1], ["write test", 2]].forEach(function(e, i){
+      var x1 = X[i] + NW, x2 = X[i + 1], ym = Y + NH / 2;
+      g.appendChild(svg("path", { d: "M" + x1 + " " + ym + " H" + x2, "class": "edge", "marker-end": "url(#fb)" }));
+      var l = svg("text", { x: (x1 + x2) / 2, y: ym - 8, "class": "el", "text-anchor": "middle" }); l.textContent = e[0]; g.appendChild(l);
+    });
+    // round again: a replay after a fix that still reproduces it goes back to Reproduced
+    var yb = Y + NH, c1 = X[2] + NW / 2, c2 = X[1] + NW / 2;
+    g.appendChild(svg("path", { d: "M" + c1 + " " + yb + " V" + (yb + 26) + " H" + c2 + " V" + (yb + 3), "class": "edge dim", "marker-end": "url(#fb)", "data-edge": "continue" }));
+    var cl = svg("text", { x: (c1 + c2) / 2, y: yb + 22, "class": "el", "text-anchor": "middle" });
+    cl.textContent = "still reproduces: round again" + (on ? " (" + fmt(G.continued || 0) + ")" : ""); g.appendChild(cl);
+    // the loop closes: production is watched again, the next issue starts at the left
+    var l1 = X[3] + NW / 2, l2 = X[0] + NW / 2;
+    g.appendChild(svg("path", { d: "M" + l1 + " " + yb + " V" + (yb + 56) + " H" + l2 + " V" + (yb + 3), "class": "edge dim", "marker-end": "url(#fb)", "data-edge": "loop" }));
+    var ll = svg("text", { x: (l1 + l2) / 2, y: yb + 52, "class": "el", "text-anchor": "middle" });
+    ll.textContent = on ? "production is watched again \u00b7 " + plural(G.open || 0, "issue open now", "issues open now") : "production is watched again \u00b7 reporting is off (GENCLASS_REPORT)";
+    g.appendChild(ll);
+  }
+  // ---------- Table 15, the agent's log mirrored from the MCP server
+  var STEP = { found: "Found", explain: "Evidence read", armed: "Replay armed", replay: "Replay", test: "Test written", explore: "Explore", cleared: "Cleared" };
+  var KINDN = { "stale-write": "stale response", race: "race", "duplicate-request": "duplicate request", error: "error", detection: "detection", check: "check", expectation: "expectation", intervention: "intervention" };
+  function outcome(e){
+    switch (e.t) {
+      case "found": return "open";
+      case "explain": return "genclass_explain: the evidence in causal order";
+      case "armed": return "waiting for the next page load";
+      case "replay": return e.reproduced === true ? "reproduced: the bug is still there" : e.reproduced === false ? "not reproduced: the fix holds" : "inconclusive";
+      case "test": return "guards the fix";
+      case "explore": return plural(e.runs || 0, "page load", "page loads") + " compared, " + plural(e.races || 0, "race", "races") + " found";
+      case "cleared": return (e.what || "all") + " cleared on the developer's machine";
+    }
+    return "";
+  }
+  function agentLog(S){
+    var tb = document.getElementById("agentlog"); if (!tb) return;
+    tb.textContent = "";
+    var log = (S.agent && S.agent.log) || [];
+    log.forEach(function(e){
+      var tr = el("tr"); tr.setAttribute("data-t", e.t);
+      var t = el("td", null, new Date(e.at).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })); t.title = e.at; tr.appendChild(t);
+      tr.appendChild(el("td", null, STEP[e.t] || e.t));
+      tr.appendChild(el("td", "mono", e.id ? e.id + (e.kind ? " \u00b7 " + (KINDN[e.kind] || e.kind) : "") : "\u2013"));
+      tr.appendChild(el("td", "route", e.route || "\u2013"));
+      tr.appendChild(el("td", e.t === "replay" ? (e.reproduced === false ? "did-a" : null) : e.t === "test" ? "did-a" : null, outcome(e)));
+      tb.appendChild(tr);
+    });
+    var empty = document.getElementById("agentlog0"); if (empty) empty.classList.toggle("hidden", log.length > 0);
+  }
   function render(S){
     var live = !!S.lastEvent, st = document.getElementById("status");
     st.classList.toggle("on", live);
@@ -1351,7 +1449,7 @@ const DASH_JS = `
     document.getElementById("content").classList.toggle("hidden", !live);
     var per = document.getElementById("period"); if (per) per.classList.toggle("hidden", !live);
     if (!live) { var ins = document.getElementById("install"); if (ins) ins.open = true; return; }
-    summary(S); tiles(S); trend(S); possibleTrend(S); cards(S); possibleCards(S); pages(S); acted(S); health(S); loop(S); recent(S); visits(S); advanced(S);
+    summary(S); tiles(S); trend(S); possibleTrend(S); cards(S); possibleCards(S); pages(S); acted(S); health(S); stages(S); agentLog(S); loop(S); recent(S); visits(S); advanced(S);
     var B2 = S.breakdowns, T2 = S.totals;
     document.getElementById("c-trend").textContent = fmt(T2.detections);
     document.getElementById("c-found").textContent = String((B2.detect_diagnosis || []).filter(function(x){ return x.key !== "expected"; }).length);
@@ -1397,7 +1495,7 @@ const DASH_JS = `
     if (!show(first, false)) show(per && per.classList.contains("hidden") ? "connect" : "top", false);
   })();
   document.title = P.name + " | GenClass dashboard";
-  document.querySelectorAll("#ixsetup [data-copy]").forEach(function(b){ b.addEventListener("click", function(){ gcCopy(b, b.getAttribute("data-copy"), null); }); });
+  document.querySelectorAll("#ixsetup [data-copy]").forEach(function(b){ b.addEventListener("click", function(){ gcCopy(b, b.getAttribute("data-copy"), b.parentNode ? b.parentNode.querySelector("textarea.cp-text") : null); }); });
   if (document.getElementById("ptok")) {
     document.getElementById("ptok").textContent = P.token;
     document.getElementById("ptokc").appendChild(copyBtn(function(){ return P.token; }, "token", function(){ return document.getElementById("ptok"); }));
@@ -1554,7 +1652,8 @@ export function analyticsPrompt(token: string, where: string, endpoint: string |
 
 /** One big primary button that copies analyticsPrompt, and at most two lines under it. */
 function promptBlock(token: string, where: string, endpoint: string | null, sub: string): string {
-  return `<div class="cprompt"><button class="btn green xl" type="button" data-copy="${esc(analyticsPrompt(token, where, endpoint))}">Copy the prompt for your coding agent</button><p class="cp-sub">${sub}</p></div>`;
+  const prompt = analyticsPrompt(token, where, endpoint);
+  return `<div class="cprompt"><button class="btn green xl" type="button" data-copy="${esc(prompt)}">Copy the prompt for your coding agent</button><p class="cp-sub">${sub}</p><textarea class="cp-text" readonly hidden aria-label="The prompt, to copy by hand" rows="8">${esc(prompt)}</textarea></div>`;
 }
 
 function connectPanel(token: string, connected: boolean, runtimeReady: boolean, endpoint: string | null = null, analytics = ""): string {
@@ -1652,7 +1751,7 @@ export function dashboardPage(
     <a href="#recent-s">Activity</a>
     <a href="#visits" id="nav-visits">Visitors <span id="c-visits"></span></a>
     <a href="#health-s">Health</a>
-    <a href="#loop">Loop</a>
+    <a href="#loop">Closed loop</a>
     ${acct ? "" : '<a href="#setup">Setup</a>'}
   </nav>`;
   const help = `<div class="grp">Help</div>
@@ -1773,9 +1872,15 @@ versions ignore it. ${LOCAL_HOSTS} Your deployed site sends by default.</p></sec
 </section>
 <section class="blk" data-v="health"><details class="more"><summary>All breakdowns</summary><div class="kv mt-s" id="adv"></div></details></section>
 <section class="blk" id="loop" data-v="loop" aria-labelledby="loop-h">
-  <div class="blk-h"><h2 id="loop-h">Closed-loop development</h2><span class="aside">Fig. 3. What broke on this app, and what your agent does with each</span></div>
-  <p class="loop-lead">Each problem GenClass found in this period, the steps your coding agent takes on it through <a href="https://genclass.dev/docs/mcp">@genclass/mcp</a>, and the three steps every fix shares. A person ships; the loop closes when this list shrinks.</p>
-  <div class="flowwrap"><svg class="flow" id="loopsvg" role="img" aria-labelledby="loop-h"></svg></div>
+  <div class="blk-h"><h2 id="loop-h">Closed-loop development</h2><span class="aside">Fig. 3. Every issue's path: found, reproduced, fix proven, closed, or round again</span></div>
+  <p class="loop-lead">What your coding agent did about this app's problems through <a href="https://genclass.dev/docs/mcp">@genclass/mcp</a>, mirrored from that server's own log: each finding it made, each replay and its verdict, each regression test it wrote. An issue is closed when the replay no longer reproduces it and a test guards the fix; a person ships. A replay that still reproduces it sends the loop round again.</p>
+  <div class="flowwrap"><svg class="flow" id="loopstages" role="img" aria-labelledby="loop-h"></svg></div>
+  <div class="blk-h sub"><h3 id="agentlog-h">What your agent did</h3><span class="aside">Table 15. The agent's log in this period, newest first (at most 50 steps)</span></div>
+  <div class="tablewrap"><table class="dt" aria-labelledby="agentlog-h"><thead><tr><th>Time</th><th>Step</th><th>Finding</th><th>Page</th><th>Outcome</th></tr></thead>
+  <tbody id="agentlog"></tbody></table></div>
+  <p class="quiet hidden" id="agentlog0">No agent steps in this period. With <code>GENCLASS_REPORT</code> set to this dashboard's link in the MCP server's environment, each step your agent takes shows here.</p>
+  <div class="blk-h sub"><h3 id="loopkinds-h">What broke, and what your agent does with each</h3><span class="aside">Fig. 6. One row per kind of problem; the steps every fix shares on the right</span></div>
+  <div class="flowwrap"><svg class="flow" id="loopsvg" role="img" aria-labelledby="loopkinds-h"></svg></div>
   <p class="loop-foot" id="loop-foot"></p>
 </section>
 </div>

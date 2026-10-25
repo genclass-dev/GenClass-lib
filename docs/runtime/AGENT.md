@@ -213,36 +213,49 @@ start), `clear`. Local processes of the same user only (section 6).
   prompt hook (`genclass-mcp hook`) adds findings changed since the last prompt as additional context. Both carry the
   finding id and kind first and page strings quoted; the agent calls `genclass_explain` for the rest.
 
-### 4.5 Reporting to the dashboard (opt-in)
+### 4.5 Reporting to the dashboard (opt-in): the closed loop on the dashboard
 
-Everything above stays on the developer's machine. The app's GenClass dashboard has a Loop view (Fig. 3 there) that
-draws the app's production problems and what the agent does with each; by default it cannot know what the agent did,
-and says so. With `GENCLASS_REPORT` set, the MCP server reports, so that view shows per problem: found by an agent,
-replay reproduced, test written, fix proven.
+Everything above stays on the developer's machine. The app's GenClass dashboard has a Closed-loop development view
+(Fig. 3 there) that draws every issue's path, found, reproduced, fix proven, closed, or round again, with the period's
+counts on each stage, lists the agent's log under it (Table 15) and, below that, the app's production problems with what
+the agent does with each (Fig. 6); by default the dashboard cannot know what the agent did, and says so. With
+`GENCLASS_REPORT` set, the MCP server mirrors its own log of the loop there.
 
 - **Off by default.** `GENCLASS_REPORT=on` reports to the dashboard named by `GENCLASS_DASHBOARD` (the private link);
   `GENCLASS_REPORT=<link or secret>` names it directly. The sample dashboard is never a target. Unset, nothing is
-  sent, and the dashboard's foot says reporting is off.
+  sent, and the dashboard's view says reporting is off.
 - **What is sent** (`packages/mcp/src/report.ts`): `POST <origin>/api/projects/<secret>/agent`, JSON
-  `{ schema: "genclass-agent/1", events: [...] }`, each event `{ t, id, kind, route, at, reproduced? }`: `found` when
-  the bridge makes a finding (its id, one of the eight kinds, the page path without query or fragment, capped at 200
-  characters, and the time), `replay` with the last verdict `genclass_replay result` gave (true or false; an
-  inconclusive one is not sent), `test` when `genclass_explain` produced the regression test. Never a title, an
-  evidence line, a snapshot, a step, a value, an error message or any other page text. The dashboard's private link
-  is the credential (it already reads the stats); the agent's own API token never leaves the machine.
+  `{ schema: "genclass-agent/1", events: [...] }`, one event per step of the loop, each `{ t, at, ... }`:
+  `found` when the bridge makes a finding (`id`, `kind`, one of the eight kinds, `route`, the page path without query
+  or fragment, capped at 200 characters); `explain` when the agent reads its evidence (`genclass_explain`); `armed`
+  when a replay of it is armed; `replay` with the last verdict `genclass_replay result` gave (`reproduced` true or
+  false; an inconclusive one is not sent); `test` when `genclass_explain` produced the regression test; `explore` when
+  an explore session is reported (`runs`, the page loads compared, `races`, the race findings it made, and the
+  session's `route` when it had one); `cleared` when the developer clears findings, runs or everything (`what`). Never
+  a title, an evidence line, a snapshot, a step, a value, an error message or any other page text. The dashboard's
+  private link is the credential (it already reads the stats); the agent's own API token never leaves the machine.
 - **How it is sent.** Batched (500 ms, at most 50 events a request), best effort: a refusal or a network error is
   logged once to stderr and never thrown, never retried in a loop, and never changes a finding, a verdict or a tool
   result. The session that owns the bridge reports; a session following another's bridge sends nothing (the owner
   already does).
-- **What the dashboard keeps** (`telemetry-worker/src/dashboard.ts` `agentReport`, table `agent_reports`): per
-  token and finding id, the kind, the route (normalised like the runtime's: id-like segments become `:id`), when it
-  was found, the last replay time and verdict, whether it ever reproduced, when a test was written and when the fix
-  was proven: a replay that no longer reproduces it after one that did. 90 days, like the rest. Rate limited per
-  token (`SESSION_LIMIT`), 16 KB a request. Nothing in it feeds a decision: the runtime never reads the dashboard.
-- **How it is shown.** The Loop view matches reports to its rows by kind (`stale-write` and `race` answer stale
-  responses and write races, `duplicate-request` double submits, `error` the failure kinds) and by page, and puts one
-  line on the row ("Agent: f3 on /search reproduced, test written, fix proven 42 min ago"); Fix says how many tests
-  the agent wrote in the period, Prove names the last fix proven. Disclosed in TELEMETRY.md and the package README.
+- **What the dashboard keeps** (`telemetry-worker/src/dashboard.ts` `agentReport`, tables `agent_reports` and
+  `agent_log`): every accepted event as one log row (at most 500 per app, the oldest go first), and per token and
+  finding id the kind, the route (normalised like the runtime's: id-like segments become `:id`), when it was found,
+  when its evidence was first read, the last replay time and verdict, whether it ever reproduced, how many replays
+  reproduced it, when a test was written and when the fix was proven: a replay that no longer reproduces it after one
+  that did. 90 days, like the rest. Rate limited per token (`SESSION_LIMIT`), 16 KB a request. Nothing in it feeds a
+  decision: the runtime never reads the dashboard. Events the dashboard does not know are dropped, so an older
+  dashboard keeps working with a newer server and the other way round.
+- **How it is shown.** Fig. 3 counts, over the findings changed in the period: found (every finding reported),
+  reproduced (a replay reproduced it), fix proven (a replay no longer reproduces it after one that did), closed (fix
+  proven and a regression test written), open (found and not closed), and round again (replays that still reproduced a
+  finding already reproduced once: a fix was tried and the bug was still there); the two back edges, round again and
+  the loop back to production, are dashed. Table 15 lists the log newest first: the time, the step, the finding and
+  its kind, the page and the outcome ("not reproduced: the fix holds", "8 page loads compared, 1 race found"). Fig. 6
+  matches reports to its problem rows by kind (`stale-write` and `race` answer stale responses and write races,
+  `duplicate-request` double submits, `error` the failure kinds) and by page, and puts one line on the row ("Agent: f3
+  on /search reproduced, test written, fix proven 42 min ago"); Fix says how many tests the agent wrote in the period,
+  Prove names the last fix proven. Disclosed in TELEMETRY.md and the package README.
 
 ## 5. Explore and replay
 

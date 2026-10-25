@@ -14,18 +14,34 @@ import { q } from "./text.js";
 import { INSTRUCTIONS, SERVER_NAME, TOOLS, callTool } from "./tools.js";
 import { DEFAULT_PORT, type Finding } from "./types.js";
 
-/** Wrap the local API so the dashboard reporter hears replay verdicts and written tests (AGENT.md section 4.5). */
+/**
+ * Wrap the local API so the dashboard reporter hears the loop's steps (AGENT.md section 4.5): the evidence read and the
+ * test written (genclass_explain), a replay armed and its verdict, an explore report, a clear. Findings themselves are
+ * reported from the store's onFinding (serve below).
+ */
 export function reportingApi(api: ReturnType<typeof makeApi>, store: Store, reporter: Reporter): ReturnType<typeof makeApi> {
   return (m, p) => {
     const out = api(m, p);
     try {
+      const a = p && typeof p === "object" ? (p as Record<string, unknown>) : {};
       if (m === "replay.result" && out && typeof out === "object") {
         const r = out as { finding: Finding; results: { reproduced: boolean | null }[] };
         const last = r.results.length ? r.results[r.results.length - 1]! : null;
         if (last) reporter.replay(r.finding, last.reproduced);
+      } else if (m === "replay.arm" && out && typeof out === "object" && !("error" in out)) {
+        const f = store.findings.get(String((out as { finding: string }).finding));
+        if (f) reporter.armed(f);
       } else if (m === "finding" && out && typeof out === "object") {
-        const f = (out as { finding?: Finding }).finding;
-        if (f && store.findings.has(f.id)) reporter.test(f);
+        const r = out as { finding?: Finding; test?: string | null };
+        if (r.finding && store.findings.has(r.finding.id)) {
+          reporter.explain(r.finding);
+          if (r.test) reporter.test(r.finding);
+        }
+      } else if (m === "explore.report" && out && typeof out === "object") {
+        const r = out as { session: { route?: string }; runs: unknown[]; findings: unknown[] };
+        reporter.explore({ ...(r.session.route ? { route: r.session.route } : {}), runs: r.runs.length, races: r.findings.length });
+      } else if (m === "clear") {
+        reporter.cleared(a.what === "findings" || a.what === "runs" ? a.what : "all");
       }
     } catch {
       // reporting never changes what the agent gets
@@ -140,7 +156,7 @@ export async function serve(o: ServeOptions): Promise<Served> {
     if (target) {
       reporter = createReporter(target, { log });
       local = reportingApi(local, s, reporter);
-      log(`reporting findings, replays and tests to the dashboard at ${target.origin} (GENCLASS_REPORT)`);
+      log(`mirroring the loop's log (findings, replays, tests, explores) to the dashboard at ${target.origin} (GENCLASS_REPORT)`);
     }
     store = s;
     mode = "local";

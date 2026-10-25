@@ -1,8 +1,11 @@
 // Reporting to the app's GenClass dashboard (docs/runtime/AGENT.md section 4.5): off unless the developer sets
-// GENCLASS_REPORT. Then, for each finding the bridge makes, each replay verdict and each regression test written,
-// one small event goes to POST <dashboard origin>/api/projects/<secret>/agent, batched and best effort: ids, kinds,
-// routes, verdicts and times only, never a title, an evidence line, a snapshot or any page text. A failure is logged
-// once and never thrown; nothing here feeds a decision, a finding or a tool result.
+// GENCLASS_REPORT. Then the server's own log of the loop is mirrored there, one small event at a time, to
+// POST <dashboard origin>/api/projects/<secret>/agent, batched and best effort: each finding the bridge makes, each
+// time the agent reads its evidence, each replay armed and each replay verdict, each regression test written, each
+// explore report and each clear. Ids, kinds, page paths, verdicts, counts and times only, never a title, an evidence
+// line, a snapshot or any page text. A failure is logged once and never thrown; nothing here feeds a decision, a
+// finding or a tool result. The dashboard's Closed-loop view draws the stages (found, reproduced, fix proven, closed,
+// or round again) and lists the log.
 import { dashboardTarget } from "./production.js";
 import type { Finding } from "./types.js";
 
@@ -10,20 +13,39 @@ export const REPORT_SCHEMA = "genclass-agent/1";
 export const REPORT_FLUSH_MS = 500;
 export const REPORT_MAX_BATCH = 50;
 
+/** The event types, in the order they happen in the loop; the dashboard drops any other. */
+export type ReportKind = "found" | "explain" | "armed" | "replay" | "test" | "explore" | "cleared";
+
 export interface ReportEvent {
-  t: "found" | "replay" | "test";
-  id: string;
-  kind: Finding["kind"];
-  route: string;
+  t: ReportKind;
+  /** The finding (every type but `explore` and `cleared`). */
+  id?: string;
+  kind?: Finding["kind"];
+  /** The page path only (no query or fragment), capped; for `explore` the session's route when it had one. */
+  route?: string;
   at: number;
+  /** `replay`: the verdict. */
   reproduced?: boolean;
+  /** `explore`: page loads in the report and race findings it made. */
+  runs?: number;
+  races?: number;
+  /** `cleared`: what the developer cleared on their machine. */
+  what?: "all" | "findings" | "runs";
 }
 
 export interface Reporter {
   readonly target: { origin: string; secret: string };
   found(f: Finding): void;
+  /** The agent read the finding's evidence (genclass_explain). */
+  explain(f: Finding): void;
+  /** A replay of the finding was armed. */
+  armed(f: Finding): void;
   replay(f: Finding, reproduced: boolean | null): void;
   test(f: Finding): void;
+  /** An explore session was reported: how many page loads it compared and how many race findings it made. */
+  explore(o: { route?: string; runs: number; races: number }): void;
+  /** The developer cleared findings, runs or everything on their machine. */
+  cleared(what: "all" | "findings" | "runs"): void;
   /** Send what is queued now (tests, and close). */
   flush(): Promise<void>;
   close(): Promise<void>;
@@ -51,6 +73,12 @@ export function reportRoute(route: string): string {
 
 export function reportEvent(t: ReportEvent["t"], f: Pick<Finding, "id" | "kind" | "route">, at: number, reproduced?: boolean): ReportEvent {
   return { t, id: f.id, kind: f.kind, route: reportRoute(f.route), at, ...(typeof reproduced === "boolean" ? { reproduced } : {}) };
+}
+
+/** The event for an explore report: counts and the session's page path only. */
+export function exploreEvent(o: { route?: string; runs: number; races: number }, at: number): ReportEvent {
+  const n = (v: number) => Math.max(0, Math.min(1_000_000, Math.floor(Number(v) || 0)));
+  return { t: "explore", at, runs: n(o.runs), races: n(o.races), ...(o.route ? { route: reportRoute(o.route) } : {}) };
 }
 
 export function createReporter(
@@ -102,10 +130,14 @@ export function createReporter(
   return {
     target,
     found: (f) => push(reportEvent("found", f, now())),
+    explain: (f) => push(reportEvent("explain", f, now())),
+    armed: (f) => push(reportEvent("armed", f, now())),
     replay: (f, reproduced) => {
       if (typeof reproduced === "boolean") push(reportEvent("replay", f, now(), reproduced));
     },
     test: (f) => push(reportEvent("test", f, now())),
+    explore: (o) => push(exploreEvent(o, now())),
+    cleared: (what) => push({ t: "cleared", at: now(), what: what === "findings" || what === "runs" ? what : "all" }),
     flush,
     close: async () => {
       await flush();
