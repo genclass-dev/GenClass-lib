@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
-import { api } from './server/api'
+import { api } from './server/api.ts'
 
 // Mounts the in-memory backend (server/api.ts) into the dev and preview servers: no second process.
 const backend = (): Plugin => ({

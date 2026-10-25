@@ -832,3 +832,24 @@ First load: `test/bundle.test.ts` on the branch measures `/auto` 108.54 KB and t
 gzip; limits 108.6 / 100.48 KB): the agent link is its own entry (`dist/agent.js`, no imports), never part of the first
 load; the XHR fix adds about 10 bytes. Tests: 36 in `test/agent.test.ts`, 57 in `packages/mcp`; the runtime suite
 passes (1,101 tests, 14 model-parity skips); `review-perf` 4 of 4.
+
+## 17. Coding agents on a real library issue: redux-toolkit#5139 (local, 2026-10-25, Chromium through Playwright 1.63.0)
+
+[docs/adoption/hunts/rtk-5139.md](../adoption/hunts/rtk-5139.md). The agent link and `@genclass/mcp` (both built from
+the repository) recording a standalone Redux Toolkit 2.13.0 reproduction: an optimistic `updateQueryData` patch
+replaced by a polling or refetch-on-focus fetch while the mutation is pending. `mode: "observe"`, `model: false`,
+`telemetry: false`, Redux discovery only, `connectAgent(rt, { hold: false })`. 10 natural runs per variant.
+
+| variant | bug visible in the UI | runs with the `overwrote-newer` witness on the overwritten data | other witnesses |
+|---|---|---|---|
+| polling, the fetch starts after the patch (the issue) | 10/10 | 1/10 (the one run whose poll was already in flight at the click) | RTK bookkeeping fields (`status`, `requestId`, `startedTimeStamp`) in 4 runs |
+| refetch on focus | 10/10 | 0/10 | `status` in 10 runs |
+| polling, a fetch in flight at the click (#5103's shape) | 10/10 | 10/10 | none |
+| control (no polling, no focus refetch) | 0/10 | 0/10 | none (0 findings) |
+
+The witness fires only when the overwriting request started before the patch (by its definition, AGENT.md section 2);
+in the issue's own shape the fetch is newer on the page and stale only against the server, so it is not witnessed.
+MCP findings over the 40 runs: 4 `stale-write`, 1 the bug and 3 bookkeeping (true happens-before facts, not bugs);
+none from the control. The Playwright test `genclass_explain` generated for the bug passed 5 of 5 on the buggy app
+(the witness depends on the click's timing, which a delivery-order replay does not recreate). One case, not a recall
+figure.

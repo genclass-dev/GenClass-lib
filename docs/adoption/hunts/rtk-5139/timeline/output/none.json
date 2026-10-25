@@ -1,0 +1,398 @@
+{
+  "variant": "none",
+  "consoleErrors": [],
+  "recorded": {
+    "schema": "genclass-schedule/1",
+    "route": "/",
+    "spec": {
+      "order": "natural"
+    },
+    "steps": [
+      {
+        "k": "write",
+        "t": 215,
+        "store": "redux",
+        "paths": [
+          "redux.api.config.middlewareRegistered"
+        ],
+        "summary": [
+          "redux.api.config.middlewareRegistered: false → true"
+        ]
+      },
+      {
+        "k": "write",
+        "t": 234,
+        "store": "redux",
+        "paths": [
+          "redux.api.queries",
+          "redux.api.queries.getItems(undefined).endpointName",
+          "redux.api.queries.getItems(undefined).requestId",
+          "redux.api.queries.getItems(undefined).startedTimeStamp",
+          "redux.api.queries.getItems(undefined).status"
+        ],
+        "summary": [
+          "redux.api.queries.getItems(undefined).status: undefined → \"pending\"",
+          "redux.api.queries.getItems(undefined).endpointName: undefined → \"getItems\"",
+          "redux.api.queries.getItems(undefined).requestId: undefined → \"EFxj_2fMjqDlwMceLWSF-\""
+        ]
+      },
+      {
+        "k": "send",
+        "t": 246,
+        "key": "GET /api/items#1"
+      },
+      {
+        "k": "recv",
+        "t": 267,
+        "key": "GET /api/items#1"
+      },
+      {
+        "k": "write",
+        "t": 271,
+        "store": "redux",
+        "paths": [
+          "redux.api.provided.keys",
+          "redux.api.provided.keys.getItems(undefined)",
+          "redux.api.provided.tags",
+          "redux.api.provided.tags.Item",
+          "redux.api.queries.getItems(undefined).data",
+          "redux.api.queries.getItems(undefined).fulfilledTimeStamp",
+          "redux.api.queries.getItems(undefined).status"
+        ],
+        "by": "GET /api/items#1",
+        "summary": [
+          "redux.api.queries.getItems(undefined).status: \"pending\" → \"fulfilled\"",
+          "redux.api.queries.getItems(undefined).data: undefined → 2 items [{id: 1, name: \"Original\"},…",
+          "redux.api.queries.getItems(undefined).fulfilledTimeStamp: undefined → 1792886743001"
+        ]
+      },
+      {
+        "k": "write",
+        "t": 735,
+        "store": "redux",
+        "paths": [
+          "redux.api.subscriptions",
+          "redux.api.subscriptions.getItems(undefined).P-v-Ujp6lsfHarXlGxXml"
+        ],
+        "summary": [
+          "redux.api.subscriptions.getItems(undefined).P-v-Ujp6lsfHarXlGxXml: undefined → {pollingInterval: 0, +1}",
+          "redux.api.subscriptions: {} → undefined"
+        ]
+      },
+      {
+        "k": "act",
+        "i": 0,
+        "t": 745,
+        "kind": "click",
+        "target": "button \"Rename item 1 (optimistic update, PUT t…\"",
+        "clicks": 1
+      },
+      {
+        "k": "write",
+        "t": 747,
+        "store": "redux",
+        "paths": [
+          "redux.api.mutations",
+          "redux.api.mutations.0FbpW_zSvgDJr9zIKaAht.endpointName",
+          "redux.api.mutations.0FbpW_zSvgDJr9zIKaAht.requestId",
+          "redux.api.mutations.0FbpW_zSvgDJr9zIKaAht.startedTimeStamp",
+          "redux.api.mutations.0FbpW_zSvgDJr9zIKaAht.status"
+        ],
+        "act": 0,
+        "summary": [
+          "redux.api.mutations.0FbpW_zSvgDJr9zIKaAht.requestId: undefined → \"0FbpW_zSvgDJr9zIKaAht\"",
+          "redux.api.mutations.0FbpW_zSvgDJr9zIKaAht.status: undefined → \"pending\"",
+          "redux.api.mutations.0FbpW_zSvgDJr9zIKaAht.endpointName: undefined → \"renameItem\""
+        ]
+      },
+      {
+        "k": "write",
+        "t": 749,
+        "store": "redux",
+        "paths": [
+          "redux.api.queries.getItems(undefined).data"
+        ],
+        "act": 0,
+        "summary": [
+          "redux.api.queries.getItems(undefined).data: 2 items, 1 changed: {id: 1, name: \"Original\" → \"Edited 1\"}"
+        ]
+      },
+      {
+        "k": "send",
+        "t": 758,
+        "key": "PUT /api/items/:id#1",
+        "detail": " body",
+        "act": 0
+      },
+      {
+        "k": "recv",
+        "t": 2764,
+        "key": "PUT /api/items/:id#1"
+      },
+      {
+        "k": "write",
+        "t": 2766,
+        "store": "redux",
+        "paths": [
+          "redux.api.mutations.0FbpW_zSvgDJr9zIKaAht.data",
+          "redux.api.mutations.0FbpW_zSvgDJr9zIKaAht.fulfilledTimeStamp",
+          "redux.api.mutations.0FbpW_zSvgDJr9zIKaAht.status"
+        ],
+        "by": "PUT /api/items/:id#1",
+        "act": 0,
+        "summary": [
+          "redux.api.mutations.0FbpW_zSvgDJr9zIKaAht.status: \"pending\" → \"fulfilled\"",
+          "redux.api.mutations.0FbpW_zSvgDJr9zIKaAht.data: undefined → {id: 1, name: \"Edited 1\"}",
+          "redux.api.mutations.0FbpW_zSvgDJr9zIKaAht.fulfilledTimeStamp: undefined → 1792886745497"
+        ]
+      },
+      {
+        "k": "write",
+        "t": 2768,
+        "store": "redux",
+        "paths": [
+          "redux.api.queries.getItems(undefined).requestId",
+          "redux.api.queries.getItems(undefined).startedTimeStamp",
+          "redux.api.queries.getItems(undefined).status"
+        ],
+        "by": "PUT /api/items/:id#1",
+        "act": 0,
+        "summary": [
+          "redux.api.queries.getItems(undefined).status: \"fulfilled\" → \"pending\"",
+          "redux.api.queries.getItems(undefined).requestId: \"EFxj_2fMjqDlwMceLWSF-\" → \"XjPbe7_pvGmoVFbXCj-7U\"",
+          "redux.api.queries.getItems(undefined).startedTimeStamp: 1792886742965 → 1792886745500"
+        ]
+      },
+      {
+        "k": "send",
+        "t": 2780,
+        "key": "GET /api/items#2",
+        "act": 0,
+        "via": "PUT /api/items/:id"
+      },
+      {
+        "k": "recv",
+        "t": 2786,
+        "key": "GET /api/items#2"
+      },
+      {
+        "k": "write",
+        "t": 2791,
+        "store": "redux",
+        "paths": [
+          "redux.api.queries.getItems(undefined).fulfilledTimeStamp",
+          "redux.api.queries.getItems(undefined).status"
+        ],
+        "by": "GET /api/items#2",
+        "act": 0,
+        "summary": [
+          "redux.api.queries.getItems(undefined).status: \"pending\" → \"fulfilled\"",
+          "redux.api.queries.getItems(undefined).fulfilledTimeStamp: 1792886743001 → 1792886745520"
+        ]
+      }
+    ],
+    "order": [
+      "GET /api/items#1",
+      "PUT /api/items/:id#1",
+      "GET /api/items#2"
+    ],
+    "forced": 0,
+    "truncated": false
+  },
+  "witnesses": [],
+  "errors": [],
+  "snapshot": {
+    "t": 3573,
+    "state": {
+      "redux.api.queries.getItems(undefined).status": "\"fulfilled\"",
+      "redux.api.queries.getItems(undefined).endpointName": "\"getItems\"",
+      "redux.api.queries.getItems(undefined).requestId": "\"XjPbe7_pvGmoVFbXCj-7U\"",
+      "redux.api.queries.getItems(undefined).startedTimeStamp": "1792886745500",
+      "redux.api.queries.getItems(undefined).data": "2 items [{id: 1, name: \"Edited 1\"}, {id: 2, name: \"Untouched\"}]",
+      "redux.api.queries.getItems(undefined).fulfilledTimeStamp": "1792886745520",
+      "redux.api.mutations.0FbpW_zSvgDJr9zIKaAht.requestId": "\"0FbpW_zSvgDJr9zIKaAht\"",
+      "redux.api.mutations.0FbpW_zSvgDJr9zIKaAht.status": "\"fulfilled\"",
+      "redux.api.mutations.0FbpW_zSvgDJr9zIKaAht.endpointName": "\"renameItem\"",
+      "redux.api.mutations.0FbpW_zSvgDJr9zIKaAht.startedTimeStamp": "1792886743478",
+      "redux.api.mutations.0FbpW_zSvgDJr9zIKaAht.data": "{id: 1, name: \"Edited 1\"}",
+      "redux.api.mutations.0FbpW_zSvgDJr9zIKaAht.fulfilledTimeStamp": "1792886745497",
+      "redux.api.provided.tags.Item": "{1: [1], 2: [1], LIST: [1]}",
+      "redux.api.provided.keys.getItems(undefined)": "3 items [{id: 1, type: \"Item\"}, {id: 2, type: \"Item\"}, …]",
+      "redux.api.subscriptions.getItems(undefined).P-v-Ujp6lsfHarXlGxXml": "{pollingInterval: 0, skipPollingIfUnfocused: false}",
+      "redux.api.config.online": "true",
+      "redux.api.config.focused": "true",
+      "redux.api.config.middlewareRegistered": "true",
+      "redux.api.config.refetchOnFocus": "false",
+      "redux.api.config.refetchOnReconnect": "false",
+      "redux.api.config.refetchOnMountOrArgChange": "false",
+      "redux.api.config.keepUnusedDataFor": "60",
+      "redux.api.config.reducerPath": "\"api\"",
+      "redux.api.config.invalidationBehavior": "\"delayed\""
+    },
+    "requests": {
+      "GET /api/items": 2,
+      "PUT /api/items/:id": 1
+    },
+    "witnesses": 0,
+    "errors": 0,
+    "forced": 0,
+    "text": [
+      "redux-toolkit#5139: optimistic update replaced while the mutation is pending",
+      "@reduxjs/toolkit 2.13.0. The click dispatches a mutation whose onQueryStarted patches the getItems cache with api.util.updateQueryData. PUT /api/items/1 takes 2",
+      "pollingInterval: 100",
+      "refetchOnFocus: true",
+      "control (no polling, no refetchOnFocus)",
+      "Item 1 name in the cache: Edited 1",
+      "PUT /api/items/1: fulfilled",
+      "Rename item 1 (optimistic update, PUT takes 2 s)",
+      "Values since the click: Original (+1 ms) → Edited 1 (+3 ms)",
+      "RTK Query actions since the click (item 1's cached name after each)",
+      "+ms action endpoint requestId arg status item 1 name",
+      "1 api/executeMutation/pending renameItem 0FbpW_zSvgDJr9zIKaAht fulfilled Original",
+      "3 api/queries/queryResultPatched getItems fulfilled Edited 1",
+      "2021 api/executeMutation/fulfilled renameItem 0FbpW_zSvgDJr9zIKaAht fulfilled Edited 1",
+      "2023 api/executeQuery/pending getItems XjPbe7_pvGmoVFbXCj-7U forceRefetch=true subscribe=false pending Edited 1",
+      "2045 api/executeQuery/fulfilled getItems XjPbe7_pvGmoVFbXCj-7U fulfilled Edited 1"
+    ],
+    "fields": {}
+  },
+  "redux": [
+    {
+      "t": 1,
+      "type": "api/executeMutation/pending",
+      "endpoint": "renameItem",
+      "requestId": "0FbpW_zSvgDJr9zIKaAht",
+      "name": "Original",
+      "status": "fulfilled"
+    },
+    {
+      "t": 3,
+      "type": "api/queries/queryResultPatched",
+      "endpoint": "getItems",
+      "name": "Edited 1",
+      "status": "fulfilled"
+    },
+    {
+      "t": 2021,
+      "type": "api/executeMutation/fulfilled",
+      "endpoint": "renameItem",
+      "requestId": "0FbpW_zSvgDJr9zIKaAht",
+      "name": "Edited 1",
+      "status": "fulfilled"
+    },
+    {
+      "t": 2023,
+      "type": "api/executeQuery/pending",
+      "endpoint": "getItems",
+      "requestId": "XjPbe7_pvGmoVFbXCj-7U",
+      "name": "Edited 1",
+      "status": "pending",
+      "arg": "forceRefetch=true subscribe=false"
+    },
+    {
+      "t": 2045,
+      "type": "api/executeQuery/fulfilled",
+      "endpoint": "getItems",
+      "requestId": "XjPbe7_pvGmoVFbXCj-7U",
+      "name": "Edited 1",
+      "status": "fulfilled"
+    }
+  ],
+  "values": "Values since the click: Original (+1 ms) → Edited 1 (+3 ms)",
+  "lost": null,
+  "merged": [
+    {
+      "t": -10,
+      "src": "GenClass",
+      "what": "write redux: redux.api.subscriptions, redux.api.subscriptions.getItems(undefined).P-v-Ujp6lsfHarXlGxXml",
+      "detail": "by no request, redux.api.subscriptions.getItems(undefined).P-v-Ujp6lsfHarXlGxXml: undefined → {pollingInterval: 0, +1}; redux.api.subscriptions: {} → undefined"
+    },
+    {
+      "t": 0,
+      "src": "GenClass",
+      "what": "act click button \"Rename item 1 (optimistic update, PUT t…\""
+    },
+    {
+      "t": 1,
+      "src": "Redux",
+      "what": "api/executeMutation/pending",
+      "detail": "renameItem, 0FbpW_zSvgDJr9zIKaAht, status fulfilled, item 1 = \"Original\""
+    },
+    {
+      "t": 2,
+      "src": "GenClass",
+      "what": "write redux: redux.api.mutations, redux.api.mutations.0FbpW_zSvgDJr9zIKaAht.endpointName, redux.api.mutations.0FbpW_zSvgDJr9zIKaAht.requestId, redux.api.mutations.0FbpW_zSvgDJr9zIKaAht.startedTimeStamp, redux.api.mutations.0FbpW_zSvgDJr9zIKaAht.status",
+      "detail": "by no request, user action #0, redux.api.mutations.0FbpW_zSvgDJr9zIKaAht.requestId: undefined → \"0FbpW_zSvgDJr9zIKaAht\"; redux.api.mutations.0FbpW_zSvgDJr9zIKaAht.status: undefined → \"pending\"; redux.api.mutations.0FbpW_zSvgDJr9zIKaAht.endpointName: undefined → \"renameItem\""
+    },
+    {
+      "t": 3,
+      "src": "Redux",
+      "what": "api/queries/queryResultPatched",
+      "detail": "getItems, status fulfilled, item 1 = \"Edited 1\""
+    },
+    {
+      "t": 4,
+      "src": "GenClass",
+      "what": "write redux: redux.api.queries.getItems(undefined).data",
+      "detail": "by no request, user action #0, redux.api.queries.getItems(undefined).data: 2 items, 1 changed: {id: 1, name: \"Original\" → \"Edited 1\"}"
+    },
+    {
+      "t": 13,
+      "src": "GenClass",
+      "what": "send PUT /api/items/:id#1",
+      "detail": "user action #0"
+    },
+    {
+      "t": 2019,
+      "src": "GenClass",
+      "what": "recv PUT /api/items/:id#1"
+    },
+    {
+      "t": 2021,
+      "src": "Redux",
+      "what": "api/executeMutation/fulfilled",
+      "detail": "renameItem, 0FbpW_zSvgDJr9zIKaAht, status fulfilled, item 1 = \"Edited 1\""
+    },
+    {
+      "t": 2021,
+      "src": "GenClass",
+      "what": "write redux: redux.api.mutations.0FbpW_zSvgDJr9zIKaAht.data, redux.api.mutations.0FbpW_zSvgDJr9zIKaAht.fulfilledTimeStamp, redux.api.mutations.0FbpW_zSvgDJr9zIKaAht.status",
+      "detail": "by PUT /api/items/:id#1, user action #0, redux.api.mutations.0FbpW_zSvgDJr9zIKaAht.status: \"pending\" → \"fulfilled\"; redux.api.mutations.0FbpW_zSvgDJr9zIKaAht.data: undefined → {id: 1, name: \"Edited 1\"}; redux.api.mutations.0FbpW_zSvgDJr9zIKaAht.fulfilledTimeStamp: undefined → 1792886745497"
+    },
+    {
+      "t": 2023,
+      "src": "Redux",
+      "what": "api/executeQuery/pending",
+      "detail": "getItems, XjPbe7_pvGmoVFbXCj-7U, forceRefetch=true subscribe=false, status pending, item 1 = \"Edited 1\""
+    },
+    {
+      "t": 2023,
+      "src": "GenClass",
+      "what": "write redux: redux.api.queries.getItems(undefined).requestId, redux.api.queries.getItems(undefined).startedTimeStamp, redux.api.queries.getItems(undefined).status",
+      "detail": "by PUT /api/items/:id#1, user action #0, redux.api.queries.getItems(undefined).status: \"fulfilled\" → \"pending\"; redux.api.queries.getItems(undefined).requestId: \"EFxj_2fMjqDlwMceLWSF-\" → \"XjPbe7_pvGmoVFbXCj-7U\"; redux.api.queries.getItems(undefined).startedTimeStamp: 1792886742965 → 1792886745500"
+    },
+    {
+      "t": 2035,
+      "src": "GenClass",
+      "what": "send GET /api/items#2",
+      "detail": "user action #0, via PUT /api/items/:id"
+    },
+    {
+      "t": 2041,
+      "src": "GenClass",
+      "what": "recv GET /api/items#2"
+    },
+    {
+      "t": 2045,
+      "src": "Redux",
+      "what": "api/executeQuery/fulfilled",
+      "detail": "getItems, XjPbe7_pvGmoVFbXCj-7U, status fulfilled, item 1 = \"Edited 1\""
+    },
+    {
+      "t": 2046,
+      "src": "GenClass",
+      "what": "write redux: redux.api.queries.getItems(undefined).fulfilledTimeStamp, redux.api.queries.getItems(undefined).status",
+      "detail": "by GET /api/items#2, user action #0, redux.api.queries.getItems(undefined).status: \"pending\" → \"fulfilled\"; redux.api.queries.getItems(undefined).fulfilledTimeStamp: 1792886743001 → 1792886745520"
+    }
+  ]
+}
