@@ -86,7 +86,8 @@ and suite. All pass.
 ## Live
 
 Migration 0011 was applied to the remote D1 and the worker deployed from this branch on 2026-10-25 (version
-`4161c9d3`, from a `git archive` of the branch at 4491fa1). Checked against the live site right after: `genclass.dev/dashboard/sample#loop` serves the view (the
+`6a080e19`, from a `git archive` of the branch at 387b277, after merging main's Supabase Studio frame into it; the
+merged tree's suite is 332 tests, all passing). Checked against the live site right after: `genclass.dev/dashboard/sample#loop` serves the view (the
 sidebar says "Closed loop", the page has Fig. 3 and Table 15), `GET /api/projects/sample?range=7d` carries
 `agent.stages` and sixteen `agent.log` rows, `POST /api/projects/sample/agent` answers 404 and a GET 405 as designed,
 the events preflight answers 204 and a bad batch 400, and the health check is OK.
