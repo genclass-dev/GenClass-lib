@@ -310,6 +310,7 @@ on the fixed one, and explore on the fixed page reported nothing. Details: [docs
 | `genclass_replay` | `arm` / `result`: reproduce one finding exactly |
 | `genclass_analytics` | per-endpoint latency, error rates and request counts, learned relations and flows; production numbers from your GenClass dashboard |
 | `genclass_setup` | the lines to add for your framework, and the config lines for the client it runs in |
+| `genclass_scan` | `{url, phone?, hosted?}`: audit any page (the dev server or a site you do not own) with the 23 measured visual checks in headless Chromium: a score and each problem with its element, selector and a suggested CSS fix, plus the JSON report. Runs `npx @genclass/runtime@beta scan --json --local` (or the project's own runtime); needs Playwright's Chromium (`npx playwright install chromium`), or `hosted: true` for the genclass.dev page check (public pages only) |
 | `genclass_clear` | forget recorded runs and findings |
 
 ## New findings without asking
@@ -338,7 +339,7 @@ The bridge listens on 127.0.0.1 only and checks the `Host` header. Pages may tal
 website, a router page or a captive portal you visit cannot plant findings, and a page can only add to its own run.
 The agent API refuses browsers and needs a token only your user can read. Everything a page sends is validated,
 capped, stripped of invisible characters and shown to the agent as quoted data, never as instructions. Nothing leaves
-your machine. See section 6 of
+your machine (the exceptions are under Privacy). See section 6 of
 [AGENT.md](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/AGENT.md).
 
 ## Privacy
@@ -347,7 +348,9 @@ The server collects nothing and sends nothing to GenClass or anyone else. Findin
 `.genclass/agent/` in the server's working directory (the project, for clients that start servers there; set
 `GENCLASS_STATE_DIR` for clients that do not, such as Claude Desktop), which the server gitignores, and in the bridge's memory; the bridge's token is in
 `~/.genclass`. The one request that leaves the machine is `genclass_analytics` `{source: "production"}`, which reads
-your own GenClass dashboard when you set `GENCLASS_DASHBOARD` to its private link. With `GENCLASS_REPORT` set (off by
+your own GenClass dashboard when you set `GENCLASS_DASHBOARD` to its private link. `genclass_scan` loads the page the
+agent names (that is the page's own traffic) in a local browser; only with `hosted: true` is the URL sent to the
+genclass.dev page check, and when the project has no `@genclass/runtime` with `scan`, npx downloads it from npm. With `GENCLASS_REPORT` set (off by
 default) the server also sends that dashboard, in small batches, the id, kind and page path of each finding, each
 replay's verdict and when a regression test was written, so the dashboard's Loop view shows what the agent reproduced
 and fixed; never a title, an evidence line, a snapshot or any page text, and nothing it sends feeds a decision. The runtime in your app has its

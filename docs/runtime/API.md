@@ -690,7 +690,8 @@ The console default is unchanged.
 Deterministic measurements of visual and CSS bugs that never throw an error, with fixed thresholds
 ([VISUAL.md](VISUAL.md) has every check, threshold and exclusion). They are reported as kind `"check"` and never as a
 model finding: the model is not involved, the checks never feed a situation, a fact, the event log, the gate or a
-decision, and they never fire `detect`.
+decision, and they never fire `detect`. For any URL from a terminal or a coding agent, without code:
+`npx @genclass/runtime@beta scan <url> [--json]` (the package README's "Audit a page"; `@genclass/mcp`'s `genclass_scan`).
 
 ```ts
 GenClass.init({ visual: true });                                       // on everywhere, report-only

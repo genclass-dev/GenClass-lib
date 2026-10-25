@@ -1002,6 +1002,11 @@ receives every report.
   applied. It reads `rt.checks?.()` and `on("check")` defensively for older runtimes and `MockRuntime`.
 - `@genclass/runtime/visual` also exports `checkPage(options?): Promise<CheckFinding[]>`, report-only and without a
   runtime, for the developer's own Playwright or Cypress tests and for the bench.
+- `npx @genclass/runtime@beta scan <url> [--json] [--phone] [--hosted | --local]` (alias `audit`; bin/lib/scan.mjs)
+  runs the full runtime on any URL in headless Chromium at desktop and phone sizes (observe, telemetry off, no model,
+  `visual: { on: true }`), with `rt.checkNow()`, four Tab presses and a scroll to the end, and prints `rt.checks()`
+  merged across the sizes with a score; without Playwright it uses the genclass.dev page check (never for a local
+  address). `@genclass/mcp`'s `genclass_scan` tool runs it with `--local` unless asked for `hosted`.
 
 ### 9.4 Summary, sinks, audit
 

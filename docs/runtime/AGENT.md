@@ -189,11 +189,13 @@ after 30 minutes and are not restored after a restart.
 | `genclass_replay` | `arm` the next page load with a finding's order; `result`: reproduced, not reproduced, or inconclusive (and why) |
 | `genclass_analytics` | `local`: per-endpoint counts, median and p95 latency, error rates, failure streaks, per-page runs, errors and overwritten fields, learned relations and flows; `production`: the GenClass dashboard's sessions, detections by diagnosis and page, latest decisions (`GENCLASS_DASHBOARD`) |
 | `genclass_setup` | the lines to add for this project's framework (read from `package.json`); changes no file |
+| `genclass_scan` | `{url, phone?, hosted?}`: audits any page (no `connectAgent` needed) by running `@genclass/runtime`'s `scan <url> --json` (the project's own runtime when it has the command, else `npx -y @genclass/runtime@beta`) in the project's folder: headless Chromium through Playwright at desktop and phone sizes, the 23 measured visual checks in observe mode; a score and each problem with its element, selector and suggested CSS fix, plus the JSON report (`structuredContent`). `--local` unless `hosted: true` (the genclass.dev page check, public pages only), so the URL leaves the machine only when the agent asks |
 | `genclass_clear` | forget runs and/or findings (runs findings still need are kept) |
 
 The server's `instructions` (sent at initialize) tell the agent when to reach for these on its own: an intermittent bug
 report; after changing code that fetches, submits, autosaves, polls, debounces or listens to a socket; before calling a
-UI change done; and to confirm a bug before fixing it and prove the fix after.
+UI change done (`genclass_scan` on the page, also after CSS or layout changes and on sites the agent does not own); and
+to confirm a bug before fixing it and prove the fix after.
 
 ### 4.3 Agent API
 
@@ -422,4 +424,5 @@ This is one page and one bug class, a proof of the mechanism, not a recall figur
   `performance.now` or global `setTimeout` (it wraps the page's `setTimeout` to observe pending timers, and schedules
   nothing with it).
 - **Rule 7 (dependencies).** None added: `@genclass/mcp` has no runtime dependencies.
-- **Rule 8 (telemetry).** Nothing is sent off the machine; telemetry is unchanged.
+- **Rule 8 (telemetry).** Nothing is sent off the machine; telemetry is unchanged. (`genclass_scan` sends a URL to the
+  genclass.dev page check only when the agent passes `hosted: true`.)

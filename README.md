@@ -54,6 +54,10 @@ npx @genclass/runtime@beta init     # finds the framework, adds the import, show
 npm install @genclass/runtime@beta  # then: import "@genclass/runtime/auto" (or GenClass.init())
 ```
 
+To audit any page for visual bugs without adding anything to it: `npx @genclass/runtime@beta scan <url>` (alias
+`audit`; a score and each problem with its element and a suggested CSS fix; [Audit a page](packages/runtime/README.md#audit-a-page)).
+Coding agents get the same as `genclass_scan` in [`@genclass/mcp`](packages/mcp).
+
 The package is **ESM only** (no `require`). Jest users need `transformIgnorePatterns` that lets
 `@genclass/runtime` be transformed.
 

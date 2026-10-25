@@ -22,6 +22,18 @@
   its version to the chunk, and a chunk of another release warns once per page with both versions and the install
   line, and still records. First load, with the `@beta` console messages above: +52 B gzip on `/auto`, +47 B on the
   main entry (the check itself is in the chunk). The dashboard's Visitors view and Connect panel name the version analytics need.
+- **`scan <url>` (alias `audit`): audit any page in one command.** `npx @genclass/runtime@beta scan https://example.com`
+  loads the page in headless Chromium through Playwright (resolved from the project, this package or the global
+  node_modules, never a dependency) at desktop (1280x800) and phone (390x844) sizes, with the script-tag build
+  injected first in observe mode (telemetry off, no model, visual checks on; the runtime's files come from disk on a
+  virtual same-origin path, so the only requests are the page's own), runs a check pass, presses Tab four times and
+  scrolls to the end like the hosted page check, and prints a score (the hosted check's "Visual bugs" formula) and
+  each finding with its count, sizes, element, selector and suggested CSS, worst first. `--json` prints the same
+  report (`format: "genclass-scan/1"`) as JSON on stdout only; `--phone` checks the phone size only; `--timeout <s>`.
+  Without Playwright's Chromium it prints the line to install it and checks the page on the genclass.dev page check
+  instead, saying so (`--hosted` asks for that directly, `--local` never uses it; a loopback or private address is
+  never sent). Exit code 0 when nothing is found, 1 when something is, 2 on an error. No runtime code, no telemetry
+  and no model-visible text changed. `@genclass/mcp`'s `genclass_scan` tool runs it.
 - **`dashboard` prints the link to this app's free dashboard.** `npx @genclass/runtime@beta dashboard` prints the link
   to the dashboard of the app in the current folder: the private link in `.genclass.local` (nothing is contacted),
   else the app's page in the signed-in account (one `GET /api/me`), else the account's apps; `--open` also opens it in
