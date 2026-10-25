@@ -705,6 +705,41 @@ The owner's first example. One check with two dimensions: the colour scheme the 
   `max-height: 90dvh; overflow-y: auto;`.
 - Runtime fix: none (moving elements or changing `z-index` is risky).
 
+### 3.24 `request-stalled` (added for issue 94, after 0.3.0-beta.1)
+
+Not a visual measurement but the same family: a deterministic measurement against a documented threshold, reported
+as kind `"check"`, never a situation, a fact, an event-log entry, a gate input or model input (rule 2 exception, as
+section 1). It exists because an app's own error handling hides the failure it measures: a handler disables its
+button, sends a request with no timeout, and re-enables the button in `finally`; when the request never answers,
+`finally` never runs, nothing throws, and no situation is salient.
+
+- Measures: the fetch and XHR requests the runtime has in flight (the bridge's `pending()`, `src/visual/bridge.ts`),
+  judged on the Clock at most every 2 s, sooner when one is due. It runs from the moment the chunk loads, not after
+  the page settles: settle waits for network quiet, which a stalled request prevents. Its own MutationObserver
+  (attributes `disabled`, `aria-busy`, `aria-disabled` only, so the passes' dirty tracking never sees them) keeps the
+  Clock time each element last became busy.
+- Reports when: a request has been pending for `visual.checks.stallMs` (default 15,000 ms, clamped to 1 s..10 min;
+  15 s is past the longest answer the demos' chaos produces, 8 s, and past the usual 10 s gateway timeouts), once per
+  request, while the tab is visible and the route's mode is not off. A request that became due while the tab was
+  hidden is reported once the tab is visible again.
+- Control: the element matching `[disabled], [aria-busy="true"], [aria-disabled="true"]` now whose last change to busy
+  happened from 1 s before the request started (a handler disables the button, then sends) up to now, earliest
+  first; `measured.control` is its state, `"none"` when there is none, `"not watched"` when the request started before
+  the checks were watching (the chunk loads 1.5 s after `load`).
+- Skips: EventSource and WebSocket (not fetch or XHR operations); GenClass's own requests; a signature the cadence
+  layer knows as a background schedule (long polling); a signature whose learned p95 latency is at least `stallMs`
+  (an endpoint that usually takes that long); a host or path prefix in `visual.ignore`; elements inside
+  `[data-genclass-ignore]` as the control. A streamed fetch is not pending once its headers arrive. The first request
+  of a long poll that has no history yet is not recognised (measured on the demos: RESULTS.md section 21).
+- Evidence: method, host, normalised path (no query), `pendingMs`, the control's state and description, when it
+  became busy relative to the request.
+- Severity: high with a control still busy, medium without.
+- Suggested fix: a timeout on the request (`AbortSignal.timeout(ms)`, `xhr.timeout`) so the app's `catch` and
+  `finally` run.
+- Runtime fix: none. A heal-mode timeout that aborts the request is proposed in OPTIONS-SPEC section 4.21 and waits
+  for the owner (rules 1 and 2).
+- Not in `checkPage()` (no runtime, no requests to watch).
+
 ## 4. Held back from v1 until measured
 
 These were researched and are useful, but their expected precision is medium, or they judge design rather than

@@ -2,6 +2,34 @@
 
 ## Unreleased
 
+- **`rt.summary().requests`: the requests GenClass saw, per host** (issue 94; [API.md](../../docs/runtime/API.md)
+  "Requests in `rt.summary()`"). Counts of the `fetch` and XHR requests of the page load, in total and per host
+  (`"same-origin"` or the API's host, 30 at most): `requests`, answers by status class, `network` (no answer),
+  `aborted`, `notJson` (read as JSON while the Content-Type is not JSON; the body is never parsed for it),
+  `byGenClass`, `pending`, and the latency `p50` / `p95` of the answers that did not fail, from the learned baselines.
+  `requests: 0` now tells "GenClass did not see the requests" apart from "it saw them and nothing was salient" (a 404
+  or a non-JSON answer the app's own `catch` handles is counted, not detected). Local only: telemetry does not send it
+  (a proposal for that and a dashboard alert waits for the owner, [OPTIONS-SPEC.md](../../docs/runtime/OPTIONS-SPEC.md)
+  §4.21); a sink's `summary` record carries `hosts` only with `evidence: true`. First load +0.57 KB gzip on `/auto`,
+  +0.54 KB on the main entry (RESULTS.md §21; the size limits in `test/bundle.test.ts` are raised by that, pending the
+  owner's OK).
+- **Measured check `request-stalled`** ([VISUAL.md](../../docs/runtime/VISUAL.md) 3.24). A `fetch` or XHR request
+  still pending after `visual: { checks: { stallMs } }` (default 15 s) is reported once as a kind `"check"` finding
+  with its method, host and path, how long it waited, and the control the page disabled or marked `aria-busy` when it
+  started if that control still is (severity high then). Long polls the runtime learned, endpoints that usually take
+  that long, EventSource and WebSocket are not checked. Same rules as the other visual checks: on by default on
+  development hosts, `visual: true` elsewhere, report-only, never a situation or model input, nothing sent. It lives
+  in the lazily loaded checks chunk: no first-load bytes. Demos: 0 false reports, every planted hang found (RESULTS.md
+  §21).
+- **`init` writes `defer` on the plain-HTML script tag**, so a slow or blocked CDN no longer holds up rendering.
+  GenClass then starts after classic scripts without `defer` or `async` (their requests during page load are not
+  seen), still before deferred and module scripts; model loading is unchanged (idle after `load`). `--sync` writes the
+  blocking tag of earlier versions; existing setups are not changed. `remove` already took out the tag with attributes
+  added by hand (`defer`, `async`, `nonce`); that is now tested and said in `remove`'s help.
+- **`init` notes when a project looks mostly static** (no `fetch`, XHR, WebSocket or EventSource call in its sources,
+  or a plain HTML page with one script): one sentence that GenClass will have little to find there, pointing to the
+  visual checks and the page scan, `npx @genclass/runtime@beta scan <url>`.
+
 - **`dashboard` prints the link to this app's free dashboard.** `npx @genclass/runtime dashboard` prints the link
   to the dashboard of the app in the current folder: the private link in `.genclass.local` (nothing is contacted),
   else the app's page in the signed-in account (one `GET /api/me`), else the account's apps; `--open` also opens it in
