@@ -9,6 +9,8 @@
 //   /form         a second planted bug for scenarios/double-click-submit.mjs: a Save button that sends one POST per
 //                 click while the first is still in flight (the list is reset on every load of the page)
 //   /form-fixed   fixed: the button is disabled while a save is in flight
+//   /form-nav     the same buggy Save, then a full navigation to /done once the save answered (the shape of most
+//                 server-rendered forms: a scenario's steps that end on another document)
 //   /go           a redirect to / (exercises the harness's document rewrite across a redirect)
 //
 //   node bench/hunt/scenarios/e2e-search-server.mjs [--port 0] [--fixed]      prints the URL
@@ -21,7 +23,7 @@ import { createServer } from "node:http";
 const port = Number(process.argv[process.argv.indexOf("--port") + 1]) || 0;
 const fixedAll = process.argv.includes("--fixed");
 let items = [];
-const FORM = (fixed) => `<!doctype html>
+const FORM = (fixed, nav = false) => `<!doctype html>
 <html><head><meta charset="utf-8"><title>Items${fixed ? " (fixed)" : ""}</title></head>
 <body>
 <form id="f"><input id="title" aria-label="Title" autocomplete="off" value="Hunt"><button type="submit" id="save">Save</button></form>
@@ -29,6 +31,7 @@ const FORM = (fixed) => `<!doctype html>
 <script>
 (() => {
   const FIXED = ${fixed ? "true" : "false"};
+  const NAV = ${nav ? "true" : "false"};
   const form = document.querySelector("#f");
   const button = document.querySelector("#save");
   const list = document.querySelector("#items");
@@ -40,6 +43,7 @@ const FORM = (fixed) => `<!doctype html>
     status.textContent = "Saving";
     const res = await fetch("/api/items", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ title: document.querySelector("#title").value }) });
     const data = await res.json();
+    if (NAV) return location.assign("/done?items=" + data.items.length);
     list.replaceChildren(...data.items.map((t) => Object.assign(document.createElement("li"), { textContent: t })));
     status.textContent = "Saved";
     if (FIXED) { saving = false; button.disabled = false; }
@@ -94,10 +98,14 @@ const server = createServer((req, res) => {
     res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
     return res.end(PAGE(true));
   }
-  if (url.pathname === "/form" || url.pathname === "/form-fixed") {
+  if (url.pathname === "/form" || url.pathname === "/form-fixed" || url.pathname === "/form-nav") {
     items = []; // one list per page load, so every run starts the same
     res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-    return res.end(FORM(fixedAll || url.pathname === "/form-fixed"));
+    return res.end(FORM(fixedAll || url.pathname === "/form-fixed", url.pathname === "/form-nav"));
+  }
+  if (url.pathname === "/done") {
+    res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+    return res.end(`<!doctype html><html><head><meta charset="utf-8"><title>Saved</title></head><body><p id="status">Saved: ${Number(url.searchParams.get("items")) || 0} item(s)</p></body></html>`);
   }
   if (url.pathname === "/api/items" && req.method === "POST") {
     let body = "";

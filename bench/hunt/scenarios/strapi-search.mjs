@@ -10,7 +10,7 @@
 //
 //   STRAPI_EMAIL=... STRAPI_PASSWORD=... node bench/hunt/hunt.mjs \
 //     --url 'http://localhost:1337/admin/content-manager/collection-types/api::article.article' \
-//     --login scenarios/strapi-login.mjs --storage-state .storage/strapi.json --scenario scenarios/strapi-search.mjs
+//     --login scenarios/strapi-login.mjs --scenario scenarios/strapi-search.mjs
 
 import { numberParam, param, textLines } from "../lib/dom.mjs";
 
@@ -24,7 +24,7 @@ export async function steps(page, ctx) {
   await field.pressSequentially(param(ctx, "first", "the"), { delay: 60 });
   await field.press("Enter");
   await page.waitForTimeout(numberParam(ctx, "gap", 150));
-  await field.press("Control+a");
+  await field.press("ControlOrMeta+a");
   await field.pressSequentially(param(ctx, "second", "bug"), { delay: 60 });
   await field.press("Enter");
 }

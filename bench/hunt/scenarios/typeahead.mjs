@@ -7,8 +7,16 @@
 //   results   a selector for the element whose visible text is the oracle (default: the whole body)
 //   click     "no" to skip the focusing click (default: click the field first)
 //
-//   node bench/hunt/hunt.mjs --url http://localhost:1337/admin/content-manager/collection-types/api::article.article \
-//     --scenario scenarios/typeahead.mjs --param input='input[name="search"]' --param word=lorem --storage-state .storage/strapi.json
+// Strapi 5's relation picker in the article editor searches the server as you type (behind a debounce: type slower than
+// it, so each keystroke sends a request). The committed sample (results/sample/) ran:
+//
+//   STRAPI_EMAIL=... STRAPI_PASSWORD=... node bench/hunt/hunt.mjs \
+//     --url 'http://localhost:1337/admin/content-manager/collection-types/api::article.article/<documentId>' \
+//     --login scenarios/strapi-login.mjs --scenario scenarios/typeahead.mjs \
+//     --param input='input[name="author"]' --param word=dav --param delay=400 --param results='[role=listbox]'
+//
+// Keystrokes merge into one typing action while the field keeps its label and the gaps stay under a second, so keep
+// `delay` below 1000.
 
 import { numberParam, param, textLines } from "../lib/dom.mjs";
 

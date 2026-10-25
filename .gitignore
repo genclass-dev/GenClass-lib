@@ -39,6 +39,6 @@ bench/visual/.work/
 packages/mcp/test/e2e/.gen/
 .genclass/
 
-# bench/hunt: a login's storage state holds a session (cookies, local storage); never commit one
-bench/hunt/.storage/
-bench/hunt/**/storage-state*.json
+# bench/hunt: a login's storage state holds a session (cookies, local storage); never commit one, wherever it lands
+.storage/
+storage-state*.json

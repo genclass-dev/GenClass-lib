@@ -23,7 +23,7 @@ const SPEC = {
   chromium: "string",
   port: "number",
   "no-run-tests": "boolean",
-  "no-rewrite": "boolean",
+  "allow-service-workers": "boolean",
   expect: "string",
   viewport: "string",
   render: "string",
@@ -36,15 +36,18 @@ export const USAGE = `node bench/hunt/hunt.mjs --url <app url> --scenario <file.
   --scenario <file>        a scenario module (repeatable; see README "How to write a scenario")
   --param k=v              a parameter the scenario reads (repeatable), e.g. --param input='input[name=q]'
   --runs <n>               seeded orders after the two baselines (default 6, max 50)
-  --slow <ms>              extra latency per response, 0 to maxMs, like a slow network (default 600; 0 for none)
+  --slow <ms>              extra latency per response, 0 to maxMs, like a slow network (default 600; 0 for none;
+                           at most 5000, the bridge's cap)
   --seed <n>               first seed (default 1)
   --focus <sig>            request signature delivered last in seeded orders (repeatable), e.g. "GET /api/search"
   --route <path>           arm only page loads of this path (default: the page the first armed load reports)
-  --out <dir>              results directory (default bench/hunt/results/<first scenario name>)
+  --out <dir>              results directory, relative to the working directory (default
+                           bench/hunt/results/<first scenario name>)
   --timeout <ms>           per step: navigation, connection, the scenario's steps, the quiet point (default 30000)
   --settle <ms>            quiet time before a snapshot (default: the scenario's settleMs, else 400)
   --storage-state <file>   Playwright storageState JSON for a logged-in app (written by --login when given)
-  --login <file>           a module exporting login(page, ctx); runs once, saves --storage-state
+  --login <file>           a module exporting login(page, ctx); runs once, saves --storage-state (default
+                           bench/hunt/.storage/<scenario>.json, which git ignores)
   --headful                show the browser
   --model                  load the on-device model (13 MB from jsDelivr); default: skipped, explore does not need it
   --model-dir <dir>        serve a fetch-model directory to the page instead of the CDN (implies --model)
@@ -53,7 +56,8 @@ export const USAGE = `node bench/hunt/hunt.mjs --url <app url> --scenario <file.
   --chromium <path>        Chromium executable (default: Playwright's)
   --port <n>               bridge port (default 0: a free port)
   --no-run-tests           do not run the generated regression tests after saving them
-  --no-rewrite             never rewrite the HTML document; inject from the init script only (later than head)
+  --allow-service-workers  let the app register service workers (apps mocked with MSW need them; blocked by default
+                           so a worker cannot answer requests from its cache)
   --expect race|no-race    exit 2 when the explore verdict is not this (for scripted checks)
   --viewport WxH           browser viewport (default 1280x800)
   --render <report.json>   only write report.md again from an existing report.json (no browser, no app)

@@ -4,10 +4,10 @@
 // parameters or the environment, never from the repository:
 //
 //   STRAPI_EMAIL=you@example.com STRAPI_PASSWORD=... node bench/hunt/hunt.mjs --url http://localhost:1337/admin \
-//     --login scenarios/strapi-login.mjs --storage-state .storage/strapi.json --scenario scenarios/typeahead.mjs ...
+//     --login scenarios/strapi-login.mjs --scenario scenarios/typeahead.mjs ...
 //
-// The storage state file holds a session: keep it out of git (.gitignore covers bench/hunt/**/storage-state*.json and
-// bench/hunt/.storage/).
+// The storage state (by default bench/hunt/.storage/<scenario>.json) holds a session: .gitignore covers any .storage/
+// directory and any storage-state*.json file.
 
 import { param } from "../lib/dom.mjs";
 
