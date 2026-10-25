@@ -1,0 +1,73 @@
+{
+  "name": "@genclass/mcp",
+  "version": "0.1.0",
+  "mcpName": "io.github.genclass-dev/genclass",
+  "description": "GenClass for coding agents: an MCP server that sees what happens inside your app's pages (clicks, requests, the order responses arrived, state writes, errors), re-runs them with the network answering in different orders to find race conditions, and replays one exact order to prove a fix. Local only, no dependencies.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/genclass-dev/GenClass-lib.git",
+    "directory": "packages/mcp"
+  },
+  "homepage": "https://genclass.dev",
+  "bugs": { "url": "https://github.com/genclass-dev/GenClass-lib/issues" },
+  "keywords": [
+    "mcp",
+    "mcp-server",
+    "model-context-protocol",
+    "claude-code",
+    "coding-agent",
+    "race-condition",
+    "stale-response",
+    "double-submit",
+    "flaky",
+    "debugging",
+    "playwright",
+    "genclass"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "genclass-mcp": "bin/genclass-mcp.mjs"
+  },
+  "files": [
+    "dist",
+    "bin",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE",
+    "server.json",
+    "plugin"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "sync": "GENCLASS_SYNC=1 vitest run test/manifests.test.ts",
+    "bundle": "node scripts/mcpb.mjs"
+  },
+  "devDependencies": {
+    "@anthropic-ai/mcpb": "2.1.2",
+    "@playwright/test": "1.63.0",
+    "@types/node": "^22.0.0",
+    "tsup": "^8.5.1",
+    "typescript": "~5.9.3",
+    "vitest": "^5.0.3"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

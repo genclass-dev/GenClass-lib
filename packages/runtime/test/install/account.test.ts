@@ -474,6 +474,74 @@ describe("whoami and logout", () => {
   });
 });
 
+describe("dashboard: this app's free analytics, as a link in the terminal", () => {
+  const PAYWALL = /needs\s+Pro|free trial|trial for analytics|come with Pro/i;
+  const KEYED = { "src/genclass.config.ts": `// genclass:init\nwindow.GENCLASS_CONFIG = { token: "${SHOP.token}" };\n` };
+
+  it("an app init made without an account: prints its private link from .genclass.local, says it is free, contacts nothing", () => {
+    const dir = viteApp({ ".genclass.local": `GENCLASS_TOKEN=${ANON_TOKEN}\nGENCLASS_DASHBOARD=${ANON_LINK}\n` });
+    const r = run(["dashboard", "--cwd", dir]);
+    expect(r.code, r.out).toBe(0);
+    expect(r.out).toMatch(new RegExp(`Your dashboard\\s+${ANON_LINK}`));
+    expect(r.out).toContain("Free for every app");
+    expect(r.out).toContain("Keep this link private");
+    expect(r.out).not.toMatch(PAYWALL);
+    expect(r.calls).toEqual([]);
+  });
+
+  it("signed in: the account's app with this folder's key, by its dashboard link (one GET /api/me)", () => {
+    const r = run(["dashboard", "--cwd", viteApp(KEYED)], { config: signedIn(), env: { GENCLASS_TEST_PROJECTS: JSON.stringify([BLOG, SHOP]) } });
+    expect(r.code, r.out).toBe(0);
+    expect(routes(r.calls)).toEqual(["GET /api/me"]);
+    expect(r.calls[0].auth).toBe(`Bearer ${SESSION}`);
+    expect(r.out).toMatch(new RegExp(`Your dashboard\\s+${SHOP.dashboard_url}`));
+    expect(r.out).not.toContain(BLOG.dashboard_url);
+    expect(r.out).not.toMatch(PAYWALL);
+  });
+
+  it("signed in, no app in this folder: the account's apps and their links", () => {
+    const r = run(["dashboard", "--cwd", tmp("gc-empty-")], { config: signedIn(), env: { GENCLASS_TEST_PROJECTS: JSON.stringify([SHOP, BLOG]) } });
+    expect(r.code, r.out).toBe(0);
+    expect(r.out).toContain(SHOP.dashboard_url);
+    expect(r.out).toContain(BLOG.dashboard_url);
+    expect(r.out).toContain("https://genclass.dev/account");
+  });
+
+  it("no token and not signed in: says how to get a free dashboard, exit 1, contacts nothing", () => {
+    const r = run(["dashboard", "--cwd", viteApp()]);
+    expect(r.code).toBe(1);
+    expect(r.out).toContain("npx @genclass/runtime init");
+    expect(r.out).toContain("free");
+    expect(r.out).not.toMatch(PAYWALL);
+    expect(r.calls).toEqual([]);
+  });
+
+  it("a key in this folder but no link here and not signed in: says where its dashboard is, exit 1, contacts nothing", () => {
+    const r = run(["dashboard", "--cwd", viteApp(KEYED)]);
+    expect(r.code).toBe(1);
+    expect(r.out).toContain("npx @genclass/runtime login");
+    expect(r.out).toContain("https://genclass.dev/account");
+    expect(r.calls).toEqual([]);
+  });
+
+  it("init and whoami point at it; help lists it", () => {
+    const r = run(["init", "--no-install", "--cwd", viteApp()], { config: signedIn(), input: "y\ny\n" });
+    expect(r.code, r.out).toBe(0);
+    expect(r.out).toContain("npx @genclass/runtime dashboard");
+    expect(r.out).not.toMatch(PAYWALL);
+    const who = run(["whoami"], { config: signedIn(), env: { GENCLASS_TEST_PROJECTS: JSON.stringify([SHOP]) } });
+    expect(who.out).toContain("free");
+    expect(who.out).not.toMatch(PAYWALL);
+    const top = run(["--help"]);
+    expect(top.out).toContain("genclass-runtime dashboard");
+    expect(top.out).not.toMatch(PAYWALL);
+    const help = run(["dashboard", "--help"]);
+    expect(help.code).toBe(0);
+    expect(help.out).toContain("--open");
+    expect(help.calls).toEqual([]);
+  });
+});
+
 describe("init and a signed-in account", () => {
   it("asks before anything is sent; yes creates the app in the account (no private link to save)", () => {
     const dir = viteApp();

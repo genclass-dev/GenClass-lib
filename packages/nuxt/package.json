@@ -1,0 +1,75 @@
+{
+  "name": "@genclass/nuxt",
+  "version": "0.1.0",
+  "description": "GenClass for Nuxt: a module that reports your app's race conditions, stale responses and duplicate submits while they happen, in the browser only. A small local model, observe mode by default, nothing on the server.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/genclass-dev/GenClass-lib.git",
+    "directory": "packages/nuxt"
+  },
+  "homepage": "https://genclass.dev",
+  "bugs": { "url": "https://github.com/genclass-dev/GenClass-lib/issues" },
+  "keywords": [
+    "nuxt",
+    "nuxt-module",
+    "genclass",
+    "race-condition",
+    "stale-response",
+    "duplicate-request",
+    "frontend-reliability",
+    "error-detection",
+    "devtools",
+    "monitoring"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/types.d.mts",
+      "import": "./dist/module.mjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "main": "./dist/module.mjs",
+  "types": "./dist/types.d.mts",
+  "typesVersions": {
+    "*": {
+      ".": ["./dist/types.d.mts"]
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "nuxt-module-build build",
+    "prepack": "nuxt-module-build build",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "dev": "nuxt dev playground",
+    "dev:build": "nuxt build playground"
+  },
+  "dependencies": {
+    "@nuxt/kit": "^4.6.2"
+  },
+  "peerDependencies": {
+    "@genclass/runtime": ">=0.2.0 || ^0.3.0-beta.0"
+  },
+  "devDependencies": {
+    "@nuxt/module-builder": "^1.0.3",
+    "@nuxt/schema": "^4.6.2",
+    "@nuxt/test-utils": "^4.3.4",
+    "@types/node": "^22.0.0",
+    "nuxt": "^4.6.2",
+    "typescript": "~5.9.3",
+    "vitest": "^5.0.3"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

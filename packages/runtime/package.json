@@ -1,6 +1,6 @@
 {
   "name": "@genclass/runtime",
-  "version": "0.3.0-beta.0",
+  "version": "0.3.0-beta.1",
   "description": "A runtime for web apps: a small local model watches user actions, async work, network, state and errors, and flags, and optionally prevents, stale responses, races, duplicate requests, inconsistent state and failure storms.",
   "type": "module",
   "license": "Apache-2.0",
@@ -55,6 +55,7 @@
       "devtools": ["./dist/devtools/index.d.ts"],
       "discover": ["./dist/discover.d.ts"],
       "visual": ["./dist/visual.d.ts"],
+      "agent": ["./dist/agent.d.ts"],
       "sinks": ["./dist/sinks/index.d.ts"],
       "sinks/console-json": ["./dist/sinks/console-json.d.ts"],
       "sinks/webhook": ["./dist/sinks/webhook.d.ts"]
@@ -106,6 +107,10 @@
     "./visual": {
       "types": "./dist/visual.d.ts",
       "import": "./dist/visual.js"
+    },
+    "./agent": {
+      "types": "./dist/agent.d.ts",
+      "import": "./dist/agent.js"
     },
     "./sinks": {
       "types": "./dist/sinks/index.d.ts",

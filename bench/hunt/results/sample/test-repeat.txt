@@ -1,0 +1,354 @@
+
+Running 10 tests using 1 worker
+
+[1/10] typeahead-f96.hunt.spec.mts:10:1 › /admin/content-manager/collection-types/api::article.article/s709zfagowrr9dqn13s9ez14: the final state does not depend on response order (G…
+  1) typeahead-f96.hunt.spec.mts:10:1 › /admin/content-manager/collection-types/api::article.article/s709zfagowrr9dqn13s9ez14: the final state does not depend on response order (G… 
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  -  1
+    + Received  + 12
+
+    - Array []
+    + Array [
+    +   Object {
+    +     "by": "GET /content-manager/init#2",
+    +     "change": "2 items [{visiblePanels: [1], +1}, [1]] → 2 items [{visiblePanels: [1], +1}, [1]]",
+    +     "gapMs": 75,
+    +     "kind": "overwrote-newer",
+    +     "over": "GET /content-manager/collection-types/api::article.article/:id#1",
+    +     "overKind": "request",
+    +     "subject": "EditViewPage.state2",
+    +     "t": 4076,
+    +   },
+    + ]
+
+      22 |   void witnesses; void errors; void snap;
+      23 |   const SUBJECT = new RegExp("^EditViewPage\\.state2$");
+    > 24 |   expect(witnesses.filter((w: any) => w.kind === "overwrote-newer" && SUBJECT.test(w.subject))).toEqual([]);
+         |                                                                                                 ^
+      25 |   // TODO: also assert what the user should see, e.g.
+      26 |   // await expect(page.getByRole("listitem").first()).toContainText("...");
+      27 | });
+        at /home/user/GenClass-lib/bench/hunt/results/sample/tests/typeahead-f96.hunt.spec.mts:24:97
+
+    Error Context: ../../../test-results/typeahead-f96.hunt--admin--efc79-depend-on-response-order-G…/error-context.md
+
+
+[2/10] typeahead-f96.hunt.spec.mts:10:1 › /admin/content-manager/collection-types/api::article.article/s709zfagowrr9dqn13s9ez14: the final state does not depend on response order (G…
+  2) typeahead-f96.hunt.spec.mts:10:1 › /admin/content-manager/collection-types/api::article.article/s709zfagowrr9dqn13s9ez14: the final state does not depend on response order (G… 
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  -  1
+    + Received  + 12
+
+    - Array []
+    + Array [
+    +   Object {
+    +     "by": "GET /content-manager/init#2",
+    +     "change": "2 items [{visiblePanels: [1], +1}, [1]] → 2 items [{visiblePanels: [1], +1}, [1]]",
+    +     "gapMs": 79,
+    +     "kind": "overwrote-newer",
+    +     "over": "GET /content-manager/collection-types/api::article.article/:id#1",
+    +     "overKind": "request",
+    +     "subject": "EditViewPage.state2",
+    +     "t": 3844,
+    +   },
+    + ]
+
+      22 |   void witnesses; void errors; void snap;
+      23 |   const SUBJECT = new RegExp("^EditViewPage\\.state2$");
+    > 24 |   expect(witnesses.filter((w: any) => w.kind === "overwrote-newer" && SUBJECT.test(w.subject))).toEqual([]);
+         |                                                                                                 ^
+      25 |   // TODO: also assert what the user should see, e.g.
+      26 |   // await expect(page.getByRole("listitem").first()).toContainText("...");
+      27 | });
+        at /home/user/GenClass-lib/bench/hunt/results/sample/tests/typeahead-f96.hunt.spec.mts:24:97
+
+    Error Context: ../../../test-results/typeahead-f96.hunt--admin--efc79-depend-on-response-order-G…-repeat1/error-context.md
+
+
+[3/10] typeahead-f96.hunt.spec.mts:10:1 › /admin/content-manager/collection-types/api::article.article/s709zfagowrr9dqn13s9ez14: the final state does not depend on response order (G…
+  3) typeahead-f96.hunt.spec.mts:10:1 › /admin/content-manager/collection-types/api::article.article/s709zfagowrr9dqn13s9ez14: the final state does not depend on response order (G… 
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  -  1
+    + Received  + 12
+
+    - Array []
+    + Array [
+    +   Object {
+    +     "by": "GET /content-manager/init#2",
+    +     "change": "2 items [{visiblePanels: [1], +1}, [1]] → 2 items [{visiblePanels: [1], +1}, [1]]",
+    +     "gapMs": 90,
+    +     "kind": "overwrote-newer",
+    +     "over": "GET /content-manager/collection-types/api::article.article/:id#1",
+    +     "overKind": "request",
+    +     "subject": "EditViewPage.state2",
+    +     "t": 3774,
+    +   },
+    + ]
+
+      22 |   void witnesses; void errors; void snap;
+      23 |   const SUBJECT = new RegExp("^EditViewPage\\.state2$");
+    > 24 |   expect(witnesses.filter((w: any) => w.kind === "overwrote-newer" && SUBJECT.test(w.subject))).toEqual([]);
+         |                                                                                                 ^
+      25 |   // TODO: also assert what the user should see, e.g.
+      26 |   // await expect(page.getByRole("listitem").first()).toContainText("...");
+      27 | });
+        at /home/user/GenClass-lib/bench/hunt/results/sample/tests/typeahead-f96.hunt.spec.mts:24:97
+
+    Error Context: ../../../test-results/typeahead-f96.hunt--admin--efc79-depend-on-response-order-G…-repeat2/error-context.md
+
+
+[4/10] typeahead-f96.hunt.spec.mts:10:1 › /admin/content-manager/collection-types/api::article.article/s709zfagowrr9dqn13s9ez14: the final state does not depend on response order (G…
+  4) typeahead-f96.hunt.spec.mts:10:1 › /admin/content-manager/collection-types/api::article.article/s709zfagowrr9dqn13s9ez14: the final state does not depend on response order (G… 
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  -  1
+    + Received  + 12
+
+    - Array []
+    + Array [
+    +   Object {
+    +     "by": "GET /content-manager/init#2",
+    +     "change": "2 items [{visiblePanels: [1], +1}, [1]] → 2 items [{visiblePanels: [1], +1}, [1]]",
+    +     "gapMs": 77,
+    +     "kind": "overwrote-newer",
+    +     "over": "GET /content-manager/collection-types/api::article.article/:id#1",
+    +     "overKind": "request",
+    +     "subject": "EditViewPage.state2",
+    +     "t": 3839,
+    +   },
+    + ]
+
+      22 |   void witnesses; void errors; void snap;
+      23 |   const SUBJECT = new RegExp("^EditViewPage\\.state2$");
+    > 24 |   expect(witnesses.filter((w: any) => w.kind === "overwrote-newer" && SUBJECT.test(w.subject))).toEqual([]);
+         |                                                                                                 ^
+      25 |   // TODO: also assert what the user should see, e.g.
+      26 |   // await expect(page.getByRole("listitem").first()).toContainText("...");
+      27 | });
+        at /home/user/GenClass-lib/bench/hunt/results/sample/tests/typeahead-f96.hunt.spec.mts:24:97
+
+    Error Context: ../../../test-results/typeahead-f96.hunt--admin--efc79-depend-on-response-order-G…-repeat3/error-context.md
+
+
+[5/10] typeahead-f96.hunt.spec.mts:10:1 › /admin/content-manager/collection-types/api::article.article/s709zfagowrr9dqn13s9ez14: the final state does not depend on response order (G…
+  5) typeahead-f96.hunt.spec.mts:10:1 › /admin/content-manager/collection-types/api::article.article/s709zfagowrr9dqn13s9ez14: the final state does not depend on response order (G… 
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  -  1
+    + Received  + 12
+
+    - Array []
+    + Array [
+    +   Object {
+    +     "by": "GET /content-manager/init#2",
+    +     "change": "2 items [{visiblePanels: [1], +1}, [1]] → 2 items [{visiblePanels: [1], +1}, [1]]",
+    +     "gapMs": 87,
+    +     "kind": "overwrote-newer",
+    +     "over": "GET /content-manager/collection-types/api::article.article/:id#1",
+    +     "overKind": "request",
+    +     "subject": "EditViewPage.state2",
+    +     "t": 3840,
+    +   },
+    + ]
+
+      22 |   void witnesses; void errors; void snap;
+      23 |   const SUBJECT = new RegExp("^EditViewPage\\.state2$");
+    > 24 |   expect(witnesses.filter((w: any) => w.kind === "overwrote-newer" && SUBJECT.test(w.subject))).toEqual([]);
+         |                                                                                                 ^
+      25 |   // TODO: also assert what the user should see, e.g.
+      26 |   // await expect(page.getByRole("listitem").first()).toContainText("...");
+      27 | });
+        at /home/user/GenClass-lib/bench/hunt/results/sample/tests/typeahead-f96.hunt.spec.mts:24:97
+
+    Error Context: ../../../test-results/typeahead-f96.hunt--admin--efc79-depend-on-response-order-G…-repeat4/error-context.md
+
+
+[6/10] typeahead-f96.hunt.spec.mts:10:1 › /admin/content-manager/collection-types/api::article.article/s709zfagowrr9dqn13s9ez14: the final state does not depend on response order (G…
+  6) typeahead-f96.hunt.spec.mts:10:1 › /admin/content-manager/collection-types/api::article.article/s709zfagowrr9dqn13s9ez14: the final state does not depend on response order (G… 
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  -  1
+    + Received  + 12
+
+    - Array []
+    + Array [
+    +   Object {
+    +     "by": "GET /content-manager/init#2",
+    +     "change": "2 items [{visiblePanels: [1], +1}, [1]] → 2 items [{visiblePanels: [1], +1}, [1]]",
+    +     "gapMs": 93,
+    +     "kind": "overwrote-newer",
+    +     "over": "GET /content-manager/collection-types/api::article.article/:id#1",
+    +     "overKind": "request",
+    +     "subject": "EditViewPage.state2",
+    +     "t": 4041,
+    +   },
+    + ]
+
+      22 |   void witnesses; void errors; void snap;
+      23 |   const SUBJECT = new RegExp("^EditViewPage\\.state2$");
+    > 24 |   expect(witnesses.filter((w: any) => w.kind === "overwrote-newer" && SUBJECT.test(w.subject))).toEqual([]);
+         |                                                                                                 ^
+      25 |   // TODO: also assert what the user should see, e.g.
+      26 |   // await expect(page.getByRole("listitem").first()).toContainText("...");
+      27 | });
+        at /home/user/GenClass-lib/bench/hunt/results/sample/tests/typeahead-f96.hunt.spec.mts:24:97
+
+    Error Context: ../../../test-results/typeahead-f96.hunt--admin--efc79-depend-on-response-order-G…-repeat5/error-context.md
+
+
+[7/10] typeahead-f96.hunt.spec.mts:10:1 › /admin/content-manager/collection-types/api::article.article/s709zfagowrr9dqn13s9ez14: the final state does not depend on response order (G…
+  7) typeahead-f96.hunt.spec.mts:10:1 › /admin/content-manager/collection-types/api::article.article/s709zfagowrr9dqn13s9ez14: the final state does not depend on response order (G… 
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  -  1
+    + Received  + 12
+
+    - Array []
+    + Array [
+    +   Object {
+    +     "by": "GET /content-manager/init#2",
+    +     "change": "2 items [{visiblePanels: [1], +1}, [1]] → 2 items [{visiblePanels: [1], +1}, [1]]",
+    +     "gapMs": 98,
+    +     "kind": "overwrote-newer",
+    +     "over": "GET /content-manager/collection-types/api::article.article/:id#1",
+    +     "overKind": "request",
+    +     "subject": "EditViewPage.state2",
+    +     "t": 3804,
+    +   },
+    + ]
+
+      22 |   void witnesses; void errors; void snap;
+      23 |   const SUBJECT = new RegExp("^EditViewPage\\.state2$");
+    > 24 |   expect(witnesses.filter((w: any) => w.kind === "overwrote-newer" && SUBJECT.test(w.subject))).toEqual([]);
+         |                                                                                                 ^
+      25 |   // TODO: also assert what the user should see, e.g.
+      26 |   // await expect(page.getByRole("listitem").first()).toContainText("...");
+      27 | });
+        at /home/user/GenClass-lib/bench/hunt/results/sample/tests/typeahead-f96.hunt.spec.mts:24:97
+
+    Error Context: ../../../test-results/typeahead-f96.hunt--admin--efc79-depend-on-response-order-G…-repeat6/error-context.md
+
+
+[8/10] typeahead-f96.hunt.spec.mts:10:1 › /admin/content-manager/collection-types/api::article.article/s709zfagowrr9dqn13s9ez14: the final state does not depend on response order (G…
+  8) typeahead-f96.hunt.spec.mts:10:1 › /admin/content-manager/collection-types/api::article.article/s709zfagowrr9dqn13s9ez14: the final state does not depend on response order (G… 
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  -  1
+    + Received  + 12
+
+    - Array []
+    + Array [
+    +   Object {
+    +     "by": "GET /content-manager/init#2",
+    +     "change": "2 items [{visiblePanels: [1], +1}, [1]] → 2 items [{visiblePanels: [1], +1}, [1]]",
+    +     "gapMs": 79,
+    +     "kind": "overwrote-newer",
+    +     "over": "GET /content-manager/collection-types/api::article.article/:id#1",
+    +     "overKind": "request",
+    +     "subject": "EditViewPage.state2",
+    +     "t": 3802,
+    +   },
+    + ]
+
+      22 |   void witnesses; void errors; void snap;
+      23 |   const SUBJECT = new RegExp("^EditViewPage\\.state2$");
+    > 24 |   expect(witnesses.filter((w: any) => w.kind === "overwrote-newer" && SUBJECT.test(w.subject))).toEqual([]);
+         |                                                                                                 ^
+      25 |   // TODO: also assert what the user should see, e.g.
+      26 |   // await expect(page.getByRole("listitem").first()).toContainText("...");
+      27 | });
+        at /home/user/GenClass-lib/bench/hunt/results/sample/tests/typeahead-f96.hunt.spec.mts:24:97
+
+    Error Context: ../../../test-results/typeahead-f96.hunt--admin--efc79-depend-on-response-order-G…-repeat7/error-context.md
+
+
+[9/10] typeahead-f96.hunt.spec.mts:10:1 › /admin/content-manager/collection-types/api::article.article/s709zfagowrr9dqn13s9ez14: the final state does not depend on response order (G…
+  9) typeahead-f96.hunt.spec.mts:10:1 › /admin/content-manager/collection-types/api::article.article/s709zfagowrr9dqn13s9ez14: the final state does not depend on response order (G… 
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  -  1
+    + Received  + 12
+
+    - Array []
+    + Array [
+    +   Object {
+    +     "by": "GET /content-manager/init#2",
+    +     "change": "2 items [{visiblePanels: [1], +1}, [1]] → 2 items [{visiblePanels: [1], +1}, [1]]",
+    +     "gapMs": 106,
+    +     "kind": "overwrote-newer",
+    +     "over": "GET /content-manager/collection-types/api::article.article/:id#1",
+    +     "overKind": "request",
+    +     "subject": "EditViewPage.state2",
+    +     "t": 3828,
+    +   },
+    + ]
+
+      22 |   void witnesses; void errors; void snap;
+      23 |   const SUBJECT = new RegExp("^EditViewPage\\.state2$");
+    > 24 |   expect(witnesses.filter((w: any) => w.kind === "overwrote-newer" && SUBJECT.test(w.subject))).toEqual([]);
+         |                                                                                                 ^
+      25 |   // TODO: also assert what the user should see, e.g.
+      26 |   // await expect(page.getByRole("listitem").first()).toContainText("...");
+      27 | });
+        at /home/user/GenClass-lib/bench/hunt/results/sample/tests/typeahead-f96.hunt.spec.mts:24:97
+
+    Error Context: ../../../test-results/typeahead-f96.hunt--admin--efc79-depend-on-response-order-G…-repeat8/error-context.md
+
+
+[10/10] typeahead-f96.hunt.spec.mts:10:1 › /admin/content-manager/collection-types/api::article.article/s709zfagowrr9dqn13s9ez14: the final state does not depend on response order (G…
+  10) typeahead-f96.hunt.spec.mts:10:1 › /admin/content-manager/collection-types/api::article.article/s709zfagowrr9dqn13s9ez14: the final state does not depend on response order (G… 
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  -  1
+    + Received  + 12
+
+    - Array []
+    + Array [
+    +   Object {
+    +     "by": "GET /content-manager/init#2",
+    +     "change": "2 items [{visiblePanels: [1], +1}, [1]] → 2 items [{visiblePanels: [1], +1}, [1]]",
+    +     "gapMs": 88,
+    +     "kind": "overwrote-newer",
+    +     "over": "GET /content-manager/collection-types/api::article.article/:id#1",
+    +     "overKind": "request",
+    +     "subject": "EditViewPage.state2",
+    +     "t": 3821,
+    +   },
+    + ]
+
+      22 |   void witnesses; void errors; void snap;
+      23 |   const SUBJECT = new RegExp("^EditViewPage\\.state2$");
+    > 24 |   expect(witnesses.filter((w: any) => w.kind === "overwrote-newer" && SUBJECT.test(w.subject))).toEqual([]);
+         |                                                                                                 ^
+      25 |   // TODO: also assert what the user should see, e.g.
+      26 |   // await expect(page.getByRole("listitem").first()).toContainText("...");
+      27 | });
+        at /home/user/GenClass-lib/bench/hunt/results/sample/tests/typeahead-f96.hunt.spec.mts:24:97
+
+    Error Context: ../../../test-results/typeahead-f96.hunt--admin--efc79-depend-on-response-order-G…-repeat9/error-context.md
+
+
+  10 failed
+    typeahead-f96.hunt.spec.mts:10:1 › /admin/content-manager/collection-types/api::article.article/s709zfagowrr9dqn13s9ez14: the final state does not depend on response order (G… 
+    typeahead-f96.hunt.spec.mts:10:1 › /admin/content-manager/collection-types/api::article.article/s709zfagowrr9dqn13s9ez14: the final state does not depend on response order (G… 
+    typeahead-f96.hunt.spec.mts:10:1 › /admin/content-manager/collection-types/api::article.article/s709zfagowrr9dqn13s9ez14: the final state does not depend on response order (G… 
+    typeahead-f96.hunt.spec.mts:10:1 › /admin/content-manager/collection-types/api::article.article/s709zfagowrr9dqn13s9ez14: the final state does not depend on response order (G… 
+    typeahead-f96.hunt.spec.mts:10:1 › /admin/content-manager/collection-types/api::article.article/s709zfagowrr9dqn13s9ez14: the final state does not depend on response order (G… 
+    typeahead-f96.hunt.spec.mts:10:1 › /admin/content-manager/collection-types/api::article.article/s709zfagowrr9dqn13s9ez14: the final state does not depend on response order (G… 
+    typeahead-f96.hunt.spec.mts:10:1 › /admin/content-manager/collection-types/api::article.article/s709zfagowrr9dqn13s9ez14: the final state does not depend on response order (G… 
+    typeahead-f96.hunt.spec.mts:10:1 › /admin/content-manager/collection-types/api::article.article/s709zfagowrr9dqn13s9ez14: the final state does not depend on response order (G… 
+    typeahead-f96.hunt.spec.mts:10:1 › /admin/content-manager/collection-types/api::article.article/s709zfagowrr9dqn13s9ez14: the final state does not depend on response order (G… 
+    typeahead-f96.hunt.spec.mts:10:1 › /admin/content-manager/collection-types/api::article.article/s709zfagowrr9dqn13s9ez14: the final state does not depend on response order (G… 

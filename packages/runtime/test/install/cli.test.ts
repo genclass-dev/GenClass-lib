@@ -903,6 +903,10 @@ describe("init: app token and private dashboard link (fetch mocked; never the re
     expect(files[".gitignore"]).toBe("node_modules\n.genclass.local\n");
     expect(r.out).toContain(LINK);
     expect(r.out).toContain("keep this link private; it is the only way to open your dashboard".replace(/^k/, "K"));
+    // analytics are free: the notice says so and how to get the link again, never that it needs Pro or a trial
+    expect(r.out).toContain("Free for every app");
+    expect(r.out).toContain("npx @genclass/runtime dashboard");
+    expect(r.out).not.toMatch(/needs\s+Pro|free trial|trial for analytics/i);
     // again: the token is already there, no network, nothing to do
     const r2 = cliEnv({ GENCLASS_TEST_FETCH: "ok", GENCLASS_TEST_FETCH_LOG: log }, dir, "init", "--yes", "--no-install");
     expect(r2.code, r2.out).toBe(0);

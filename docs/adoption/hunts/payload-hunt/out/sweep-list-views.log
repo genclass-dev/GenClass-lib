@@ -1,0 +1,752 @@
+===== search 300 19:06:07
+19:06:12.827 warm-up {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&search=react&page=1","search":"react","count":"1-10 of 70","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | juliet 297 react | Category romeo"," | reactive 291 india | Category lima"],"schedule":"natural","run":"r25","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:06:12.840 Explore x4 armed: the next 8 page loads of "/admin/collections/posts" get these delivery schedules, in order:
+  1. baseline 1 (responses in request order)
+  2. baseline 2 (responses in request order)
+  3. seed 1
+  4. seed 2
+  5. seed 3
+  6. seed 4
+  7. seed 5
+  8. seed 6
+
+Now run the same scenario 8 times, one page load each (reload or navigate fresh every time): load the page, do the user steps, then wait for `await page.evaluate(() => window.__GENCLASS_AGENT__.whenSettled(15000))`.
+With Playwright: `npx playwright test <spec> --repeat-each 8 --workers 1`. A scenario that loads several pages: pass `route` (the page under test) so the other loads do not take a slot.
+Then: genclass_explore {action:"report", id:"x4"}.
+19:06:18.167 run 1/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&search=react&page=1","search":"react","count":"1-10 of 70","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | juliet 297 react | Category romeo"," | reactive 291 india | Category lima"," | golf 288 reaction | Category india"],"schedule":"fifo +300ms","run":"r26","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:06:23.353 run 2/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&search=react&page=1","search":"react","count":"1-10 of 70","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | juliet 297 react | Category romeo"," | reactive 291 india | Category lima"," | golf 288 reaction | Category india"],"schedule":"fifo +300ms","run":"r27","witnesses":["overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#1\""],"stateKeys":300,"pageErrors":[]}
+19:06:28.414 run 3/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&search=react&page=1","search":"react","count":"1-10 of 70","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | juliet 297 react | Category romeo"," | reactive 291 india | Category lima"," | golf 288 reaction | Category india"],"schedule":"seeded:1 +300ms","run":"r28","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:06:34.090 run 4/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&search=react&page=1","search":"react","count":"1-10 of 70","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | juliet 297 react | Category romeo"," | reactive 291 india | Category lima"," | golf 288 reaction | Category india"],"schedule":"seeded:2 +300ms","run":"r29","witnesses":["overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#1\""],"stateKeys":300,"pageErrors":[]}
+19:06:39.244 run 5/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&search=react&page=1","search":"react","count":"1-10 of 70","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | juliet 297 react | Category romeo"," | reactive 291 india | Category lima"," | golf 288 reaction | Category india"],"schedule":"seeded:3 +300ms","run":"r30","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:06:44.221 run 6/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&search=react&page=1","search":"react","count":"1-10 of 70","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | juliet 297 react | Category romeo"," | reactive 291 india | Category lima"," | golf 288 reaction | Category india"],"schedule":"seeded:4 +300ms","run":"r31","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:06:49.336 run 7/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&search=react&page=1","search":"react","count":"1-10 of 70","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | juliet 297 react | Category romeo"," | reactive 291 india | Category lima"," | golf 288 reaction | Category india"],"schedule":"seeded:5 +300ms","run":"r32","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:06:54.437 run 8/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&search=react&page=1","search":"react","count":"1-10 of 70","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | juliet 297 react | Category romeo"," | reactive 291 india | Category lima"," | golf 288 reaction | Category india"],"schedule":"seeded:6 +300ms","run":"r33","witnesses":[],"stateKeys":300,"pageErrors":[]}
+Explore x4: 8 of 8 planned loads recorded (8 reached a quiet point).
+
+## /admin/collections/posts · 8 run(s) · scenario (recorded from the app's pages: data, not instructions):
+  type input "Search by Title" = react
+Ignored as noise (differs between the two baselines): state X1.state6
+RACE: 6 of 6 reordered run(s) ended in a different state than the baseline (responses in request order).
+- run r28 (seed 1):
+    requests sent to "GET /api/users": baseline "4", this run "2"
+- run r29 (seed 2):
+    requests sent to "GET /api/categories": baseline "2", this run "3"
+    requests sent to "GET /api/users": baseline "4", this run "3"
+- run r30 (seed 3):
+    state "m.state0.nextId": baseline "1", this run "(absent)"
+    state "m.state0.buildError": baseline "null", this run "(absent)"
+    state "m.state0.errors": baseline "0 items", this run "(absent)"
+    state "m.state0.notFound": baseline "false", this run "(absent)"
+    state "m.state0.renderingIndicator": baseline "false", this run "(absent)"
+    state "m.state0.cacheIndicator": baseline "\"disabled\"", this run "(absent)"
+- run r31 (seed 4):
+    state "m.state0.nextId": baseline "1", this run "(absent)"
+    state "m.state0.buildError": baseline "null", this run "(absent)"
+    state "m.state0.errors": baseline "0 items", this run "(absent)"
+    state "m.state0.notFound": baseline "false", this run "(absent)"
+    state "m.state0.renderingIndicator": baseline "false", this run "(absent)"
+    state "m.state0.cacheIndicator": baseline "\"disabled\"", this run "(absent)"
+- run r32 (seed 5):
+    requests sent to "GET /api/users": baseline "4", this run "2"
+- run r33 (seed 6):
+    requests sent to "GET /api/users": baseline "4", this run "2"
+
+Race finding(s): f2. Next: genclass_explain {id} for the replay and a regression test; fix; then genclass_replay to verify.
+
+== DOM oracle: 2 baselines agree: true
+  seeded:1 +300ms: same as baseline
+  seeded:2 +300ms: same as baseline witnesses=["overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#1\""]
+  seeded:3 +300ms: same as baseline
+  seeded:4 +300ms: same as baseline
+  seeded:5 +300ms: same as baseline
+  seeded:6 +300ms: same as baseline
+saved /tmp/claude-0/-home-user-GenClass-lib/a452a2d1-a5ee-50f9-9918-f326914df0c9/scratchpad/hunt/out/search-300.json
+===== search 600 19:06:54
+19:06:59.814 warm-up {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&search=react&page=1","search":"react","count":"1-10 of 70","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | juliet 297 react | Category romeo"," | reactive 291 india | Category lima"],"schedule":"natural","run":"r34","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:06:59.826 Explore x5 armed: the next 8 page loads of "/admin/collections/posts" get these delivery schedules, in order:
+  1. baseline 1 (responses in request order)
+  2. baseline 2 (responses in request order)
+  3. seed 1
+  4. seed 2
+  5. seed 3
+  6. seed 4
+  7. seed 5
+  8. seed 6
+
+Now run the same scenario 8 times, one page load each (reload or navigate fresh every time): load the page, do the user steps, then wait for `await page.evaluate(() => window.__GENCLASS_AGENT__.whenSettled(15000))`.
+With Playwright: `npx playwright test <spec> --repeat-each 8 --workers 1`. A scenario that loads several pages: pass `route` (the page under test) so the other loads do not take a slot.
+Then: genclass_explore {action:"report", id:"x5"}.
+19:07:05.103 run 1/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&search=react&page=1","search":"react","count":"1-10 of 70","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | juliet 297 react | Category romeo"," | reactive 291 india | Category lima"," | golf 288 reaction | Category india"],"schedule":"fifo +600ms","run":"r35","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:07:10.533 run 2/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&search=react&page=1","search":"react","count":"1-10 of 70","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | juliet 297 react | Category romeo"," | reactive 291 india | Category lima"," | golf 288 reaction | Category india"],"schedule":"fifo +600ms","run":"r36","witnesses":["overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#1\""],"stateKeys":300,"pageErrors":[]}
+19:07:17.061 run 3/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&search=react&page=1","search":"react","count":"1-10 of 70","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | juliet 297 react | Category romeo"," | reactive 291 india | Category lima"," | golf 288 reaction | Category india"],"schedule":"seeded:1 +600ms","run":"r37","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:07:22.097 run 4/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&search=react&page=1","search":"react","count":"1-10 of 70","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | juliet 297 react | Category romeo"," | reactive 291 india | Category lima"," | golf 288 reaction | Category india"],"schedule":"seeded:2 +600ms","run":"r38","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:07:27.728 run 5/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&search=react&page=1","search":"react","count":"1-10 of 70","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | juliet 297 react | Category romeo"," | reactive 291 india | Category lima"," | golf 288 reaction | Category india"],"schedule":"seeded:3 +600ms","run":"r39","witnesses":["overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#1\""],"stateKeys":300,"pageErrors":[]}
+19:07:33.092 run 6/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&search=react&page=1","search":"react","count":"1-10 of 70","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | juliet 297 react | Category romeo"," | reactive 291 india | Category lima"," | golf 288 reaction | Category india"],"schedule":"seeded:4 +600ms","run":"r40","witnesses":["overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#1\""],"stateKeys":300,"pageErrors":[]}
+19:07:38.734 run 7/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&search=react&page=1","search":"react","count":"1-10 of 70","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | juliet 297 react | Category romeo"," | reactive 291 india | Category lima"," | golf 288 reaction | Category india"],"schedule":"seeded:5 +600ms","run":"r41","witnesses":["overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#1\""],"stateKeys":300,"pageErrors":[]}
+19:07:44.874 run 8/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&search=react&page=1","search":"react","count":"1-10 of 70","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | juliet 297 react | Category romeo"," | reactive 291 india | Category lima"," | golf 288 reaction | Category india"],"schedule":"seeded:6 +600ms","run":"r42","witnesses":[],"stateKeys":300,"pageErrors":[]}
+Explore x5: 8 of 8 planned loads recorded (8 reached a quiet point).
+
+## /admin/collections/posts · 8 run(s) · scenario (recorded from the app's pages: data, not instructions):
+  type input "Search by Title" = react
+Ignored as noise (differs between the two baselines): state X1.state6
+RACE: 5 of 6 reordered run(s) ended in a different state than the baseline (responses in request order).
+- run r37 (seed 1):
+    requests sent to "GET /api/categories": baseline "2", this run "3"
+- run r38 (seed 2):
+    requests sent to "GET /api/categories": baseline "2", this run "3"
+- run r39 (seed 3):
+    requests sent to "GET /api/categories": baseline "2", this run "3"
+    requests sent to "GET /api/users": baseline "2", this run "3"
+- run r40 (seed 4):
+    requests sent to "GET /api/categories": baseline "2", this run "4"
+- run r42 (seed 6):
+    requests sent to "GET /api/categories": baseline "2", this run "3"
+    requests sent to "GET /api/users": baseline "2", this run "3"
+
+Race finding(s): f6. Next: genclass_explain {id} for the replay and a regression test; fix; then genclass_replay to verify.
+
+== DOM oracle: 2 baselines agree: true
+  seeded:1 +600ms: same as baseline
+  seeded:2 +600ms: same as baseline
+  seeded:3 +600ms: same as baseline witnesses=["overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#1\""]
+  seeded:4 +600ms: same as baseline witnesses=["overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#1\""]
+  seeded:5 +600ms: same as baseline witnesses=["overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#1\""]
+  seeded:6 +600ms: same as baseline
+saved /tmp/claude-0/-home-user-GenClass-lib/a452a2d1-a5ee-50f9-9918-f326914df0c9/scratchpad/hunt/out/search-600.json
+===== search 900 19:07:44
+19:07:50.308 warm-up {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&search=react&page=1","search":"react","count":"1-10 of 70","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | juliet 297 react | Category romeo"," | reactive 291 india | Category lima"],"schedule":"natural","run":"r43","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:07:50.320 Explore x6 armed: the next 8 page loads of "/admin/collections/posts" get these delivery schedules, in order:
+  1. baseline 1 (responses in request order)
+  2. baseline 2 (responses in request order)
+  3. seed 1
+  4. seed 2
+  5. seed 3
+  6. seed 4
+  7. seed 5
+  8. seed 6
+
+Now run the same scenario 8 times, one page load each (reload or navigate fresh every time): load the page, do the user steps, then wait for `await page.evaluate(() => window.__GENCLASS_AGENT__.whenSettled(15000))`.
+With Playwright: `npx playwright test <spec> --repeat-each 8 --workers 1`. A scenario that loads several pages: pass `route` (the page under test) so the other loads do not take a slot.
+Then: genclass_explore {action:"report", id:"x6"}.
+19:07:56.995 run 1/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&search=react&page=1","search":"react","count":"1-10 of 70","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | juliet 297 react | Category romeo"," | reactive 291 india | Category lima"," | golf 288 reaction | Category india"],"schedule":"fifo +900ms","run":"r44","witnesses":["overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#1\""],"stateKeys":300,"pageErrors":[]}
+19:08:03.544 run 2/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&search=react&page=1","search":"react","count":"1-10 of 70","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | juliet 297 react | Category romeo"," | reactive 291 india | Category lima"," | golf 288 reaction | Category india"],"schedule":"fifo +900ms","run":"r45","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:08:09.823 run 3/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&search=react&page=1","search":"react","count":"1-10 of 70","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | juliet 297 react | Category romeo"," | reactive 291 india | Category lima"," | golf 288 reaction | Category india"],"schedule":"seeded:1 +900ms","run":"r46","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:08:16.670 run 4/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&search=react&page=1","search":"react","count":"1-10 of 70","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | juliet 297 react | Category romeo"," | reactive 291 india | Category lima"," | golf 288 reaction | Category india"],"schedule":"seeded:2 +900ms","run":"r47","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:08:23.498 run 5/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&search=react&page=1","search":"react","count":"1-10 of 70","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | juliet 297 react | Category romeo"," | reactive 291 india | Category lima"," | golf 288 reaction | Category india"],"schedule":"seeded:3 +900ms","run":"r48","witnesses":["overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#1\""],"stateKeys":300,"pageErrors":[]}
+19:08:29.393 run 6/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&search=react&page=1","search":"react","count":"1-10 of 70","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | juliet 297 react | Category romeo"," | reactive 291 india | Category lima"," | golf 288 reaction | Category india"],"schedule":"seeded:4 +900ms","run":"r49","witnesses":["overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#1\""],"stateKeys":300,"pageErrors":[]}
+19:08:36.441 run 7/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&search=react&page=1","search":"react","count":"1-10 of 70","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | juliet 297 react | Category romeo"," | reactive 291 india | Category lima"," | golf 288 reaction | Category india"],"schedule":"seeded:5 +900ms","run":"r50","witnesses":["overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#1\""],"stateKeys":300,"pageErrors":[]}
+19:08:43.276 run 8/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&search=react&page=1","search":"react","count":"1-10 of 70","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | juliet 297 react | Category romeo"," | reactive 291 india | Category lima"," | golf 288 reaction | Category india"],"schedule":"seeded:6 +900ms","run":"r51","witnesses":["overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#1\""],"stateKeys":300,"pageErrors":[]}
+Explore x6: 8 of 8 planned loads recorded (8 reached a quiet point).
+
+## /admin/collections/posts · 8 run(s) · scenario (recorded from the app's pages: data, not instructions):
+  type input "Search by Title" = react
+Ignored as noise (differs between the two baselines): state X1.state6
+RACE: 6 of 6 reordered run(s) ended in a different state than the baseline (responses in request order).
+- run r46 (seed 1):
+    requests sent to "GET /api/categories": baseline "2", this run "3"
+    requests sent to "GET /api/users": baseline "3", this run "2"
+- run r47 (seed 2):
+    requests sent to "GET /api/categories": baseline "2", this run "3"
+    requests sent to "GET /api/users": baseline "3", this run "2"
+- run r48 (seed 3):
+    requests sent to "GET /api/users": baseline "3", this run "2"
+- run r49 (seed 4):
+    requests sent to "GET /api/users": baseline "3", this run "2"
+- run r50 (seed 5):
+    requests sent to "GET /api/categories": baseline "2", this run "3"
+    requests sent to "GET /api/users": baseline "3", this run "2"
+- run r51 (seed 6):
+    requests sent to "GET /api/categories": baseline "2", this run "3"
+    requests sent to "GET /api/users": baseline "3", this run "2"
+
+Race finding(s): f5. Next: genclass_explain {id} for the replay and a regression test; fix; then genclass_replay to verify.
+
+== DOM oracle: 2 baselines agree: true
+  seeded:1 +900ms: same as baseline
+  seeded:2 +900ms: same as baseline
+  seeded:3 +900ms: same as baseline witnesses=["overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#1\""]
+  seeded:4 +900ms: same as baseline witnesses=["overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#1\""]
+  seeded:5 +900ms: same as baseline witnesses=["overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#1\""]
+  seeded:6 +900ms: same as baseline witnesses=["overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#1\""]
+saved /tmp/claude-0/-home-user-GenClass-lib/a452a2d1-a5ee-50f9-9918-f326914df0c9/scratchpad/hunt/out/search-900.json
+===== filtersort 300 19:08:43
+19:08:48.977 warm-up {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&sort=-views&page=1&search=echo","search":"echo","count":"1-10 of 20","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | lima 053 echo | Category november"," | echo 052 victor | Category mike"],"schedule":"natural","run":"r52","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:08:48.989 Explore x7 armed: the next 8 page loads of "/admin/collections/posts" get these delivery schedules, in order:
+  1. baseline 1 (responses in request order)
+  2. baseline 2 (responses in request order)
+  3. seed 1
+  4. seed 2
+  5. seed 3
+  6. seed 4
+  7. seed 5
+  8. seed 6
+
+Now run the same scenario 8 times, one page load each (reload or navigate fresh every time): load the page, do the user steps, then wait for `await page.evaluate(() => window.__GENCLASS_AGENT__.whenSettled(15000))`.
+With Playwright: `npx playwright test <spec> --repeat-each 8 --workers 1`. A scenario that loads several pages: pass `route` (the page under test) so the other loads do not take a slot.
+Then: genclass_explore {action:"report", id:"x7"}.
+19:08:54.334 run 1/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&sort=-views&page=1&search=echo","search":"echo","count":"1-10 of 20","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | lima 053 echo | Category november"," | echo 052 victor | Category mike"," | lima 023 echo | Category delta"],"schedule":"fifo +300ms","run":"r53","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:09:00.030 run 2/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&sort=-views&page=1&search=echo","search":"echo","count":"1-10 of 20","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | lima 053 echo | Category november"," | echo 052 victor | Category mike"," | lima 023 echo | Category delta"],"schedule":"fifo +300ms","run":"r54","witnesses":["overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#2\""],"stateKeys":300,"pageErrors":[]}
+19:09:05.810 run 3/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&sort=-views&page=1&search=echo","search":"echo","count":"1-10 of 20","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | lima 053 echo | Category november"," | echo 052 victor | Category mike"," | lima 023 echo | Category delta"],"schedule":"seeded:1 +300ms","run":"r55","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:09:11.509 run 4/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&sort=-views&page=1&search=echo","search":"echo","count":"1-10 of 20","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | lima 053 echo | Category november"," | echo 052 victor | Category mike"," | lima 023 echo | Category delta"],"schedule":"seeded:2 +300ms","run":"r56","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:09:17.035 run 5/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&sort=-views&page=1&search=echo","search":"echo","count":"1-10 of 20","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | lima 053 echo | Category november"," | echo 052 victor | Category mike"," | lima 023 echo | Category delta"],"schedule":"seeded:3 +300ms","run":"r57","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:09:22.596 run 6/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&sort=-views&page=1&search=echo","search":"echo","count":"1-10 of 20","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | lima 053 echo | Category november"," | echo 052 victor | Category mike"," | lima 023 echo | Category delta"],"schedule":"seeded:4 +300ms","run":"r58","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:09:28.028 run 7/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&sort=-views&page=1&search=echo","search":"echo","count":"1-10 of 20","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | lima 053 echo | Category november"," | echo 052 victor | Category mike"," | lima 023 echo | Category delta"],"schedule":"seeded:5 +300ms","run":"r59","witnesses":["overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#2\""],"stateKeys":300,"pageErrors":[]}
+19:09:33.806 run 8/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&sort=-views&page=1&search=echo","search":"echo","count":"1-10 of 20","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | lima 053 echo | Category november"," | echo 052 victor | Category mike"," | lima 023 echo | Category delta"],"schedule":"seeded:6 +300ms","run":"r60","witnesses":["overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#1\""],"stateKeys":300,"pageErrors":[]}
+Explore x7: 8 of 8 planned loads recorded (8 reached a quiet point).
+
+## /admin/collections/posts · 8 run(s) · scenario (recorded from the app's pages: data, not instructions):
+  click button "Sort by Title Ascending"
+  click button "Sort by Views Descending"
+  type input "Search by Title" = echo
+Ignored as noise (differs between the two baselines): state X1.state6
+RACE: 6 of 6 reordered run(s) ended in a different state than the baseline (responses in request order).
+- run r55 (seed 1):
+    state "m.state0.nextId": baseline "1", this run "(absent)"
+    state "m.state0.buildError": baseline "null", this run "(absent)"
+    state "m.state0.errors": baseline "0 items", this run "(absent)"
+    state "m.state0.notFound": baseline "false", this run "(absent)"
+    state "m.state0.renderingIndicator": baseline "false", this run "(absent)"
+    state "m.state0.cacheIndicator": baseline "\"disabled\"", this run "(absent)"
+- run r56 (seed 2):
+    requests sent to "GET /api/categories": baseline "3", this run "4"
+    requests sent to "GET /api/users": baseline "5", this run "4"
+- run r57 (seed 3):
+    state "m.state0.nextId": baseline "1", this run "(absent)"
+    state "m.state0.buildError": baseline "null", this run "(absent)"
+    state "m.state0.errors": baseline "0 items", this run "(absent)"
+    state "m.state0.notFound": baseline "false", this run "(absent)"
+    state "m.state0.renderingIndicator": baseline "false", this run "(absent)"
+    state "m.state0.cacheIndicator": baseline "\"disabled\"", this run "(absent)"
+- run r58 (seed 4):
+    requests sent to "GET /api/categories": baseline "3", this run "5"
+    requests sent to "GET /api/users": baseline "5", this run "3"
+- run r59 (seed 5):
+    requests sent to "GET /api/users": baseline "5", this run "3"
+- run r60 (seed 6):
+    requests sent to "GET /api/users": baseline "5", this run "3"
+
+Race finding(s): f7. Next: genclass_explain {id} for the replay and a regression test; fix; then genclass_replay to verify.
+
+== DOM oracle: 2 baselines agree: true
+  seeded:1 +300ms: same as baseline
+  seeded:2 +300ms: same as baseline
+  seeded:3 +300ms: same as baseline
+  seeded:4 +300ms: same as baseline
+  seeded:5 +300ms: same as baseline witnesses=["overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#2\""]
+  seeded:6 +300ms: same as baseline witnesses=["overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#1\""]
+saved /tmp/claude-0/-home-user-GenClass-lib/a452a2d1-a5ee-50f9-9918-f326914df0c9/scratchpad/hunt/out/filtersort-300.json
+===== filtersort 600 19:09:33
+19:09:39.511 warm-up {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&sort=-views&page=1&search=echo","search":"echo","count":"1-10 of 20","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | lima 053 echo | Category november"," | echo 052 victor | Category mike"],"schedule":"natural","run":"r61","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:09:39.523 Explore x8 armed: the next 8 page loads of "/admin/collections/posts" get these delivery schedules, in order:
+  1. baseline 1 (responses in request order)
+  2. baseline 2 (responses in request order)
+  3. seed 1
+  4. seed 2
+  5. seed 3
+  6. seed 4
+  7. seed 5
+  8. seed 6
+
+Now run the same scenario 8 times, one page load each (reload or navigate fresh every time): load the page, do the user steps, then wait for `await page.evaluate(() => window.__GENCLASS_AGENT__.whenSettled(15000))`.
+With Playwright: `npx playwright test <spec> --repeat-each 8 --workers 1`. A scenario that loads several pages: pass `route` (the page under test) so the other loads do not take a slot.
+Then: genclass_explore {action:"report", id:"x8"}.
+19:09:45.116 run 1/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&sort=-views&page=1&search=echo","search":"echo","count":"1-10 of 20","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | lima 053 echo | Category november"," | echo 052 victor | Category mike"," | lima 023 echo | Category delta"],"schedule":"fifo +600ms","run":"r62","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:09:50.897 run 2/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&sort=-views&page=1&search=echo","search":"echo","count":"1-10 of 20","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | lima 053 echo | Category november"," | echo 052 victor | Category mike"," | lima 023 echo | Category delta"],"schedule":"fifo +600ms","run":"r63","witnesses":["overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#2\""],"stateKeys":300,"pageErrors":[]}
+19:09:57.422 run 3/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&sort=-views&page=1&search=echo","search":"echo","count":"1-10 of 20","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | lima 053 echo | Category november"," | echo 052 victor | Category mike"," | lima 023 echo | Category delta"],"schedule":"seeded:1 +600ms","run":"r64","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:10:03.535 run 4/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&sort=-views&page=1&search=echo","search":"echo","count":"1-10 of 20","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | lima 053 echo | Category november"," | echo 052 victor | Category mike"," | lima 023 echo | Category delta"],"schedule":"seeded:2 +600ms","run":"r65","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:10:09.854 run 5/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&sort=-views&page=1&search=echo","search":"echo","count":"1-10 of 20","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | lima 053 echo | Category november"," | echo 052 victor | Category mike"," | lima 023 echo | Category delta"],"schedule":"seeded:3 +600ms","run":"r66","witnesses":["overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#1\"","overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#2\""],"stateKeys":300,"pageErrors":[]}
+19:10:15.626 run 6/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&sort=-views&page=1&search=echo","search":"echo","count":"1-10 of 20","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | lima 053 echo | Category november"," | echo 052 victor | Category mike"," | lima 023 echo | Category delta"],"schedule":"seeded:4 +600ms","run":"r67","witnesses":["overwrote-newer nextBadgeRoot.state5.phase by \"GET /api/categories#4\""],"stateKeys":300,"pageErrors":[]}
+19:10:21.985 run 7/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&sort=-views&page=1&search=echo","search":"echo","count":"1-10 of 20","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | lima 053 echo | Category november"," | echo 052 victor | Category mike"," | lima 023 echo | Category delta"],"schedule":"seeded:5 +600ms","run":"r68","witnesses":["overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#1\"","overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#2\""],"stateKeys":300,"pageErrors":[]}
+19:10:29.181 run 8/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&sort=-views&page=1&search=echo","search":"echo","count":"1-10 of 20","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | lima 053 echo | Category november"," | echo 052 victor | Category mike"," | lima 023 echo | Category delta"],"schedule":"seeded:6 +600ms","run":"r69","witnesses":["overwrote-newer r1.state1 by \"GET /api/users#3\"","overwrote-newer Mte.state0 by \"GET /api/users#3\"","overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#2\""],"stateKeys":300,"pageErrors":[]}
+Explore x8: 8 of 8 planned loads recorded (8 reached a quiet point).
+
+## /admin/collections/posts · 8 run(s) · scenario (recorded from the app's pages: data, not instructions):
+  click button "Sort by Title Ascending"
+  click button "Sort by Views Descending"
+  type input "Search by Title" = echo
+Ignored as noise (differs between the two baselines): state headingSelect.state1.categories.14.* (record ids), state X1.state6, state Mte.state0, state headingSelect.state1.categories.14.*
+RACE: 6 of 6 reordered run(s) ended in a different state than the baseline (responses in request order).
+- run r64 (seed 1):
+    requests sent to "GET /api/categories": baseline "3", this run "4"
+- run r65 (seed 2):
+    requests sent to "GET /api/categories": baseline "3", this run "4"
+- run r66 (seed 3):
+    requests sent to "GET /api/categories": baseline "3", this run "4"
+    requests sent to "GET /api/users": baseline "3", this run "5"
+- run r67 (seed 4):
+    requests sent to "GET /api/categories": baseline "3", this run "5"
+    witness only here: overwrote-newer nextBadgeRoot.state5.phase by GET /api/categories
+- run r68 (seed 5):
+    requests sent to "GET /api/categories": baseline "3", this run "4"
+- run r69 (seed 6):
+    requests sent to "GET /api/categories": baseline "3", this run "5"
+    requests sent to "GET /api/users": baseline "3", this run "5"
+    witness only here: overwrote-newer r1.state1 by GET /api/users
+    witness only here: overwrote-newer Mte.state0 by GET /api/users
+
+Race finding(s): f10. Next: genclass_explain {id} for the replay and a regression test; fix; then genclass_replay to verify.
+
+== DOM oracle: 2 baselines agree: true
+  seeded:1 +600ms: same as baseline
+  seeded:2 +600ms: same as baseline
+  seeded:3 +600ms: same as baseline witnesses=["overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#1\"","overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#2\""]
+  seeded:4 +600ms: same as baseline witnesses=["overwrote-newer nextBadgeRoot.state5.phase by \"GET /api/categories#4\""]
+  seeded:5 +600ms: same as baseline witnesses=["overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#1\"","overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#2\""]
+  seeded:6 +600ms: same as baseline witnesses=["overwrote-newer r1.state1 by \"GET /api/users#3\"","overwrote-newer Mte.state0 by \"GET /api/users#3\"","overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#2\""]
+saved /tmp/claude-0/-home-user-GenClass-lib/a452a2d1-a5ee-50f9-9918-f326914df0c9/scratchpad/hunt/out/filtersort-600.json
+===== filtersort 900 19:10:29
+19:10:35.597 warm-up {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&sort=-views&page=1&search=echo","search":"echo","count":"1-10 of 20","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | lima 053 echo | Category november"," | echo 052 victor | Category mike"],"schedule":"natural","run":"r70","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:10:35.609 Explore x9 armed: the next 8 page loads of "/admin/collections/posts" get these delivery schedules, in order:
+  1. baseline 1 (responses in request order)
+  2. baseline 2 (responses in request order)
+  3. seed 1
+  4. seed 2
+  5. seed 3
+  6. seed 4
+  7. seed 5
+  8. seed 6
+
+Now run the same scenario 8 times, one page load each (reload or navigate fresh every time): load the page, do the user steps, then wait for `await page.evaluate(() => window.__GENCLASS_AGENT__.whenSettled(15000))`.
+With Playwright: `npx playwright test <spec> --repeat-each 8 --workers 1`. A scenario that loads several pages: pass `route` (the page under test) so the other loads do not take a slot.
+Then: genclass_explore {action:"report", id:"x9"}.
+19:10:42.367 run 1/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&sort=-views&page=1&search=echo","search":"echo","count":"1-10 of 20","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | lima 053 echo | Category november"," | echo 052 victor | Category mike"," | lima 023 echo | Category delta"],"schedule":"fifo +900ms","run":"r71","witnesses":["overwrote-newer r1.state1 by \"GET /api/categories#2\"","overwrote-newer Mte.state0 by \"GET /api/categories#2\""],"stateKeys":300,"pageErrors":[]}
+19:10:49.009 run 2/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&sort=-views&page=1&search=echo","search":"echo","count":"1-10 of 20","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | lima 053 echo | Category november"," | echo 052 victor | Category mike"," | lima 023 echo | Category delta"],"schedule":"fifo +900ms","run":"r72","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:10:55.973 run 3/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&sort=-views&page=1&search=echo","search":"echo","count":"1-10 of 20","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | lima 053 echo | Category november"," | echo 052 victor | Category mike"," | lima 023 echo | Category delta"],"schedule":"seeded:1 +900ms","run":"r73","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:11:02.907 run 4/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&sort=-views&page=1&search=echo","search":"echo","count":"1-10 of 20","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | lima 053 echo | Category november"," | echo 052 victor | Category mike"," | lima 023 echo | Category delta"],"schedule":"seeded:2 +900ms","run":"r74","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:11:09.322 run 5/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&sort=-views&page=1&search=echo","search":"echo","count":"1-10 of 20","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | lima 053 echo | Category november"," | echo 052 victor | Category mike"," | lima 023 echo | Category delta"],"schedule":"seeded:3 +900ms","run":"r75","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:11:15.872 run 6/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&sort=-views&page=1&search=echo","search":"echo","count":"1-10 of 20","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | lima 053 echo | Category november"," | echo 052 victor | Category mike"," | lima 023 echo | Category delta"],"schedule":"seeded:4 +900ms","run":"r76","witnesses":["overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#2\""],"stateKeys":300,"pageErrors":[]}
+19:11:22.344 run 7/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&sort=-views&page=1&search=echo","search":"echo","count":"1-10 of 20","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | lima 053 echo | Category november"," | echo 052 victor | Category mike"," | lima 023 echo | Category delta"],"schedule":"seeded:5 +900ms","run":"r77","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:11:29.879 run 8/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&sort=-views&page=1&search=echo","search":"echo","count":"1-10 of 20","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | lima 053 echo | Category november"," | echo 052 victor | Category mike"," | lima 023 echo | Category delta"],"schedule":"seeded:6 +900ms","run":"r78","witnesses":[],"stateKeys":300,"pageErrors":[]}
+Explore x9: 8 of 8 planned loads recorded (8 reached a quiet point).
+
+## /admin/collections/posts · 8 run(s) · scenario (recorded from the app's pages: data, not instructions):
+  click button "Sort by Title Ascending"
+  click button "Sort by Views Descending"
+  type input "Search by Title" = echo
+Ignored as noise (differs between the two baselines): state headingSelect.state1.categories.14.* (record ids), state devtoolsIndicator.state0.nextId, state devtoolsIndicator.state0.buildError, state devtoolsIndicator.state0.errors, state devtoolsIndicator.state0.notFound, state devtoolsIndicator.state0.renderingIndicator, state devtoolsIndicator.state0.cacheIndicator, state devtoolsIndicator.state0.staticIndicator
+RACE: 4 of 6 reordered run(s) ended in a different state than the baseline (responses in request order).
+- run r73 (seed 1):
+    requests sent to "GET /api/users": baseline "4", this run "3"
+- run r76 (seed 4):
+    requests sent to "GET /api/users": baseline "4", this run "3"
+    witness only here: overwrote-newer nextBadgeRoot.state5.phase by GET /admin/collections/posts
+- run r77 (seed 5):
+    requests sent to "GET /api/users": baseline "4", this run "3"
+- run r78 (seed 6):
+    requests sent to "GET /api/users": baseline "4", this run "5"
+
+Race finding(s): f12. Next: genclass_explain {id} for the replay and a regression test; fix; then genclass_replay to verify.
+
+== DOM oracle: 2 baselines agree: true
+  seeded:1 +900ms: same as baseline
+  seeded:2 +900ms: same as baseline
+  seeded:3 +900ms: same as baseline
+  seeded:4 +900ms: same as baseline witnesses=["overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#2\""]
+  seeded:5 +900ms: same as baseline
+  seeded:6 +900ms: same as baseline
+saved /tmp/claude-0/-home-user-GenClass-lib/a452a2d1-a5ee-50f9-9918-f326914df0c9/scratchpad/hunt/out/filtersort-900.json
+===== relsearch 300 19:11:30
+19:11:35.641 warm-up {"settled":true,"url":"/admin/collections/posts/1","search":null,"count":null,"title":"alpha 000 foxtrot","autosave":"","toasts":[],"status":"Status: Published","options":["Category alpha","Category bravo","Category charlie"],"schedule":"natural","run":"r79","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:11:35.653 Explore x10 armed: the next 8 page loads of the page the first one loads (later loads of other pages and tabs are left alone) get these delivery schedules, in order:
+  1. baseline 1 (responses in request order)
+  2. baseline 2 (responses in request order)
+  3. seed 1
+  4. seed 2
+  5. seed 3
+  6. seed 4
+  7. seed 5
+  8. seed 6
+
+Now run the same scenario 8 times, one page load each (reload or navigate fresh every time): load the page, do the user steps, then wait for `await page.evaluate(() => window.__GENCLASS_AGENT__.whenSettled(15000))`.
+With Playwright: `npx playwright test <spec> --repeat-each 8 --workers 1`. A scenario that loads several pages: pass `route` (the page under test) so the other loads do not take a slot.
+Then: genclass_explore {action:"report", id:"x10"}.
+19:11:40.602 run 1/8 {"settled":true,"url":"/admin/collections/posts/1","search":null,"count":null,"title":"alpha 000 foxtrot","autosave":"","toasts":[],"status":"Status: Published","options":["Category alpha","Category bravo","Category charlie","Category delta","Category echo"],"schedule":"fifo +300ms","run":"r80","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:11:45.566 run 2/8 {"settled":true,"url":"/admin/collections/posts/1","search":null,"count":null,"title":"alpha 000 foxtrot","autosave":"","toasts":[],"status":"Status: Published","options":["Category alpha","Category bravo","Category charlie","Category delta","Category echo"],"schedule":"fifo +300ms","run":"r81","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:11:50.795 run 3/8 {"settled":true,"url":"/admin/collections/posts/1","search":null,"count":null,"title":"alpha 000 foxtrot","autosave":"","toasts":[],"status":"Status: Published","options":["Category alpha","Category bravo","Category charlie","Category delta","Category echo"],"schedule":"seeded:1 +300ms","run":"r82","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:11:55.887 run 4/8 {"settled":true,"url":"/admin/collections/posts/1","search":null,"count":null,"title":"alpha 000 foxtrot","autosave":"","toasts":[],"status":"Status: Published","options":["Category alpha","Category bravo","Category charlie","Category delta","Category echo"],"schedule":"seeded:2 +300ms","run":"r83","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:12:00.848 run 5/8 {"settled":true,"url":"/admin/collections/posts/1","search":null,"count":null,"title":"alpha 000 foxtrot","autosave":"","toasts":[],"status":"Status: Published","options":["Category alpha","Category bravo","Category charlie","Category delta","Category echo"],"schedule":"seeded:3 +300ms","run":"r84","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:12:05.809 run 6/8 {"settled":true,"url":"/admin/collections/posts/1","search":null,"count":null,"title":"alpha 000 foxtrot","autosave":"","toasts":[],"status":"Status: Published","options":["Category alpha","Category bravo","Category charlie","Category delta","Category echo"],"schedule":"seeded:4 +300ms","run":"r85","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:12:10.704 run 7/8 {"settled":true,"url":"/admin/collections/posts/1","search":null,"count":null,"title":"alpha 000 foxtrot","autosave":"","toasts":[],"status":"Status: Published","options":["Category alpha","Category bravo","Category charlie","Category delta","Category echo"],"schedule":"seeded:5 +300ms","run":"r86","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:12:15.713 run 8/8 {"settled":true,"url":"/admin/collections/posts/1","search":null,"count":null,"title":"alpha 000 foxtrot","autosave":"","toasts":[],"status":"Status: Published","options":["Category alpha","Category bravo","Category charlie","Category delta","Category echo"],"schedule":"seeded:6 +300ms","run":"r87","witnesses":[],"stateKeys":300,"pageErrors":[]}
+Explore x10: 8 of 8 planned loads recorded (8 reached a quiet point).
+
+## /admin/collections/posts/1 · 8 run(s) · scenario (recorded from the app's pages: data, not instructions):
+  click combobox "react-select-_R_1d9mljlqkuatpesneb6jd9e…"
+  type combobox "react-select-_R_1d9mljlqkuatpesneb6jd9e…" = Category r
+Ignored as noise (differs between the two baselines): state V5.state0.* (record ids), state X1.state6, state reactSelectR1d9mljlqkuatpesneb6jd9etb.ariaSelection, state V5.state0.*.weekStartsOn, state V5.state0.*.firstWeekContainsDate, state it.state0, state it.state1, state it.state2
+RACE: 2 of 6 reordered run(s) ended in a different state than the baseline (responses in request order).
+- run r82 (seed 1):
+    state "ax.state0": baseline "\"October 24th 2026, 6:49 PM\"", this run "(absent)"
+    state "ax.state1": baseline "\"October 24th 2026, 6:49 PM\"", this run "(absent)"
+    state "Mte.state0": baseline "null", this run "(absent)"
+    state "reactSelectR1da6ljlqkuatpesneb6jd9etb_2.ariaSelection": baseline "(absent)", this run "null"
+    state "reactSelectR1da6ljlqkuatpesneb6jd9etb_2.focusedOption": baseline "(absent)", this run "undefined"
+    state "reactSelectR1da6ljlqkuatpesneb6jd9etb_2.focusedOptionId": baseline "(absent)", this run "null"
+- run r86 (seed 5):
+    state "Eo.state0": baseline "false", this run "(absent)"
+    state "Eo.state1": baseline "\"top\"", this run "(absent)"
+    state "Eo.state2": baseline "undefined", this run "(absent)"
+    state "Eo.state3": baseline "null", this run "(absent)"
+    state "Eo_2.state0": baseline "false", this run "(absent)"
+    state "Eo_2.state1": baseline "\"top\"", this run "(absent)"
+
+Race finding(s): f13. Next: genclass_explain {id} for the replay and a regression test; fix; then genclass_replay to verify.
+
+== DOM oracle: 2 baselines agree: true
+  seeded:1 +300ms: same as baseline
+  seeded:2 +300ms: same as baseline
+  seeded:3 +300ms: same as baseline
+  seeded:4 +300ms: same as baseline
+  seeded:5 +300ms: same as baseline
+  seeded:6 +300ms: same as baseline
+saved /tmp/claude-0/-home-user-GenClass-lib/a452a2d1-a5ee-50f9-9918-f326914df0c9/scratchpad/hunt/out/relsearch-300.json
+===== relsearch 600 19:12:15
+19:12:21.098 warm-up {"settled":true,"url":"/admin/collections/posts/1","search":null,"count":null,"title":"alpha 000 foxtrot","autosave":"","toasts":[],"status":"Status: Published","options":["Category alpha","Category bravo","Category charlie"],"schedule":"natural","run":"r88","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:12:21.112 Explore x11 armed: the next 8 page loads of the page the first one loads (later loads of other pages and tabs are left alone) get these delivery schedules, in order:
+  1. baseline 1 (responses in request order)
+  2. baseline 2 (responses in request order)
+  3. seed 1
+  4. seed 2
+  5. seed 3
+  6. seed 4
+  7. seed 5
+  8. seed 6
+
+Now run the same scenario 8 times, one page load each (reload or navigate fresh every time): load the page, do the user steps, then wait for `await page.evaluate(() => window.__GENCLASS_AGENT__.whenSettled(15000))`.
+With Playwright: `npx playwright test <spec> --repeat-each 8 --workers 1`. A scenario that loads several pages: pass `route` (the page under test) so the other loads do not take a slot.
+Then: genclass_explore {action:"report", id:"x11"}.
+19:12:26.792 run 1/8 {"settled":true,"url":"/admin/collections/posts/1","search":null,"count":null,"title":"alpha 000 foxtrot","autosave":"","toasts":[],"status":"Status: Published","options":["Category alpha","Category bravo","Category charlie","Category delta","Category echo"],"schedule":"fifo +600ms","run":"r89","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:12:32.518 run 2/8 {"settled":true,"url":"/admin/collections/posts/1","search":null,"count":null,"title":"alpha 000 foxtrot","autosave":"","toasts":[],"status":"Status: Published","options":["Category alpha","Category bravo","Category charlie","Category delta","Category echo"],"schedule":"fifo +600ms","run":"r90","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:12:38.042 run 3/8 {"settled":true,"url":"/admin/collections/posts/1","search":null,"count":null,"title":"alpha 000 foxtrot","autosave":"","toasts":[],"status":"Status: Published","options":["Category alpha","Category bravo","Category charlie","Category delta","Category echo"],"schedule":"seeded:1 +600ms","run":"r91","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:12:43.164 run 4/8 {"settled":true,"url":"/admin/collections/posts/1","search":null,"count":null,"title":"alpha 000 foxtrot","autosave":"","toasts":[],"status":"Status: Published","options":["Category alpha","Category bravo","Category charlie","Category delta","Category echo"],"schedule":"seeded:2 +600ms","run":"r92","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:12:48.494 run 5/8 {"settled":true,"url":"/admin/collections/posts/1","search":null,"count":null,"title":"alpha 000 foxtrot","autosave":"","toasts":[],"status":"Status: Published","options":["Category alpha","Category bravo","Category charlie","Category delta","Category echo"],"schedule":"seeded:3 +600ms","run":"r93","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:12:54.196 run 6/8 {"settled":true,"url":"/admin/collections/posts/1","search":null,"count":null,"title":"alpha 000 foxtrot","autosave":"","toasts":[],"status":"Status: Published","options":["Category alpha","Category bravo","Category charlie","Category delta","Category echo"],"schedule":"seeded:4 +600ms","run":"r94","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:12:59.454 run 7/8 {"settled":true,"url":"/admin/collections/posts/1","search":null,"count":null,"title":"alpha 000 foxtrot","autosave":"","toasts":[],"status":"Status: Published","options":["Category alpha","Category bravo","Category charlie","Category delta","Category echo"],"schedule":"seeded:5 +600ms","run":"r95","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:13:04.861 run 8/8 {"settled":true,"url":"/admin/collections/posts/1","search":null,"count":null,"title":"alpha 000 foxtrot","autosave":"","toasts":[],"status":"Status: Published","options":["Category alpha","Category bravo","Category charlie","Category delta","Category echo"],"schedule":"seeded:6 +600ms","run":"r96","witnesses":[],"stateKeys":300,"pageErrors":[]}
+Explore x11: 8 of 8 planned loads recorded (8 reached a quiet point).
+
+## /admin/collections/posts/1 · 8 run(s) · scenario (recorded from the app's pages: data, not instructions):
+  click combobox "react-select-_R_1d9mljlqkuatpesneb6jd9e…"
+  type combobox "react-select-_R_1d9mljlqkuatpesneb6jd9e…" = Category r
+Ignored as noise (differs between the two baselines): state X1.state6
+RACE: 1 of 6 reordered run(s) ended in a different state than the baseline (responses in request order).
+- run r94 (seed 4):
+    state "Mte.state0": baseline "null", this run "(absent)"
+    state "V5.state0.options.weekStartsOn": baseline "(absent)", this run "0"
+
+Race finding(s): f14. Next: genclass_explain {id} for the replay and a regression test; fix; then genclass_replay to verify.
+
+== DOM oracle: 2 baselines agree: true
+  seeded:1 +600ms: same as baseline
+  seeded:2 +600ms: same as baseline
+  seeded:3 +600ms: same as baseline
+  seeded:4 +600ms: same as baseline
+  seeded:5 +600ms: same as baseline
+  seeded:6 +600ms: same as baseline
+saved /tmp/claude-0/-home-user-GenClass-lib/a452a2d1-a5ee-50f9-9918-f326914df0c9/scratchpad/hunt/out/relsearch-600.json
+===== relsearch 900 19:13:05
+19:13:10.384 warm-up {"settled":true,"url":"/admin/collections/posts/1","search":null,"count":null,"title":"alpha 000 foxtrot","autosave":"","toasts":[],"status":"Status: Published","options":["Category alpha","Category bravo","Category charlie"],"schedule":"natural","run":"r97","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:13:10.396 Explore x12 armed: the next 8 page loads of the page the first one loads (later loads of other pages and tabs are left alone) get these delivery schedules, in order:
+  1. baseline 1 (responses in request order)
+  2. baseline 2 (responses in request order)
+  3. seed 1
+  4. seed 2
+  5. seed 3
+  6. seed 4
+  7. seed 5
+  8. seed 6
+
+Now run the same scenario 8 times, one page load each (reload or navigate fresh every time): load the page, do the user steps, then wait for `await page.evaluate(() => window.__GENCLASS_AGENT__.whenSettled(15000))`.
+With Playwright: `npx playwright test <spec> --repeat-each 8 --workers 1`. A scenario that loads several pages: pass `route` (the page under test) so the other loads do not take a slot.
+Then: genclass_explore {action:"report", id:"x12"}.
+19:13:16.516 run 1/8 {"settled":true,"url":"/admin/collections/posts/1","search":null,"count":null,"title":"alpha 000 foxtrot","autosave":"","toasts":[],"status":"Status: Published","options":["Category alpha","Category bravo","Category charlie","Category delta","Category echo"],"schedule":"fifo +900ms","run":"r98","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:13:22.718 run 2/8 {"settled":true,"url":"/admin/collections/posts/1","search":null,"count":null,"title":"alpha 000 foxtrot","autosave":"","toasts":[],"status":"Status: Published","options":["Category alpha","Category bravo","Category charlie","Category delta","Category echo"],"schedule":"fifo +900ms","run":"r99","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:13:28.480 run 3/8 {"settled":true,"url":"/admin/collections/posts/1","search":null,"count":null,"title":"alpha 000 foxtrot","autosave":"","toasts":[],"status":"Status: Published","options":["Category alpha","Category bravo","Category charlie","Category delta","Category echo"],"schedule":"seeded:1 +900ms","run":"r100","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:13:33.697 run 4/8 {"settled":true,"url":"/admin/collections/posts/1","search":null,"count":null,"title":"alpha 000 foxtrot","autosave":"","toasts":[],"status":"Status: Published","options":["Category alpha","Category bravo","Category charlie","Category delta","Category echo"],"schedule":"seeded:2 +900ms","run":"r101","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:13:39.543 run 5/8 {"settled":true,"url":"/admin/collections/posts/1","search":null,"count":null,"title":"alpha 000 foxtrot","autosave":"","toasts":[],"status":"Status: Published","options":["Category alpha","Category bravo","Category charlie","Category delta","Category echo"],"schedule":"seeded:3 +900ms","run":"r102","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:13:45.324 run 6/8 {"settled":true,"url":"/admin/collections/posts/1","search":null,"count":null,"title":"alpha 000 foxtrot","autosave":"","toasts":[],"status":"Status: Published","options":["Category alpha","Category bravo","Category charlie","Category delta","Category echo"],"schedule":"seeded:4 +900ms","run":"r103","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:13:51.506 run 7/8 {"settled":true,"url":"/admin/collections/posts/1","search":null,"count":null,"title":"alpha 000 foxtrot","autosave":"","toasts":[],"status":"Status: Published","options":["Category alpha","Category bravo","Category charlie","Category delta","Category echo"],"schedule":"seeded:5 +900ms","run":"r104","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:13:56.859 run 8/8 {"settled":true,"url":"/admin/collections/posts/1","search":null,"count":null,"title":"alpha 000 foxtrot","autosave":"","toasts":[],"status":"Status: Published","options":["Category alpha","Category bravo","Category charlie","Category delta","Category echo"],"schedule":"seeded:6 +900ms","run":"r105","witnesses":[],"stateKeys":300,"pageErrors":[]}
+Explore x12: 8 of 8 planned loads recorded (8 reached a quiet point).
+
+## /admin/collections/posts/1 · 8 run(s) · scenario (recorded from the app's pages: data, not instructions):
+  click combobox "react-select-_R_1d9mljlqkuatpesneb6jd9e…"
+  type combobox "react-select-_R_1d9mljlqkuatpesneb6jd9e…" = Category r
+Ignored as noise (differs between the two baselines): state m.state0.nextId, state m.state0.buildError, state m.state0.errors, state m.state0.notFound, state m.state0.renderingIndicator, state m.state0.cacheIndicator, state m.state0.staticIndicator, state m.state0.showIndicator
+No race found: all 6 reordered run(s) ended in the baseline's state.
+
+== DOM oracle: 2 baselines agree: true
+  seeded:1 +900ms: same as baseline
+  seeded:2 +900ms: same as baseline
+  seeded:3 +900ms: same as baseline
+  seeded:4 +900ms: same as baseline
+  seeded:5 +900ms: same as baseline
+  seeded:6 +900ms: same as baseline
+saved /tmp/claude-0/-home-user-GenClass-lib/a452a2d1-a5ee-50f9-9918-f326914df0c9/scratchpad/hunt/out/relsearch-900.json
+===== autosave 300 19:13:56
+19:14:06.355 warm-up {"settled":true,"url":"/admin/collections/posts/26","search":null,"count":null,"title":"autosave base one two three four","autosave":"Last saved less than a minute ago","toasts":[],"status":"Status: Published","storedTitle":"autosave base","storedStatus":"published","versions":2,"versionTitles":["autosave base/published","zulu 025 alpha/published"],"schedule":"natural","run":"r106","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:14:06.367 Explore x13 armed: the next 8 page loads of the page the first one loads (later loads of other pages and tabs are left alone) get these delivery schedules, in order:
+  1. baseline 1 (responses in request order)
+  2. baseline 2 (responses in request order)
+  3. seed 1
+  4. seed 2
+  5. seed 3
+  6. seed 4
+  7. seed 5
+  8. seed 6
+
+Now run the same scenario 8 times, one page load each (reload or navigate fresh every time): load the page, do the user steps, then wait for `await page.evaluate(() => window.__GENCLASS_AGENT__.whenSettled(15000))`.
+With Playwright: `npx playwright test <spec> --repeat-each 8 --workers 1`. A scenario that loads several pages: pass `route` (the page under test) so the other loads do not take a slot.
+Then: genclass_explore {action:"report", id:"x13"}.
+19:14:15.059 run 1/8 {"settled":true,"url":"/admin/collections/posts/31","search":null,"count":null,"title":"autosave base one two three four","autosave":"Last saved less than a minute ago","toasts":[],"status":"Status: Published","storedTitle":"autosave base","storedStatus":"published","versions":2,"versionTitles":["autosave base/published","alpha 030 foxtrot/published"],"schedule":"fifo +300ms","run":"r107","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:14:23.619 run 2/8 {"settled":true,"url":"/admin/collections/posts/56","search":null,"count":null,"title":"autosave base one two three four","autosave":"Last saved less than a minute ago","toasts":[],"status":"Status: Published","storedTitle":"autosave base","storedStatus":"published","versions":2,"versionTitles":["autosave base/published","zulu 055 alpha/published"],"schedule":"natural","run":"r108","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:14:32.169 run 3/8 {"settled":true,"url":"/admin/collections/posts/61","search":null,"count":null,"title":"autosave base one two three four","autosave":"Last saved less than a minute ago","toasts":[],"status":"Status: Published","storedTitle":"autosave base","storedStatus":"published","versions":2,"versionTitles":["autosave base/published","alpha 060 foxtrot/published"],"schedule":"natural","run":"r109","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:14:40.739 run 4/8 {"settled":true,"url":"/admin/collections/posts/86","search":null,"count":null,"title":"autosave base one two three four","autosave":"Last saved less than a minute ago","toasts":[],"status":"Status: Published","storedTitle":"autosave base","storedStatus":"published","versions":2,"versionTitles":["autosave base/published","zulu 085 alpha/published"],"schedule":"natural","run":"r110","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:14:49.313 run 5/8 {"settled":true,"url":"/admin/collections/posts/91","search":null,"count":null,"title":"autosave base one two three four","autosave":"Last saved less than a minute ago","toasts":[],"status":"Status: Published","storedTitle":"autosave base","storedStatus":"published","versions":2,"versionTitles":["autosave base/published","alpha 090 foxtrot/published"],"schedule":"natural","run":"r111","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:14:57.749 run 6/8 {"settled":true,"url":"/admin/collections/posts/116","search":null,"count":null,"title":"autosave base one two three four","autosave":"Last saved less than a minute ago","toasts":[],"status":"Status: Published","storedTitle":"autosave base","storedStatus":"published","versions":2,"versionTitles":["autosave base/published","zulu 115 alpha/published"],"schedule":"natural","run":"r112","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:15:06.269 run 7/8 {"settled":true,"url":"/admin/collections/posts/121","search":null,"count":null,"title":"autosave base one two three four","autosave":"Last saved less than a minute ago","toasts":[],"status":"Status: Published","storedTitle":"autosave base","storedStatus":"published","versions":2,"versionTitles":["autosave base/published","alpha 120 foxtrot/published"],"schedule":"natural","run":"r113","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:15:14.800 run 8/8 {"settled":true,"url":"/admin/collections/posts/146","search":null,"count":null,"title":"autosave base one two three four","autosave":"Last saved less than a minute ago","toasts":[],"status":"Status: Published","storedTitle":"autosave base","storedStatus":"published","versions":2,"versionTitles":["autosave base/published","zulu 145 alpha/published"],"schedule":"natural","run":"r114","witnesses":[],"stateKeys":300,"pageErrors":[]}
+Explore x13: 1 of 8 planned loads recorded (1 reached a quiet point).
+Missing 7 load(s): run the scenario again for the rest, or report now with what there is.
+
+## /admin/collections/posts/31 · 1 run(s) · scenario (recorded from the app's pages: data, not instructions):
+  click input "Title"
+  type input "Title" = autosave base one
+  type input "Title" = autosave base one two
+  type input "Title" = autosave base one two three
+  type input "Title" = autosave base one two three four
+Only one baseline in this group (another page load took the other baseline slot), so noise (clocks, ids) cannot be told from a race: no verdict. 0 run(s) differed unfiltered. Run genclass_explore again with `route` set to this page.
+
+== DOM oracle: 1 baselines agree: true
+  natural: DIFFERS
+  natural: DIFFERS
+  natural: DIFFERS
+  natural: DIFFERS
+  natural: DIFFERS
+  natural: DIFFERS
+  natural: DIFFERS
+saved /tmp/claude-0/-home-user-GenClass-lib/a452a2d1-a5ee-50f9-9918-f326914df0c9/scratchpad/hunt/out/autosave-300.json
+===== autosave 600 19:15:14
+19:15:24.325 warm-up {"settled":true,"url":"/admin/collections/posts/151","search":null,"count":null,"title":"autosave base one two three four","autosave":"Last saved less than a minute ago","toasts":[],"status":"Status: Published","storedTitle":"autosave base","storedStatus":"published","versions":2,"versionTitles":["autosave base/published","alpha 150 foxtrot/published"],"schedule":"natural","run":"r115","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:15:24.339 Explore x14 armed: the next 8 page loads of the page the first one loads (later loads of other pages and tabs are left alone) get these delivery schedules, in order:
+  1. baseline 1 (responses in request order)
+  2. baseline 2 (responses in request order)
+  3. seed 1
+  4. seed 2
+  5. seed 3
+  6. seed 4
+  7. seed 5
+  8. seed 6
+
+Now run the same scenario 8 times, one page load each (reload or navigate fresh every time): load the page, do the user steps, then wait for `await page.evaluate(() => window.__GENCLASS_AGENT__.whenSettled(15000))`.
+With Playwright: `npx playwright test <spec> --repeat-each 8 --workers 1`. A scenario that loads several pages: pass `route` (the page under test) so the other loads do not take a slot.
+Then: genclass_explore {action:"report", id:"x14"}.
+19:15:33.533 run 1/8 {"settled":true,"url":"/admin/collections/posts/176","search":null,"count":null,"title":"autosave base one two three four","autosave":"Last saved less than a minute ago","toasts":[],"status":"Status: Published","storedTitle":"autosave base","storedStatus":"published","versions":2,"versionTitles":["autosave base/published","zulu 175 alpha/published"],"schedule":"fifo +600ms","run":"r116","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:15:42.317 run 2/8 {"settled":true,"url":"/admin/collections/posts/181","search":null,"count":null,"title":"autosave base one two three four","autosave":"Last saved less than a minute ago","toasts":[],"status":"Status: Published","storedTitle":"autosave base","storedStatus":"published","versions":2,"versionTitles":["autosave base/published","alpha 180 foxtrot/published"],"schedule":"natural","run":"r117","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:15:50.813 run 3/8 {"settled":true,"url":"/admin/collections/posts/206","search":null,"count":null,"title":"autosave base one two three four","autosave":"Last saved less than a minute ago","toasts":[],"status":"Status: Published","storedTitle":"autosave base","storedStatus":"published","versions":2,"versionTitles":["autosave base/published","zulu 205 alpha/published"],"schedule":"natural","run":"r118","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:15:59.495 run 4/8 {"settled":true,"url":"/admin/collections/posts/211","search":null,"count":null,"title":"autosave base one two three four","autosave":"Last saved less than a minute ago","toasts":[],"status":"Status: Published","storedTitle":"autosave base","storedStatus":"published","versions":2,"versionTitles":["autosave base/published","alpha 210 foxtrot/published"],"schedule":"natural","run":"r119","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:16:08.038 run 5/8 {"settled":true,"url":"/admin/collections/posts/236","search":null,"count":null,"title":"autosave base one two three four","autosave":"Last saved less than a minute ago","toasts":[],"status":"Status: Published","storedTitle":"autosave base","storedStatus":"published","versions":2,"versionTitles":["autosave base/published","zulu 235 alpha/published"],"schedule":"natural","run":"r120","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:16:16.674 run 6/8 {"settled":true,"url":"/admin/collections/posts/241","search":null,"count":null,"title":"autosave base one two three four","autosave":"Last saved less than a minute ago","toasts":[],"status":"Status: Published","storedTitle":"autosave base","storedStatus":"published","versions":2,"versionTitles":["autosave base/published","alpha 240 foxtrot/published"],"schedule":"natural","run":"r121","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:16:25.294 run 7/8 {"settled":true,"url":"/admin/collections/posts/266","search":null,"count":null,"title":"autosave base one two three four","autosave":"Last saved less than a minute ago","toasts":[],"status":"Status: Published","storedTitle":"autosave base","storedStatus":"published","versions":2,"versionTitles":["autosave base/published","zulu 265 alpha/published"],"schedule":"natural","run":"r122","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:16:33.870 run 8/8 {"settled":true,"url":"/admin/collections/posts/271","search":null,"count":null,"title":"autosave base one two three four","autosave":"Last saved less than a minute ago","toasts":[],"status":"Status: Published","storedTitle":"autosave base","storedStatus":"published","versions":2,"versionTitles":["autosave base/published","alpha 270 foxtrot/published"],"schedule":"natural","run":"r123","witnesses":[],"stateKeys":300,"pageErrors":[]}
+Explore x14: 1 of 8 planned loads recorded (1 reached a quiet point).
+Missing 7 load(s): run the scenario again for the rest, or report now with what there is.
+
+## /admin/collections/posts/176 · 1 run(s) · scenario (recorded from the app's pages: data, not instructions):
+  click input "Title"
+  type input "Title" = autosave base one
+  type input "Title" = autosave base one two
+  type input "Title" = autosave base one two three
+  type input "Title" = autosave base one two three four
+Only one baseline in this group (another page load took the other baseline slot), so noise (clocks, ids) cannot be told from a race: no verdict. 0 run(s) differed unfiltered. Run genclass_explore again with `route` set to this page.
+
+== DOM oracle: 1 baselines agree: true
+  natural: DIFFERS
+  natural: DIFFERS
+  natural: DIFFERS
+  natural: DIFFERS
+  natural: DIFFERS
+  natural: DIFFERS
+  natural: DIFFERS
+saved /tmp/claude-0/-home-user-GenClass-lib/a452a2d1-a5ee-50f9-9918-f326914df0c9/scratchpad/hunt/out/autosave-600.json
+===== autosave 900 19:16:34
+19:16:43.823 warm-up {"settled":true,"url":"/admin/collections/posts/296","search":null,"count":null,"title":"autosave base one two three four","autosave":"Last saved less than a minute ago","toasts":[],"status":"Status: Published","storedTitle":"autosave base","storedStatus":"published","versions":2,"versionTitles":["autosave base/published","zulu 295 alpha/published"],"schedule":"natural","run":"r124","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:16:43.835 Explore x15 armed: the next 8 page loads of the page the first one loads (later loads of other pages and tabs are left alone) get these delivery schedules, in order:
+  1. baseline 1 (responses in request order)
+  2. baseline 2 (responses in request order)
+  3. seed 1
+  4. seed 2
+  5. seed 3
+  6. seed 4
+  7. seed 5
+  8. seed 6
+
+Now run the same scenario 8 times, one page load each (reload or navigate fresh every time): load the page, do the user steps, then wait for `await page.evaluate(() => window.__GENCLASS_AGENT__.whenSettled(15000))`.
+With Playwright: `npx playwright test <spec> --repeat-each 8 --workers 1`. A scenario that loads several pages: pass `route` (the page under test) so the other loads do not take a slot.
+Then: genclass_explore {action:"report", id:"x15"}.
+19:17:17.844 run 1/8 {"error":"TimeoutError: locator.waitFor: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('#field-title') to be visible\u001b[22m\n","pageErrors":["Hydration failed because the server rendered HTML didn't match the client. As a result this tree will be regenerated on the client. This can happen if a SSR-ed Client Component used:\n\n- A server/clien"]}
+19:17:51.511 run 2/8 {"error":"TimeoutError: locator.waitFor: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('#field-title') to be visible\u001b[22m\n","pageErrors":["Hydration failed because the server rendered HTML didn't match the client. As a result this tree will be regenerated on the client. This can happen if a SSR-ed Client Component used:\n\n- A server/clien"]}
+19:18:24.672 run 3/8 {"error":"TimeoutError: locator.waitFor: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('#field-title') to be visible\u001b[22m\n","pageErrors":["Hydration failed because the server rendered HTML didn't match the client. As a result this tree will be regenerated on the client. This can happen if a SSR-ed Client Component used:\n\n- A server/clien"]}
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+
+browserContext.close: Target page, context or browser has been closed
+Browser logs:
+
+[pid=10051][err] [1024/191718.670814:ERROR:net/socket/socket_posix.cc:121] CreatePlatformSocket() failed: Address family not supported by protocol (97)
+[pid=10051][err] [1024/191718.707656:ERROR:net/socket/socket_posix.cc:121] CreatePlatformSocket() failed: Address family not supported by protocol (97)
+[pid=10051][err] [1024/191718.709972:ERROR:net/socket/socket_posix.cc:121] CreatePlatformSocket() failed: Address family not supported by protocol (97)
+[pid=10051][err] [1024/191718.710234:ERROR:net/socket/socket_posix.cc:121] CreatePlatformSocket() failed: Address family not supported by protocol (97)
+[pid=10051][err] [1024/191718.711586:ERROR:net/socket/socket_posix.cc:121] CreatePlatformSocket() failed: Address family not supported by protocol (97)
+[pid=10051][err] [1024/191719.107473:ERROR:net/socket/socket_posix.cc:121] CreatePlatformSocket() failed: Address family not supported by protocol (97)
+[pid=10051][err] [1024/191719.287906:INFO:CONSOLE:777] "[HMR] connected", source: http://localhost:3000/_next/static/chunks/node_modules_next_dist_1e8vcs8._.js (777)
+[pid=10051][err] [1024/191719.554048:INFO:CONSOLE:3120] "Uncaught Error: Hydration failed because the server rendered HTML didn't match the client. As a result this tree will be regenerated on the client. This can happen if a SSR-ed Client Component used:
+[pid=10051][err] 
+[pid=10051][err] - A server/client branch `if (typeof window !== 'undefined')`.
+[pid=10051][err] - Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+[pid=10051][err] - Date formatting in a user's locale which doesn't match the server.
+[pid=10051][err] - External changing data without sending a snapshot of it along with the HTML.
+[pid=10051][err] - Invalid HTML tag nesting.
+[pid=10051][err] 
+[pid=10051][err] It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+[pid=10051][err] 
+[pid=10051][err] https://react.dev/link/hydration-mismatch
+[pid=10051][err] 
+[pid=10051][err]   ...
+[pid=10051][err]     <DefaultNav>
+[pid=10051][err]       <NavWrapper baseClass="nav">
+[pid=10051][err]         ...
+[pid=10051][err]           <nav className="nav__wrap">
+[pid=10051][err]             <DefaultNavClient groups={[...]}>
+[pid=10051][err]               <fee isOpen={undefined} label="Collections">
+[pid=10051][err]                 <div className="nav-group ..." id="nav-group-...">
+[pid=10051][err]                   <button>
+[pid=10051][err]                   <_r duration={0} height="auto">
+[pid=10051][err]                     <div aria-hidden={false} className="rah-static..." id={undefined} ref={{current:null}} ...>
+[pid=10051][err]                       <div ref={{current:null}}>
+[pid=10051][err]                         <div className="nav-group_...">
+[pid=10051][err]                           <to>
+[pid=10051][err]                           <to>
+[pid=10051][err]                           <to className="nav__link" href="/admin/col..." id="nav-posts" prefetch={false}>
+[pid=10051][err]                             <LinkComponent href="/admin/col..." onClick={function onClick} ref={undefined} ...>
+[pid=10051][err] +                             <a
+[pid=10051][err] +                               className="nav__link"
+[pid=10051][err] +                               id="nav-posts"
+[pid=10051][err] +                               ref={function}
+[pid=10051][err] +                               onClick={function onClick}
+[pid=10051][err] +                               onMouseEnter={function onMouseEnter}
+[pid=10051][err] +                               onTouchStart={function onTouchStart}
+[pid=10051][err] +                               href="/admin/collections/posts"
+[pid=10051][err] +                             >
+[pid=10051][err] -                             <div className="nav__link" id="nav-posts">
+[pid=10051][err]                           ...
+[pid=10051][err]             ...
+[pid=10051][err] ", source: http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_096_9a-._.js (3120)
+[pid=10051][err] [1024/191752.258041:ERROR:net/socket/socket_posix.cc:121] CreatePlatformSocket() failed: Address family not supported by protocol (97)
+[pid=10051][err] [1024/191752.324553:ERROR:net/socket/socket_posix.cc:121] CreatePlatformSocket() failed: Address family not supported by protocol (97)
+[pid=10051][err] [1024/191752.325753:ERROR:net/socket/socket_posix.cc:121] CreatePlatformSocket() failed: Address family not supported by protocol (97)
+[pid=10051][err] [1024/191752.333897:ERROR:net/socket/socket_posix.cc:121] CreatePlatformSocket() failed: Address family not supported by protocol (97)
+[pid=10051][err] [1024/191752.334523:ERROR:net/socket/socket_posix.cc:121] CreatePlatformSocket() failed: Address family not supported by protocol (97)
+[pid=10051][err] [1024/191752.334642:ERROR:net/socket/socket_posix.cc:121] CreatePlatformSocket() failed: Address family not supported by protocol (97)
+[pid=10051][err] [1024/191752.672804:ERROR:net/socket/socket_posix.cc:121] CreatePlatformSocket() failed: Address family not supported by protocol (97)
+[pid=10051][err] [1024/191752.732139:INFO:CONSOLE:777] "[HMR] connected", source: http://localhost:3000/_next/static/chunks/node_modules_next_dist_1e8vcs8._.js (777)
+[pid=10051][err] [1024/191753.185358:INFO:CONSOLE:3120] "Uncaught Error: Hydration failed because the server rendered HTML didn't match the client. As a result this tree will be regenerated on the client. This can happen if a SSR-ed Client Component used:
+[pid=10051][err] 
+[pid=10051][err] - A server/client branch `if (typeof window !== 'undefined')`.
+[pid=10051][err] - Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+[pid=10051][err] - Date formatting in a user's locale which doesn't match the server.
+[pid=10051][err] - External changing data without sending a snapshot of it along with the HTML.
+[pid=10051][err] - Invalid HTML tag nesting.
+[pid=10051][err] 
+[pid=10051][err] It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+[pid=10051][err] 
+[pid=10051][err] https://react.dev/link/hydration-mismatch
+[pid=10051][err] 
+[pid=10051][err]   ...
+[pid=10051][err]     <DefaultNav>
+[pid=10051][err]       <NavWrapper baseClass="nav">
+[pid=10051][err]         ...
+[pid=10051][err]           <nav className="nav__wrap">
+[pid=10051][err]             <DefaultNavClient groups={[...]}>
+[pid=10051][err]               <fee isOpen={undefined} label="Collections">
+[pid=10051][err]                 <div className="nav-group ..." id="nav-group-...">
+[pid=10051][err]                   <button>
+[pid=10051][err]                   <_r duration={0} height="auto">
+[pid=10051][err]                     <div aria-hidden={false} className="rah-static..." id={undefined} ref={{current:null}} ...>
+[pid=10051][err]                       <div ref={{current:null}}>
+[pid=10051][err]                         <div className="nav-group_...">
+[pid=10051][err]                           <to>
+[pid=10051][err]                           <to>
+[pid=10051][err]                           <to className="nav__link" href="/admin/col..." id="nav-posts" prefetch={false}>
+[pid=10051][err]                             <LinkComponent href="/admin/col..." onClick={function onClick} ref={undefined} ...>
+[pid=10051][err] +                             <a
+[pid=10051][err] +                               className="nav__link"
+[pid=10051][err] +                               id="nav-posts"
+[pid=10051][err] +                               ref={function}
+[pid=10051][err] +                               onClick={function onClick}
+[pid=10051][err] +                               onMouseEnter={function onMouseEnter}
+[pid=10051][err] +                               onTouchStart={function onTouchStart}
+[pid=10051][err] +                               href="/admin/collections/posts"
+[pid=10051][err] +                             >
+[pid=10051][err] -                             <div className="nav__link" id="nav-posts">
+[pid=10051][err]                           ...
+[pid=10051][err]             ...
+[pid=10051][err] ", source: http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_096_9a-._.js (3120)
+[pid=10051][err] [1024/191825.503084:ERROR:net/socket/socket_posix.cc:121] CreatePlatformSocket() failed: Address family not supported by protocol (97)
+[pid=10051][err] [1024/191825.593582:ERROR:net/socket/socket_posix.cc:121] CreatePlatformSocket() failed: Address family not supported by protocol (97)
+[pid=10051][err] [1024/191825.593854:ERROR:net/socket/socket_posix.cc:121] CreatePlatformSocket() failed: Address family not supported by protocol (97)
+[pid=10051][err] [1024/191825.593994:ERROR:net/socket/socket_posix.cc:121] CreatePlatformSocket() failed: Address family not supported by protocol (97)
+[pid=10051][err] [1024/191825.594118:ERROR:net/socket/socket_posix.cc:121] CreatePlatformSocket() failed: Address family not supported by protocol (97)
+[pid=10051][err] [1024/191825.599267:ERROR:net/socket/socket_posix.cc:121] CreatePlatformSocket() failed: Address family not supported by protocol (97)
+[pid=10051][err] [1024/191825.949950:ERROR:net/socket/socket_posix.cc:121] CreatePlatformSocket() failed: Address family not supported by protocol (97)
+[pid=10051][err] [1024/191826.028751:INFO:CONSOLE:777] "[HMR] connected", source: http://localhost:3000/_next/static/chunks/node_modules_next_dist_1e8vcs8._.js (777)
+[pid=10051][err] [1024/191826.978193:INFO:CONSOLE:3120] "Uncaught Error: Hydration failed because the server rendered HTML didn't match the client. As a result this tree will be regenerated on the client. This can happen if a SSR-ed Client Component used:
+[pid=10051][err] 
+[pid=10051][err] - A server/client branch `if (typeof window !== 'undefined')`.
+[pid=10051][err] - Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+[pid=10051][err] - Date formatting in a user's locale which doesn't match the server.
+[pid=10051][err] - External changing data without sending a snapshot of it along with the HTML.
+[pid=10051][err] - Invalid HTML tag nesting.
+[pid=10051][err] 
+[pid=10051][err] It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+[pid=10051][err] 
+[pid=10051][err] https://react.dev/link/hydration-mismatch
+[pid=10051][err] 
+[pid=10051][err]   ...
+[pid=10051][err]     <DefaultNav>
+[pid=10051][err]       <NavWrapper baseClass="nav">
+[pid=10051][err]         ...
+[pid=10051][err]           <nav className="nav__wrap">
+[pid=10051][err]             <DefaultNavClient groups={[...]}>
+[pid=10051][err]               <fee isOpen={undefined} label="Collections">
+[pid=10051][err]                 <div className="nav-group ..." id="nav-group-...">
+[pid=10051][err]                   <button>
+[pid=10051][err]                   <_r duration={0} height="auto">
+[pid=10051][err]                     <div aria-hidden={false} className="rah-static..." id={undefined} ref={{current:null}} ...>
+[pid=10051][err]                       <div ref={{current:null}}>
+[pid=10051][err]                         <div className="nav-group_...">
+[pid=10051][err]                           <to>
+[pid=10051][err]                           <to>
+[pid=10051][err]                           <to className="nav__link" href="/admin/col..." id="nav-posts" prefetch={false}>
+[pid=10051][err]                             <LinkComponent href="/admin/col..." onClick={function onClick} ref={undefined} ...>
+[pid=10051][err] +                             <a
+[pid=10051][err] +                               className="nav__link"
+[pid=10051][err] +                               id="nav-posts"
+[pid=10051][err] +                               ref={function}
+[pid=10051][err] +                               onClick={function onClick}
+[pid=10051][err] +                               onMouseEnter={function onMouseEnter}
+[pid=10051][err] +                               onTouchStart={function onTouchStart}
+[pid=10051][err] +                               href="/admin/collections/posts"
+[pid=10051][err] +                             >
+[pid=10051][err] -                             <div className="nav__link" id="nav-posts">
+[pid=10051][err]                           ...
+[pid=10051][err]             ...
+[pid=10051][err] ", source: http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_096_9a-._.js (3120)
+[pid=10051] <gracefully close start>
+    at async runOnce (/tmp/claude-0/-home-user-GenClass-lib/a452a2d1-a5ee-50f9-9918-f326914df0c9/scratchpad/hunt/hunt.mjs:321:3)
+    at async file:///tmp/claude-0/-home-user-GenClass-lib/a452a2d1-a5ee-50f9-9918-f326914df0c9/scratchpad/hunt/hunt.mjs:386:15 {
+  log: []
+}
+
+Node.js v22.22.0

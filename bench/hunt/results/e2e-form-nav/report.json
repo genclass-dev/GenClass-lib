@@ -1,0 +1,706 @@
+{
+  "schema": "genclass-hunt/1",
+  "started": "2026-10-25T00:29:46.249Z",
+  "finished": "2026-10-25T00:30:03.034Z",
+  "durationMs": 16785,
+  "harness": {
+    "version": "0.1.0",
+    "commit": "bd943285a162",
+    "dirty": false
+  },
+  "app": {
+    "url": "http://127.0.0.1:4777/form-nav",
+    "origin": "http://127.0.0.1:4777",
+    "commit": "this repository, bench/hunt/scenarios/e2e-search-server.mjs"
+  },
+  "runtime": {
+    "version": "0.3.0-beta.1",
+    "commit": "bd943285a162",
+    "dirty": false
+  },
+  "mcp": {
+    "version": "0.1.0",
+    "commit": "bd943285a162",
+    "dirty": false
+  },
+  "browser": {
+    "name": "chromium",
+    "version": "153.0.8010.12",
+    "headless": true,
+    "viewport": "1280x800",
+    "serviceWorkers": "block"
+  },
+  "options": {
+    "runs": 6,
+    "slow": 600,
+    "seed": 1,
+    "focus": [],
+    "route": "/form-nav",
+    "timeout": 30000,
+    "model": "skipped",
+    "holdProtected": false,
+    "storageState": false,
+    "runTests": true
+  },
+  "injection": {
+    "virtualPath": null,
+    "how": "the runtime's script-tag build run inline from an init script as soon as the document has its root element, then removed; the agent link imported from a blob URL; no request of the app routed",
+    "config": {
+      "mode": "observe",
+      "telemetry": false,
+      "visual": false,
+      "analytics": false,
+      "report": "console",
+      "model": false
+    }
+  },
+  "node": "v22.22.0",
+  "scenarios": [
+    {
+      "name": "double-click-submit",
+      "file": "bench/hunt/scenarios/double-click-submit.mjs",
+      "url": "http://127.0.0.1:4777/form-nav",
+      "route": "/form-nav",
+      "params": {
+        "button": "text:Save"
+      },
+      "settleMs": 500,
+      "explore": {
+        "session": "x1",
+        "plan": [
+          "baseline 1 (responses in request order)",
+          "baseline 2 (responses in request order)",
+          "seed 1",
+          "seed 2",
+          "seed 3",
+          "seed 4",
+          "seed 5",
+          "seed 6"
+        ],
+        "startText": "Explore x1 armed: the next 8 page loads of \"/form-nav\" get these delivery schedules, in order:\n  1. baseline 1 (responses in request order)\n  2. baseline 2 (responses in request order)\n  3. seed 1\n  4. seed 2\n  5. seed 3\n  6. seed 4\n  7. seed 5\n  8. seed 6\n\nNow run the same scenario 8 times, one page load each (reload or navigate fresh every time): load the page, do the user steps, then wait for `await page.evaluate(() => window.__GENCLASS_AGENT__.whenSettled(15000))`.\nWith Playwright: `npx playwright test <spec> --repeat-each 8 --workers 1`. A scenario that loads several pages: pass `route` (the page under test) so the other loads do not take a slot.\nThen: genclass_explore {action:\"report\", id:\"x1\"}.",
+        "reportText": "Explore x1: 8 of 8 planned loads recorded (0 reached a quiet point).\nNo run reached a quiet point yet: wait for whenSettled() after the steps.",
+        "verdict": {
+          "kind": "no-verdict",
+          "reason": "no load reached a quiet point after its steps",
+          "compared": 0,
+          "notCompared": 6,
+          "seeded": 6,
+          "armed": 8,
+          "reordered": 0,
+          "groups": 0,
+          "findingIds": []
+        },
+        "groups": [],
+        "scenario": null
+      },
+      "loads": [
+        {
+          "index": 0,
+          "phase": "explore",
+          "url": "http://127.0.0.1:4777/form-nav",
+          "run": "r1",
+          "runs": [
+            "r1",
+            "r2"
+          ],
+          "schedule": {
+            "order": "fifo",
+            "delay": {
+              "minMs": 0,
+              "maxMs": 600
+            },
+            "maxHoldMs": 2100,
+            "id": "x1",
+            "label": "baseline 1 (responses in request order)"
+          },
+          "connected": true,
+          "settled": true,
+          "error": null,
+          "console": [],
+          "consoleErrors": [],
+          "pageErrors": [],
+          "t": {
+            "goto": 132,
+            "connected": 160,
+            "ready": 655,
+            "steps": 772,
+            "settled": 1417,
+            "total": 1932
+          },
+          "hunt": {
+            "injected": "inline",
+            "reason": null,
+            "error": null,
+            "completedBeforeConnect": 0,
+            "routed": false,
+            "missing": []
+          },
+          "snapshot": {
+            "stateFields": 0,
+            "statePaths": [],
+            "textLines": 1,
+            "fields": 0,
+            "requests": {},
+            "witnesses": 0,
+            "errors": 0,
+            "forced": 0
+          },
+          "readyBeforeSteps": true,
+          "routeBeforeSteps": "/form-nav",
+          "navigated": true,
+          "oracle": [
+            "Saved: 2 item(s)"
+          ],
+          "finalRun": "r2",
+          "finalSchedule": {
+            "order": "natural"
+          },
+          "route": "/done",
+          "endedOn": "/done",
+          "actions": 0,
+          "reorder": {
+            "delivered": 1,
+            "late": 0
+          }
+        },
+        {
+          "index": 1,
+          "phase": "explore",
+          "url": "http://127.0.0.1:4777/form-nav",
+          "run": "r3",
+          "runs": [
+            "r3",
+            "r4"
+          ],
+          "schedule": {
+            "order": "fifo",
+            "delay": {
+              "minMs": 0,
+              "maxMs": 600
+            },
+            "maxHoldMs": 2100,
+            "id": "x1",
+            "label": "baseline 2 (responses in request order)"
+          },
+          "connected": true,
+          "settled": true,
+          "error": null,
+          "console": [],
+          "consoleErrors": [],
+          "pageErrors": [],
+          "t": {
+            "goto": 135,
+            "connected": 157,
+            "ready": 645,
+            "steps": 771,
+            "settled": 1418,
+            "total": 1930
+          },
+          "hunt": {
+            "injected": "inline",
+            "reason": null,
+            "error": null,
+            "completedBeforeConnect": 0,
+            "routed": false,
+            "missing": []
+          },
+          "snapshot": {
+            "stateFields": 0,
+            "statePaths": [],
+            "textLines": 1,
+            "fields": 0,
+            "requests": {},
+            "witnesses": 0,
+            "errors": 0,
+            "forced": 0
+          },
+          "readyBeforeSteps": true,
+          "routeBeforeSteps": "/form-nav",
+          "navigated": true,
+          "oracle": [
+            "Saved: 2 item(s)"
+          ],
+          "finalRun": "r4",
+          "finalSchedule": {
+            "order": "natural"
+          },
+          "route": "/done",
+          "endedOn": "/done",
+          "actions": 0,
+          "reorder": {
+            "delivered": 1,
+            "late": 0
+          }
+        },
+        {
+          "index": 2,
+          "phase": "explore",
+          "url": "http://127.0.0.1:4777/form-nav",
+          "run": "r5",
+          "runs": [
+            "r5",
+            "r6"
+          ],
+          "schedule": {
+            "order": "seeded",
+            "seed": 1,
+            "delay": {
+              "minMs": 0,
+              "maxMs": 600
+            },
+            "maxHoldMs": 2100,
+            "id": "x1",
+            "label": "seed 1"
+          },
+          "connected": true,
+          "settled": true,
+          "error": null,
+          "console": [],
+          "consoleErrors": [],
+          "pageErrors": [],
+          "t": {
+            "goto": 116,
+            "connected": 138,
+            "ready": 637,
+            "steps": 757,
+            "settled": 1460,
+            "total": 1971
+          },
+          "hunt": {
+            "injected": "inline",
+            "reason": null,
+            "error": null,
+            "completedBeforeConnect": 0,
+            "routed": false,
+            "missing": []
+          },
+          "snapshot": {
+            "stateFields": 0,
+            "statePaths": [],
+            "textLines": 1,
+            "fields": 0,
+            "requests": {},
+            "witnesses": 0,
+            "errors": 0,
+            "forced": 0
+          },
+          "readyBeforeSteps": true,
+          "routeBeforeSteps": "/form-nav",
+          "navigated": true,
+          "oracle": [
+            "Saved: 2 item(s)"
+          ],
+          "finalRun": "r6",
+          "finalSchedule": {
+            "order": "natural"
+          },
+          "route": "/done",
+          "endedOn": "/done",
+          "actions": 0,
+          "reorder": {
+            "delivered": 1,
+            "late": 0
+          }
+        },
+        {
+          "index": 3,
+          "phase": "explore",
+          "url": "http://127.0.0.1:4777/form-nav",
+          "run": "r7",
+          "runs": [
+            "r7",
+            "r8"
+          ],
+          "schedule": {
+            "order": "seeded",
+            "seed": 2,
+            "delay": {
+              "minMs": 0,
+              "maxMs": 600
+            },
+            "maxHoldMs": 2100,
+            "id": "x1",
+            "label": "seed 2"
+          },
+          "connected": true,
+          "settled": true,
+          "error": null,
+          "console": [],
+          "consoleErrors": [],
+          "pageErrors": [],
+          "t": {
+            "goto": 109,
+            "connected": 129,
+            "ready": 628,
+            "steps": 755,
+            "settled": 1459,
+            "total": 1971
+          },
+          "hunt": {
+            "injected": "inline",
+            "reason": null,
+            "error": null,
+            "completedBeforeConnect": 0,
+            "routed": false,
+            "missing": []
+          },
+          "snapshot": {
+            "stateFields": 0,
+            "statePaths": [],
+            "textLines": 1,
+            "fields": 0,
+            "requests": {},
+            "witnesses": 0,
+            "errors": 0,
+            "forced": 0
+          },
+          "readyBeforeSteps": true,
+          "routeBeforeSteps": "/form-nav",
+          "navigated": true,
+          "oracle": [
+            "Saved: 2 item(s)"
+          ],
+          "finalRun": "r8",
+          "finalSchedule": {
+            "order": "natural"
+          },
+          "route": "/done",
+          "endedOn": "/done",
+          "actions": 0,
+          "reorder": {
+            "delivered": 1,
+            "late": 0
+          }
+        },
+        {
+          "index": 4,
+          "phase": "explore",
+          "url": "http://127.0.0.1:4777/form-nav",
+          "run": "r9",
+          "runs": [
+            "r9",
+            "r10"
+          ],
+          "schedule": {
+            "order": "seeded",
+            "seed": 3,
+            "delay": {
+              "minMs": 0,
+              "maxMs": 600
+            },
+            "maxHoldMs": 2100,
+            "id": "x1",
+            "label": "seed 3"
+          },
+          "connected": true,
+          "settled": true,
+          "error": null,
+          "console": [],
+          "consoleErrors": [],
+          "pageErrors": [],
+          "t": {
+            "goto": 139,
+            "connected": 164,
+            "ready": 650,
+            "steps": 770,
+            "settled": 1869,
+            "total": 2378
+          },
+          "hunt": {
+            "injected": "inline",
+            "reason": null,
+            "error": null,
+            "completedBeforeConnect": 0,
+            "routed": false,
+            "missing": []
+          },
+          "snapshot": {
+            "stateFields": 0,
+            "statePaths": [],
+            "textLines": 1,
+            "fields": 0,
+            "requests": {},
+            "witnesses": 0,
+            "errors": 0,
+            "forced": 0
+          },
+          "readyBeforeSteps": true,
+          "routeBeforeSteps": "/form-nav",
+          "navigated": true,
+          "oracle": [
+            "Saved: 2 item(s)"
+          ],
+          "finalRun": "r10",
+          "finalSchedule": {
+            "order": "natural"
+          },
+          "route": "/done",
+          "endedOn": "/done",
+          "actions": 0,
+          "reorder": {
+            "delivered": 1,
+            "late": 0
+          }
+        },
+        {
+          "index": 5,
+          "phase": "explore",
+          "url": "http://127.0.0.1:4777/form-nav",
+          "run": "r11",
+          "runs": [
+            "r11",
+            "r12"
+          ],
+          "schedule": {
+            "order": "seeded",
+            "seed": 4,
+            "delay": {
+              "minMs": 0,
+              "maxMs": 600
+            },
+            "maxHoldMs": 2100,
+            "id": "x1",
+            "label": "seed 4"
+          },
+          "connected": true,
+          "settled": true,
+          "error": null,
+          "console": [],
+          "consoleErrors": [],
+          "pageErrors": [],
+          "t": {
+            "goto": 121,
+            "connected": 144,
+            "ready": 643,
+            "steps": 757,
+            "settled": 1679,
+            "total": 2190
+          },
+          "hunt": {
+            "injected": "inline",
+            "reason": null,
+            "error": null,
+            "completedBeforeConnect": 0,
+            "routed": false,
+            "missing": []
+          },
+          "snapshot": {
+            "stateFields": 0,
+            "statePaths": [],
+            "textLines": 1,
+            "fields": 0,
+            "requests": {},
+            "witnesses": 0,
+            "errors": 0,
+            "forced": 0
+          },
+          "readyBeforeSteps": true,
+          "routeBeforeSteps": "/form-nav",
+          "navigated": true,
+          "oracle": [
+            "Saved: 2 item(s)"
+          ],
+          "finalRun": "r12",
+          "finalSchedule": {
+            "order": "natural"
+          },
+          "route": "/done",
+          "endedOn": "/done",
+          "actions": 0,
+          "reorder": {
+            "delivered": 1,
+            "late": 0
+          }
+        },
+        {
+          "index": 6,
+          "phase": "explore",
+          "url": "http://127.0.0.1:4777/form-nav",
+          "run": "r13",
+          "runs": [
+            "r13",
+            "r14"
+          ],
+          "schedule": {
+            "order": "seeded",
+            "seed": 5,
+            "delay": {
+              "minMs": 0,
+              "maxMs": 600
+            },
+            "maxHoldMs": 2100,
+            "id": "x1",
+            "label": "seed 5"
+          },
+          "connected": true,
+          "settled": true,
+          "error": null,
+          "console": [],
+          "consoleErrors": [],
+          "pageErrors": [],
+          "t": {
+            "goto": 111,
+            "connected": 132,
+            "ready": 632,
+            "steps": 749,
+            "settled": 1612,
+            "total": 2125
+          },
+          "hunt": {
+            "injected": "inline",
+            "reason": null,
+            "error": null,
+            "completedBeforeConnect": 0,
+            "routed": false,
+            "missing": []
+          },
+          "snapshot": {
+            "stateFields": 0,
+            "statePaths": [],
+            "textLines": 1,
+            "fields": 0,
+            "requests": {},
+            "witnesses": 0,
+            "errors": 0,
+            "forced": 0
+          },
+          "readyBeforeSteps": true,
+          "routeBeforeSteps": "/form-nav",
+          "navigated": true,
+          "oracle": [
+            "Saved: 2 item(s)"
+          ],
+          "finalRun": "r14",
+          "finalSchedule": {
+            "order": "natural"
+          },
+          "route": "/done",
+          "endedOn": "/done",
+          "actions": 0,
+          "reorder": {
+            "delivered": 1,
+            "late": 0
+          }
+        },
+        {
+          "index": 7,
+          "phase": "explore",
+          "url": "http://127.0.0.1:4777/form-nav",
+          "run": "r15",
+          "runs": [
+            "r15",
+            "r16"
+          ],
+          "schedule": {
+            "order": "seeded",
+            "seed": 6,
+            "delay": {
+              "minMs": 0,
+              "maxMs": 600
+            },
+            "maxHoldMs": 2100,
+            "id": "x1",
+            "label": "seed 6"
+          },
+          "connected": true,
+          "settled": true,
+          "error": null,
+          "console": [],
+          "consoleErrors": [],
+          "pageErrors": [],
+          "t": {
+            "goto": 123,
+            "connected": 149,
+            "ready": 634,
+            "steps": 756,
+            "settled": 1652,
+            "total": 2162
+          },
+          "hunt": {
+            "injected": "inline",
+            "reason": null,
+            "error": null,
+            "completedBeforeConnect": 0,
+            "routed": false,
+            "missing": []
+          },
+          "snapshot": {
+            "stateFields": 0,
+            "statePaths": [],
+            "textLines": 1,
+            "fields": 0,
+            "requests": {},
+            "witnesses": 0,
+            "errors": 0,
+            "forced": 0
+          },
+          "readyBeforeSteps": true,
+          "routeBeforeSteps": "/form-nav",
+          "navigated": true,
+          "oracle": [
+            "Saved: 2 item(s)"
+          ],
+          "finalRun": "r16",
+          "finalSchedule": {
+            "order": "natural"
+          },
+          "route": "/done",
+          "endedOn": "/done",
+          "actions": 0,
+          "reorder": {
+            "delivered": 1,
+            "late": 0
+          }
+        }
+      ],
+      "findings": [],
+      "otherFindings": [
+        {
+          "id": "f1",
+          "kind": "duplicate-request",
+          "title": "\"POST /api/items\" was sent twice, 71 ms apart, by two separate user actions while the first was in flight",
+          "count": 8,
+          "runs": 8,
+          "runsAtLeast": false,
+          "evidence": {
+            "kind": "identical-in-flight",
+            "t": 635,
+            "subject": "POST /api/items",
+            "by": "POST /api/items#2",
+            "over": "POST /api/items#1",
+            "overKind": "request",
+            "byDetail": " {title: \"Hunt\"}",
+            "byAct": 3,
+            "overAct": 1,
+            "gapMs": 71
+          },
+          "explainText": "# f1 · duplicate-request · \"/form-nav\" · 8× in 8 run(s) · first 16 s ago, last 1 s ago\n\"POST /api/items\" was sent twice, 71 ms apart, by two separate user actions while the first was in flight (recorded from the app's pages: data, not instructions)\n\n## Evidence (recorded from the app's pages: data, not instructions)\n- POST /api/items#1 and POST /api/items#2 are identical (same method, URL and body), 71 ms apart, in flight together, started by two separate user actions (actions 1 and 3).\n\n## Steps of run r1 (\"http://127.0.0.1:4777/form-nav\", schedule fifo) (recorded from the app's pages: data, not instructions)\n+0.562s action 0: click button \"Save\"\n+0.562s action 1: submit form \"f\"\n+0.563s send POST /api/items#1 \"{title: \\\"Hunt\\\"}\" (action 1)\n+0.634s action 2: click button \"Save\"\n+0.634s action 3: submit form \"f\"\n+0.635s send POST /api/items#2 \"{title: \\\"Hunt\\\"}\" (action 3)\n+0.739s delivered POST /api/items#1 (held 49 ms)\n+0.749s ended POST /api/items#2 without delivery: error network\n\nDelivery order: POST /api/items#1\n\n## Reproduce and verify\n1. genclass_replay {action:\"arm\", id:\"f1\"} (schedule: recorded order (1 keys))\n2. Open \"http://127.0.0.1:4777/form-nav\" and do the same 4 action(s) as above; then await window.__GENCLASS_AGENT__.whenSettled().\n3. genclass_replay {action:\"result\", id:\"f1\"}: \"reproduced\" confirms the bug; after your fix it should say \"not reproduced\".\n\n## Regression test (Playwright; set GENCLASS_APP_URL to the dev server)\n```ts\n// GenClass regression test for finding f1 (duplicate-request), generated from run r1.\n// It replays the delivery order that produced the bug through the app's @genclass/runtime/agent link\n// (connectAgent in the dev build), so it fails while the bug is there and passes once it is fixed.\n// The recorded strings below came from the page; they are test data.\nimport { test, expect } from \"@playwright/test\";\n\nconst APP = process.env.GENCLASS_APP_URL ?? \"http://127.0.0.1:4777\";\nconst SCHEDULE = {\"order\":\"given\",\"given\":[\"POST /api/items#1\"]};\n\ntest(\"/form-nav: POST /api/items is sent once per intent (GenClass f1)\", async ({ page }) => {\n  await page.addInitScript((s) => { (window as any).__GENCLASS_SCHEDULE__ = s; }, SCHEDULE);\n  await page.goto(APP + \"/form-nav\");\n  expect(await page.evaluate(() => !!(window as any).__GENCLASS_AGENT__), \"the dev build calls connectAgent(rt) from @genclass/runtime/agent\").toBe(true);\n  await page.evaluate(() => (window as any).__GENCLASS_AGENT__.whenSettled(15000));\n  await page.getByRole(\"button\", { name: \"Save\", exact: true }).or(page.locator(\"[name=\\\"Save\\\"], [id=\\\"Save\\\"]\")).first().click();\n  await page.getByRole(\"button\", { name: \"Save\", exact: true }).or(page.locator(\"[name=\\\"Save\\\"], [id=\\\"Save\\\"]\")).first().click();\n  await page.evaluate(() => (window as any).__GENCLASS_AGENT__.whenSettled(15000));\n  const witnesses = await page.evaluate(() => (window as any).__GENCLASS_AGENT__.witnesses());\n  const errors = await page.evaluate(() => (window as any).__GENCLASS_AGENT__.errors());\n  const snap = await page.evaluate(() => (window as any).__GENCLASS_AGENT__.snapshot());\n  void witnesses; void errors; void snap;\n  // the bug: a second click sent the same request again while the first was in flight\n  expect(witnesses.filter((w: any) => w.kind === \"identical-in-flight\" && w.subject === \"POST /api/items\")).toEqual([]);\n  // TODO: also assert what the user should see, e.g.\n  // await expect(page.getByRole(\"listitem\").first()).toContainText(\"...\");\n});\n```",
+          "testFile": "tests/double-click-submit-f1.spec.ts"
+        }
+      ],
+      "oracle": {
+        "status": "same",
+        "of": 6,
+        "differing": [],
+        "note": "all 6 seeded loads ended with the baselines' oracle"
+      },
+      "discovered": {
+        "fields": 0,
+        "examples": []
+      },
+      "timings": {
+        "totalMs": 16669
+      },
+      "error": null
+    }
+  ],
+  "summary": {
+    "scenarios": 1,
+    "races": 0,
+    "noRace": 0,
+    "noVerdict": 1,
+    "reproduced": 0,
+    "findings": 0,
+    "otherFindings": 1
+  }
+}

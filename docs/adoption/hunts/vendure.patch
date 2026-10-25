@@ -1,0 +1,328 @@
+diff --git a/packages/dashboard/e2e/tests/regression/double-submit-on-save.spec.ts b/packages/dashboard/e2e/tests/regression/double-submit-on-save.spec.ts
+new file mode 100644
+index 0000000..42fc2f0
+--- /dev/null
++++ b/packages/dashboard/e2e/tests/regression/double-submit-on-save.spec.ts
+@@ -0,0 +1,121 @@
++import { type Page, expect, test } from '@playwright/test';
++
++import { BaseDetailPage } from '../../page-objects/detail-page.base.js';
++import { VendureAdminClient } from '../../utils/vendure-admin-client.js';
++
++// #2117: a double-click on the save button of a detail page must send the create or update
++// mutation only once. The form validates asynchronously before it calls the mutation, and the
++// button is only disabled on the next render, so the second click used to submit the form again
++// and, on a "new" page, create the entity twice.
++
++/** Counts the admin-api requests that carry the given mutation. */
++function countMutations(page: Page, mutationName: string) {
++    const sent: string[] = [];
++    page.on('request', request => {
++        const body = request.postData() ?? '';
++        if (request.method() === 'POST' && body.includes('mutation') && body.includes(`${mutationName}(`)) {
++            sent.push(body);
++        }
++    });
++    return sent;
++}
++
++test.describe('Double-click on the save button submits once (#2117)', () => {
++    const createdName = `E2E Double Click Create ${Date.now()}`;
++    const updatedName = `E2E Double Click Update ${Date.now()}`;
++    let updateTargetId: string;
++
++    const detailConfig = {
++        newPath: '/collections/new',
++        pathPrefix: '/collections/',
++        newTitle: 'New collection',
++    };
++
++    test.beforeAll(async ({ browser }) => {
++        const page = await browser.newPage();
++        const client = new VendureAdminClient(page);
++        await client.login();
++        const { createCollection } = await client.gql(
++            `mutation ($input: CreateCollectionInput!) {
++                createCollection(input: $input) { id }
++            }`,
++            {
++                input: {
++                    filters: [],
++                    translations: [
++                        {
++                            languageCode: 'en',
++                            name: 'E2E Double Click Target',
++                            slug: `e2e-double-click-target-${Date.now()}`,
++                            description: '',
++                        },
++                    ],
++                },
++            },
++        );
++        updateTargetId = createCollection.id as string;
++        await page.close();
++    });
++
++    test.afterAll(async ({ browser }) => {
++        const page = await browser.newPage();
++        const client = new VendureAdminClient(page);
++        await client.login();
++        const { collections } = await client.gql(
++            `query ($names: [String!]!) {
++                collections(options: { filter: { name: { in: $names } } }) { items { id } }
++            }`,
++            { names: [createdName, updatedName, 'E2E Double Click Target'] },
++        );
++        for (const { id } of collections.items) {
++            await client.gql(`mutation ($id: ID!) { deleteCollection(id: $id) { result } }`, { id });
++        }
++        await page.close();
++    });
++
++    test('double-clicking Create creates one collection', async ({ page }) => {
++        const detail = new BaseDetailPage(page, detailConfig);
++        const creates = countMutations(page, 'createCollection');
++
++        await detail.gotoNew();
++        await detail.expectNewPageLoaded();
++        await detail.fillFields([{ label: 'Name', value: createdName }]);
++        await expect(detail.formItem('Slug').getByRole('textbox')).not.toHaveValue('', { timeout: 5_000 });
++        await expect(detail.createButton).toBeEnabled();
++
++        await detail.createButton.dblclick();
++        await detail.expectSuccessToast(/created/i);
++        await detail.expectNavigatedToExisting();
++        // A second submit would have been sent by now
++        await page.waitForTimeout(1000);
++
++        expect(creates).toHaveLength(1);
++        const client = new VendureAdminClient(page);
++        await client.login();
++        const { collections } = await client.gql(
++            `query ($name: String!) {
++                collections(options: { filter: { name: { eq: $name } } }) { totalItems }
++            }`,
++            { name: createdName },
++        );
++        expect(collections.totalItems).toBe(1);
++    });
++
++    test('double-clicking Update sends one update', async ({ page }) => {
++        const detail = new BaseDetailPage(page, detailConfig);
++        const updates = countMutations(page, 'updateCollection');
++
++        await detail.gotoExisting(updateTargetId);
++        await expect(detail.formItem('Name').getByRole('textbox')).toHaveValue('E2E Double Click Target', {
++            timeout: 10_000,
++        });
++        await detail.fillInput('Name', updatedName);
++        await expect(detail.updateButton).toBeEnabled();
++
++        await detail.updateButton.dblclick();
++        await detail.expectSuccessToast(/updated/i);
++        await page.waitForTimeout(1000);
++
++        expect(updates).toHaveLength(1);
++    });
++});
+diff --git a/packages/dashboard/src/lib/framework/form-engine/use-generated-form.spec.tsx b/packages/dashboard/src/lib/framework/form-engine/use-generated-form.spec.tsx
+index bc2def4..42eca38 100644
+--- a/packages/dashboard/src/lib/framework/form-engine/use-generated-form.spec.tsx
++++ b/packages/dashboard/src/lib/framework/form-engine/use-generated-form.spec.tsx
+@@ -131,3 +131,91 @@ describe('useGeneratedForm with a nullable: false custom field', () => {
+         unmount();
+     });
+ });
++
++async function renderSubmittableForm(onSubmit: (values: any) => void | Promise<unknown>) {
++    let result: ReturnType<typeof useGeneratedForm> | undefined;
++    function Probe() {
++        result = useGeneratedForm({
++            document: createDocument,
++            varName: 'input',
++            entity: undefined,
++            customFieldConfig,
++            setValues: e => ({ name: e.name, customFields: e.customFields }),
++            onSubmit,
++        });
++        return null;
++    }
++    const root = createRoot(document.createElement('div'));
++    await act(async () => {
++        root.render(createElement(Probe));
++    });
++    const event = { preventDefault: () => undefined, stopPropagation: () => undefined } as any;
++    return {
++        getForm: () => (result as NonNullable<typeof result>).form,
++        submit: () => (result as NonNullable<typeof result>).submitHandler(event) as Promise<void>,
++        unmount: () => act(() => root.unmount()),
++    };
++}
++
++// #2117: the second click of a double-click must not submit the form a second time
++describe('useGeneratedForm submitHandler', () => {
++    it('ignores a second submit while the first is still being validated', async () => {
++        const onSubmit = vi.fn();
++        const { getForm, submit, unmount } = await renderSubmittableForm(onSubmit);
++        await act(async () => {
++            getForm().setValue('name', 'Warehouse', { shouldValidate: true });
++        });
++        await act(async () => {
++            await Promise.all([submit(), submit()]);
++        });
++        expect(onSubmit).toHaveBeenCalledTimes(1);
++        unmount();
++    });
++
++    it('ignores further submits until the promise returned by onSubmit settles', async () => {
++        let settle: () => void = () => undefined;
++        const onSubmit = vi.fn(() => new Promise<void>(resolve => (settle = resolve)));
++        const { getForm, submit, unmount } = await renderSubmittableForm(onSubmit);
++        await act(async () => {
++            getForm().setValue('name', 'Warehouse', { shouldValidate: true });
++        });
++        let first: Promise<void> | undefined;
++        await act(async () => {
++            first = submit();
++            await vi.waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
++            await submit();
++        });
++        expect(onSubmit).toHaveBeenCalledTimes(1);
++        await act(async () => {
++            settle();
++            await first;
++        });
++        await act(async () => {
++            const next = submit();
++            await vi.waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(2));
++            settle();
++            await next;
++        });
++        unmount();
++    });
++
++    it('accepts a new submit after one that failed validation', async () => {
++        const onSubmit = vi.fn();
++        const { getForm, submit, unmount } = await renderSubmittableForm(onSubmit);
++        await act(async () => {
++            getForm().setValue('name', null as any);
++        });
++        await act(async () => {
++            await submit();
++        });
++        expect(onSubmit).not.toHaveBeenCalled();
++        await act(async () => {
++            getForm().setValue('name', 'Warehouse', { shouldValidate: true });
++        });
++        await act(async () => {
++            await submit();
++        });
++        expect(onSubmit).toHaveBeenCalledTimes(1);
++        unmount();
++    });
++});
+diff --git a/packages/dashboard/src/lib/framework/form-engine/use-generated-form.tsx b/packages/dashboard/src/lib/framework/form-engine/use-generated-form.tsx
+index d4559fb..5468668 100644
+--- a/packages/dashboard/src/lib/framework/form-engine/use-generated-form.tsx
++++ b/packages/dashboard/src/lib/framework/form-engine/use-generated-form.tsx
+@@ -123,10 +123,17 @@ export interface GeneratedFormOptions<
+     startingValues?: WithLooseCustomFields<
+         Partial<VarName extends keyof VariablesOf<T> ? VariablesOf<T>[VarName] : VariablesOf<T>>
+     >;
++    /**
++     * @description
++     * Called with the validated values when the form is submitted. If it returns a promise, further
++     * submits are ignored until that promise settles, so that a double-click on the submit button
++     * cannot send the same mutation twice. A submit is always ignored while the previous one is
++     * still being validated.
++     */
+     onSubmit?: (
+         values: VarName extends keyof VariablesOf<T> ? VariablesOf<T>[VarName] : VariablesOf<T>,
+         meta?: GeneratedFormSubmitMeta,
+-    ) => void;
++    ) => void | Promise<unknown>;
+ }
+ 
+ /**
+@@ -286,13 +293,16 @@ export function useGeneratedForm<
+         }
+     }, [valuesKey, startingValuesKey]);
+ 
++    // Set from the start of a submit until its `onSubmit` promise settles. Validation is async and a
++    // submit button is only disabled on the next render, so without this the second click of a
++    // double-click would submit the form again (#2117).
++    const submitInProgress = useRef(false);
++
+     let submitHandler = (event: FormEvent): any => {
+         event.preventDefault();
+     };
+     if (onSubmit) {
+-        submitHandler = async (event: FormEvent) => {
+-            event.preventDefault();
+-
++        const validateAndSubmit = async (event: FormEvent) => {
+             // Trigger validation on ALL fields, not just dirty ones
+             const isValid = await form.trigger();
+ 
+@@ -345,9 +355,21 @@ export function useGeneratedForm<
+                         }
+                     }
+                 }
+-                onSubmit(processed, meta);
++                return onSubmit(processed, meta);
+             };
+-            form.handleSubmit(onSubmitWrapper)(event);
++            await form.handleSubmit(onSubmitWrapper)(event);
++        };
++        submitHandler = async (event: FormEvent) => {
++            event.preventDefault();
++            if (submitInProgress.current) {
++                return;
++            }
++            submitInProgress.current = true;
++            try {
++                await validateAndSubmit(event);
++            } finally {
++                submitInProgress.current = false;
++            }
+         };
+     }
+ 
+diff --git a/packages/dashboard/src/lib/framework/page/use-detail-page.ts b/packages/dashboard/src/lib/framework/page/use-detail-page.ts
+index 60ab050..f4f798a 100644
+--- a/packages/dashboard/src/lib/framework/page/use-detail-page.ts
++++ b/packages/dashboard/src/lib/framework/page/use-detail-page.ts
+@@ -412,10 +412,14 @@ export function useDetailPage<
+         onSubmit(values: any, meta?: GeneratedFormSubmitMeta) {
+             const filteredValues = removeReadonlyAndLocalizedCustomFields(values, customFieldConfig || []);
+ 
++            // The mutation's promise is returned so that the form ignores further submits until it
++            // settles (#2117). Errors are already handled by the mutation's `onError`.
+             if (isNew) {
+                 const finalInput = transformCreateInput?.(filteredValues) ?? filteredValues;
+                 const variables = { input: finalInput } as VariablesOf<C>;
+-                createMutation.mutate(transformCreateVariables?.(variables) ?? variables);
++                return createMutation
++                    .mutateAsync(transformCreateVariables?.(variables) ?? variables)
++                    .catch(() => undefined);
+             } else {
+                 // When the page opts in via `sendOnlyChangedFields`, send only the fields the user
+                 // actually changed (plus non-nullable fields, which `changedFields` always
+@@ -427,7 +431,7 @@ export function useDetailPage<
+                     !sendOnlyChangedFields,
+                 );
+                 const finalInput = transformUpdateInput?.(prunedValues) ?? prunedValues;
+-                updateMutation.mutate({ input: finalInput });
++                return updateMutation.mutateAsync({ input: finalInput }).catch(() => undefined);
+             }
+         },
+     });
+@@ -443,7 +447,7 @@ export function useDetailPage<
+         form: form as any,
+         submitHandler,
+         entity,
+-        isPending: updateMutation.isPending || detailQuery?.isPending,
++        isPending: createMutation.isPending || updateMutation.isPending || detailQuery?.isPending,
+         refreshEntity: detailQuery.refetch,
+         resetForm,
+     };

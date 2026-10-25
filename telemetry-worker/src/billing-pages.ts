@@ -22,6 +22,7 @@ import {
   LIVE_STATUSES,
   PAID_PLANS,
   PAST_DUE_GRACE_DAYS,
+  RETIRED_PLAN_IDS,
   PLANS,
   PLANS_FILE,
   planById,
@@ -60,7 +61,7 @@ export interface BillingView {
   testMode: boolean;
   /** Back from Stripe Checkout (?done=1). */
   done: boolean;
-  /** The plan chosen on the pricing page (?plan=individual). */
+  /** The plan chosen on the pricing page (?plan=<id>). */
   picked: string | null;
   /** Back from a switch's Checkout (?to=<plan>): the plan it bought. */
   switchTo?: string | null;
@@ -70,7 +71,7 @@ export interface BillingView {
 }
 
 const BILLING_CSS = `
-.plans{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:28px;margin-top:22px}
+.plans{display:grid;grid-template-columns:repeat(${PLANS.length},minmax(0,1fr));gap:28px;margin-top:22px}
 .plan{border-top:1px solid var(--rule2);padding-top:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
 .plan.cur,.plan.pick{border-top-color:var(--accent)}
 .plan h3{font:500 22px/1.1 var(--display);letter-spacing:-.02em;margin:0}
@@ -97,12 +98,23 @@ function statusLine(v: BillingView, plan: Plan, apps: number): string {
       : "the runtime and its on-device model, without the dashboard";
     const limits = `${has} (you have ${apps} app${apps === 1 ? "" : "s"}).`;
     const overdue = !!b.subscription_id && (b.subscription_status === "past_due" || b.subscription_status === "unpaid");
-    const ended = overdue
+    // a subscription not ended while the account reads as Free, with nothing sold on the site (or a stored plan GenClass
+    // no longer sells): one to a retired plan (plans.json retired_plans; the webhook stores its plan as free). Paying it
+    // gives no plan, so the page says to cancel it, never to pay it
+    const retired =
+      !!b.subscription_id &&
+      ["active", "trialing", "past_due", "unpaid"].includes(b.subscription_status ?? "") &&
+      (!PAID_PLANS.length || RETIRED_PLAN_IDS.includes(b.plan));
+    const ended = retired
+      ? b.cancel_at_period_end
+        ? ` Your subscription to a plan GenClass no longer sells is cancelled and ends on ${day(b.current_period_end)}, without another charge.`
+        : ` Your subscription to a plan GenClass no longer sells is still open in Stripe and can bill again: cancel it in Manage billing, or email <a href="mailto:${esc(CONTACT)}">${esc(CONTACT)}</a>.`
+      : overdue
       ? ` The last payment for your paid plan did not go through, so it has ended. Update your card in Manage billing to pay it and get the plan back, or email <a href="mailto:${esc(CONTACT)}">${esc(CONTACT)}</a>.`
       : b.subscription_id && b.current_period_end && b.subscription_status === "canceled" && Date.parse(b.current_period_end) > v.now.getTime() - GRACE_DAYS * 86_400_000
         ? ` Your paid plan ended on ${day(b.current_period_end)}. Data older than 90 days stays for ${GRACE_DAYS} days after that, in case you come back.`
         : "";
-    return `You are on the ${name} plan: ${limits}${ended}${v.live ? "" : " Paid plans are not on sale yet."}`;
+    return `You are on the ${name} plan: ${limits}${ended}${v.live || !PAID_PLANS.length ? "" : " Paid plans are not on sale yet."}`;
   }
   if (!b.subscription_id) return `You are on the ${name} plan, set up by GenClass. Questions: <a href="mailto:${esc(CONTACT)}">${esc(CONTACT)}</a>.`;
   if (b.subscription_status === "past_due") {
@@ -172,7 +184,7 @@ export function billingPage(nonce: string, v: BillingView): string {
     ? ` ${esc(v.managedPlans.join(" and "))} ${v.managedPlans.length > 1 ? "are" : "is"} sold through Link, Stripe's merchant of record service: Link's name is on the receipt and on your card statement, it adds sales tax or VAT where it applies, and it answers questions about the payment.`
     : "";
   const custom =
-    entitled(plan, "custom_model") && !!v.billing.subscription_id
+    PAID_PLANS.includes(plan) && entitled(plan, "custom_model") && !!v.billing.subscription_id
       ? `<p class="status">A person from GenClass emails ${a.email ? esc(a.email) : "you"} within 1 business day of your purchase to start training your classifier. You can also write to <a href="mailto:${esc(CONTACT)}">${esc(CONTACT)}</a>.</p>`
       : "";
   const test =
@@ -198,7 +210,7 @@ export function billingPage(nonce: string, v: BillingView): string {
 </section>
 ${notice}${test}
 <section class="blk" id="plans">
-  <div class="blk-h"><h2>Plans</h2><span class="aside">US dollars, billed monthly</span></div>
+  <div class="blk-h"><h2>Plans</h2>${PAID_PLANS.length ? '<span class="aside">US dollars, billed monthly</span>' : ""}</div>
   <div class="plans">${PLANS.map((p) => planColumn(v, p, plan)).join("")}</div>
   <p class="err" id="planerr" role="alert"></p>
   ${switchNote}
@@ -214,8 +226,12 @@ ${
 </section>`
     : ""
 }
-<footer class="dfoot">Payments are handled by Stripe.${managed} GenClass stores your Stripe customer and subscription ids, the subscription's
-status and renewal date, and your plan; never card details. <a href="https://genclass.dev/privacy">Privacy</a> · <a href="https://genclass.dev/terms">Terms</a></footer>
+<footer class="dfoot">${
+    PAID_PLANS.length || manage
+      ? `Payments are handled by Stripe.${managed} GenClass stores your Stripe customer and subscription ids, the subscription's
+status and renewal date, and your plan; never card details. `
+      : ""
+  }<a href="https://genclass.dev/privacy">Privacy</a> · <a href="https://genclass.dev/terms">Terms</a></footer>
 </div>
 </div>
 <script type="application/json" id="cfg">${embed({ want })}</script>`;

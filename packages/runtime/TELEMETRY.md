@@ -34,6 +34,10 @@ When it is on, the console shows one notice per page:
 
 ## What is sent
 
+(The coding-agent link, `connectAgent` from `@genclass/runtime/agent`, is not telemetry: it runs in development builds
+on development hosts and sends its recording only to a bridge on the same machine, `http://127.0.0.1:47357`. It changes
+nothing below. [docs/runtime/AGENT.md](../../docs/runtime/AGENT.md) section 6.)
+
 Only data the runtime already computes for its own decisions. **By default, no text from the page is sent:**
 decision events carry the trigger kind, the diagnosis and its confidence, the chosen action, the gate, the outcome,
 latency and counts, plus the app's hostname and the id-normalised route (no query or fragment; from 0.3.0 a path
@@ -277,10 +281,10 @@ New in `0.3.0` (`0.2.x` ignores a token and sends neither `token` nor `fn`). An 
   trigger, page route, versions, time; never page text) to the services the owner chose. Not sold, not used for
   advertising.
 - **Retention:** 90 days. An R2 lifecycle rule (`expire-90d`, prefix `events/`) deletes every stored batch 90 days after it
-  was written. For an app on a plan with a year of history (Individual, or GenClass's own grant), a copy of each batch is
-  kept for its export under `export/<token>/` for up to 1 year (another lifecycle rule, 366 days), and its dashboard
-  data for 1 year; both are deleted 30 days after the paid plan ends, and at once when the app or its account is
-  deleted. The maintainers may change this later; changes are
+  was written. For an app on a plan with a year of history (Enterprise, given by GenClass's own grant), a copy of each
+  batch is kept for its export under `export/<token>/` for up to 1 year (another lifecycle rule, 366 days), and its
+  dashboard data for 1 year; both are deleted when the grant ends (30 days after the paid period ends, for a paid
+  plan), and at once when the app or its account is deleted. The maintainers may change this later; changes are
   recorded in the CHANGELOG.
 - **Your own endpoint (private mode):** `telemetry: { endpoint: "https://…" }` sends the same batches to a
   collector you run instead, so nothing reaches GenClass: the worker in `telemetry-worker/` deploys to any Cloudflare

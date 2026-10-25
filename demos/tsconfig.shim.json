@@ -6,7 +6,8 @@
       "@genclass/runtime/react": ["./src/dev/runtime-shim/react.ts"],
       "@genclass/runtime/redux": ["./src/dev/runtime-shim/redux.ts"],
       "@genclass/runtime/zustand": ["./src/dev/runtime-shim/zustand.ts"],
-      "@genclass/runtime/devtools": ["./src/dev/runtime-shim/devtools.ts"]
+      "@genclass/runtime/devtools": ["./src/dev/runtime-shim/devtools.ts"],
+      "@genclass/runtime/agent": ["./src/dev/runtime-shim/agent.ts"]
     }
   },
   "include": ["src"],

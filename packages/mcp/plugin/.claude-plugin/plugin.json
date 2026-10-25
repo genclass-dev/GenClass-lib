@@ -1,0 +1,30 @@
+{
+  "name": "genclass",
+  "version": "0.1.0",
+  "description": "See what happens inside your app's pages in causal order, find race conditions by replaying different response orders, reproduce a bug exactly and prove the fix with a generated Playwright test. Local only.",
+  "author": {
+    "name": "GenClass",
+    "url": "https://genclass.dev"
+  },
+  "homepage": "https://genclass.dev",
+  "repository": "https://github.com/genclass-dev/GenClass-lib",
+  "license": "Apache-2.0",
+  "documentationUrl": "https://github.com/genclass-dev/GenClass-lib/blob/main/packages/mcp/plugin/README.md",
+  "supportUrl": "https://github.com/genclass-dev/GenClass-lib/issues",
+  "privacyPolicyUrl": "https://github.com/genclass-dev/GenClass-lib/blob/main/packages/mcp/plugin/README.md#privacy",
+  "keywords": [
+    "race-condition",
+    "debugging",
+    "playwright",
+    "frontend",
+    "mcp",
+    "stale-response",
+    "double-submit"
+  ],
+  "channels": [
+    {
+      "server": "genclass",
+      "displayName": "GenClass findings"
+    }
+  ]
+}

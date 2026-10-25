@@ -126,13 +126,13 @@ describe("GenClass.init and the kill switch", () => {
     info.mockRestore();
   });
 
-  it("?genclass=heal promotes only with debug; ?genclass=observe demotes", () => {
+  it("?genclass=heal does not promote, with or without debug; ?genclass=observe demotes", () => {
     g.location = { search: "?genclass=heal", href: "http://x/?genclass=heal", pathname: "/" };
     let rt = GenClass.init({ model: false, report: "silent", mode: "guard", observe: { fetch: false, timers: false } });
     expect(rt.mode).toBe("guard");
     GenClass.destroy();
     rt = GenClass.init({ model: false, report: "silent", mode: "guard", debug: true, observe: { fetch: false, timers: false } });
-    expect(rt.mode).toBe("heal");
+    expect(rt.mode).toBe("guard");
     GenClass.destroy();
     g.location = { search: "?genclass=observe", href: "http://x/?genclass=observe", pathname: "/" };
     rt = GenClass.init({ model: false, report: "silent", mode: "guard", observe: { fetch: false, timers: false } });

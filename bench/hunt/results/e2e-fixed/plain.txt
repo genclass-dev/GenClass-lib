@@ -1,0 +1,38 @@
+
+== run 1 (reference, no delay): 
+{
+  "heading": "Results for react",
+  "rows": [
+    "react one",
+    "react two"
+  ]
+}
+
+== run 2 (reference, no delay): 
+{
+  "heading": "Results for react",
+  "rows": [
+    "react one",
+    "react two"
+  ]
+}
+
+== run 3 (delayed: GET /api/search?q=reac +1500 ms): SAME end state as the reference
+{
+  "heading": "Results for react",
+  "rows": [
+    "react one",
+    "react two"
+  ]
+}
+
+== run 4 (delayed: GET /api/search?q=reac +1500 ms): SAME end state as the reference
+{
+  "heading": "Results for react",
+  "rows": [
+    "react one",
+    "react two"
+  ]
+}
+
+0 of 2 delayed run(s) ended differently from the two reference runs (which agree), with no GenClass on the page.

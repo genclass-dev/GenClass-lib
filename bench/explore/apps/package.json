@@ -1,0 +1,14 @@
+{
+  "name": "@genclass/bench-explore-apps",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Two small search pages for the explore bench (bench/explore/README.md): Redux Toolkit Query and TanStack Query, each with a planted stale race and a correct variant. Installed on its own (not a workspace).",
+  "dependencies": {
+    "@reduxjs/toolkit": "2.13.0",
+    "@tanstack/react-query": "5.104.1",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-redux": "9.3.0"
+  }
+}
