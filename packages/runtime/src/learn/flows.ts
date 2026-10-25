@@ -21,10 +21,22 @@
 // Opt-in (learn.expectations, default false until the false-report rate is measured): the runtime imports this module
 // with a dynamic import on the next task after init (a 0 ms timer) only when the option is on, so it is never part of the first load. It also
 // holds the `response` kind's bound and line (the runtime's stall timer asks it), so the runtime imports only types.
+// It takes util.ts's helpers through FlowEnv.util instead of importing util.ts: an import would make util.ts a chunk
+// shared with this lazy one, which an app's bundler splits out of every first load (test/bundle.test.ts).
 
 import type { OpRec } from "../trace/ops.js";
 import type { Expectation, LearnOptions, LearnedFlow, UserAction } from "../types.js";
-import { defaultRedact, fnv1a, normalizePath, plural } from "../util.js";
+import type { Redactor } from "../util.js";
+
+/** The util.ts helpers this module uses, passed in through FlowEnv.util (the runtime passes util.ts's own functions). */
+export interface FlowUtil {
+  defaultRedact: Redactor;
+  fnv1a(s: string): string;
+  normalizePath(pathname: string): string;
+  plural(n: number, one: string, many?: string): string;
+}
+// set from env.util when a FlowProfiles is constructed; nothing below calls them before one exists
+let { defaultRedact, fnv1a, normalizePath, plural } = {} as FlowUtil;
 
 const s2 = (x: number): string => (Number.isFinite(x) ? x.toFixed(2) : "?");
 
@@ -78,6 +90,8 @@ export interface FlowEnv {
   report(e: Expectation): void;
   /** Learned state changed (persist soon). */
   changed(): void;
+  /** util.ts's helpers (FlowUtil). */
+  util: FlowUtil;
 }
 
 const MAX_FLOWS = 500;
@@ -243,7 +257,7 @@ function okEnd(o: OpRec): boolean {
   return o.end !== undefined && o.status === "ok" && !(typeof o.code === "number" && o.code >= 400);
 }
 
-/** Route key: the path without query or hash, ids normalised. */
+/** Route key: the path without query or hash, ids normalised. Usable once a FlowProfiles exists (FlowEnv.util). */
 export function flowRoute(route: string | undefined): string {
   const r = (route ?? "/").split("?")[0].split("#")[0] || "/";
   return normalizePath(r);
@@ -315,7 +329,9 @@ export class FlowProfiles {
   constructor(
     private readonly env: FlowEnv,
     public cfg: FlowConfig,
-  ) {}
+  ) {
+    ({ defaultRedact, fnv1a, normalizePath, plural } = env.util);
+  }
 
   // ------------------------------------------------------------------------------------------ records
 

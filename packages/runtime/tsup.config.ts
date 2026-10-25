@@ -176,6 +176,11 @@ export default defineConfig([
     dts: false,
     treeshake: true,
     noExternal: [/^onnxruntime-web/],
+    // onnxruntime-web's bundles reference `require` only inside their own esbuild require shim, whose single caller
+    // (require("node:os"), taken only when `navigator` is undefined) never runs in a browser. Reading the global keeps
+    // a free `require` out of dist/cdn, so an app's esbuild (and this repo's first-load measurement) adds no
+    // dynamic-require shim chunk to every entry's first load. Not `undefined`: a page with a global require keeps it.
+    define: { require: "globalThis.require" },
     esbuildPlugins: [cdnOrt as never, ortNoAssets as never],
   },
 ]);

@@ -312,6 +312,47 @@ streak or failure, a baseline ratio beyond 3×, an invariant violation, an error
 runs with no model call and no decision record. `triage: "always"` consults on every trigger. Triage is a
 cost filter, not a classifier: it never chooses a diagnosis or a non-passive action.
 
+**Steady timer ticks** (amendment 2026-10-20, from Troy Bot's 1 Hz elapsed-seconds counter; **owner to confirm
+before merge**): a triage override of the identical-change fact, nothing else. For a `mutation` under
+`triage: "salient"` (no standing `always` question for it, not a deferred re-decision), the non-neutral
+identical-change fact (kind `repetition`, "An identical change to … was applied …") does not count as salient when
+the write is a learned steady tick: its cause is a timer op with a scheduled delay of at least `TICK_MIN_DELAY_MS`
+= 250 ms, every change is a finite numeric step (a change into or out of `NaN`, whose step is `NaN` whatever the
+values, is never learned), and for each changed field the last `TICK_MIN` = 4 writes were non-user writes of
+the same step by ticks of the same timer (the same delay, sharing their cause or each caused by the tick
+before), each tick (its timer op's start, and the current time for this write) within `TICK_TOLERANCE` = ±25% of
+that delay after the previous one. The fact keeps its text and `neutral: false`, every situation that is still
+built is unchanged in wording, and any other non-neutral fact still asks. The check keeps no state of its own: a
+write that breaks the pattern (another writer, a user write, another step, an off-schedule gap, a second timer)
+asks again until 4 clean ticks follow. The timer's delay is kept on the internal op record only, never in an op's
+`meta` or `detail`, an event or any text. Constants and the check: `src/runtime.ts` (`steadyTick`).
+
+**Re-fetches after back/forward** (amendment 2026-10-20, from Troy Bot's back/forward run: 9 false `overload`
+reports at up to 0.98, one GET per navigation; **owner to confirm before merge**): a triage override of the
+identical-request fact, nothing else. The nav observer (`src/observe/nav.ts`) marks a `popstate` or `hashchange` as a
+traversal when the route differs from the last navigation it saw and, where the Navigation API exists, the current
+entry's `navigation.currentEntry.key` is one it saw at an earlier navigation (it keeps the last `MAX_KEYS` = 64,
+read only, with no listener of its own) other than that navigation's; where it does not (or the key cannot be read),
+when `history.length` has not grown since that navigation (an unknown length counts as unchanged). `pushState`,
+`replaceState`, fragment navigations (Chromium fires `popstate` for them too, but they add an entry, with a new key)
+and a click on the current hash link are not traversals. For a `request` under `triage: "salient"` (no standing
+`always` question for it), the non-neutral identical-request fact (kind `repetition`, "N identical … requests in the
+last 10s: …") does not count as salient when the request is a GET or HEAD with no user action in its causal chain,
+started within `TRAVERSAL_MS` = 2000 ms after the last traversal, no other request of its identity started since
+that traversal, and at most `TRAVERSAL_LOOP_MAX` = 7 requests of its identity (itself included) started in the
+`TRAVERSAL_LOOP_WINDOW_MS` = 10 s before it. The fact keeps its text and `neutral: false`, every situation that is
+still built is unchanged in wording, the `nav` event is unchanged, and any other non-neutral fact (a hot request rate
+against a learned one, a failure streak) still asks; so do user-caused requests, other methods, a second identical
+request after the same traversal, and a loop of traversals: a page's own `history.back()`/`go()` cycle cannot be
+told from the back button, so its re-fetches are exempt up to their identity's 7th request in 10 s and asked from
+the 8th. Known misreads of the `history.length` fallback (they count as traversals): `location.replace("#x")`, a
+fragment push once session history is at the browser's cap, and any new entry made while forward entries exist
+(typically right after a back: a fragment navigation, or a `pushState` whose patch, installed before GenClass,
+dispatches `popstate` inside the call). With the Navigation API, a traversal to an entry made before GenClass was
+installed, or not among the last 64 it saw, is not counted (its re-fetch is asked). The traversal's time and the
+keys are kept in memory only, never in an event or any text. Constants and the check: `src/runtime.ts`
+(`refetch`), `src/observe/nav.ts` (`MAX_KEYS`).
+
 **Standing questions** (exact qids; plugins may add more):
 
 - `action` (choice): one option per applicable action, `name: description` (descriptions in section 7).
