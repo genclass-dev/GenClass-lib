@@ -1,0 +1,47 @@
+opened http://127.0.0.1:8799/dashboard/sample; title: Sample storefront (simulated data) | GenClass dashboard
+view #found: sidebar marks "Problems 5"; screenshot 02-problems.png
+view #visits: sidebar marks "Visitors 2,484"; screenshot 03-visitors.png
+view #loop: sidebar marks "Loop"; screenshot 04-loop.png
+loop rows: duplicate (agent f7), stale (agent f3), failing (agent f9), slow (agent f9), conflict
+loop foot: Your agent reported 3 findings in this period, the last 12 min ago: ids, kinds, pages, verdicts and times only, never page text. Connect an agent: npx -y @genclass/mcp@0.1.0 init in the project and co
+visitors sections: How visitors use this app | Sources | Campaigns | Devices | Device | Browser | Operating system | Country | New or returning | Sessions | Entry pages | Exit pages | Funnels | Checkout | Search to product | Most clicked | Rage and dead clicks | How visitors move through this app
+copy-prompt button: "Copy the prompt for your coding agent" (0px tall)
+copy-prompt check skipped: elementHandle.scrollIntoViewIfNeeded: Timeout 30000ms exceeded.
+Call log:
+  - attempting scroll into view action
+    2 × waiting for element to be stable
+      - element is not visible
+    - retrying scroll into view action
+    - waiting 20ms
+    2 × waiting for element to be stable
+      - element is not visible
+    - retrying scroll into view action
+      - waiting 100ms
+    56 × waiting for element to be stable
+       - element is not visible
+     - retrying scroll into view action
+       - waiting 500ms
+
+console errors: 4
+  Loading the image 'https://genclass.dev/brand/mark-32.png?v=2' violates the following Content Security Policy directive: "img-src 'self' data: http://127.0.0.1:8799". The action has been blocked.
+  Loading the image 'https://genclass.dev/brand/mark-64.png?v=2' violates the following Content Security Policy directive: "img-src 'self' data: http://127.0.0.1:8799". The action has been blocked.
+  Loading the image 'https://genclass.dev/apple-touch-icon.png' violates the following Content Security Policy directive: "img-src 'self' data: http://127.0.0.1:8799". The action has been blocked.
+  Loading the image 'https://genclass.dev/brand/mark-64.png?v=2' violates the following Content Security Policy directive: "img-src 'self' data: http://127.0.0.1:8799". The action has been blocked.
+
+# part 2
+created app evidence-app: token gc_NrP..., dashboard https://genclass.dev/dashboard/yHy0mQKqhPw4PttDse4lRMkNciIYJgnH
+posted one telemetry batch (runtime 0.3.0-beta.1, no analytics): HTTP 202
+dashboard state: content shown=true, status "Last event 1 s ago"
+copy-prompt buttons in the page: 1; visible: true ("Copy the prompt for your coding agent", 368x58px)
+after the click the button reads "Copy the prompt for your coding agent"
+clipboard holds 1837 characters; starts: "Turn on GenClass visitor analytics in this web app: page views, visits, where visitors come from, devices and funnels, on the app's GenClass dashboard.\n\n1. Inst"
+prompt names the beta line: true; names analytics: true: true; names consent: true
+
+# part 3
+copy-prompt label after the click, sampled every 50 ms for 1.5 s: ["Copy the prompt for your coding agent"]
+
+# part 4 (clean main, evidence worktree)
+clean main + copy fallback: label after the click: ["Copy the prompt for your coding agent"]
+
+# part 5
+headless Chromium with clipboard permission, same node read after click: {"before":"Copy the prompt for your coding agent","labels":["Copied"],"stillInDom":true,"clipLength":1837,"clipStart":"Turn on GenClass visitor analytics in this web app: page vie"}

@@ -7,11 +7,12 @@
 // Talk to us, a mailto link, whatever the key. Which plans include something is said from billing/plans.json
 // (plansWith), never by name.
 
-import { ACCOUNT_CSS, CLIENT_JS, time } from "./account-pages.js";
+import { CLIENT_JS, ORG_CSS, orgRail, time } from "./account-pages.js";
 import type { Env } from "./collector.js";
 import type { D1Like, Project, Range } from "./dashboard.js";
 import { integrationRows, integrationsKey, KIND_NAMES, KINDS, maskConfig, openConfig, DATADOG_SITES, POSTHOG_HOSTS, type Kind } from "./forward.js";
-import { DASH_CSS, embed, esc, shell, SIGNED_IN_NAV } from "./pages.js";
+import { DASH_CSS, embed, esc, orgName } from "./pages.js";
+import { studioPage } from "./studio.js";
 import {
   accountPlan,
   billingLive,
@@ -71,20 +72,22 @@ export interface BillingView {
 }
 
 const BILLING_CSS = `
-.plans{display:grid;grid-template-columns:repeat(${PLANS.length},minmax(0,1fr));gap:28px;margin-top:22px}
-.plan{border-top:1px solid var(--rule2);padding-top:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
-.plan.cur,.plan.pick{border-top-color:var(--accent)}
-.plan h3{font:500 22px/1.1 var(--display);letter-spacing:-.02em;margin:0}
-.plan .price{font:500 15px var(--mono)}
-.plan .sum{font-size:14.5px;color:var(--ink2);line-height:1.5}
-.plan ul{list-style:none;padding:0;margin:4px 0 0;display:grid;gap:7px;font-size:14px;line-height:1.45;color:var(--ink2)}
-.plan li{padding-left:16px;position:relative}
-.plan li::before{content:"";position:absolute;left:0;top:.66em;width:7px;height:1.5px;background:var(--ink3)}
+.plans{display:grid;grid-template-columns:repeat(${PLANS.length},minmax(0,1fr));gap:16px}
+.plan{background:var(--s75);border:1px solid var(--rule);border-radius:6px;padding:20px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.plan.cur,.plan.pick{border-color:#0f5a37;background:var(--accent-t)}
+.plan h3{font-size:18px;margin:0}
+.plan .price{font:400 14px var(--mono);color:var(--ink)}
+.plan .sum{font-size:13px;color:var(--ink2);line-height:1.5}
+.plan ul{list-style:none;padding:0;margin:4px 0 0;display:grid;gap:7px;font-size:13px;line-height:1.45;color:var(--ink2)}
+.plan li{padding-left:18px;position:relative}
+.plan li::before{content:"";position:absolute;left:2px;top:.45em;width:8px;height:5px;border-left:1.5px solid var(--accent);border-bottom:1.5px solid var(--accent);transform:rotate(-45deg)}
 .plan li.soon{color:var(--ink3)}
+.plan li.soon::before{border-color:var(--ink3)}
 .plan .act{margin-top:auto;padding-top:10px}
-.plan .tag{font:500 12px var(--mono);color:var(--accent)}
-.status{margin-top:18px;font-size:16px;line-height:1.55;max-width:70ch;color:var(--ink2)}
+.plan .tag{display:inline-flex;align-items:center;height:20px;padding:0 8px;border-radius:999px;font:500 10.5px/1 var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--accent);background:var(--accent-t);border:1px solid #0f5a37}
+.status{margin-top:6px;font-size:14px;line-height:1.55;max-width:80ch;color:var(--ink2)}
 .status b{color:var(--ink);font-weight:500}
+.status a{color:var(--ink)}
 @media (max-width:860px){.plans{grid-template-columns:1fr}}
 `;
 
@@ -162,8 +165,6 @@ export function billingPage(nonce: string, v: BillingView): string {
   const plan = planById(v.billing.plan);
   const want = awaited(v, plan);
   const a = v.account;
-  const who = a.email ? esc(a.email) : a.githubLogin ? `@${esc(a.githubLogin)} on GitHub` : "No email";
-  const appsNav = v.apps.map((p) => `<a href="/account/apps/${esc(p.id)}">${esc(p.name)}</a>`).join("");
   const manage = v.live && v.billing.stripe_customer_id;
   let notice = "";
   if (v.done) {
@@ -192,22 +193,12 @@ export function billingPage(nonce: string, v: BillingView): string {
       ? '<p class="notice" role="note"><b>Stripe test mode.</b> Only accounts listed in STRIPE_TEST_ACCOUNTS can buy, and no real money moves. Pay with card 4242 4242 4242 4242, any future date and any CVC.</p>'
       : "";
   const body = `
-<style nonce="${nonce}">${DASH_CSS}${ACCOUNT_CSS}${BILLING_CSS}</style>
-<div class="app">
-<aside class="side acct" aria-label="Account">
-  <div class="proj">Account<small>${who}</small></div>
-  <div class="grp">Your apps</div>
-  <nav class="apps" aria-label="Your apps">${appsNav}<a class="new" href="/account#new-app">New app</a></nav>
-  <div class="grp">Account</div>
-  <div class="out"><a href="/account/billing" aria-current="page">Plan and billing</a><a href="/account#security">Security</a><a href="/account#sessions">Sessions</a><a href="/account#delete">Delete account</a><form method="post" action="/logout"><button class="lnk" type="submit">Sign out</button></form></div>
-</aside>
-<div class="mainc" id="mc" tabindex="-1">
-<section class="dh" id="top">
-  <div class="eb">Account</div>
+<div class="sb-page" id="mc" tabindex="-1">
+<header class="sb-ph" id="top"><div>
   <h1>Plan and billing</h1>
   <p class="status" id="status">${statusLine(v, plan, v.apps.length)}</p>
   ${custom}
-</section>
+</div></header>
 ${notice}${test}
 <section class="blk" id="plans">
   <div class="blk-h"><h2>Plans</h2>${PAID_PLANS.length ? '<span class="aside">US dollars, billed monthly</span>' : ""}</div>
@@ -232,7 +223,6 @@ ${
 status and renewal date, and your plan; never card details. `
       : ""
   }<a href="https://genclass.dev/privacy">Privacy</a> · <a href="https://genclass.dev/terms">Terms</a></footer>
-</div>
 </div>
 <script type="application/json" id="cfg">${embed({ want })}</script>`;
 
@@ -268,7 +258,20 @@ status and renewal date, and your plan; never card details. `
     }, 3000);
   }
 })();`;
-  return shell(nonce, "Plan and billing | GenClass", body, CLIENT_JS + script, { nav: SIGNED_IN_NAV, account: true, skip: "mc" });
+  const label = a.email ?? (a.githubLogin ? `@${a.githubLogin}` : "Your account");
+  return studioPage(nonce, {
+    title: "Plan and billing | GenClass",
+    account: true,
+    org: { name: orgName(label), plan: v.access.plan.name, href: "/account" },
+    projects: v.apps,
+    project: null,
+    user: { label, sub: orgName(label) },
+    ...orgRail("billing"),
+    railLabel: "Organization",
+    css: DASH_CSS + ORG_CSS + BILLING_CSS,
+    body,
+    script: CLIENT_JS + script,
+  });
 }
 
 // --------------------------------------------------------------------------------------------- app page sections

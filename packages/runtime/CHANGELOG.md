@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+- **The dashboard is laid out like Supabase Studio** (telemetry-worker, owner request 2026-10-25; `src/studio.ts`).
+  An account is the organization and each app a project: `/account` is the organization's Projects page (search,
+  New project, a card per project, Import a dashboard from a private link; Account settings under `#settings`),
+  `/account/new` is Studio's Create a new project, and `/account/billing` sits in the same frame. A project has
+  Studio's 48px header (the organization and project switchers, Connect, Feedback, a search pill for the command menu
+  with Ctrl or Cmd K, help, the account menu), the icon rail that widens on hover (Project overview, Problems, Pages,
+  Actions, Activity, Visitors, Health, MCP, Loop, Integrations, Project Settings) and product menus for Problems,
+  Visitors and Project Settings. Project overview follows Studio's project home: the name and status, the summary
+  and four stats beside the problems chart, usage cards per hour or day, Get connected, the problems that need
+  attention, and Getting started until the first event. **Connect** is Studio's dialog with Framework, API Keys,
+  **MCP** and Analytics tabs. The **MCP** view sets up `@genclass/mcp` for Claude Code, Cursor, VS Code, Codex,
+  Claude Desktop, Windsurf and Gemini CLI, with **Copy prompt** and the configuration, and gives the agent its
+  production numbers through an **agent link**: on a private link the page's own address, in an account a new
+  private link made with `POST /api/account/projects/<id>/link` (shown once; it replaces any earlier link, which
+  stops working; the account's browser session only). Every problem has a **Copy prompt** for a coding agent (what,
+  where, the usual fix, the MCP steps that prove it), and every data view copies as **Markdown**. The sign-in pages
+  and `/start` keep genclass.dev's own look. Studio's dark tokens with two contrast deviations the tests measure
+  (input borders at 3:1, muted text at 4.5:1). No runtime change; no model-visible text changed (`situation-v2.3`).
 - **Every path lands on the newest line.** npm's `latest` is still `0.2.2`, so `npx @genclass/runtime init` and
   `npm install @genclass/runtime` give an app the older line without the token, the dashboard, analytics, visual
   checks or the agent link. Now `init` (and `login`, `connect`) prints its own version and the npm dist-tag it came

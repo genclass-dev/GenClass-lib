@@ -651,7 +651,7 @@ describe("accounts: apps owned by an account", () => {
     const own = await call(env, "GET", `/account/apps/${project.id}`, { cookie: a.cookie });
     expect(own.status).toBe(200);
     const html = await own.text();
-    expect(html).toContain("Connect this app");
+    expect(html).toContain("Connect to your project");
     expect(html).toContain("npx @genclass/runtime@beta login"); // latest on npm is 0.2.x until 0.3.0
     expect(html).toContain(`GenClass.init({ token: &#34;${project.token}&#34; })`);
     expect(html).toContain(`data-token=&#34;${project.token}&#34;`);
@@ -1857,7 +1857,7 @@ describe("accounts: migration 0003 on a database that already has projects", () 
   });
 });
 
-describe("accounts: the Connect panel and the account-mode sidebar", () => {
+describe("accounts: the Connect dialog and the Studio header", () => {
   it("says first that keys are not on npm until RUNTIME_ON_NPM reaches 0.3.0-beta.0; the status line sits under the key", async () => {
     for (const [v, notYet] of [[undefined, true], ["0.2.2", true], ["0.3.0-beta.0", false], ["0.3.0", false]] as const) {
       const { env } = setup(v === undefined ? {} : { RUNTIME_ON_NPM: v });
@@ -1879,7 +1879,7 @@ describe("accounts: the Connect panel and the account-mode sidebar", () => {
     expect(runtimeHasTokens({ BUCKET: { async put() {} }, RUNTIME_ON_NPM: "0.3.0-" })).toBe(false);
   });
 
-  it("while an app waits for its first event the sidebar shows Connect only; more than 4 apps collapse to the current one", async () => {
+  it("while an app waits for its first event the period controls stay hidden and Connect is primary; the header's switcher lists every project", async () => {
     const { env } = setup();
     const { cookie } = await signedIn(env);
     await givePro(env, cookie);
@@ -1892,13 +1892,87 @@ describe("accounts: the Connect panel and the account-mode sidebar", () => {
     }
     const waiting = await (await call(env, "GET", `/account/apps/${ids[0]}`, { cookie })).text();
     expect(waiting).toContain('<div id="period" class="hidden">');
-    expect(waiting).toContain('<a href="#connect" aria-current="true">Connect</a>');
-    expect(waiting).toContain("All apps <span>5</span>");
-    expect(waiting).not.toContain(`href="/account/apps/${ids[1]}"`);
+    // Studio makes Connect the primary button while a project is new
+    expect(waiting).toMatch(/<button class="btn sm" type="button" data-open="m-connect" id="hconnect">/);
+    expect(waiting).toContain('<span class="bdg warning" id="hstatus"><i></i><span>Waiting</span></span>');
+    // every project of the account is in the switcher, the current one marked
+    for (const id of ids) expect(waiting).toContain(`href="/account/apps/${id}"`);
+    expect(waiting).toContain(`<a href="/account/apps/${ids[0]}" aria-current="true">a</a>`);
     expect(waiting).not.toContain(">Elsewhere<");
     await sendBatch(env, token);
     const live = await (await call(env, "GET", `/account/apps/${ids[0]}`, { cookie })).text();
     expect(live).toContain('<div id="period">');
+    expect(live).toMatch(/<button class="btn sm ghost" type="button" data-open="m-connect" id="hconnect">/);
+    expect(live).toContain('<span class="bdg brand" id="hstatus"><i></i><span>Live</span></span>');
+  });
+});
+
+describe("accounts: the agent link (POST /api/account/projects/<id>/link) and Studio's New project (/account/new)", () => {
+  it("makes a private link for an owned app, shown once: it opens the stats the MCP server reads; a new one turns the old one off", async () => {
+    const { env, sql } = setup();
+    const { cookie } = await signedIn(env);
+    await givePro(env, cookie); // this file's plans leave the dashboard out of Free (the stats would answer 402)
+    const { project } = (await (await call(env, "POST", "/api/account/projects", { body: { name: "Shop" }, cookie })).json()) as any;
+    expect(sql.rows("SELECT private_link FROM projects WHERE id = ?", project.id)[0]!.private_link).toBe(0);
+    const r = await call(env, "POST", `/api/account/projects/${project.id}/link`, { body: {}, cookie });
+    expect(r.status).toBe(201);
+    const { dashboardUrl } = (await r.json()) as { dashboardUrl: string };
+    expect(dashboardUrl).toMatch(/^https:\/\/genclass\.dev\/dashboard\/[A-Za-z0-9]{32}$/);
+    const secret = dashboardUrl.split("/").pop()!;
+    // only its hash is stored, and the app now has a private link (its card can turn it off)
+    expect(JSON.stringify(sql.rows("SELECT * FROM projects WHERE id = ?", project.id))).not.toContain(secret);
+    expect(sql.rows("SELECT private_link FROM projects WHERE id = ?", project.id)[0]!.private_link).toBe(1);
+    expect(await (await call(env, "GET", "/account", { cookie })).text()).toContain(`data-linkoff="${project.id}"`);
+    // what @genclass/mcp reads as GENCLASS_DASHBOARD: the dashboard and its stats
+    expect((await call(env, "GET", `/dashboard/${secret}`, {})).status).toBe(200);
+    const stats = await call(env, "GET", `/api/projects/${secret}?range=7d`, {});
+    expect(stats.status).toBe(200);
+    expect(((await stats.json()) as any).name).toBe("Shop");
+    // a new link replaces it: the old one stops working
+    const again = (await (await call(env, "POST", `/api/account/projects/${project.id}/link`, { body: {}, cookie })).json()) as { dashboardUrl: string };
+    expect(again.dashboardUrl).not.toBe(dashboardUrl);
+    expect((await call(env, "GET", `/api/projects/${secret}?range=7d`, {})).status).toBe(404);
+    expect((await call(env, "GET", `/api/projects/${again.dashboardUrl.split("/").pop()}?range=7d`, {})).status).toBe(200);
+    // turning it off works as for any private link
+    expect((await call(env, "DELETE", `/api/account/projects/${project.id}/link`, { cookie })).status).toBe(204);
+    expect((await call(env, "GET", `/api/projects/${again.dashboardUrl.split("/").pop()}?range=7d`, {})).status).toBe(404);
+  });
+
+  it("only the signed-in browser of the owner makes one: not another account, not a terminal, not a foreign Origin", async () => {
+    const { env } = setup();
+    const ada = await signedIn(env, "ada@example.com");
+    const bob = await signedIn(env, "bob@example.com");
+    const { project } = (await (await call(env, "POST", "/api/account/projects", { body: { name: "Shop" }, cookie: ada.cookie })).json()) as any;
+    const path = `/api/account/projects/${project.id}/link`;
+    expect((await call(env, "POST", path, { body: {}, cookie: bob.cookie })).status).toBe(404);
+    expect((await call(env, "POST", path, { body: {}, bearer: await cliToken(env, ada.cookie) })).status).toBe(403);
+    expect((await call(env, "POST", path, { body: {}, cookie: ada.cookie, origin: "https://evil.example" })).status).toBe(403);
+    expect((await call(env, "POST", path, { body: {} })).status).toBe(401);
+    expect((await call(env, "GET", path, { cookie: ada.cookie })).status).toBe(405);
+  });
+
+  it("/account/new: Studio's Create a new project form, for a signed-in account; it posts to the projects API and opens Connect", async () => {
+    const { env } = setup();
+    const signedOut = await call(env, "GET", "/account/new", {});
+    expect(signedOut.status).toBe(302);
+    expect(signedOut.headers.get("location")).toBe("/login?next=%2Faccount%2Fnew");
+    const { cookie } = await signedIn(env, "ada@example.com");
+    const r = await call(env, "GET", "/account/new", { cookie });
+    expect(r.status).toBe(200);
+    const html = await r.text();
+    expect(html).toContain("<h1>Create a new project</h1>");
+    expect(html).toContain('<form class="pnl newp" id="new-app" novalidate>');
+    expect(html).toContain("<option>ada&#39;s Org</option>");
+    expect(html).toContain('gcPost("/api/account/projects", { name: name.value })');
+    expect(html).toContain('"/account/apps/" + encodeURIComponent(j.project.id) + "#connect"');
+    expect(html).toContain('<a class="btn ghost" href="/account">Cancel</a>');
+    // the Projects page offers it, and lists each project as a card
+    await call(env, "POST", "/api/account/projects", { body: { name: "Shop" }, cookie });
+    const projects = await (await call(env, "GET", "/account", { cookie })).text();
+    expect(projects).toContain('<a class="btn sm" href="/account/new" id="newproj">');
+    expect(projects).toContain('<li class="pcard" data-name="shop">');
+    expect(projects).toContain("<h1>Projects</h1>");
+    expect(projects).toContain("<h1>Account settings</h1>");
   });
 });
 

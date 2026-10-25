@@ -44,6 +44,7 @@ import {
   forgotPage,
   loginPage,
   messagePage,
+  newProjectPage,
   passkeyStepPage,
   pendingPage,
   signupPage,
@@ -54,6 +55,7 @@ import {
   createProject,
   forgetToken,
   newProjectId,
+  newSecret,
   PROJECT_COLUMNS,
   PROJECT_ID_RE,
   projectBySecret,
@@ -1540,6 +1542,22 @@ async function claimProject(c: C): Promise<Response> {
 }
 
 /**
+ * POST /api/account/projects/<id>/link: a new private dashboard link for an owned app (the dashboard's "agent link",
+ * which @genclass/mcp reads production numbers from as GENCLASS_DASHBOARD). 201 { dashboardUrl }, shown once: only
+ * the new secret's hash is stored, so it replaces the hash of any link the app had and that link stops working. Only
+ * the signed-in browser may make one (a CLI session cannot read stats, so it cannot mint a way to read them).
+ */
+async function makeLink(c: C, id: string): Promise<Response> {
+  const a = await browserWriter(c, "an agent link can be made");
+  if (a instanceof Response) return a;
+  const p = await ownedProject(c, a.account.id, id);
+  if (!p) return fail(404, "not found");
+  const secret = newSecret();
+  await c.db.prepare("UPDATE projects SET secret_hash = ?, private_link = 1 WHERE id = ? AND account_id = ?").bind(await sha256Hex(secret), id, a.account.id).run();
+  return json(201, { dashboardUrl: `${c.cfg.origin}/dashboard/${secret}` });
+}
+
+/**
  * DELETE /api/account/projects/<id>/link: turn off an owned app's private dashboard link. The stored hash is replaced
  * by the hash of a secret nobody is given, so the old link stops working (and can no longer be claimed); the app,
  * its key and its data stay in the account.
@@ -1698,6 +1716,7 @@ async function accountView(c: C, a: Auth): Promise<AccountView> {
     providers: { google: c.cfg.google, github: c.cfg.github },
     // dashboards: open (every plan today), or locked with the plans to see
     dashboards: hasDashboard(access) ? "open" : "plans",
+    plan: access.plan.name,
     pick: { claim: c.url.searchParams.get("claim") === "1" },
     recovery: RECOVERY_CONTACT,
   };
@@ -1763,6 +1782,14 @@ export async function routeAuth(request: Request, url: URL, path: string, env: E
       const view = await accountView(c, a);
       view.notice = accountNotice(url);
       return page(200, (n) => accountPage(n, view));
+    }
+    case "/account/new": {
+      // Studio's "Create a new project" (the form posts to /api/account/projects, as the CLI does)
+      if (!get) return method();
+      const a = await webSession(c);
+      if (!a) return redirect("/login?next=%2Faccount%2Fnew");
+      const view = await accountView(c, a);
+      return page(200, (n) => newProjectPage(n, { account: view.account, projects: view.projects.map((p) => ({ id: p.id, name: p.name })), plan: view.plan }));
     }
     case "/login/device": {
       if (!get) return method();
@@ -1877,7 +1904,7 @@ export async function routeAuth(request: Request, url: URL, path: string, env: E
     return putFunnels(c.req, c.db, p.token);
   }
   const link = /^\/api\/account\/projects\/([^/]+)\/link$/.exec(path);
-  if (link) return m === "DELETE" ? turnOffLink(c, link[1]!) : method();
+  if (link) return m === "DELETE" ? turnOffLink(c, link[1]!) : post ? makeLink(c, link[1]!) : method();
   const ses = /^\/api\/account\/sessions\/([^/]+)$/.exec(path);
   if (ses) return m === "DELETE" ? revokeSession(c, ses[1]!) : method();
   const cred = /^\/api\/account\/credentials\/([^/]+)$/.exec(path);
@@ -1893,7 +1920,7 @@ export async function routeAuth(request: Request, url: URL, path: string, env: E
     const apps = (await accountProjects(c, a.account.id)).map((x) => ({ id: x.id!, name: x.name }));
     const access = await accountAccess(c.db, a.account.id, env, c.now);
     const base = {
-      account: { apps, current: p.id!, email: a.account.email ?? a.account.github_login },
+      account: { apps, current: p.id!, email: a.account.email ?? (a.account.github_login ? `@${a.account.github_login}` : null), plan: access.plan.name },
       id: p.id!,
       firstEvent: p.first_event,
       privateLink: !!p.private_link,
