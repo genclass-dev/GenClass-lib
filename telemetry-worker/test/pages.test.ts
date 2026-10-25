@@ -542,7 +542,7 @@ describe("dashboard page: interaction analytics (docs/runtime/ANALYTICS.md secti
     expect(btn.tagName).toBe("BUTTON");
     expect(btn.className).toBe("btn green xl");
     expect(btn.textContent).toBe("Copy the prompt for your coding agent");
-    expect(box.children).toHaveLength(2);
+    expect(box.children).toHaveLength(3);
     expect(box.querySelectorAll("p.cp-sub br")).toHaveLength(0);
     expect(text("#ixsetup .cp-sub").length).toBeLessThanOrEqual(160);
     // under the button: the runtime analytics need and the install line (0.2.x ignores the option)
@@ -550,6 +550,11 @@ describe("dashboard page: interaction analytics (docs/runtime/ANALYTICS.md secti
     expect(ANALYTICS_RUNTIME).toBe("0.3.0-beta.1");
     expect(doc.querySelector(".dfoot")!.textContent).toContain("never its text");
     expect(doc.querySelector(".dfoot")!.textContent).toContain("No text from your pages, no IP addresses and no user agents are stored.");
+    // the third child is the fallback: the prompt in a hidden textarea, shown selected when the clipboard refuses
+    const ta = box.children[2] as HTMLTextAreaElement;
+    expect(ta.tagName).toBe("TEXTAREA");
+    expect(ta.hidden).toBe(true);
+    expect(ta.value).toBe(btn.getAttribute("data-copy"));
     await close();
   });
 

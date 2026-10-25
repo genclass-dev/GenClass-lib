@@ -294,19 +294,34 @@ main.wrap{flex:1;min-width:0}
 // --------------------------------------------------------------------------------------------- copy
 
 /**
- * Copying, for every page: gcCopy writes with the Clipboard API, and when the browser refuses it selects the text in
- * `node` so the person can copy it by hand; copyBtn makes a Copy button; el makes an element with a class and text.
+ * Copying, for every page: gcCopy copies through a temporary textarea, then the Clipboard API, and when both are
+ * refused it selects the text in `node` (a hidden textarea is shown selected) so the person can copy it by hand;
+ * copyBtn makes a Copy button; el makes an element with a class and text.
  */
 export const COPY_JS = `
 function gcSelect(node){
   try { var r = document.createRange(); r.selectNodeContents(node); var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r); return true; } catch (e) { return false; }
 }
-// Copy text with the Clipboard API; when the browser refuses, select it in node so the person can copy it by hand.
+// Copy text with the Clipboard API; when the browser refuses (no secure context, the document not focused, an embedded
+// page), copy through a temporary textarea and execCommand, which works on the click itself; failing both, select the
+// text in node so the person can copy it by hand (a textarea fallback is shown selected: one keystroke copies it).
+function gcLegacyCopy(text){
+  try {
+    var ta = document.createElement("textarea"); ta.value = text; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.top = "0"; ta.style.left = "0"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.focus(); ta.select(); ta.setSelectionRange(0, text.length);
+    var ok = document.execCommand("copy"); document.body.removeChild(ta); return ok;
+  } catch (e) { return false; }
+}
 function gcCopy(b, text, node){
   var label = b.getAttribute("data-label") || b.textContent;
   b.setAttribute("data-label", label);
   function say(t){ b.textContent = t; clearTimeout(b.gcT); b.gcT = setTimeout(function(){ b.textContent = label; }, 2000); }
-  function fallback(){ say(node && gcSelect(node) ? "Selected, now copy" : "Could not copy"); }
+  function fallback(){
+    if (node && node.tagName === "TEXTAREA") { node.hidden = false; node.focus(); node.select(); say("Selected, now copy"); return; }
+    say(node && gcSelect(node) ? "Selected, now copy" : "Could not copy");
+  }
+  // the legacy path first: it needs the click's own activation, which the async Clipboard API's rejection would have spent
+  if (gcLegacyCopy(text)) { say("Copied"); return; }
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(function(){ say("Copied"); }, fallback);
   else fallback();
 }
@@ -373,7 +388,12 @@ document.addEventListener("click", function(e){
   if (t.closest("[data-close]") || t.classList.contains("sb-modal")) { gcUnmodal(); return; }
   var tab = t.closest("[role=tab]"); if (tab) { gcTab(tab); return; }
   var cp = t.closest("[data-copy]");
-  if (cp && typeof gcCopy === "function") { var at = cp.getAttribute("data-target"); gcCopy(cp, cp.getAttribute("data-copy"), at ? document.getElementById(at) : null); return; }
+  if (cp && typeof gcCopy === "function") {
+    // the element to select by hand: data-target, else a copy-prompt block's hidden textarea
+    var at = cp.getAttribute("data-target"), ta = cp.parentNode && cp.parentNode.querySelector ? cp.parentNode.querySelector("textarea.cp-text") : null;
+    gcCopy(cp, cp.getAttribute("data-copy"), at ? document.getElementById(at) : ta);
+    return;
+  }
   var rl = t.closest(".sb-rail a");
   if (rl && e.detail) setTimeout(function(){ try { rl.blur(); } catch (x) {} }, 0);
   var bg = t.closest("[data-burger]");

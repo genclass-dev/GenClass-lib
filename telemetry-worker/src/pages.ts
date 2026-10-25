@@ -543,6 +543,7 @@ details.more summary:hover{color:var(--ink)}
 .kn .lnk:hover{color:var(--ink)}
 .cprompt{padding:8px 0 4px;display:grid;justify-items:start;gap:10px}
 .cprompt .cp-sub{font-size:13px;color:var(--ink3);max-width:64ch;line-height:1.5}
+.cprompt textarea.cp-text{width:100%;max-width:72ch;min-height:150px;padding:10px 12px;font:12.5px/1.5 var(--mono);color:var(--ink);background:var(--ctl);border:1px solid var(--rule2);border-radius:6px;resize:vertical}
 .connect .cana{padding:0}
 @media (max-width:560px){.cprompt .btn.xl{width:100%;white-space:normal;text-align:center;padding:10px 16px}.keyrow{grid-template-columns:1fr}.keyrow .kn{grid-column:1}}
 /* the private link's snippets (renderSnippets, as on /start): one card each */
@@ -1843,7 +1844,8 @@ export function installPrompt(token: string, endpoint: string | null = null): st
 
 /** One big primary button that copies analyticsPrompt, and at most two lines under it. */
 function promptBlock(token: string, where: string, endpoint: string | null, sub: string): string {
-  return `<div class="cprompt"><button class="btn green xl" type="button" data-copy="${esc(analyticsPrompt(token, where, endpoint))}">Copy the prompt for your coding agent</button><p class="cp-sub">${sub}</p></div>`;
+  const prompt = analyticsPrompt(token, where, endpoint);
+  return `<div class="cprompt"><button class="btn green xl" type="button" data-copy="${esc(prompt)}">Copy the prompt for your coding agent</button><p class="cp-sub">${sub}</p><textarea class="cp-text" readonly hidden aria-label="The prompt, to copy by hand" rows="8">${esc(prompt)}</textarea></div>`;
 }
 
 interface ConnectOptions {
@@ -1882,7 +1884,8 @@ function connectSection(c: ConnectOptions): string {
     return `<div><div class="sh"><span>${label}</span><button class="btn sm ghost" type="button" data-copy="${esc(code)}" data-target="${id}" aria-label="Copy ${name}">Copy</button></div><pre class="code" id="${id}" tabindex="0" aria-label="${esc(label)}">${esc(code)}</pre></div>`;
   };
   const notYet = c.runtimeReady ? "" : `<p class="cnote" id="cnote">${NOT_ON_NPM} So this line keeps waiting.</p>`;
-  const ask = `<div class="cprompt"><button class="btn green xl" type="button" data-copy="${esc(installPrompt(token, endpoint))}">Copy the prompt for your coding agent</button><p class="cp-sub">Paste it into Claude Code, Cursor or Codex: it installs GenClass in this app with this project's key.</p></div>`;
+  const install = installPrompt(token, endpoint);
+  const ask = `<div class="cprompt"><button class="btn green xl" type="button" data-copy="${esc(install)}">Copy the prompt for your coding agent</button><p class="cp-sub">Paste it into Claude Code, Cursor or Codex: it installs GenClass in this app with this project's key.</p><textarea class="cp-text" readonly hidden aria-label="The prompt, to copy by hand" rows="8">${esc(install)}</textarea></div>`;
   const ways = c.account
     ? `<div class="ways">
     ${

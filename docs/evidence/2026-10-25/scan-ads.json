@@ -1,0 +1,125 @@
+{
+  "format": "genclass-scan/1",
+  "url": "http://127.0.0.1:62400/f/ads.html",
+  "ranAt": "local",
+  "runtime": "0.3.0-beta.1",
+  "browser": "Chromium 153.0.8010.12",
+  "score": {
+    "value": 51,
+    "basis": "the visual checks scored like the Visual bugs category of the genclass.dev page check (scan-score/4)"
+  },
+  "summary": {
+    "total": 3,
+    "high": 1,
+    "medium": 2
+  },
+  "views": [
+    {
+      "id": "desktop",
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "ok": true,
+      "ms": 8278,
+      "passes": 2,
+      "elements": 298,
+      "unsupported": [],
+      "error": null
+    },
+    {
+      "id": "phone",
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "ok": true,
+      "ms": 6657,
+      "passes": 2,
+      "elements": 410,
+      "unsupported": [],
+      "error": null
+    }
+  ],
+  "findings": [
+    {
+      "kind": "page-overflow-x",
+      "severity": "high",
+      "count": 1,
+      "views": [
+        "phone"
+      ],
+      "target": "article \"Council approves the new library budget…\"",
+      "selector": "body > div:nth-of-type(2) > article",
+      "message": "the page scrolls sideways on a 390 px viewport: body > div:nth-of-type(2) > article \"Council approves the new library budget…\" ends at 752 px (706 px too wide, a flex or grid item that cannot shrink).",
+      "fix": "body > div:nth-of-type(2) > article { min-width: 0; }",
+      "fixNote": null,
+      "measured": {
+        "scrollWidth": 1096,
+        "clientWidth": 390,
+        "excess": 706,
+        "culprit": "body > div:nth-of-type(2) > article",
+        "edge": 752,
+        "cause": "a flex or grid item that cannot shrink",
+        "others": "body > div:nth-of-type(2) > aside"
+      },
+      "threshold": {
+        "value": 1,
+        "unit": "px of scroll width beyond the client width",
+        "source": "documentElement.scrollWidth > clientWidth + 1, the viewport not clipping, 1 s apart"
+      },
+      "route": "/f/ads.html"
+    },
+    {
+      "kind": "ad-heavy",
+      "severity": "medium",
+      "count": 7,
+      "views": [
+        "desktop"
+      ],
+      "target": "div \"div-gpt-ad-billboard\"",
+      "selector": "#div-gpt-ad-billboard",
+      "message": "ad slots cover 43% of the page (threshold 30%, Better Ads ad density): 7 ad slots, 46% of the first screen and 43% of the page. Fix: use fewer or smaller ad units: under 30% of the page on phones, no sticky unit over 30% of the screen, and reserve each slot's space so it does not shift the page.",
+      "fix": null,
+      "fixNote": null,
+      "measured": {
+        "reason": "density",
+        "count": 7,
+        "firstShare": 0.46,
+        "pageShare": 0.43,
+        "fixedShare": 0
+      },
+      "threshold": {
+        "value": 0.3,
+        "unit": "share of the page",
+        "source": "Coalition for Better Ads standards (ad density, large sticky ads, prestitials); ad slots named by id, class or ad attributes, or cross-site iframes at ad sizes (VISUAL.md 3.25)"
+      },
+      "route": "/f/ads.html"
+    },
+    {
+      "kind": "ad-heavy",
+      "severity": "medium",
+      "count": 7,
+      "views": [
+        "phone"
+      ],
+      "target": "iframe \"Advertisement\"",
+      "selector": "body > div:nth-of-type(2) > aside > iframe:nth-of-type(1)",
+      "message": "ad slots cover 38% of the page (threshold 30%, Better Ads ad density): 7 ad slots, 38% of the first screen and 38% of the page. Fix: use fewer or smaller ad units: under 30% of the page on phones, no sticky unit over 30% of the screen, and reserve each slot's space so it does not shift the page.",
+      "fix": null,
+      "fixNote": null,
+      "measured": {
+        "reason": "density",
+        "count": 7,
+        "firstShare": 0.38,
+        "pageShare": 0.38,
+        "fixedShare": 0
+      },
+      "threshold": {
+        "value": 0.3,
+        "unit": "share of the page",
+        "source": "Coalition for Better Ads standards (ad density, large sticky ads, prestitials); ad slots named by id, class or ad attributes, or cross-site iframes at ad sizes (VISUAL.md 3.25)"
+      },
+      "route": "/f/ads.html"
+    }
+  ],
+  "notes": []
+}
