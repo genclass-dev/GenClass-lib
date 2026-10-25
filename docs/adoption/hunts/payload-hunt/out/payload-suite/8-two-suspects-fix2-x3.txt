@@ -1,0 +1,10 @@
+  ✓  1 [chromium] › test/fields/collections/Relationship/e2e.spec.ts:799:3 › relationship › should not duplicate relationship filter options when switching operators (8.1s)
+  ✓  2 [chromium] › test/fields/collections/Relationship/e2e.spec.ts:1051:3 › relationship › should respect `filterOptions` in the relationship list drawer for filtered relationship (7.0s)
+  ✓  3 [chromium] › test/fields/collections/Relationship/e2e.spec.ts:799:3 › relationship › should not duplicate relationship filter options when switching operators (6.9s)
+  ✓  4 [chromium] › test/fields/collections/Relationship/e2e.spec.ts:1051:3 › relationship › should respect `filterOptions` in the relationship list drawer for filtered relationship (7.5s)
+  ✓  5 [chromium] › test/fields/collections/Relationship/e2e.spec.ts:799:3 › relationship › should not duplicate relationship filter options when switching operators (9.2s)
+  ✘  6 [chromium] › test/fields/collections/Relationship/e2e.spec.ts:1051:3 › relationship › should respect `filterOptions` in the relationship list drawer for filtered relationship (193ms)
+  1) [chromium] › test/fields/collections/Relationship/e2e.spec.ts:1051:3 › relationship › should respect `filterOptions` in the relationship list drawer for filtered relationship 
+    Error: Browser console error: There was a problem loading the document with ID of 6add3ea9c9aedfea0cba419e.
+  1 failed
+  5 passed (53.3s)
