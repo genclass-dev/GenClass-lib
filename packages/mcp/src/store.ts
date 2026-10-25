@@ -13,7 +13,7 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { compareRuns, endedDifferently, sameScenario, sameValue, settledAfterActs, stateValue, type GroupReport, type RunDiff } from "./compare.js";
+import { compareRuns, endedDifferently, sameScenario, sameValue, settledAfterActs, shownField, stateValue, type FieldDiff, type GroupReport, type RunDiff } from "./compare.js";
 import { clean, pathShape, q, shape, sigOf } from "./text.js";
 import type { ExploreSession, Finding, FindingKind, ReplayArm, Run, ScheduleSpec, Step } from "./types.js";
 import * as V from "./validate.js";
@@ -452,7 +452,7 @@ export class Store {
       const run = this.runs.get(d.run);
       if (!run) continue;
       // keyed by what the page showed or sent (store values that differ along with it are evidence, not identity)
-      const shown = d.fields.filter((f) => f.where !== "state");
+      const shown = d.fields.filter(shownField);
       const kindOfDiff = shown.length ? `fields:${shown.map((f) => f.name).sort().join(",")}` : d.errors.length ? `error:${shape(d.errors[0])}` : "text";
       const key = `race|${g.route}|${g.scenarioKey.slice(0, 600)}|${kindOfDiff}`;
       const replay: ScheduleSpec = run.schedule ? { ...run.schedule } : { order: "given", given: run.order.slice() };
@@ -706,7 +706,7 @@ function loadFinding(v: unknown): Finding | null {
 
 /** A race finding's title, by what differed (page strings quoted). */
 function raceTitle(d: RunDiff): string {
-  const shown = d.fields.filter((f) => f.where !== "state");
+  const shown = d.fields.filter(shownField);
   if (shown.length) return `The final state depends on response order: ${shown.slice(0, 2).map((f) => `${f.where === "requests" ? "requests to" : f.where} ${q(f.name, 60)} (${q(f.baseline, 40)} in request order, ${q(f.run, 40)} under ${q(d.label, 30)})`).join("; ")}`;
   if (d.errors.length) return `An error depends on response order: ${q(d.errors[0], 120)} under ${q(d.label, 30)}, not in request order`;
   if (d.textOnlyRun.length) return `The page depends on response order: it shows ${q(d.textOnlyRun[0], 80)} under ${q(d.label, 30)}, not in request order`;
@@ -728,7 +728,7 @@ function raceVerdict(ev: Record<string, unknown>, r: Run): { reproduced: boolean
     return same ? { reproduced: true, note: "ended with the same wrong values as the failing run" } : fixed ? { reproduced: false, note: "ended with the values of the request-order baseline" } : { reproduced: null, note: `ended with other values: ${fields.map((d) => `${clean(d.name, 40)} = ${q(val(d), 40)}`).join(", ")}` };
   };
   // what the page showed or sent decides; store values only for a finding that has nothing else
-  const shownFields = all.filter((d) => d.where !== "state");
+  const shownFields = all.filter((d) => shownField(d as FieldDiff));
   if (shownFields.length) return byValues(shownFields);
   const errors = (ev.errors as string[] | undefined) ?? [];
   if (errors.length) {

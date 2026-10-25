@@ -31,7 +31,7 @@ describe("compare: where a difference shows (AGENT.md §5.1)", () => {
     const base = snap({ "list.page": "2" }, ["Page 2"], { fields: { Search: "react" }, requests: { "GET /api/list": 2 } });
     const text = snap({ "list.page": "3" }, ["Page 3"], { fields: { Search: "react" }, requests: { "GET /api/list": 2 } });
     const field = snap({ "list.page": "2" }, ["Page 2"], { fields: { Search: "reac" }, requests: { "GET /api/list": 2 } });
-    const requests = snap({ "list.page": "2" }, ["Page 2"], { fields: { Search: "react" }, requests: { "GET /api/list": 3 } });
+    const requests = snap({ "list.page": "2" }, ["Page 2"], { fields: { Search: "react" }, requests: { "GET /api/list": 2, "POST /api/orders": 1 } });
     const runs = session(base, [text, field, requests, base]);
     runs[5].errors.push({ t: 1, name: "TypeError", message: "x is undefined", chain: [] });
     const g = compareRuns(runs)[0];
@@ -39,8 +39,18 @@ describe("compare: where a difference shows (AGENT.md §5.1)", () => {
     // what the page shows and sends comes before the store values
     expect(g.diffs[0].textOnlyRun).toEqual(["Page 3"]);
     expect(g.diffs[1].fields[0]).toEqual({ where: "field", name: "Search", baseline: "react", run: "reac" });
-    expect(g.diffs[2].fields[0]).toEqual({ where: "requests", name: "GET /api/list", baseline: "2", run: "3" });
+    expect(g.diffs[2].fields[0]).toEqual({ where: "requests", name: "POST /api/orders", baseline: "(absent)", run: "1" });
     expect(g.diffs[3].errors).toEqual(["x is undefined"]);
+  });
+
+  it("a cache refetching once more (a GET count) and an announcement a slower run let expire are internal, not a race", () => {
+    const base = snap({ "doc.status": '"published"' }, ["Article", "Saved document", "Close"], { requests: { "GET /api/doc/:id": 3, "POST /api/doc/:id/publish": 2 }, live: ["Saved document", "Close"] });
+    const later = snap({ "doc.status": '"published"' }, ["Article"], { requests: { "GET /api/doc/:id": 5, "POST /api/doc/:id/publish": 2 } });
+    const g = compareRuns(session(base, [later]))[0];
+    expect(g.diffs[0]).toMatchObject({ tier: "internal", textOnlyBaseline: [], announced: ["Saved document", "Close"], fields: [{ where: "requests", name: "GET /api/doc/:id", baseline: "3", run: "5" }] });
+    // the same lines outside a live region are what the page shows: a race
+    const shown = compareRuns(session({ ...base, live: undefined }, [later]))[0];
+    expect(shown.diffs[0]).toMatchObject({ tier: "visible", textOnlyBaseline: ["Saved document", "Close"] });
   });
 
   it("a witness only a seeded run had, with the same final state, is an overwrite repaired along the way", () => {

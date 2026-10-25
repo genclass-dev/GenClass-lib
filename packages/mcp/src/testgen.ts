@@ -12,6 +12,7 @@
 
 import type { ActStep, Finding, Run, ScheduleSpec } from "./types.js";
 import { clean, pathShape, shape } from "./text.js";
+import { shownField, type FieldDiff } from "./compare.js";
 
 const lit = (s: unknown): string => JSON.stringify(clean(s, 200));
 const escapeRe = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -195,8 +196,8 @@ export function regressionTest(f: Finding, run: Run | undefined, spec: ScheduleS
     const onlyBase = (ev.textOnlyBaseline as string[] | undefined) ?? [];
     const onlyRun = (ev.textOnlyRun as string[] | undefined) ?? [];
     const errs = (ev.errors as string[] | undefined) ?? [];
-    // what the page showed or sent; store values (often a cache's own bookkeeping) only when nothing else differed
-    const shown = all.filter((d) => d.where !== "state");
+    // what the page showed or sent (unsafe requests); store values and refetch counts only when nothing else differed
+    const shown = all.filter((d) => shownField(d as FieldDiff));
     const visible = shown.length > 0 || onlyBase.length > 0 || onlyRun.length > 0 || errs.length > 0;
     const fields = visible ? shown : all;
     const pooledUsed = fields.slice(0, 5).some((d) => d.where === "state" && d.name.split(".").includes("*"));

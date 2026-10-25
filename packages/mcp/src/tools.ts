@@ -275,7 +275,7 @@ export async function callTool(name: string, args: Record<string, unknown>, ctx:
         return { text: x ? `Explore ${x.id} stopped; later page loads are not scheduled.` : "No explore session was armed." };
       }
       if (action === "report") {
-        type Diff = { run: string; label: string; tier?: string; fields: { where: string; name: string; baseline: string; run: string }[]; textOnlyBaseline: string[]; textOnlyRun: string[]; errors: string[]; witnesses: string[]; forced: number };
+        type Diff = { run: string; label: string; tier?: string; announced?: string[]; fields: { where: string; name: string; baseline: string; run: string }[]; textOnlyBaseline: string[]; textOnlyRun: string[]; errors: string[]; witnesses: string[]; forced: number };
         const r = (await ctx.api("explore.report", { id: args.id })) as null | {
           session: { id: string; plan: ScheduleSpec[]; runs: string[]; state: string };
           runs: { id: string; route: string; schedule: ScheduleSpec | null; settled: boolean; forced: number; scenario: string }[];
@@ -299,6 +299,7 @@ export async function callTool(name: string, args: Record<string, unknown>, ctx:
           if (d.textOnlyBaseline.length) out.push(`    page text only in the baseline: ${d.textOnlyBaseline.slice(0, 4).map((l) => q(l, 80)).join(", ")}`);
           if (d.textOnlyRun.length) out.push(`    page text only in this run: ${d.textOnlyRun.slice(0, 4).map((l) => q(l, 80)).join(", ")}`);
           for (const x of d.fields.slice(0, 6)) out.push(`    ${x.where === "requests" ? "requests sent to" : x.where} ${q(x.name, 80)}: baseline ${q(x.baseline, 80)}, this run ${q(x.run, 80)}`);
+          if (d.announced?.length) out.push(`    announcements (status, alert regions) only in one of them: ${d.announced.slice(0, 3).map((l) => q(l, 80)).join(", ")}`);
           for (const e of d.errors.slice(0, 3)) out.push(`    error only here: ${q(e, 120)}`);
           for (const w of d.witnesses.slice(0, 3)) out.push(`    witness only here: ${clean(w, 160)}`);
         };
@@ -324,11 +325,11 @@ export async function callTool(name: string, args: Record<string, unknown>, ctx:
           const races = g.diffs.filter((d) => tierOf(d) === "visible");
           const internal = g.diffs.filter((d) => tierOf(d) === "internal");
           const along = g.diffs.filter((d) => tierOf(d) === "transient");
-          if (races.length) out.push(`RACE: ${races.length} of ${seeded} reordered run(s) ended in a different state than the baseline (responses in request order): what the page shows, its form values, the requests it sent or its errors differ.`);
-          else out.push(`No race found: none of the ${seeded} compared reordered run(s) ended with a different page, form values, requests or errors than the baseline.`);
+          if (races.length) out.push(`RACE: ${races.length} of ${seeded} reordered run(s) ended in a different state than the baseline (responses in request order): what the page shows, its form values, the writes it sent or its errors differ.`);
+          else out.push(`No race found: none of the ${seeded} compared reordered run(s) ended with a different page, form values, writes or errors than the baseline.`);
           for (const d of races.slice(0, 6)) diffLines(d);
           if (internal.length) {
-            out.push(`Internal state only (not a race by this check): ${internal.length} of ${seeded} ended with store values that differ from the baseline while the page showed the same. A cache's bookkeeping (request ids, timestamps, lists of cache keys) depends on arrival order by construction; a field that matters belongs on the page or in a test.`);
+            out.push(`Internal state only (not a race by this check): ${internal.length} of ${seeded} ended with store values, counts of GET requests (a cache refetching once more) or announcements (a toast a slower run let expire) that differ from the baseline while the page showed the same. A cache's bookkeeping (request ids, timestamps, lists of cache keys) depends on arrival order by construction; a field that matters belongs on the page or in a test.`);
             for (const d of internal.slice(0, 3)) diffLines(d);
           }
           if (along.length) {

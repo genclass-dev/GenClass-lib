@@ -73,6 +73,8 @@ export interface Snapshot {
   stateLeft?: number;
   stateTotal?: number;
   text?: string[];
+  /** The lines of `text` inside ARIA live regions (announcements: status messages, alerts, toasts). */
+  live?: string[];
   fields?: Record<string, string>;
   requests: Record<string, number>;
   witnesses: number;

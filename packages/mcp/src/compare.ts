@@ -11,10 +11,12 @@
 //
 // Whatever a seeded run ends with that differs from the baseline beyond that depends on network timing. It is sorted by
 // where the difference shows, from the evidence the run recorded:
-//   visible    what the page shows (its text, its form values), the requests it sent, or an error only it had: a race;
-//   internal   store values only, while the page showed the same as the baseline: reported apart, never as a race
-//              (a cache's bookkeeping, such as request ids and lists of cache keys, depends on arrival order by
-//              construction and never reaches the page);
+//   visible    what the page shows (its text, its form values), the unsafe requests it sent (POST, PUT, ...), or an
+//              error only it had: a race;
+//   internal   store values, counts of safe requests (GET: a cache refetching once more) or announcements (lines in
+//              ARIA live regions: a toast a slower run let expire) only, while the page showed the same as the
+//              baseline: reported apart, never as a race (a cache's bookkeeping, such as request ids and lists of
+//              cache keys, depends on arrival order by construction and never reaches the page);
 //   transient  the same final state, but an older response overwrote newer data along the way (a later response
 //              repaired it): reported apart, never as a race.
 // Scenarios are grouped by their recorded actions: element names with digits blanked and parenthesised counts dropped,
@@ -142,9 +144,11 @@ export interface RunDiff {
   tier: Tier;
   /** Form values and request counts first (what the page shows and sends), then store values. */
   fields: FieldDiff[];
-  /** Page text lines only the baseline shows, and only this run shows. */
+  /** Page text lines only the baseline shows, and only this run shows (announcements apart, below). */
   textOnlyBaseline: string[];
   textOnlyRun: string[];
+  /** Lines of live regions (status messages, alerts, toasts) only the baseline, or only this run, showed. */
+  announced?: string[];
   /** Errors this run had and the baselines did not (by message). */
   errors: string[];
   /** Witnesses this run had and the baselines did not ("overwrote-newer search.results by GET /api/search"). */
@@ -179,9 +183,18 @@ export function endedDifferently(d: RunDiff): boolean {
   return d.fields.length > 0 || d.textOnlyBaseline.length > 0 || d.textOnlyRun.length > 0 || d.errors.length > 0;
 }
 
-/** Did the difference reach what the page shows or sends (its text, form values, requests) or throw? A race. */
+/** Requests with a safe method (RFC 9110: GET, HEAD, OPTIONS) change nothing the server keeps: a cache refetching once more. */
+const SAFE = /^(GET|HEAD|OPTIONS)\s/;
+
+/** A difference the page shows or sends: a form value, the count of an unsafe request (POST, PUT, ...). */
+export const shownField = (f: FieldDiff): boolean => f.where === "field" || (f.where === "requests" && !SAFE.test(f.name));
+
+/**
+ * Did the difference reach what the page shows or sends (its text outside announcements, form values, unsafe
+ * requests) or throw? A race.
+ */
 export function visibleDiff(d: Pick<RunDiff, "fields" | "textOnlyBaseline" | "textOnlyRun" | "errors">): boolean {
-  return d.fields.some((f) => f.where !== "state") || d.textOnlyBaseline.length > 0 || d.textOnlyRun.length > 0 || d.errors.length > 0;
+  return d.fields.some(shownField) || d.textOnlyBaseline.length > 0 || d.textOnlyRun.length > 0 || d.errors.length > 0;
 }
 
 export interface GroupReport {
@@ -378,16 +391,22 @@ export function compareRuns(runs: Run[]): GroupReport[] {
         if (where === "state" && ((!a && baseCut) || (!c && runCut))) continue;
         fields.push({ where, name: name.slice(sp + 1), baseline: shown(a), run: shown(c) });
       }
-      fields.sort((x, y) => Number(x.where === "state") - Number(y.where === "state"));
+      fields.sort((x, y) => Number(!shownField(x)) - Number(!shownField(y)));
       const rt = multiset(r.snapshot?.text ?? []);
-      const textOnlyBaseline = onlyIn(bt, rt).filter((l) => !isNoiseLine(l));
-      const textOnlyRun = onlyIn(rt, bt).filter((l) => !isNoiseLine(l));
+      // a line inside a live region of the run that showed it is an announcement (a toast that a slower run let expire)
+      const liveB = new Set(b0.snapshot?.live ?? []);
+      const liveR = new Set(r.snapshot?.live ?? []);
+      const onlyB = onlyIn(bt, rt).filter((l) => !isNoiseLine(l));
+      const onlyR = onlyIn(rt, bt).filter((l) => !isNoiseLine(l));
+      const announced = [...onlyB.filter((l) => liveB.has(l)), ...onlyR.filter((l) => liveR.has(l))];
+      const textOnlyBaseline = onlyB.filter((l) => !liveB.has(l));
+      const textOnlyRun = onlyR.filter((l) => !liveR.has(l));
       const errors = [...new Set(r.errors.map((e) => e.message))].filter((m) => !baseErrors.has(m));
       const witnesses = [...new Set(witnessesOf(r))].filter((w) => !baseWit.has(w));
-      if (fields.length || textOnlyBaseline.length || textOnlyRun.length || errors.length || witnesses.length) {
+      if (fields.length || textOnlyBaseline.length || textOnlyRun.length || announced.length || errors.length || witnesses.length) {
         const parts = { fields, textOnlyBaseline, textOnlyRun, errors };
-        const tier: Tier = visibleDiff(parts) ? "visible" : fields.length ? "internal" : "transient";
-        const d: RunDiff = { run: r.id, label: r.assignment?.label ?? r.schedule?.label ?? r.id, tier, fields: fields.slice(0, 30), textOnlyBaseline: textOnlyBaseline.slice(0, 15), textOnlyRun: textOnlyRun.slice(0, 15), errors: errors.slice(0, 10), witnesses: witnesses.slice(0, 10), forced: r.forced };
+        const tier: Tier = visibleDiff(parts) ? "visible" : fields.length || announced.length ? "internal" : "transient";
+        const d: RunDiff = { run: r.id, label: r.assignment?.label ?? r.schedule?.label ?? r.id, tier, fields: fields.slice(0, 30), textOnlyBaseline: textOnlyBaseline.slice(0, 15), textOnlyRun: textOnlyRun.slice(0, 15), ...(announced.length ? { announced: announced.slice(0, 10) } : {}), errors: errors.slice(0, 10), witnesses: witnesses.slice(0, 10), forced: r.forced };
         (rep.insufficientBaselines ? rep.unfiltered : rep.diffs).push(d);
       }
     }

@@ -186,6 +186,7 @@ export function snapshot(v: unknown): Snapshot | null {
     s.stateTotal = Math.max(left, int(o.stateTotal, 1e7) ?? 0);
   }
   if (Array.isArray(o.text)) s.text = strs(o.text, 300, 160);
+  if (Array.isArray(o.live) && o.live.length) s.live = strs(o.live, 50, 160);
   if (o.fields !== undefined) s.fields = rec(o.fields, 100);
   return s;
 }

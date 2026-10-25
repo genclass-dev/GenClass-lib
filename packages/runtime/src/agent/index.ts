@@ -75,6 +75,8 @@ export interface Snapshot {
   stateTotal?: number;
   /** Visible page text, one entry per line (dom: true). */
   text?: string[];
+  /** The lines of `text` inside ARIA live regions (status messages, alerts, toasts), when there are any. */
+  live?: string[];
   /** Form fields by label → value (dom: true; sensitive fields left out). */
   fields?: Record<string, string>;
   /** Requests sent so far, per signature. */
@@ -128,6 +130,8 @@ const SNAPSHOT_FIELDS = 1000;
 const SNAPSHOT_CHARS = 96_000;
 /** A final snapshot sent while the page unloads rides a keepalive request (64 KB for all of them): at most this much. */
 const EXIT_SNAPSHOT_CHARS = 48_000;
+/** ARIA live regions: what a page announces (status messages, alerts, toasts), as opposed to what it shows. */
+const LIVE = '[aria-live]:not([aria-live="off"]),[role="status"],[role="alert"],[role="log"],[role="timer"],[role="marquee"]';
 const SECRET = /pass|pwd|secret|token|card|cc-?num|cvv|cvc|ssn|iban|\bpin\b|otp|one.?time|security.?code|account.?num/i;
 type NetFetch = (u: string, i: Record<string, unknown>) => Promise<{ ok: boolean; status: number; json(): Promise<unknown> }>;
 
@@ -341,13 +345,17 @@ export function connectAgent(runtime: Runtime | null | undefined, opts: AgentOpt
     const doc = g.document as Document | undefined;
     if (dom && doc?.body) {
       try {
-        const text = String((doc.body as HTMLElement).innerText ?? doc.body.textContent ?? "");
-        snap.text = text
-          .split("\n")
-          .map((l) => l.replace(/\s+/g, " ").trim())
-          .filter(Boolean)
-          .slice(0, 300)
-          .map((l) => l.slice(0, 160));
+        const lines = (t: string) =>
+          t
+            .split("\n")
+            .map((l) => l.replace(/\s+/g, " ").trim())
+            .filter(Boolean)
+            .map((l) => l.slice(0, 160));
+        snap.text = lines(String((doc.body as HTMLElement).innerText ?? doc.body.textContent ?? "")).slice(0, 300);
+        // lines inside live regions (status messages, alerts, toasts): announcements, often dismissed after a time
+        const live: string[] = [];
+        for (const el of Array.from(doc.querySelectorAll(LIVE)).slice(0, 50)) for (const l of lines(String((el as HTMLElement).innerText ?? el.textContent ?? ""))) if (live.length < 50 && !live.includes(l)) live.push(l);
+        if (live.length) snap.live = live;
         const fields: Record<string, string> = {};
         let k = 0;
         for (const el of Array.from(doc.querySelectorAll("input,textarea,select"))) {
