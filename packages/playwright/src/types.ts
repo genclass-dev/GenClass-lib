@@ -1,12 +1,14 @@
-// The files this package reads, defined locally (no import from the fixture or from @genclass/runtime): the
-// GenClass Playwright fixture writes one JSON file per test to `test-results/genclass/<test-id>.json` in the format
-// "genclass-races/1" (contract agreed with the fixture's owners on 2026-10-13). This package only reads them; it
-// never injects anything into a page, never routes a request and never starts a runtime.
+// The files this package reads and writes, defined locally (no import from @genclass/runtime): the fixture
+// (`@genclass/playwright/fixture`, src/fixture.ts) writes one JSON file per test to `test-results/genclass/` in the
+// format "genclass-races/1", and the reporter, the summariser and the command read them. The reading side never
+// injects anything into a page, never routes a request and never starts a runtime.
 //
 // Wording follows @genclass/runtime (src/types.ts): `trigger` is a TriggerKind ("request", "delivery", "failure",
 // ...), `diagnosis` is the model's diagnosis label ("duplicate", "stale", "failing", ...) and `confidence` is the
 // probability the model gave that diagnosis (Decision.diagnosisConfidence). `evidence` is the line the runtime
-// printed for the decision.
+// printed for the decision. One more trigger is the fixture's own: "witness", for the two happens-before facts the
+// runtime's agent entry computes without the model (diagnosis "overwrote-newer" or "identical-in-flight",
+// confidence 1: a fact, not a probability).
 
 /** The value of the `schema` field of every file this package reads. */
 export const RACES_SCHEMA = "genclass-races/1";
@@ -15,13 +17,16 @@ export const RACES_SCHEMA = "genclass-races/1";
 export interface RaceSignature {
   /** "trigger|diagnosis|op", e.g. "request|duplicate|POST /api/orders". The grouping key. */
   sig: string;
-  /** The trigger kind of the decision (runtime TriggerKind: "request", "delivery", "failure", ...). */
+  /**
+   * The trigger kind of the decision (runtime TriggerKind: "request", "delivery", "failure", ...), or "witness" for
+   * a fact the runtime measured without the model.
+   */
   trigger: string;
-  /** The model's diagnosis ("duplicate", "stale", "failing", "transient", "inconsistent", ...). */
+  /** The model's diagnosis ("duplicate", "stale", "failing", "transient", "inconsistent", ...), or the witness kind. */
   diagnosis: string;
   /** The operation the decision was about, ids normalised ("POST /api/orders", "GET /api/items/:id"). */
   op: string;
-  /** The model's probability for `diagnosis`, in [0, 1] (the runtime's Decision.diagnosisConfidence). */
+  /** The model's probability for `diagnosis`, in [0, 1] (the runtime's Decision.diagnosisConfidence); 1 for a witness. */
   confidence: number;
   /** The evidence line the runtime printed for this decision (one line, query values already replaced by "…"). */
   evidence: string;
@@ -49,10 +54,11 @@ export interface GenClassRacesFile {
    * Optional: the page's model status when the fixture collected (null: GenClass never started in the page). When a
    * file flagged nothing and its model was not "ready" (for example "loading"), the report notes that the run may
    * not have been checked. A file with detections is reported whatever the state: the runtime can unload an idle
-   * model after it ran ("unloaded").
+   * model after it ran ("unloaded"). State "off" (no model by choice: the fixture's default, which still computes
+   * witnesses) gets no note either.
    */
   model?: { state?: string; name?: string; version?: string; device?: string } | null;
-  /** Optional: the chaos the fixture applied (its `chaos` option), shown when present. */
+  /** Optional: the chaos the fixture applied (its `chaos` option: `latencyMs` is its `delayMs`), shown when present. */
   chaos?: { latencyMs?: [number, number]; reorder?: boolean; failRate?: number; routes?: unknown[] } | null;
 }
 
