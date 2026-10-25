@@ -22,7 +22,7 @@ export interface McpServerOptions {
   version: string;
   instructions: string;
   tools: McpTool[];
-  call(name: string, args: Record<string, unknown>): Promise<{ text: string; isError?: boolean }>;
+  call(name: string, args: Record<string, unknown>): Promise<{ text: string; isError?: boolean; json?: unknown }>;
   /** Declare the experimental claude/channel capability (Claude Code channels). */
   channel?: boolean;
   log?: (s: string) => void;
@@ -134,6 +134,7 @@ export class McpServer {
           if (!this.o.tools.some((t) => t.name === name)) return fail(-32602, `unknown tool ${name.slice(0, 60)}`);
           try {
             const r = await this.o.call(name, args);
+            if (r.json !== undefined) return ok({ content: [{ type: "text", text: r.text }, { type: "text", text: JSON.stringify(r.json) }], structuredContent: r.json, ...(r.isError ? { isError: true } : {}) });
             return ok({ content: [{ type: "text", text: r.text }], ...(r.isError ? { isError: true } : {}) });
           } catch (e) {
             return ok({ content: [{ type: "text", text: `GenClass: ${e instanceof Error ? e.message : String(e)}` }], isError: true });
