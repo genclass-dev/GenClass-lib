@@ -126,8 +126,22 @@ export function chainVerdict(m: Linear): ChainVerdict {
   };
 }
 
-/** The transform product from the element up to the root, and the element in it that does the most. */
-export function transformChain(r: Reader, el: Element): { m: Linear; culprit: Element | null; backface: boolean } | null {
+type Chain = { m: Linear; culprit: Element | null; backface: boolean } | null;
+/** Per pass (a Reader lives for one): each element's transform chain and line boxes, read once. */
+const chains = new WeakMap<Reader, Map<Element, Chain>>();
+const boxesOf = new WeakMap<Reader, Map<Text, Rect[]>>();
+
+/** The transform product from the element up to the root, and the element in it that does the most (cached per pass). */
+export function transformChain(r: Reader, el: Element): Chain {
+  let c = chains.get(r);
+  if (!c) chains.set(r, (c = new Map()));
+  if (c.has(el)) return c.get(el) ?? null;
+  const v = readChain(r, el);
+  c.set(el, v);
+  return v;
+}
+
+function readChain(r: Reader, el: Element): Chain {
   let m: Linear = IDENTITY;
   let culprit: Element | null = null;
   let worst = 0;
@@ -235,6 +249,14 @@ function firstText(el: Element): Text | null {
 }
 
 function lineBoxes(r: Reader, t: Text): Rect[] {
+  let c = boxesOf.get(r);
+  if (!c) boxesOf.set(r, (c = new Map()));
+  let v = c.get(t);
+  if (!v) c.set(t, (v = readBoxes(r, t)));
+  return v;
+}
+
+function readBoxes(r: Reader, t: Text): Rect[] {
   try {
     const range = r.doc.createRange();
     range.selectNodeContents(t);
@@ -340,7 +362,8 @@ export function readWarped(ctx: Ctx, r: Reader, el: Element): WarpRead | null {
   const data = t.data;
   const s = r.cs(el);
   const fs = parseFloat(s.fontSize) || 0;
-  const who = named(ctx, el);
+  // the description is built only for a finding (it reads the element's text and name)
+  const who = () => named(ctx, el);
 
   const tofu = tofuChars(data);
   if (tofu.length) {
@@ -349,7 +372,7 @@ export function readWarped(ctx: Ctx, r: Reader, el: Element): WarpRead | null {
       return {
         reason: "tofu",
         measured: { reason: "tofu", codePoints: tofu.join(" "), count: tofu.length },
-        text: `${who} shows ${tofu.length === 1 ? "a character" : `${tofu.length} characters`} no font can draw (${tofu.join(", ")}: ${tofu.some((u) => /^U\+D[89A-F]/.test(u)) ? "half of a surrogate pair, a string cut through an emoji or another character outside the BMP" : "unassigned in Unicode"}); browsers draw them as boxes.`,
+        text: `${who()} shows ${tofu.length === 1 ? "a character" : `${tofu.length} characters`} no font can draw (${tofu.join(", ")}: ${tofu.some((u) => /^U\+D[89A-F]/.test(u)) ? "half of a surrogate pair, a string cut through an emoji or another character outside the BMP" : "unassigned in Unicode"}); browsers draw them as boxes.`,
         fixText: "cut strings by code point, never by UTF-16 index (Array.from(s).slice(0, n), or Intl.Segmenter for user-perceived characters), and never store or send half a surrogate pair",
       };
   }
@@ -358,24 +381,24 @@ export function readWarped(ctx: Ctx, r: Reader, el: Element): WarpRead | null {
   if (!chain) return null;
   const v = chainVerdict(chain.m);
   const by = chain.culprit && chain.culprit !== el ? chain.culprit : null;
-  const bySel = chain.culprit ? ctx.sel(chain.culprit) : ctx.sel(el);
+  const bySel = () => (chain.culprit ? ctx.sel(chain.culprit) : ctx.sel(el));
   if (v.det < 0 && !chain.backface && lettersOf(data) >= 3)
     return {
       reason: "mirrored",
       on: by ?? undefined,
-      measured: { reason: "mirrored", determinant: two(v.det), transformOn: bySel },
-      text: `${who} is mirrored by a transform${by ? ` on ${bySel}` : ""} (determinant ${two(v.det)}): the text reads backwards.`,
+      measured: { reason: "mirrored", determinant: two(v.det), transformOn: bySel() },
+      text: `${who()} is mirrored by a transform${by ? ` on ${bySel()}` : ""} (determinant ${two(v.det)}): the text reads backwards.`,
       css: "transform: none;",
     };
   if ((v.skew > SKEW_DEG || v.stretch >= STRETCH) && lettersOf(data) >= 3)
     return {
       reason: "skewed",
       on: by ?? undefined,
-      measured: { reason: "skewed", skewDeg: Math.round(v.skew), stretch: two(v.stretch), transformOn: bySel },
+      measured: { reason: "skewed", skewDeg: Math.round(v.skew), stretch: two(v.stretch), transformOn: bySel() },
       text:
         v.skew > SKEW_DEG
-          ? `${who} is skewed ${Math.round(v.skew)}° by a transform${by ? ` on ${bySel}` : ""} (above ${SKEW_DEG}°).`
-          : `${who} is stretched ${two(v.stretch)}x on one axis by a transform${by ? ` on ${bySel}` : ""} (${STRETCH}x or more).`,
+          ? `${who()} is skewed ${Math.round(v.skew)}° by a transform${by ? ` on ${bySel()}` : ""} (above ${SKEW_DEG}°).`
+          : `${who()} is stretched ${two(v.stretch)}x on one axis by a transform${by ? ` on ${bySel()}` : ""} (${STRETCH}x or more).`,
       css: "transform: none;",
     };
 
@@ -386,10 +409,10 @@ export function readWarped(ctx: Ctx, r: Reader, el: Element): WarpRead | null {
       measured: { reason: "spacing", letterSpacingEm: two(em(s.letterSpacing, fs)), wordSpacingEm: two(em(s.wordSpacing, fs)), fontPx: two(fs) },
       text:
         sp === "wide"
-          ? `letter-spacing ${two(em(s.letterSpacing, fs))} em on ${who} spaces letters wider than a space (${WIDE_EM} em or more), so its words fall apart.`
+          ? `letter-spacing ${two(em(s.letterSpacing, fs))} em on ${who()} spaces letters wider than a space (${WIDE_EM} em or more), so its words fall apart.`
           : sp === "tight"
-            ? `letter-spacing ${two(em(s.letterSpacing, fs))} em on ${who} runs its letters into each other (${TIGHT_EM} em or less).`
-            : `word-spacing ${two(em(s.wordSpacing, fs))} em on ${who} removes the space between words (${TIGHT_EM} em or less).`,
+            ? `letter-spacing ${two(em(s.letterSpacing, fs))} em on ${who()} runs its letters into each other (${TIGHT_EM} em or less).`
+            : `word-spacing ${two(em(s.wordSpacing, fs))} em on ${who()} removes the space between words (${TIGHT_EM} em or less).`,
       css: sp === "words" ? "word-spacing: normal;" : "letter-spacing: 0.1em;",
     };
 
@@ -402,7 +425,7 @@ export function readWarped(ctx: Ctx, r: Reader, el: Element): WarpRead | null {
         reason: "tiny",
         on: v.scale < 0.999 && by ? by : undefined,
         measured: { reason: "tiny", renderedPx: two(rendered), fontPx: two(fs), scale: two(v.scale), lineBoxPx: two(h) },
-        text: `${who} is drawn at ${two(rendered)} px${v.scale < 0.999 ? ` (${two(fs)} px text scaled by ${two(v.scale)}${by ? ` on ${bySel}` : ""})` : ""}, below ${TINY_PX} px, with a line box ${px(h)} tall.`,
+        text: `${who()} is drawn at ${two(rendered)} px${v.scale < 0.999 ? ` (${two(fs)} px text scaled by ${two(v.scale)}${by ? ` on ${bySel()}` : ""})` : ""}, below ${TINY_PX} px, with a line box ${px(h)} tall.`,
         css: v.scale < 0.999 ? "transform: none;" : "font-size: 12px;",
       };
   }
@@ -416,7 +439,7 @@ export function readWarped(ctx: Ctx, r: Reader, el: Element): WarpRead | null {
     return {
       reason: "overlap",
       measured: { reason: "overlap", overlap: two(o.f), lineBoxPx: two(Math.min(a.bottom - a.top, b.bottom - b.top)), lineHeight: s.lineHeight, fontPx: two(fs) },
-      text: `lines of text overlap on ${who}: one line covers ${Math.round(o.f * 100)}% of the next one's height (line-height ${s.lineHeight} for ${px(fs)} text; threshold ${LINE_OVERLAP * 100}%).`,
+      text: `lines of text overlap on ${who()}: one line covers ${Math.round(o.f * 100)}% of the next one's height (line-height ${s.lineHeight} for ${px(fs)} text; threshold ${LINE_OVERLAP * 100}%).`,
       css: "line-height: 1.4;",
     };
   }
@@ -432,8 +455,8 @@ export function readWarped(ctx: Ctx, r: Reader, el: Element): WarpRead | null {
         measured: { reason: "clipped", axis: cut.axis, cutPx: Math.round(cut.px), ...(cut.visible !== undefined ? { visible: two(cut.visible) } : {}), clipOn: cs },
         text:
           cut.axis === "x"
-            ? `${who} is cut mid-line: ${px(cut.px)} of its first line are hidden past the edge of ${cs} (overflow hidden, no ellipsis).`
-            : `${who} is cut through its first line: ${Math.round((cut.visible ?? 0) * 100)}% of the line's height shows inside ${cs} (overflow hidden).`,
+            ? `${who()} is cut mid-line: ${px(cut.px)} of its first line are hidden past the edge of ${cs} (overflow hidden, no ellipsis).`
+            : `${who()} is cut through its first line: ${Math.round((cut.visible ?? 0) * 100)}% of the line's height shows inside ${cs} (overflow hidden).`,
         css: cut.axis === "x" ? "text-overflow: ellipsis;" : "height: auto;",
       };
     }

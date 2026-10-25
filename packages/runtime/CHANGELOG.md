@@ -12,7 +12,7 @@
   0.5 em or more (or -0.2 em and less), and text drawn below 8 px that is still meant to be read. Both are kind
   `"check"`, report only (no runtime fix), run in the lazy chunk's idle slices on the full tier, and never feed the
   model; `CheckKind` gains both. First load unchanged (0 B of first-load code; the lazy visual chunk grows by about
-  6.5 KB gzip).
+  6.7 KB gzip).
 - **Interaction analytics: navigation paths** ([docs/runtime/ANALYTICS.md](../../docs/runtime/ANALYTICS.md) section
   11, TELEMETRY.md "Interaction analytics"). With `analytics: true` (still off by default, still only with the app's
   token), `interactions` events also say how each page view was reached (`nav`: load, reload, back_forward, push, back,
