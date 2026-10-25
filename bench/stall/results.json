@@ -1,0 +1,881 @@
+[
+  {
+    "demo": "search",
+    "kind": "clean",
+    "seed": 1505,
+    "stalled": []
+  },
+  {
+    "demo": "search",
+    "kind": "clean",
+    "seed": 1504,
+    "stalled": []
+  },
+  {
+    "demo": "search",
+    "kind": "clean",
+    "seed": 1501,
+    "stalled": []
+  },
+  {
+    "demo": "search",
+    "kind": "clean",
+    "seed": 1502,
+    "stalled": []
+  },
+  {
+    "demo": "search",
+    "kind": "clean",
+    "seed": 1500,
+    "stalled": []
+  },
+  {
+    "demo": "search",
+    "kind": "clean",
+    "seed": 1503,
+    "stalled": []
+  },
+  {
+    "demo": "search",
+    "kind": "clean",
+    "seed": 1507,
+    "stalled": []
+  },
+  {
+    "demo": "search",
+    "kind": "clean",
+    "seed": 1508,
+    "stalled": []
+  },
+  {
+    "demo": "search",
+    "kind": "clean",
+    "seed": 1506,
+    "stalled": []
+  },
+  {
+    "demo": "search",
+    "kind": "clean",
+    "seed": 1509,
+    "stalled": []
+  },
+  {
+    "demo": "search",
+    "kind": "chaos",
+    "seed": 1000,
+    "stalled": []
+  },
+  {
+    "demo": "search",
+    "kind": "chaos",
+    "seed": 1001,
+    "stalled": []
+  },
+  {
+    "demo": "search",
+    "kind": "chaos",
+    "seed": 1002,
+    "stalled": []
+  },
+  {
+    "demo": "search",
+    "kind": "chaos",
+    "seed": 1003,
+    "stalled": []
+  },
+  {
+    "demo": "search",
+    "kind": "chaos",
+    "seed": 1005,
+    "stalled": []
+  },
+  {
+    "demo": "search",
+    "kind": "chaos",
+    "seed": 1007,
+    "stalled": []
+  },
+  {
+    "demo": "search",
+    "kind": "chaos",
+    "seed": 1004,
+    "stalled": []
+  },
+  {
+    "demo": "search",
+    "kind": "chaos",
+    "seed": 1006,
+    "stalled": []
+  },
+  {
+    "demo": "search",
+    "kind": "chaos",
+    "seed": 1008,
+    "stalled": []
+  },
+  {
+    "demo": "search",
+    "kind": "planted",
+    "seed": 1700,
+    "stalled": [
+      "GET 127.0.0.1:4183/genclass/api/search has been pending for 15.0 s (threshold 15.0 s); no control the page disabled or marked busy since it started is still so. Fix: give the request a timeout (fetch(url, { signal: AbortSignal.timeout(10_000) }), or xhr.timeout) so the app's catch and finally run an",
+      "GET 127.0.0.1:4183/genclass/api/search has been pending for 15.0 s (threshold 15.0 s); no control the page disabled or marked busy since it started is still so. Fix: give the request a timeout (fetch(url, { signal: AbortSignal.timeout(10_000) }), or xhr.timeout) so the app's catch and finally run an",
+      "GET 127.0.0.1:4183/genclass/api/search has been pending for 15.1 s (threshold 15.0 s); no control the page disabled or marked busy since it started is still so. Fix: give the request a timeout (fetch(url, { signal: AbortSignal.timeout(10_000) }), or xhr.timeout) so the app's catch and finally run an",
+      "GET 127.0.0.1:4183/genclass/api/search has been pending for 15.0 s (threshold 15.0 s); no control the page disabled or marked busy since it started is still so. Fix: give the request a timeout (fetch(url, { signal: AbortSignal.timeout(10_000) }), or xhr.timeout) so the app's catch and finally run an",
+      "GET 127.0.0.1:4183/genclass/api/search has been pending for 15.1 s (threshold 15.0 s); no control the page disabled or marked busy since it started is still so. Fix: give the request a timeout (fetch(url, { signal: AbortSignal.timeout(10_000) }), or xhr.timeout) so the app's catch and finally run an",
+      "GET 127.0.0.1:4183/genclass/api/search has been pending for 15.1 s (threshold 15.0 s); no control the page disabled or marked busy since it started is still so. Fix: give the request a timeout (fetch(url, { signal: AbortSignal.timeout(10_000) }), or xhr.timeout) so the app's catch and finally run an",
+      "GET 127.0.0.1:4183/genclass/api/search has been pending for 15.1 s (threshold 15.0 s); no control the page disabled or marked busy since it started is still so. Fix: give the request a timeout (fetch(url, { signal: AbortSignal.timeout(10_000) }), or xhr.timeout) so the app's catch and finally run an"
+    ]
+  },
+  {
+    "demo": "search",
+    "kind": "chaos",
+    "seed": 1009,
+    "stalled": []
+  },
+  {
+    "demo": "search",
+    "kind": "planted",
+    "seed": 1701,
+    "stalled": [
+      "GET 127.0.0.1:4183/genclass/api/search has been pending for 15.1 s (threshold 15.0 s); no control the page disabled or marked busy since it started is still so. Fix: give the request a timeout (fetch(url, { signal: AbortSignal.timeout(10_000) }), or xhr.timeout) so the app's catch and finally run an",
+      "GET 127.0.0.1:4183/genclass/api/search has been pending for 15.2 s (threshold 15.0 s); no control the page disabled or marked busy since it started is still so. Fix: give the request a timeout (fetch(url, { signal: AbortSignal.timeout(10_000) }), or xhr.timeout) so the app's catch and finally run an",
+      "GET 127.0.0.1:4183/genclass/api/search has been pending for 15.2 s (threshold 15.0 s); no control the page disabled or marked busy since it started is still so. Fix: give the request a timeout (fetch(url, { signal: AbortSignal.timeout(10_000) }), or xhr.timeout) so the app's catch and finally run an",
+      "GET 127.0.0.1:4183/genclass/api/search has been pending for 15.2 s (threshold 15.0 s); no control the page disabled or marked busy since it started is still so. Fix: give the request a timeout (fetch(url, { signal: AbortSignal.timeout(10_000) }), or xhr.timeout) so the app's catch and finally run an",
+      "GET 127.0.0.1:4183/genclass/api/search has been pending for 15.0 s (threshold 15.0 s); no control the page disabled or marked busy since it started is still so. Fix: give the request a timeout (fetch(url, { signal: AbortSignal.timeout(10_000) }), or xhr.timeout) so the app's catch and finally run an",
+      "GET 127.0.0.1:4183/genclass/api/search has been pending for 15.0 s (threshold 15.0 s); no control the page disabled or marked busy since it started is still so. Fix: give the request a timeout (fetch(url, { signal: AbortSignal.timeout(10_000) }), or xhr.timeout) so the app's catch and finally run an",
+      "GET 127.0.0.1:4183/genclass/api/search has been pending for 15.1 s (threshold 15.0 s); no control the page disabled or marked busy since it started is still so. Fix: give the request a timeout (fetch(url, { signal: AbortSignal.timeout(10_000) }), or xhr.timeout) so the app's catch and finally run an"
+    ]
+  },
+  {
+    "demo": "search",
+    "kind": "planted",
+    "seed": 1702,
+    "stalled": [
+      "GET 127.0.0.1:4183/genclass/api/search has been pending for 15.0 s (threshold 15.0 s); no control the page disabled or marked busy since it started is still so. Fix: give the request a timeout (fetch(url, { signal: AbortSignal.timeout(10_000) }), or xhr.timeout) so the app's catch and finally run an",
+      "GET 127.0.0.1:4183/genclass/api/search has been pending for 15.1 s (threshold 15.0 s); no control the page disabled or marked busy since it started is still so. Fix: give the request a timeout (fetch(url, { signal: AbortSignal.timeout(10_000) }), or xhr.timeout) so the app's catch and finally run an",
+      "GET 127.0.0.1:4183/genclass/api/search has been pending for 15.1 s (threshold 15.0 s); no control the page disabled or marked busy since it started is still so. Fix: give the request a timeout (fetch(url, { signal: AbortSignal.timeout(10_000) }), or xhr.timeout) so the app's catch and finally run an",
+      "GET 127.0.0.1:4183/genclass/api/search has been pending for 15.1 s (threshold 15.0 s); no control the page disabled or marked busy since it started is still so. Fix: give the request a timeout (fetch(url, { signal: AbortSignal.timeout(10_000) }), or xhr.timeout) so the app's catch and finally run an",
+      "GET 127.0.0.1:4183/genclass/api/search has been pending for 15.1 s (threshold 15.0 s); no control the page disabled or marked busy since it started is still so. Fix: give the request a timeout (fetch(url, { signal: AbortSignal.timeout(10_000) }), or xhr.timeout) so the app's catch and finally run an",
+      "GET 127.0.0.1:4183/genclass/api/search has been pending for 15.1 s (threshold 15.0 s); no control the page disabled or marked busy since it started is still so. Fix: give the request a timeout (fetch(url, { signal: AbortSignal.timeout(10_000) }), or xhr.timeout) so the app's catch and finally run an",
+      "GET 127.0.0.1:4183/genclass/api/search has been pending for 15.2 s (threshold 15.0 s); no control the page disabled or marked busy since it started is still so. Fix: give the request a timeout (fetch(url, { signal: AbortSignal.timeout(10_000) }), or xhr.timeout) so the app's catch and finally run an",
+      "GET 127.0.0.1:4183/genclass/api/search has been pending for 15.2 s (threshold 15.0 s); no control the page disabled or marked busy since it started is still so. Fix: give the request a timeout (fetch(url, { signal: AbortSignal.timeout(10_000) }), or xhr.timeout) so the app's catch and finally run an",
+      "GET 127.0.0.1:4183/genclass/api/search has been pending for 15.1 s (threshold 15.0 s); no control the page disabled or marked busy since it started is still so. Fix: give the request a timeout (fetch(url, { signal: AbortSignal.timeout(10_000) }), or xhr.timeout) so the app's catch and finally run an",
+      "GET 127.0.0.1:4183/genclass/api/search has been pending for 15.2 s (threshold 15.0 s); no control the page disabled or marked busy since it started is still so. Fix: give the request a timeout (fetch(url, { signal: AbortSignal.timeout(10_000) }), or xhr.timeout) so the app's catch and finally run an",
+      "GET 127.0.0.1:4183/genclass/api/search has been pending for 15.2 s (threshold 15.0 s); no control the page disabled or marked busy since it started is still so. Fix: give the request a timeout (fetch(url, { signal: AbortSignal.timeout(10_000) }), or xhr.timeout) so the app's catch and finally run an",
+      "GET 127.0.0.1:4183/genclass/api/search has been pending for 15.1 s (threshold 15.0 s); no control the page disabled or marked busy since it started is still so. Fix: give the request a timeout (fetch(url, { signal: AbortSignal.timeout(10_000) }), or xhr.timeout) so the app's catch and finally run an"
+    ]
+  },
+  {
+    "demo": "editor",
+    "kind": "clean",
+    "seed": 1500,
+    "stalled": []
+  },
+  {
+    "demo": "editor",
+    "kind": "clean",
+    "seed": 1502,
+    "stalled": []
+  },
+  {
+    "demo": "editor",
+    "kind": "clean",
+    "seed": 1501,
+    "stalled": []
+  },
+  {
+    "demo": "editor",
+    "kind": "clean",
+    "seed": 1503,
+    "stalled": []
+  },
+  {
+    "demo": "editor",
+    "kind": "clean",
+    "seed": 1504,
+    "stalled": []
+  },
+  {
+    "demo": "editor",
+    "kind": "clean",
+    "seed": 1505,
+    "stalled": []
+  },
+  {
+    "demo": "editor",
+    "kind": "clean",
+    "seed": 1506,
+    "stalled": []
+  },
+  {
+    "demo": "editor",
+    "kind": "clean",
+    "seed": 1507,
+    "stalled": []
+  },
+  {
+    "demo": "editor",
+    "kind": "clean",
+    "seed": 1509,
+    "stalled": []
+  },
+  {
+    "demo": "editor",
+    "kind": "chaos",
+    "seed": 1001,
+    "stalled": []
+  },
+  {
+    "demo": "editor",
+    "kind": "clean",
+    "seed": 1508,
+    "stalled": []
+  },
+  {
+    "demo": "editor",
+    "kind": "chaos",
+    "seed": 1002,
+    "stalled": []
+  },
+  {
+    "demo": "editor",
+    "kind": "chaos",
+    "seed": 1003,
+    "stalled": []
+  },
+  {
+    "demo": "editor",
+    "kind": "chaos",
+    "seed": 1000,
+    "stalled": []
+  },
+  {
+    "demo": "editor",
+    "kind": "chaos",
+    "seed": 1004,
+    "stalled": []
+  },
+  {
+    "demo": "editor",
+    "kind": "chaos",
+    "seed": 1005,
+    "stalled": []
+  },
+  {
+    "demo": "editor",
+    "kind": "chaos",
+    "seed": 1006,
+    "stalled": []
+  },
+  {
+    "demo": "editor",
+    "kind": "chaos",
+    "seed": 1007,
+    "stalled": []
+  },
+  {
+    "demo": "editor",
+    "kind": "planted",
+    "seed": 1700,
+    "stalled": [
+      "PUT 127.0.0.1:4183/genclass/api/notes/n1 has been pending for 15.0 s (threshold 15.0 s); no control the page disabled or marked busy since it started is still so. Fix: give the request a timeout (fetch(url, { signal: AbortSignal.timeout(10_000) }), or xhr.timeout) so the app's catch and finally run "
+    ]
+  },
+  {
+    "demo": "editor",
+    "kind": "chaos",
+    "seed": 1008,
+    "stalled": []
+  },
+  {
+    "demo": "editor",
+    "kind": "chaos",
+    "seed": 1009,
+    "stalled": []
+  },
+  {
+    "demo": "checkout",
+    "kind": "clean",
+    "seed": 1500,
+    "stalled": []
+  },
+  {
+    "demo": "editor",
+    "kind": "planted",
+    "seed": 1701,
+    "stalled": [
+      "GET 127.0.0.1:4183/genclass/api/notes/n1 has been pending for 15.3 s (threshold 15.0 s); no control the page disabled or marked busy since it started is still so. Fix: give the request a timeout (fetch(url, { signal: AbortSignal.timeout(10_000) }), or xhr.timeout) so the app's catch and finally run ",
+      "PUT 127.0.0.1:4183/genclass/api/notes/n1 has been pending for 15.0 s (threshold 15.0 s); no control the page disabled or marked busy since it started is still so. Fix: give the request a timeout (fetch(url, { signal: AbortSignal.timeout(10_000) }), or xhr.timeout) so the app's catch and finally run ",
+      "PUT 127.0.0.1:4183/genclass/api/notes/n1 has been pending for 15.0 s (threshold 15.0 s); no control the page disabled or marked busy since it started is still so. Fix: give the request a timeout (fetch(url, { signal: AbortSignal.timeout(10_000) }), or xhr.timeout) so the app's catch and finally run ",
+      "PUT 127.0.0.1:4183/genclass/api/notes/n1 has been pending for 15.0 s (threshold 15.0 s); no control the page disabled or marked busy since it started is still so. Fix: give the request a timeout (fetch(url, { signal: AbortSignal.timeout(10_000) }), or xhr.timeout) so the app's catch and finally run "
+    ]
+  },
+  {
+    "demo": "checkout",
+    "kind": "clean",
+    "seed": 1501,
+    "stalled": []
+  },
+  {
+    "demo": "checkout",
+    "kind": "clean",
+    "seed": 1502,
+    "stalled": []
+  },
+  {
+    "demo": "editor",
+    "kind": "planted",
+    "seed": 1702,
+    "stalled": [
+      "PUT 127.0.0.1:4183/genclass/api/notes/n1 has been pending for 15.0 s (threshold 15.0 s); no control the page disabled or marked busy since it started is still so. Fix: give the request a timeout (fetch(url, { signal: AbortSignal.timeout(10_000) }), or xhr.timeout) so the app's catch and finally run "
+    ]
+  },
+  {
+    "demo": "checkout",
+    "kind": "clean",
+    "seed": 1504,
+    "stalled": []
+  },
+  {
+    "demo": "checkout",
+    "kind": "clean",
+    "seed": 1503,
+    "stalled": []
+  },
+  {
+    "demo": "checkout",
+    "kind": "clean",
+    "seed": 1505,
+    "stalled": []
+  },
+  {
+    "demo": "checkout",
+    "kind": "clean",
+    "seed": 1506,
+    "stalled": []
+  },
+  {
+    "demo": "checkout",
+    "kind": "clean",
+    "seed": 1507,
+    "stalled": []
+  },
+  {
+    "demo": "checkout",
+    "kind": "clean",
+    "seed": 1508,
+    "stalled": []
+  },
+  {
+    "demo": "checkout",
+    "kind": "clean",
+    "seed": 1509,
+    "stalled": []
+  },
+  {
+    "demo": "checkout",
+    "kind": "chaos",
+    "seed": 1001,
+    "stalled": []
+  },
+  {
+    "demo": "checkout",
+    "kind": "chaos",
+    "seed": 1002,
+    "stalled": []
+  },
+  {
+    "demo": "checkout",
+    "kind": "chaos",
+    "seed": 1003,
+    "stalled": []
+  },
+  {
+    "demo": "checkout",
+    "kind": "chaos",
+    "seed": 1004,
+    "stalled": []
+  },
+  {
+    "demo": "checkout",
+    "kind": "chaos",
+    "seed": 1005,
+    "stalled": []
+  },
+  {
+    "demo": "checkout",
+    "kind": "chaos",
+    "seed": 1006,
+    "stalled": []
+  },
+  {
+    "demo": "checkout",
+    "kind": "chaos",
+    "seed": 1009,
+    "stalled": []
+  },
+  {
+    "demo": "checkout",
+    "kind": "chaos",
+    "seed": 1007,
+    "stalled": []
+  },
+  {
+    "demo": "checkout",
+    "kind": "chaos",
+    "seed": 1000,
+    "stalled": []
+  },
+  {
+    "demo": "checkout",
+    "kind": "planted",
+    "seed": 1700,
+    "stalled": []
+  },
+  {
+    "demo": "checkout",
+    "kind": "planted",
+    "seed": 1701,
+    "stalled": []
+  },
+  {
+    "demo": "checkout",
+    "kind": "planted",
+    "seed": 1702,
+    "stalled": []
+  },
+  {
+    "demo": "status",
+    "kind": "clean",
+    "seed": 1500,
+    "stalled": []
+  },
+  {
+    "demo": "status",
+    "kind": "clean",
+    "seed": 1502,
+    "stalled": []
+  },
+  {
+    "demo": "status",
+    "kind": "clean",
+    "seed": 1501,
+    "stalled": []
+  },
+  {
+    "demo": "status",
+    "kind": "clean",
+    "seed": 1503,
+    "stalled": []
+  },
+  {
+    "demo": "checkout",
+    "kind": "chaos",
+    "seed": 1008,
+    "stalled": []
+  },
+  {
+    "demo": "status",
+    "kind": "clean",
+    "seed": 1504,
+    "stalled": []
+  },
+  {
+    "demo": "status",
+    "kind": "clean",
+    "seed": 1505,
+    "stalled": []
+  },
+  {
+    "demo": "status",
+    "kind": "clean",
+    "seed": 1507,
+    "stalled": []
+  },
+  {
+    "demo": "status",
+    "kind": "clean",
+    "seed": 1506,
+    "stalled": []
+  },
+  {
+    "demo": "status",
+    "kind": "clean",
+    "seed": 1508,
+    "stalled": []
+  },
+  {
+    "demo": "status",
+    "kind": "clean",
+    "seed": 1509,
+    "stalled": []
+  },
+  {
+    "demo": "status",
+    "kind": "chaos",
+    "seed": 1000,
+    "stalled": []
+  },
+  {
+    "demo": "status",
+    "kind": "chaos",
+    "seed": 1001,
+    "stalled": []
+  },
+  {
+    "demo": "status",
+    "kind": "chaos",
+    "seed": 1002,
+    "stalled": []
+  },
+  {
+    "demo": "status",
+    "kind": "chaos",
+    "seed": 1003,
+    "stalled": []
+  },
+  {
+    "demo": "status",
+    "kind": "chaos",
+    "seed": 1004,
+    "stalled": []
+  },
+  {
+    "demo": "status",
+    "kind": "chaos",
+    "seed": 1005,
+    "stalled": []
+  },
+  {
+    "demo": "status",
+    "kind": "chaos",
+    "seed": 1006,
+    "stalled": []
+  },
+  {
+    "demo": "status",
+    "kind": "chaos",
+    "seed": 1007,
+    "stalled": []
+  },
+  {
+    "demo": "status",
+    "kind": "chaos",
+    "seed": 1008,
+    "stalled": []
+  },
+  {
+    "demo": "status",
+    "kind": "chaos",
+    "seed": 1009,
+    "stalled": []
+  },
+  {
+    "demo": "status",
+    "kind": "planted",
+    "seed": 1700,
+    "stalled": []
+  },
+  {
+    "demo": "status",
+    "kind": "planted",
+    "seed": 1701,
+    "stalled": []
+  },
+  {
+    "demo": "board",
+    "kind": "clean",
+    "seed": 1500,
+    "stalled": []
+  },
+  {
+    "demo": "status",
+    "kind": "planted",
+    "seed": 1702,
+    "stalled": []
+  },
+  {
+    "demo": "board",
+    "kind": "clean",
+    "seed": 1501,
+    "stalled": []
+  },
+  {
+    "demo": "board",
+    "kind": "clean",
+    "seed": 1502,
+    "stalled": []
+  },
+  {
+    "demo": "board",
+    "kind": "clean",
+    "seed": 1503,
+    "stalled": []
+  },
+  {
+    "demo": "board",
+    "kind": "clean",
+    "seed": 1504,
+    "stalled": []
+  },
+  {
+    "demo": "board",
+    "kind": "clean",
+    "seed": 1505,
+    "stalled": []
+  },
+  {
+    "demo": "board",
+    "kind": "clean",
+    "seed": 1506,
+    "stalled": []
+  },
+  {
+    "demo": "board",
+    "kind": "clean",
+    "seed": 1507,
+    "stalled": []
+  },
+  {
+    "demo": "board",
+    "kind": "clean",
+    "seed": 1508,
+    "stalled": []
+  },
+  {
+    "demo": "board",
+    "kind": "clean",
+    "seed": 1509,
+    "stalled": []
+  },
+  {
+    "demo": "board",
+    "kind": "chaos",
+    "seed": 1000,
+    "stalled": []
+  },
+  {
+    "demo": "board",
+    "kind": "chaos",
+    "seed": 1001,
+    "stalled": []
+  },
+  {
+    "demo": "board",
+    "kind": "chaos",
+    "seed": 1002,
+    "stalled": []
+  },
+  {
+    "demo": "board",
+    "kind": "chaos",
+    "seed": 1003,
+    "stalled": []
+  },
+  {
+    "demo": "board",
+    "kind": "chaos",
+    "seed": 1004,
+    "stalled": []
+  },
+  {
+    "demo": "board",
+    "kind": "chaos",
+    "seed": 1005,
+    "stalled": []
+  },
+  {
+    "demo": "board",
+    "kind": "chaos",
+    "seed": 1006,
+    "stalled": []
+  },
+  {
+    "demo": "board",
+    "kind": "chaos",
+    "seed": 1007,
+    "stalled": []
+  },
+  {
+    "demo": "board",
+    "kind": "chaos",
+    "seed": 1009,
+    "stalled": []
+  },
+  {
+    "demo": "board",
+    "kind": "chaos",
+    "seed": 1008,
+    "stalled": []
+  },
+  {
+    "demo": "board",
+    "kind": "planted",
+    "seed": 1700,
+    "stalled": [
+      "POST 127.0.0.1:4183/genclass/api/cards/c1/move has been pending for 15.0 s (threshold 15.0 s); no control the page disabled or marked busy since it started is still so. Fix: give the request a timeout (fetch(url, { signal: AbortSignal.timeout(10_000) }), or xhr.timeout) so the app's catch and finall",
+      "POST 127.0.0.1:4183/genclass/api/cards/c2/move has been pending for 15.0 s (threshold 15.0 s); no control the page disabled or marked busy since it started is still so. Fix: give the request a timeout (fetch(url, { signal: AbortSignal.timeout(10_000) }), or xhr.timeout) so the app's catch and finall"
+    ]
+  },
+  {
+    "demo": "board",
+    "kind": "planted",
+    "seed": 1701,
+    "stalled": [
+      "POST 127.0.0.1:4183/genclass/api/cards/c10/move has been pending for 15.1 s (threshold 15.0 s); no control the page disabled or marked busy since it started is still so. Fix: give the request a timeout (fetch(url, { signal: AbortSignal.timeout(10_000) }), or xhr.timeout) so the app's catch and final",
+      "POST 127.0.0.1:4183/genclass/api/cards/c9/move has been pending for 15.0 s (threshold 15.0 s); no control the page disabled or marked busy since it started is still so. Fix: give the request a timeout (fetch(url, { signal: AbortSignal.timeout(10_000) }), or xhr.timeout) so the app's catch and finall",
+      "POST 127.0.0.1:4183/genclass/api/cards/c8/move has been pending for 15.0 s (threshold 15.0 s); no control the page disabled or marked busy since it started is still so. Fix: give the request a timeout (fetch(url, { signal: AbortSignal.timeout(10_000) }), or xhr.timeout) so the app's catch and finall"
+    ]
+  },
+  {
+    "demo": "board",
+    "kind": "planted",
+    "seed": 1702,
+    "stalled": [
+      "POST 127.0.0.1:4183/genclass/api/cards/c7/move has been pending for 15.0 s (threshold 15.0 s); no control the page disabled or marked busy since it started is still so. Fix: give the request a timeout (fetch(url, { signal: AbortSignal.timeout(10_000) }), or xhr.timeout) so the app's catch and finall"
+    ]
+  },
+  {
+    "demo": "decisions",
+    "kind": "clean",
+    "seed": 1500,
+    "stalled": []
+  },
+  {
+    "demo": "decisions",
+    "kind": "clean",
+    "seed": 1503,
+    "stalled": []
+  },
+  {
+    "demo": "decisions",
+    "kind": "clean",
+    "seed": 1502,
+    "stalled": []
+  },
+  {
+    "demo": "decisions",
+    "kind": "clean",
+    "seed": 1501,
+    "stalled": []
+  },
+  {
+    "demo": "decisions",
+    "kind": "clean",
+    "seed": 1505,
+    "stalled": []
+  },
+  {
+    "demo": "decisions",
+    "kind": "clean",
+    "seed": 1504,
+    "stalled": []
+  },
+  {
+    "demo": "decisions",
+    "kind": "clean",
+    "seed": 1506,
+    "stalled": []
+  },
+  {
+    "demo": "decisions",
+    "kind": "clean",
+    "seed": 1509,
+    "stalled": []
+  },
+  {
+    "demo": "decisions",
+    "kind": "clean",
+    "seed": 1507,
+    "stalled": []
+  },
+  {
+    "demo": "decisions",
+    "kind": "clean",
+    "seed": 1508,
+    "stalled": []
+  },
+  {
+    "demo": "decisions",
+    "kind": "chaos",
+    "seed": 1001,
+    "stalled": []
+  },
+  {
+    "demo": "decisions",
+    "kind": "chaos",
+    "seed": 1000,
+    "stalled": []
+  },
+  {
+    "demo": "decisions",
+    "kind": "chaos",
+    "seed": 1005,
+    "stalled": []
+  },
+  {
+    "demo": "decisions",
+    "kind": "chaos",
+    "seed": 1004,
+    "stalled": []
+  },
+  {
+    "demo": "decisions",
+    "kind": "chaos",
+    "seed": 1003,
+    "stalled": []
+  },
+  {
+    "demo": "decisions",
+    "kind": "chaos",
+    "seed": 1002,
+    "stalled": []
+  },
+  {
+    "demo": "decisions",
+    "kind": "chaos",
+    "seed": 1006,
+    "stalled": []
+  },
+  {
+    "demo": "decisions",
+    "kind": "chaos",
+    "seed": 1007,
+    "stalled": []
+  },
+  {
+    "demo": "decisions",
+    "kind": "chaos",
+    "seed": 1009,
+    "stalled": []
+  },
+  {
+    "demo": "decisions",
+    "kind": "chaos",
+    "seed": 1008,
+    "stalled": []
+  },
+  {
+    "demo": "decisions",
+    "kind": "planted",
+    "seed": 1700,
+    "stalled": [
+      "GET 127.0.0.1:4183/genclass/api/photos has been pending for 15.0 s (threshold 15.0 s); no control the page disabled or marked busy since it started is still so. Fix: give the request a timeout (fetch(url, { signal: AbortSignal.timeout(10_000) }), or xhr.timeout) so the app's catch and finally run an"
+    ]
+  },
+  {
+    "demo": "decisions",
+    "kind": "planted",
+    "seed": 1701,
+    "stalled": []
+  },
+  {
+    "demo": "decisions",
+    "kind": "planted",
+    "seed": 1702,
+    "stalled": [
+      "GET 127.0.0.1:4183/genclass/api/photos has been pending for 15.0 s (threshold 15.0 s); no control the page disabled or marked busy since it started is still so. Fix: give the request a timeout (fetch(url, { signal: AbortSignal.timeout(10_000) }), or xhr.timeout) so the app's catch and finally run an"
+    ]
+  }
+]

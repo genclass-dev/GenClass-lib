@@ -3,33 +3,38 @@
 // the only module of src/visual that touches it. Everything else in the chunk sees only the narrow VisualHost.
 //
 // What it may do with the runtime, and nothing more:
-// - read: the clock, the global, the effective mode, sampling, pause state, the in-flight count, the error count;
+// - read: the clock, the global, the effective mode, sampling, pause state, the in-flight count and requests (with
+//   the learned cadence and latency that make a request long-lived, for request-stalled), the error count;
 // - report a finding: the rt.checks() buffer, the "check" event, a kind "check" Report (report: "silent",
 //   "interventions" and a function behave as for every other report), and a sink record for sinks whose `kinds`
 //   lists "check";
 // - write an audit entry of kind "fix";
 // - follow status changes (mode, enabled, breaker) and the runtime's teardown.
 // It never pushes RtEvents, facts or situations and never touches the gate, the queue or the model (AGENTS.md rule 2
-// exception). Some members it reads are private in TypeScript only (reporter, sinks, fire, pushAudit, auditBase,
+// exception). Some members it reads are private in TypeScript only (cadence, reporter, sinks, fire, pushAudit, auditBase,
 // sessionId, sessionTags, sampled, reportMode, _aggr): the RtLike interface below names them, and
 // test/visual-bridge.test.ts fails when one of them is renamed.
 
 import type { AuditEntry, CheckFinding, Clock, ModeOrOff, Report, SessionSummary, SinkRecord } from "../types.js";
 import type { VisualHost } from "./host.js";
 import type { VisualStub } from "./start.js";
+import { RequestCounter, type RequestsRt } from "./requests.js";
 
 /** The parts of RuntimeImpl the bridge uses (some are TypeScript-private there). */
 export interface RtLike {
   readonly clock: Clock;
   readonly global: Record<string, unknown>;
-  readonly ops: { inFlight: { size: number } };
+  readonly ops: { inFlight: Set<{ id: number; kind: string; name: string; start: number; genclass?: boolean }> } & RequestsRt["ops"];
+  readonly base: { latency(sig: string): { p95: number } | undefined } & RequestsRt["base"];
   readonly isPaused: boolean;
   vis: VisualStub | null;
   effectiveMode(): ModeOrOff;
   summary(): SessionSummary;
   on(type: "status", fn: () => void): () => void;
+  on(type: "event", fn: Parameters<RequestsRt["on"]>[1]): () => void;
   addTeardown(fn: () => void): void;
   // TypeScript-private members of RuntimeImpl
+  cadence: { get(sig: string, now: number): { kind: string } | undefined };
   sessionId: string;
   sessionTags: Record<string, string | number | boolean>;
   sampled: boolean;
@@ -71,6 +76,15 @@ export function hostFor(rt0: unknown, describe: (el: Element) => string, normali
     sampled: () => rt.sampled !== false,
     active: () => !rt.isPaused,
     inflight: () => rt.ops.inFlight.size,
+    pending: (ms) => {
+      const now = rt.clock.now();
+      const out = [];
+      for (const op of rt.ops.inFlight) {
+        if ((op.kind !== "fetch" && op.kind !== "xhr") || op.genclass || rt.cadence.get(op.name, now)?.kind === "periodic" || (rt.base.latency(op.name)?.p95 ?? 0) >= ms) continue;
+        out.push({ id: String(op.id), sig: op.name, start: op.start });
+      }
+      return out;
+    },
     errors: () => rt.summary().errors,
     describe,
     // as sink records and telemetry send a route (runtime.ts toSinkRecord): a segment holding an @ (raw or %40) is :id
@@ -105,12 +119,23 @@ export function hostFor(rt0: unknown, describe: (el: Element) => string, normali
 
 /**
  * Follow the runtime: status changes re-check the fix gate, teardown stops the checks, and rt.summary() of this
- * runtime gains its `visual` key once the checks have run (added here, so first load carries no code for it).
+ * runtime gains its `requests` key (src/visual/requests.ts) and, once the checks have run, its `visual` key (added
+ * here, so first load carries no code for either).
  */
 export function follow(rt0: unknown, ctl: { gateFixes(): void; stop(): void; summary(): object | null }): void {
   const rt = rt0 as RtLike & { summary: () => SessionSummary };
+  const reqs = new RequestCounter(rt);
   rt.on("status", () => ctl.gateFixes());
-  rt.addTeardown(() => ctl.stop());
+  rt.addTeardown(() => {
+    reqs.stop();
+    ctl.stop();
+  });
   const base = rt.summary.bind(rt);
-  rt.summary = () => Object.assign(base(), ctl.summary());
+  rt.summary = () => Object.assign(base(), { requests: reqs.snapshot() }, ctl.summary());
+  // a sink's summary record gets the totals only: per-host counts name the hosts a page calls (rt.summary() has them)
+  const push = rt.sinks.push.bind(rt.sinks);
+  rt.sinks.push = (r) => {
+    const q = r.summary?.requests;
+    push(q ? { ...r, summary: { ...r.summary!, requests: { ...q, hosts: {} } } } : r);
+  };
 }

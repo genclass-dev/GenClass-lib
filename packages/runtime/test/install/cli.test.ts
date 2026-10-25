@@ -222,15 +222,59 @@ describe("init / remove on fixture projects", () => {
     expect(wp["src/index.ts"].split("\n")[1]).toContain("@genclass/runtime/auto");
   });
 
-  it("plain HTML: the script tag first in <head> (every page), CRLF kept", () => {
+  it("plain HTML: the script tag first in <head> (every page, defer by default), CRLF kept", () => {
     const dir = project({
       "index.html": `<!DOCTYPE html>\r\n<html>\r\n<head>\r\n  <meta charset="utf-8">\r\n  <script src="app.js"></script>\r\n</head>\r\n<body></body>\r\n</html>\r\n`,
       "about.html": `<html><head><title>About</title></head><body></body></html>`,
       "app.js": "fetch('/api');\n",
     });
     const after = roundTrip(dir, "--mode", "observe", "--cdn", "https://example.test/genclass.global.min.js", "--no-sri");
-    expect(after["index.html"]).toContain(`<head>\r\n  <script src="https://example.test/genclass.global.min.js" data-mode="observe" data-devtools="local"></script> <!-- genclass:init -->\r\n  <meta charset="utf-8">`);
-    expect(after["about.html"]).toContain(`<head><script src="https://example.test/genclass.global.min.js" data-mode="observe" data-devtools="local"></script><!-- genclass:inline --><title>`);
+    expect(after["index.html"]).toContain(`<head>\r\n  <script src="https://example.test/genclass.global.min.js" defer data-mode="observe" data-devtools="local"></script> <!-- genclass:init -->\r\n  <meta charset="utf-8">`);
+    expect(after["about.html"]).toContain(`<head><script src="https://example.test/genclass.global.min.js" defer data-mode="observe" data-devtools="local"></script><!-- genclass:inline --><title>`);
+  });
+
+  it("plain HTML: --sync writes the blocking tag of earlier versions; the tag with SRI keeps defer after crossorigin (issue 94)", () => {
+    const sync = roundTrip(project({ "index.html": PAGE }), "--sync", "--no-sri", "--cdn", "https://example.test/g.js");
+    expect(sync["index.html"]).toContain(`  <script src="https://example.test/g.js" data-devtools="local"></script> <!-- genclass:init -->`);
+    const r = cli(project({ "index.html": PAGE }), "init", "--dry-run");
+    expect(r.out).toMatch(/crossorigin="anonymous" defer data-devtools="local"><\/script>/);
+  });
+
+  it("remove tolerates attributes added by hand to the tag init wrote (defer, async, nonce, type), on a line or inline (issue 94)", () => {
+    for (const extra of [" defer", " async", ' nonce="abc123"', ' type="text/javascript" defer']) {
+      const dir = project({ "index.html": PAGE, "about.html": `<html><head><title>About</title></head><body></body></html>` });
+      expect(cli(dir, "init", "--yes", "--no-install", "--sync", "--no-sri", "--cdn", "https://example.test/g.js").code).toBe(0);
+      for (const f of ["index.html", "about.html"]) {
+        const p = join(dir, f);
+        writeFileSync(p, readFileSync(p, "utf8").replace(`src="https://example.test/g.js"`, `src="https://example.test/g.js"${extra}`));
+      }
+      const r = cli(dir, "remove", "--yes");
+      expect(r.code).toBe(0);
+      expect(readFileSync(join(dir, "index.html"), "utf8")).toBe(PAGE);
+      expect(readFileSync(join(dir, "about.html"), "utf8")).toBe(`<html><head><title>About</title></head><body></body></html>`);
+    }
+    // an attribute added to a tag that also gained code is still an edit: nothing is removed
+    const edited = project({ "index.html": PAGE });
+    cli(edited, "init", "--yes", "--no-install", "--no-sri", "--cdn", "https://example.test/g.js");
+    const p = join(edited, "index.html");
+    writeFileSync(p, readFileSync(p, "utf8").replace(`></script> <!-- genclass:init -->`, `>console.log(1)</script> <!-- genclass:init -->`));
+    const before = readFileSync(p, "utf8");
+    expect(cli(edited, "remove", "--yes").out).toMatch(/edited|not a statement init writes/);
+    expect(readFileSync(p, "utf8")).toBe(before);
+  });
+
+  it("a mostly static project gets one note naming the visual checks and the scan command (issue 94)", () => {
+    const none = cli(project({ "index.html": PAGE, "app.js": "document.title = 'x';\n" }), "init", "--dry-run");
+    expect(none.out).toContain("No fetch, XHR, WebSocket or EventSource call was found in your sources");
+    expect(none.out).toContain("npx @genclass/runtime@beta scan <url>");
+    const one = cli(project({ "index.html": PAGE.replace("</head>", `  <script src="app.js"></script>\n</head>`), "app.js": "fetch('/weather');\n" }), "init", "--dry-run");
+    expect(one.out).toContain("Your page has one script");
+    const busy = cli(project({ "index.html": PAGE.replace("</head>", `  <script src="a.js"></script>\n  <script src="b.js"></script>\n</head>`), "a.js": "fetch('/a');\n", "b.js": "new WebSocket('wss://x');\n" }), "init", "--dry-run");
+    expect(busy.out).not.toContain("little to find");
+    const vite = cli(project({ "package.json": pkg({ vite: "^7", axios: "^1" }), "index.html": VITE_HTML.replace("main.tsx", "main.js"), "src/main.js": "console.log(1);\n" }), "init", "--dry-run");
+    expect(vite.out).not.toContain("little to find");
+    const viteFetch = cli(project({ "package.json": pkg({ vite: "^7" }), "index.html": VITE_HTML.replace("main.tsx", "main.js"), "src/main.js": "await fetch('/api');\n" }), "init", "--dry-run");
+    expect(viteFetch.out).not.toContain("little to find");
   });
 
   it("leaves a hand-written setup alone and keeps user edits outside the markers on remove", () => {
@@ -1075,7 +1119,7 @@ describe("init: app token and private dashboard link (fetch mocked; never the re
   it("plain HTML gets data-token on the script tag (and remove gives the page back byte for byte)", () => {
     const html = project({ "index.html": `<html>\n<head>\n  <title>x</title>\n</head>\n<body></body>\n</html>\n` });
     expect(cliEnv({ GENCLASS_TEST_FETCH: "ok" }, html, "init", "--yes", "--no-install", "--cdn", "https://example.test/g.js", "--no-sri").code).toBe(0);
-    expect(snapshot(html)["index.html"]).toContain(`<script src="https://example.test/g.js" data-devtools="local" data-token="${TOKEN}"></script> <!-- genclass:init -->`);
+    expect(snapshot(html)["index.html"]).toContain(`<script src="https://example.test/g.js" defer data-devtools="local" data-token="${TOKEN}"></script> <!-- genclass:init -->`);
     expect(cli(html, "remove", "--yes").code).toBe(0);
     expect(snapshot(html)["index.html"]).toBe(`<html>\n<head>\n  <title>x</title>\n</head>\n<body></body>\n</html>\n`);
   });

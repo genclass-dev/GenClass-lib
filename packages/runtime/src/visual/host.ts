@@ -23,6 +23,11 @@ export interface VisualHost {
   active(): boolean;
   /** Requests in flight that the runtime knows about. */
   inflight(): number;
+  /**
+   * request-stalled: the fetch and XHR requests in flight, without the long-lived ones (a background schedule the
+   * cadence layer learned, or an endpoint whose learned p95 latency is at least `stallMs`). Absent without a runtime.
+   */
+  pending?(stallMs: number): import("./checks/stall.js").PendingRequest[];
   /** Errors the runtime reported in this session (read-only, for evidence). */
   errors(): number;
   /** The runtime's element description ('button "Save"'). */

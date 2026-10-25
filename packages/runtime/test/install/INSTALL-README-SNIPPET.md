@@ -21,7 +21,7 @@ npx @genclass/runtime@beta remove                # undo exactly what init added 
 ```
 
 Other flags: `--no-install` (don't run the package manager), `--no-devtools`, `--cwd <dir>`, `--cdn <url>` and
-`--no-sri` (plain HTML), `remove --keep-package`.
+`--no-sri` and `--sync` (plain HTML: the tag is written with `defer` unless `--sync`), `remove --keep-package`.
 
 `init` only edits browser apps: a project whose only build tool is esbuild, rollup, parcel or webpack needs an
 `index.html`, a UI framework such as `react-dom` or `vue`, or an HTML plugin / dev server, else `init` stops and says
