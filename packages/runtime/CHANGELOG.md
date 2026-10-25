@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.0-beta.2 (2026-10-25)
 
 - **The dashboard is laid out like Supabase Studio** (telemetry-worker, owner request 2026-10-25; `src/studio.ts`).
   An account is the organization and each app a project: `/account` is the organization's Projects page (search,

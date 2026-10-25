@@ -22,7 +22,7 @@ inside your network ([genclass.dev/enterprise](https://genclass.dev/enterprise))
 ## Install
 
 Pick your client. Every block pins this release, so the client starts exactly this version;
-`npx -y @genclass/mcp@0.1.0 config <client>` prints the same lines, and `genclass_setup` prints the block for the
+`npx -y @genclass/mcp@0.2.0 config <client>` prints the same lines, and `genclass_setup` prints the block for the
 client it runs in.
 
 <!-- install:start (generated from src/clients.ts by `npm run sync -w @genclass/mcp`; edit it there) -->
@@ -39,8 +39,8 @@ As a plugin (the server, a prompt hook that brings new findings to each prompt, 
 Or the server alone (`--scope project` writes `.mcp.json` for everyone on the project; `--scope user` for all your projects):
 
 ```bash
-claude mcp add --scope project genclass -- npx -y @genclass/mcp@0.1.0
-# or: npx -y @genclass/mcp@0.1.0 init --hook   (.mcp.json, plus the prompt hook in .claude/settings.json)
+claude mcp add --scope project genclass -- npx -y @genclass/mcp@0.2.0
+# or: npx -y @genclass/mcp@0.2.0 init --hook   (.mcp.json, plus the prompt hook in .claude/settings.json)
 ```
 
 ### Claude Desktop
@@ -54,7 +54,7 @@ Settings, Developer, Edit Config (`~/Library/Application Support/Claude/claude_d
       "command": "npx",
       "args": [
         "-y",
-        "@genclass/mcp@0.1.0"
+        "@genclass/mcp@0.2.0"
       ]
     }
   }
@@ -63,7 +63,7 @@ Settings, Developer, Edit Config (`~/Library/Application Support/Claude/claude_d
 
 ### Cursor
 
-[![Add genclass MCP server to Cursor](https://cursor.com/deeplink/mcp-install-dark.png)](https://cursor.com/link/mcp/install?name=genclass&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBnZW5jbGFzcy9tY3BAMC4xLjAiXX0%3D) or `cursor://anysphere.cursor-deeplink/mcp/install?name=genclass&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBnZW5jbGFzcy9tY3BAMC4xLjAiXX0%3D`
+[![Add genclass MCP server to Cursor](https://cursor.com/deeplink/mcp-install-dark.png)](https://cursor.com/link/mcp/install?name=genclass&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBnZW5jbGFzcy9tY3BAMC4yLjAiXX0%3D) or `cursor://anysphere.cursor-deeplink/mcp/install?name=genclass&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBnZW5jbGFzcy9tY3BAMC4yLjAiXX0%3D`
 
 Or `.cursor/mcp.json` in the project (`~/.cursor/mcp.json` for all projects):
 
@@ -74,7 +74,7 @@ Or `.cursor/mcp.json` in the project (`~/.cursor/mcp.json` for all projects):
       "command": "npx",
       "args": [
         "-y",
-        "@genclass/mcp@0.1.0"
+        "@genclass/mcp@0.2.0"
       ]
     }
   }
@@ -83,10 +83,10 @@ Or `.cursor/mcp.json` in the project (`~/.cursor/mcp.json` for all projects):
 
 ### VS Code
 
-[![Install in VS Code](https://img.shields.io/badge/VS_Code-VS_Code?style=flat-square&label=Install%20Server&color=0098FF)](https://vscode.dev/redirect/mcp/install?name=genclass&config=%7B%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22%40genclass%2Fmcp%400.1.0%22%5D%7D) or from a terminal:
+[![Install in VS Code](https://img.shields.io/badge/VS_Code-VS_Code?style=flat-square&label=Install%20Server&color=0098FF)](https://vscode.dev/redirect/mcp/install?name=genclass&config=%7B%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22%40genclass%2Fmcp%400.2.0%22%5D%7D) or from a terminal:
 
 ```bash
-code --add-mcp '{"name":"genclass","command":"npx","args":["-y","@genclass/mcp@0.1.0"]}'
+code --add-mcp '{"name":"genclass","command":"npx","args":["-y","@genclass/mcp@0.2.0"]}'
 ```
 
 Or `.mcp.json` at the workspace root (the portable format; `.vscode/mcp.json` takes the same entry under `servers`):
@@ -98,7 +98,7 @@ Or `.mcp.json` at the workspace root (the portable format; `.vscode/mcp.json` ta
       "command": "npx",
       "args": [
         "-y",
-        "@genclass/mcp@0.1.0"
+        "@genclass/mcp@0.2.0"
       ]
     }
   }
@@ -108,7 +108,7 @@ Or `.mcp.json` at the workspace root (the portable format; `.vscode/mcp.json` ta
 ### Codex CLI
 
 ```bash
-codex mcp add genclass -- npx -y @genclass/mcp@0.1.0
+codex mcp add genclass -- npx -y @genclass/mcp@0.2.0
 ```
 
 Or `~/.codex/config.toml` (`.codex/config.toml` in a trusted project). The first start downloads the package, so allow more than the default 10 seconds:
@@ -116,14 +116,14 @@ Or `~/.codex/config.toml` (`.codex/config.toml` in a trusted project). The first
 ```toml
 [mcp_servers.genclass]
 command = "npx"
-args = ["-y", "@genclass/mcp@0.1.0"]
+args = ["-y", "@genclass/mcp@0.2.0"]
 startup_timeout_sec = 30
 ```
 
 ### Gemini CLI
 
 ```bash
-gemini mcp add genclass npx -- -y @genclass/mcp@0.1.0   # -s user: for all projects
+gemini mcp add genclass npx -- -y @genclass/mcp@0.2.0   # -s user: for all projects
 ```
 
 Or `.gemini/settings.json` in the project (`~/.gemini/settings.json` for all projects):
@@ -135,7 +135,7 @@ Or `.gemini/settings.json` in the project (`~/.gemini/settings.json` for all pro
       "command": "npx",
       "args": [
         "-y",
-        "@genclass/mcp@0.1.0"
+        "@genclass/mcp@0.2.0"
       ]
     }
   }
@@ -153,7 +153,7 @@ Or `.gemini/settings.json` in the project (`~/.gemini/settings.json` for all pro
       "command": "npx",
       "args": [
         "-y",
-        "@genclass/mcp@0.1.0"
+        "@genclass/mcp@0.2.0"
       ]
     }
   }
@@ -163,13 +163,13 @@ Or `.gemini/settings.json` in the project (`~/.gemini/settings.json` for all pro
 Devin CLI and Devin Desktop's Devin Local agent:
 
 ```bash
-devin mcp add -s user genclass -- npx -y @genclass/mcp@0.1.0
+devin mcp add -s user genclass -- npx -y @genclass/mcp@0.2.0
 ```
 
 ### Cline
 
 ```bash
-cline mcp add genclass --yes -- npx -y @genclass/mcp@0.1.0
+cline mcp add genclass --yes -- npx -y @genclass/mcp@0.2.0
 ```
 
 Or MCP Servers, Configure, Configure MCP Servers (`~/.cline/data/settings/cline_mcp_settings.json`):
@@ -181,7 +181,7 @@ Or MCP Servers, Configure, Configure MCP Servers (`~/.cline/data/settings/cline_
       "command": "npx",
       "args": [
         "-y",
-        "@genclass/mcp@0.1.0"
+        "@genclass/mcp@0.2.0"
       ]
     }
   }
@@ -190,7 +190,7 @@ Or MCP Servers, Configure, Configure MCP Servers (`~/.cline/data/settings/cline_
 
 ### Goose
 
-`goose://extension?cmd=npx&arg=-y&arg=%40genclass%2Fmcp%400.1.0&id=genclass&name=genclass&description=Find%20race%20conditions%20by%20reordering%20responses%2C%20replay%20one%2C%20prove%20the%20fix` (open it to install), or `goose configure` (Add Extension, Command-line Extension, command `npx -y @genclass/mcp@0.1.0`), or `~/.config/goose/config.yaml`:
+`goose://extension?cmd=npx&arg=-y&arg=%40genclass%2Fmcp%400.2.0&id=genclass&name=genclass&description=Find%20race%20conditions%20by%20reordering%20responses%2C%20replay%20one%2C%20prove%20the%20fix` (open it to install), or `goose configure` (Add Extension, Command-line Extension, command `npx -y @genclass/mcp@0.2.0`), or `~/.config/goose/config.yaml`:
 
 ```yaml
 extensions:
@@ -199,7 +199,7 @@ extensions:
     name: genclass
     enabled: true
     cmd: npx
-    args: ["-y", "@genclass/mcp@0.1.0"]
+    args: ["-y", "@genclass/mcp@0.2.0"]
     env_keys: []
     envs: {}
     timeout: 300
@@ -216,7 +216,7 @@ extensions:
       "command": "npx",
       "args": [
         "-y",
-        "@genclass/mcp@0.1.0"
+        "@genclass/mcp@0.2.0"
       ]
     }
   }
@@ -234,7 +234,7 @@ AI Assistant: Settings, Tools, AI Assistant, Model Context Protocol (MCP), Add, 
       "command": "npx",
       "args": [
         "-y",
-        "@genclass/mcp@0.1.0"
+        "@genclass/mcp@0.2.0"
       ]
     }
   }
@@ -254,7 +254,7 @@ AI Assistant: Settings, Tools, AI Assistant, Model Context Protocol (MCP), Add, 
       "command": [
         "npx",
         "-y",
-        "@genclass/mcp@0.1.0"
+        "@genclass/mcp@0.2.0"
       ],
       "enabled": true
     }
@@ -264,7 +264,7 @@ AI Assistant: Settings, Tools, AI Assistant, Model Context Protocol (MCP), Add, 
 
 <!-- install:end -->
 
-Any other MCP client: a stdio server, command `npx`, arguments `-y @genclass/mcp@0.1.0`, no environment variables
+Any other MCP client: a stdio server, command `npx`, arguments `-y @genclass/mcp@0.2.0`, no environment variables
 required.
 
 Then connect the app's development build (once). The agent link needs the newest runtime line, `@genclass/runtime`
@@ -318,7 +318,7 @@ on the fixed one, and explore on the fixed page reported nothing. Details: [docs
 - **Channels** (Claude Code research preview): start Claude Code with
   `claude --dangerously-load-development-channels server:genclass` and new findings arrive in the session as they
   happen (`notifications/claude/channel`).
-- **Prompt hook** (part of the Claude Code plugin): `npx -y @genclass/mcp@0.1.0 init --hook` adds a `UserPromptSubmit`
+- **Prompt hook** (part of the Claude Code plugin): `npx -y @genclass/mcp@0.2.0 init --hook` adds a `UserPromptSubmit`
   hook to `.claude/settings.json`; each prompt then carries the findings that changed since the last one.
 
 ## Environment
