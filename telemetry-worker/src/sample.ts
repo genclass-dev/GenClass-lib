@@ -3,7 +3,8 @@
 // project is involved; the project name says it is simulated. Deterministic per day (a seeded generator), so a
 // refresh does not reshuffle the chart. It shows the "possible issues" tier too (lower confidence, never counted as
 // problems), with its own simulated counts, and interaction analytics (page views, time on page, scroll depth, clicks,
-// rage and dead clicks per element), as an app that turned them on would.
+// rage and dead clicks per element; visits, their sources, devices, countries, entry and exit pages, and two funnels),
+// as an app that turned them on would.
 
 import { dayKey, hourKey, RANGES, type Range, type Stats } from "./dashboard.js";
 
@@ -99,6 +100,26 @@ const IX_DEAD: [string, string, number][] = [
   ["/account", "button#save-address", 1.4],
 ];
 
+/** Visits (simulated): shares of the visits that started in the period, per source, device, browser, OS and country. */
+const IX_SHARES: Record<string, [string, number][]> = {
+  ix_ref: [["(direct)", 0.41], ["google.com", 0.27], ["news.ycombinator.com", 0.09], ["t.co", 0.07], ["duckduckgo.com", 0.04], ["reddit.com", 0.04], ["bing.com", 0.03], ["(other)", 0.05]],
+  ix_utm_source: [["newsletter", 0.06], ["producthunt", 0.03]],
+  ix_utm_medium: [["email", 0.06], ["social", 0.03]],
+  ix_utm_campaign: [["autumn-sale", 0.06], ["launch", 0.03]],
+  ix_device: [["desktop", 0.58], ["mobile", 0.37], ["tablet", 0.05]],
+  ix_browser: [["Chrome", 0.61], ["Safari", 0.24], ["Edge", 0.06], ["Firefox", 0.06], ["Samsung Internet", 0.02], ["Other", 0.01]],
+  ix_os: [["Windows", 0.31], ["iOS", 0.27], ["macOS", 0.21], ["Android", 0.15], ["Linux", 0.04], ["ChromeOS", 0.01], ["Other", 0.01]],
+  ix_country: [["US", 0.38], ["DE", 0.09], ["GB", 0.08], ["IN", 0.07], ["CA", 0.05], ["FR", 0.05], ["NL", 0.03], ["BR", 0.03], ["AU", 0.03], ["(unknown)", 0.01]],
+  ix_returning: [["new", 0.64], ["returning", 0.36]],
+};
+const ENTRY: [string, number][] = [["/", 0.46], ["/products/:id", 0.24], ["/products", 0.14], ["/search", 0.09], ["/account", 0.04], ["/orders", 0.03]];
+const EXIT: [string, number][] = [["/products/:id", 0.31], ["/", 0.22], ["/checkout", 0.15], ["/cart", 0.12], ["/products", 0.1], ["/search", 0.07], ["/orders", 0.03]];
+/** Funnels (simulated): per step, the share of visits that reached it in order. */
+const FUNNELS: [string, string[], number[]][] = [
+  ["Checkout", ["/products/:id", "/cart", "/checkout"], [0.52, 0.19, 0.09]],
+  ["Search to product", ["/search", "/products/:id"], [0.17, 0.11]],
+];
+
 function split(n: number, routes: [string, number][], into: (route: string, c: number) => void): void {
   let left = n;
   routes.forEach(([route, f], i) => {
@@ -172,8 +193,11 @@ export function sampleStats(rangeParam: string | null, now: Date): Stats {
   const series = buckets.map((b, i) => {
     const sessions = Math.round(perBucket * (0.82 + r() * 0.36));
     // a page load plus its in-app route changes
-    return { bucket: b, sessions, decisions: Math.round(perBucket * 0.66 * (0.8 + r() * 0.4)), detections: Object.values(typeSeries[i]!.counts).reduce((a, x) => a + x, 0), acted: 0, possible: possibleBy[i]!, ix_views: Math.round(sessions * 1.36) };
+    const ix_views = Math.round(sessions * 1.36);
+    return { bucket: b, sessions, decisions: Math.round(perBucket * 0.66 * (0.8 + r() * 0.4)), detections: Object.values(typeSeries[i]!.counts).reduce((a, x) => a + x, 0), acted: 0, possible: possibleBy[i]!, ix_views, ix_sessions: Math.round(ix_views / 2.6) };
   });
+  const visitCount = series.reduce((a, s) => a + s.ix_sessions, 0);
+  const shareOf = (list: [string, number][]) => list.map(([key, f]) => ({ key, count: Math.max(1, Math.round(visitCount * f)) }));
   const sessions = series.reduce((a, s) => a + s.sessions, 0);
   const views = series.reduce((a, s) => a + s.ix_views, 0);
   const ixViews = IX_PAGES.map(([route, share, secs, reach]) => ({ route, n: Math.round(views * share), secs, reach }));
@@ -246,6 +270,7 @@ export function sampleStats(rangeParam: string | null, now: Date): Stats {
     ix_first_n: IX_FIRST.map(([r0]) => ({ key: r0, count: Math.round(viewsOf(r0) * 0.8) })),
     ix_first_ms: IX_FIRST.map(([r0], i) => ({ key: r0, count: Math.round(viewsOf(r0) * 0.8) * (3200 + 1700 * i) })),
     ix_path: IX_PATHS.map(([key, rate]) => ({ key, count: Math.round((entries * rate) / 100) })),
+    ...Object.fromEntries(Object.entries(IX_SHARES).map(([m, list]) => [m, shareOf(list)])),
   };
   return {
     name: SAMPLE_PROJECT.name,
@@ -259,16 +284,18 @@ export function sampleStats(rangeParam: string | null, now: Date): Stats {
       sessions, decisions: series.reduce((a, s) => a + s.decisions, 0), detections, acted: interventions, executed: interventions, interventions,
       model_ready: ready, model_load_failed: failed, modelLoadAvgMs: 1340, latency_ms_n: Math.round(sessions * 0.66), latencyAvgMs: 168, failOpens: Math.round(sessions * 0.011), modelErrors: failed,
       detectionsWithPage: detections, possible, possibleWithPage: possible, hidden_skipped: Math.round(sessions * 0.05), model_dropped: hourly ? 0 : Math.round(sessions * 0.002), telemetry_dropped: 0,
-      ix_views: views, ix_engaged_ms: engagedMs, ix_click: total(ixClick), ix_rage: total(ixRage), ix_dead: total(ixDead),
+      ix_views: views, ix_engaged_ms: engagedMs, ix_click: total(ixClick), ix_rage: total(ixRage), ix_dead: total(ixDead), ix_sessions: visitCount,
       ix_entry: total(ixEntry), ix_exit: total(ixExit),
     },
     breakdowns,
     distinct: Object.fromEntries(Object.entries(breakdowns).map(([k, v]) => [k, v.length])),
     series,
     typeSeries,
-    previous: { sessions: Math.round(sessions * 0.94), detections: Math.round(detections * 1.15), acted: Math.max(0, interventions - 2), ix_views: Math.round(views * 0.91) },
+    previous: { sessions: Math.round(sessions * 0.94), detections: Math.round(detections * 1.15), acted: Math.max(0, interventions - 2), ix_views: Math.round(views * 0.91), ix_sessions: Math.round(visitCount * 0.88) },
     recent,
     agent: sampleAgent(now),
+    visits: { sessions: visitCount, pages: views, bounces: Math.round(visitCount * 0.41), entry: shareOf(ENTRY), exit: shareOf(EXIT) },
+    funnels: FUNNELS.map(([name, steps, f]) => ({ name, steps, counts: f.map((x) => Math.round(visitCount * x)) })),
   };
 }
 

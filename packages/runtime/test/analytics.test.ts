@@ -8,7 +8,7 @@ import { createRuntime } from "../src/index.js";
 import type { RuntimeImpl } from "../src/runtime.js";
 import { DATA_LIKE, type TelemetryClient } from "../src/telemetry/client.js";
 import { fromPairs, readMetaConfig } from "../src/cdn/config.js";
-import { ANALYTICS_NOTICE, IDLE_MS, KEY_MAX, keyOf, loadNav, PATH_MAX, popNav, type KeyContext } from "../src/analytics/index.js";
+import { ANALYTICS_NOTICE, deviceOf, IDLE_MS, KEY_MAX, keyOf, loadNav, PATH_MAX, popNav, refHost, utmValue, VISIT_IDLE_MS, VISIT_KEY, type KeyContext } from "../src/analytics/index.js";
 import { normalizePath } from "../src/util.js";
 import type { TelemetryTransport } from "../src/types.js";
 import { FakeClock, ScriptedDecider } from "./helpers.js";
@@ -59,7 +59,7 @@ let rt: RuntimeImpl | null = null;
 const w = window as unknown as { crypto?: { getRandomValues?: unknown } };
 if (typeof w.crypto?.getRandomValues !== "function") Object.defineProperty(window, "crypto", { value: globalThis.crypto, configurable: true });
 
-async function arun(o: { analytics?: boolean; token?: string | null; telemetry?: Record<string, unknown> | false; nav?: boolean; user?: boolean } = {}) {
+async function arun(o: { analytics?: boolean; token?: string | null; telemetry?: Record<string, unknown> | false; nav?: boolean; user?: boolean; storage?: boolean } = {}) {
   const clock = new FakeClock();
   const transport = recorder();
   rt = createRuntime({
@@ -67,7 +67,7 @@ async function arun(o: { analytics?: boolean; token?: string | null; telemetry?:
     global: window,
     decider: new ScriptedDecider(),
     report: "silent",
-    observe: { ...OFF, nav: !!o.nav, user: !!o.user },
+    observe: { ...OFF, nav: !!o.nav, user: !!o.user, storage: !!o.storage },
     telemetry: o.telemetry === false ? false : { transport, ...(o.telemetry ?? {}) },
     ...(o.token === null ? {} : { token: o.token ?? TOKEN }),
     ...(o.analytics === undefined ? { analytics: true } : { analytics: o.analytics }),
@@ -88,9 +88,11 @@ afterEach(() => {
     [window, "innerHeight"],
     [window, "scrollY"],
     [window.navigator, "globalPrivacyControl"],
+    [document, "referrer"],
   ] as const)
     delete (o as unknown as Record<string, unknown>)[p];
   window.localStorage.removeItem("genclass.telemetry");
+  for (const k of Object.keys(window.localStorage)) if (k.startsWith(VISIT_KEY)) window.localStorage.removeItem(k);
   vi.restoreAllMocks();
 });
 
@@ -517,5 +519,125 @@ describe("interaction analytics: never model input (AGENTS.md rules 1 to 3)", ()
     const on = await run(true);
     expect(on).toBe(off);
     expect(off).not.toContain("interactions");
+  });
+});
+
+describe("interaction analytics: visits, where they come from, devices (ANALYTICS.md section 1.2)", () => {
+  const stored = () => JSON.parse(window.localStorage.getItem(VISIT_KEY + TOKEN) ?? "null") as { v: string; t: number; r: number } | null;
+  const pageLoad = async (o: { nav?: boolean } = {}) => {
+    const a = await arun(o);
+    setVisibility("hidden");
+    const evs = ix(a.transport);
+    a.rt.destroy();
+    rt = null;
+    setVisibility("visible");
+    return evs;
+  };
+
+  it("the first view opens a visit (a random id, entry, device buckets, not returning); later views name the same visit", async () => {
+    document.body.innerHTML = `<button id="b">B</button>`;
+    const { clock, transport } = await arun({ nav: true });
+    fire($("b"), "click");
+    await clock.advance(1000);
+    window.history.pushState({}, "", "/pricing");
+    await clock.advance(1000);
+    setVisibility("hidden");
+    const [first, second] = ix(transport);
+    expect(first).toMatchObject({ route: "/", start: true, entry: true, device: "desktop", returning: false });
+    expect(first.visit).toMatch(/^[0-9a-f]{16}$/);
+    expect(typeof first.browser).toBe("string");
+    expect(typeof first.os).toBe("string");
+    expect(first.ref).toBeUndefined();
+    expect(first.utm).toBeUndefined();
+    expect(second).toMatchObject({ route: "/pricing", start: true, visit: first.visit });
+    for (const f of ["entry", "device", "browser", "os", "returning"]) expect(second[f], f).toBeUndefined();
+    expect(stored()).toMatchObject({ v: first.visit, r: 1 });
+    // the user agent string itself is never sent
+    expect(JSON.stringify(transport.sent)).not.toContain(window.navigator.userAgent);
+  });
+
+  it("the next page load within 30 minutes continues the visit; after 30 idle minutes a new one starts, returning", async () => {
+    const [a] = await pageLoad();
+    const [b] = await pageLoad();
+    expect(b.visit).toBe(a.visit);
+    expect(b.entry).toBeUndefined();
+    const s = stored()!;
+    window.localStorage.setItem(VISIT_KEY + TOKEN, JSON.stringify({ ...s, t: s.t - VISIT_IDLE_MS - 1 }));
+    const [c] = await pageLoad();
+    expect(c.visit).not.toBe(a.visit);
+    expect(c).toMatchObject({ entry: true, returning: true });
+  });
+
+  it("a page load from another site starts a visit: the referring host only, never its path or query", async () => {
+    await pageLoad();
+    const before = stored()!.v;
+    Object.defineProperty(document, "referrer", { value: "https://www.google.com/search?q=alice+smith", configurable: true });
+    const [e] = await pageLoad();
+    expect(e).toMatchObject({ entry: true, ref: "google.com", returning: true });
+    expect(e.visit).not.toBe(before);
+    expect(JSON.stringify(e)).not.toContain("alice");
+    // this site's own pages are not a source
+    Object.defineProperty(document, "referrer", { value: `${location.origin}/blog`, configurable: true });
+    const [f] = await pageLoad();
+    expect(f.entry).toBeUndefined();
+  });
+
+  it("utm values: three of them, lower case, ids stripped, capped; nothing else from the query string", async () => {
+    window.history.replaceState({}, "", "/?utm_source=Newsletter&utm_medium=email&utm_campaign=spring_sale_2026_a1b2c3d4e5f6&utm_term=alice&email=alice@example.com&gclid=Cj0KCQ");
+    const [e] = await pageLoad();
+    expect(e).toMatchObject({ entry: true, utm: { source: "newsletter", medium: "email", campaign: "spring_sale" } });
+    const text = JSON.stringify(e);
+    for (const s of ["alice", "Cj0KCQ", "gclid", "term"]) expect(text).not.toContain(s);
+    expect(utmValue("x".repeat(30) + "-" + "y".repeat(30), DATA_LIKE)).toBeUndefined(); // both words are id-like (20+)
+    expect(utmValue("Black Friday!! Promo", DATA_LIKE)).toBe("black friday promo");
+    expect(utmValue("q".repeat(15) + " " + "r".repeat(15) + " " + "s".repeat(15), DATA_LIKE)).toHaveLength(40);
+    expect(utmValue("partner.example.com", DATA_LIKE)).toBe("partner.example.com");
+    expect(utmValue("12345", DATA_LIKE)).toBeUndefined();
+    expect(utmValue("", DATA_LIKE)).toBeUndefined();
+  });
+
+  it("device class, browser and OS families from the user agent; the referring host's buckets", () => {
+    const cases: [string, { mobile?: boolean; touch?: number }, [string, string, string]][] = [
+      ["Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36", {}, ["desktop", "Chrome", "Windows"]],
+      ["Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 Edg/130.0.0.0", {}, ["desktop", "Edge", "Windows"]],
+      ["Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15", {}, ["desktop", "Safari", "macOS"]],
+      ["Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15", { touch: 5 }, ["tablet", "Safari", "iOS"]],
+      ["Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/130.0 Mobile/15E148 Safari/604.1", {}, ["mobile", "Chrome", "iOS"]],
+      ["Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36", {}, ["mobile", "Chrome", "Android"]],
+      ["Mozilla/5.0 (Linux; Android 14; SM-X710) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/26.0 Chrome/122.0.0.0 Safari/537.36", {}, ["tablet", "Samsung Internet", "Android"]],
+      ["Mozilla/5.0 (X11; Linux x86_64; rv:131.0) Gecko/20100101 Firefox/131.0", {}, ["desktop", "Firefox", "Linux"]],
+      ["Mozilla/5.0 (X11; CrOS x86_64 14541.0.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36", {}, ["desktop", "Chrome", "ChromeOS"]],
+      ["Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)", {}, ["desktop", "Other", "Other"]],
+      ["", { mobile: true }, ["mobile", "Other", "Other"]],
+    ];
+    for (const [ua, hint, want] of cases) expect(Object.values(deviceOf(ua, hint)), ua).toEqual(want);
+    expect(refHost("https://news.ycombinator.com/item?id=4242", "shop.example", URL, DATA_LIKE)).toBe("news.ycombinator.com");
+    expect(refHost("https://www.shop.example/a", "shop.example", URL, DATA_LIKE)).toBeUndefined();
+    expect(refHost("android-app://com.google.android.gm/", "shop.example", URL, DATA_LIKE)).toBe("com.google.android.gm");
+    expect(refHost("https://12345678.cdn.example/x", "shop.example", URL, DATA_LIKE)).toBe("(other)");
+    expect(refHost("javascript:alert(1)", "shop.example", URL, DATA_LIKE)).toBeUndefined();
+    expect(refHost("", "shop.example", URL, DATA_LIKE)).toBeUndefined();
+  });
+
+  it("stop() removes the visit flag; the storage observer never records the flag's writes", async () => {
+    const { rt: r } = await arun({ storage: true });
+    expect(stored()).not.toBeNull();
+    setVisibility("hidden");
+    expect(JSON.stringify(r.history())).not.toContain(VISIT_KEY);
+    r.analytics!.stop();
+    expect(stored()).toBeNull();
+  });
+
+  it("without working storage a visit lasts the page load, and nothing says whether the visitor returns", async () => {
+    const ls = window.localStorage;
+    Object.defineProperty(window, "localStorage", { configurable: true, get: () => { throw new Error("blocked"); } });
+    try {
+      const [e] = await pageLoad();
+      expect(e).toMatchObject({ entry: true });
+      expect(e.visit).toMatch(/^[0-9a-f]{16}$/);
+      expect(e.returning).toBeUndefined();
+    } finally {
+      Object.defineProperty(window, "localStorage", { configurable: true, value: ls });
+    }
   });
 });

@@ -195,7 +195,7 @@ function gcSelect(node){
 function gcCopy(b, text, node){
   var label = b.getAttribute("data-label") || b.textContent;
   b.setAttribute("data-label", label);
-  function say(t){ b.textContent = t; clearTimeout(b.gcT); b.gcT = setTimeout(function(){ b.textContent = label; }, 2500); }
+  function say(t){ b.textContent = t; clearTimeout(b.gcT); b.gcT = setTimeout(function(){ b.textContent = label; }, 2000); }
   function fallback(){ say(node && gcSelect(node) ? "Selected, now copy" : "Could not copy"); }
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(function(){ say("Copied"); }, fallback);
   else fallback();
@@ -506,6 +506,26 @@ main.wrap:has(.app){max-width:1360px}
 @keyframes gcpulse{50%{opacity:.3}}
 @media (prefers-reduced-motion:reduce){.cstat i{animation:none}}
 .connect .fine{font-size:13px;color:var(--ink3);margin-top:14px;max-width:90ch}
+/* the analytics setup: one big button that copies the prompt for a coding agent, two lines under it */
+.btn.xl{min-height:58px;padding:0 30px;font-size:17px;font-weight:600}
+.cprompt{padding:26px 0;display:grid;justify-items:start;gap:12px}
+.cprompt .cp-sub{font-size:14px;color:var(--ink2);max-width:64ch;line-height:1.5}
+.connect .cana{padding:22px 0 0;border-bottom:1px solid var(--rule)}
+.connect .cana .cprompt{padding-top:12px}
+@media (max-width:560px){.cprompt .btn.xl{width:100%;white-space:normal;text-align:center;padding:12px 18px}}
+/* funnels (Fig. 4): one row per step, the bar's length the share of the first step */
+.fun{padding:18px 0;border-bottom:1px solid var(--rule)}
+.fun h3{font:500 16px var(--sans);letter-spacing:-.01em;margin-bottom:10px}
+.fun table td.route{max-width:340px}
+.fun .drop{font:12.5px var(--mono);color:var(--ink3)}
+.funedit{display:grid;gap:14px;padding:18px 0;max-width:720px}
+.funedit .fe{display:grid;grid-template-columns:minmax(0,220px) minmax(0,1fr) auto;gap:10px;align-items:start}
+.funedit input,.funedit textarea{width:100%;background:var(--paper);color:var(--ink);border:1px solid var(--line);padding:9px 11px;font:14px var(--mono);border-radius:0}
+.funedit textarea{min-height:96px;resize:vertical}
+.funedit input:focus-visible,.funedit textarea:focus-visible{outline:1px solid var(--accent);outline-offset:0;border-color:var(--accent)}
+.funedit .acts{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.funedit .err{font-size:14px;color:var(--warn)}
+@media (max-width:620px){.funedit .fe{grid-template-columns:1fr}}
 @media (max-width:560px){.connect .keyrow{grid-template-columns:1fr}.connect .kn{grid-column:1}.connect .keyrow .k{padding-top:0;margin-bottom:6px}}
 .mainc{min-width:0;padding-bottom:20px}
 .lock{margin-top:28px;padding:22px 0;border-top:1px solid var(--rule2);border-bottom:1px solid var(--rule);max-width:72ch}
@@ -950,9 +970,64 @@ const DASH_JS = `
     });
     tb.appendChild(body); host.appendChild(tb);
   }
+  // a key as people read it: direct, other sites, unknown; a country code as its name
+  var REGION = null; try { REGION = new Intl.DisplayNames([], { type: "region" }); } catch (e) {}
+  function nice(k, country){
+    if (k === "(direct)") return "Direct or unknown";
+    if (k === "(other)") return "Other";
+    if (k === "(unknown)") return "Unknown";
+    if (country && REGION && /^[A-Z]{2}$/.test(k)) { try { return REGION.of(k) + " (" + k + ")"; } catch (e) {} }
+    return k;
+  }
+  /** A table of keys with their count, their share of the total and a bar; the first n rows. */
+  function listTable(host, list, head, unit, total, empty, n, country){
+    host.textContent = "";
+    if (!list || !list.length) { host.appendChild(el("p", "quiet", empty)); return; }
+    var max = list[0].count || 1, tb = el("table", "dt"), hd = el("thead"), hr = el("tr");
+    [head, unit, "Share", ""].forEach(function(h, i){ hr.appendChild(el("th", i === 1 || i === 2 ? "num" : null, h)); });
+    hd.appendChild(hr); tb.appendChild(hd); var body = el("tbody");
+    list.slice(0, n || 10).forEach(function(x){
+      var tr = el("tr"), kc = el("td", "route", nice(x.key, country)); kc.title = x.key; tr.appendChild(kc);
+      tr.appendChild(el("td", "num", fmt(x.count)));
+      tr.appendChild(el("td", "num", share(x.count, total)));
+      var td = el("td", "wide"), mix = el("div", "mix"), i = el("i"); i.style.width = (100 * x.count / max) + "%"; i.style.background = "var(--t1)"; mix.appendChild(i); td.appendChild(mix); tr.appendChild(td);
+      body.appendChild(tr);
+    });
+    tb.appendChild(body); host.appendChild(tb);
+  }
+  /** Visits per hour or day: one bar each. */
+  function visitChart(host, S){
+    var hourly = S.range === "24h", rows = (S.series || []).map(function(b){ return { bucket: b.bucket, n: b.ix_sessions || 0 }; });
+    if (!rows.some(function(r){ return r.n; })) return;
+    var W = 720, H = 130, PL = 34, PB = 24, PT = 6, n = rows.length, plotW = W - PL, plotH = H - PB - PT;
+    var max = niceMax(Math.max.apply(null, rows.map(function(r){ return r.n; })));
+    var g = svg("svg", { viewBox: "0 0 " + W + " " + H, role: "img", "aria-label": "Visits per " + (hourly ? "hour" : "day") });
+    [0, max].forEach(function(v){
+      var y = PT + plotH - plotH * v / max;
+      g.appendChild(svg("line", { x1: PL, x2: W, y1: y, y2: y, stroke: v ? "var(--grid)" : "var(--rule2)", "stroke-width": 1 }));
+      var t = svg("text", { x: PL - 6, y: y + 4, "text-anchor": "end" }); t.textContent = fmt(v); g.appendChild(t);
+    });
+    var step = plotW / n, bw = Math.max(2, Math.min(28, step * 0.64));
+    rows.forEach(function(r, i){
+      var x = PL + i * step + (step - bw) / 2;
+      if (r.n) { var h = Math.max(2, plotH * r.n / max), b = svg("rect", { x: x, y: PT + plotH - h, width: bw, height: h, rx: 2, fill: "var(--t1)" }); var tt = svg("title", {}); tt.textContent = label(r.bucket, hourly) + ": " + plural(r.n, "visit", "visits"); b.appendChild(tt); g.appendChild(b); }
+      if (i === 0 || i === n - 1 || i === Math.floor(n / 2)) {
+        var lt = svg("text", { x: PL + i * step + step / 2, y: H - 6, "text-anchor": i === 0 ? "start" : i === n - 1 ? "end" : "middle" }); lt.textContent = label(r.bucket, hourly); g.appendChild(lt);
+      }
+    });
+    var fig = el("figure", "mt-l"), plot = el("div", "plot"); plot.appendChild(g); fig.appendChild(plot);
+    fig.appendChild(el("figcaption", null, "Fig. 5. Visits that started per " + (hourly ? "hour" : "day") + "."));
+    host.appendChild(fig);
+  }
+  var IX_SECTIONS = ["clicks", "ix-sources", "ix-devices", "ix-sessions", "ix-entry", "ix-funnels"];
   function visits(S){
     var B = S.breakdowns, T0 = S.totals, views = T0.ix_views || 0, on = views > 0 || (B.ix_click || []).length > 0;
-    ["visits", "clicks", "nav-visits"].forEach(function(id){ var e = document.getElementById(id); if (e) e.classList.toggle("hidden", !on); });
+    var V = S.visits || { sessions: 0, pages: 0, bounces: 0, entry: [], exit: [] }, nv = V.sessions || T0.ix_sessions || 0;
+    // off: the Visitors view is the setup (the copy-prompt button); on: the setup hides and every section shows
+    document.getElementById("ixsetup").classList.toggle("hidden", on);
+    ["ixsum", "ixpages"].forEach(function(id){ document.getElementById(id).classList.toggle("hidden", !on); });
+    IX_SECTIONS.forEach(function(id){ var e = document.getElementById(id); if (e) e.classList.toggle("hidden", !on || (!nv && /^ix-(sources|devices|entry)$/.test(id))); });
+    document.getElementById("c-visits").textContent = on ? fmt(views) : "";
     if (!on) return;
     var dl = el("dl", "health"), prev = (S.previous || {}).ix_views;
     row(dl, "Page views", fmt(views), typeof prev === "number" && prev ? (views >= prev ? "+" : "") + share(views - prev, prev) + " on the previous period" : "page loads and in-app route changes");
@@ -961,32 +1036,62 @@ const DASH_JS = `
     row(dl, "Rage clicks", fmt(T0.ix_rage || 0), "3 or more clicks on one element within a second", T0.ix_rage ? ["bad", "worth a look"] : ["ok", "none"]);
     row(dl, "Dead clicks", fmt(T0.ix_dead || 0), "a link or button that changed nothing within a second", T0.ix_dead ? ["bad", "worth a look"] : ["ok", "none"]);
     var sumh = document.getElementById("ixsum"); sumh.textContent = ""; sumh.appendChild(dl);
-    sumh.appendChild(el("figcaption", null, "Unique visitors are not counted: GenClass stores no visitor id, so two page loads by one person cannot be linked."));
+    sumh.appendChild(el("figcaption", null, "Unique visitors are not counted: a visit is page views with no gap over 30 minutes, named by a random id the browser keeps that long. There is no visitor id."));
     var eng = map(B.ix_engaged_ms), reach = {};
     pairs(B.ix_scroll).forEach(function(x){ (reach[x.route] = reach[x.route] || {})[x.key] = x.count; });
     var host = document.getElementById("ixpages"); host.textContent = "";
     var list = (B.ix_views || []).slice().sort(function(a, b){ return b.count - a.count; });
-    if (!list.length) return;
-    var tb = el("table", "dt"), hd = el("thead"), hr = el("tr");
-    ["Page", "Views", "Time on page", "Read half", "Read to the end"].forEach(function(h, i){ hr.appendChild(el("th", i ? "num" : null, h)); });
-    hd.appendChild(hr); tb.appendChild(hd); var body = el("tbody");
-    list.slice(0, 12).forEach(function(x){
-      var tr = el("tr"), rc = el("td", "route", x.key); rc.title = x.key; tr.appendChild(rc);
-      var r = reach[x.key] || {};
-      tr.appendChild(el("td", "num", fmt(x.count)));
-      tr.appendChild(el("td", "num", x.count ? dur((eng[x.key] || 0) / x.count) : "-"));
-      tr.appendChild(el("td", "num", share(Math.min(r["50"] || 0, x.count), x.count)));
-      tr.appendChild(el("td", "num", share(Math.min(r["100"] || 0, x.count), x.count)));
-      body.appendChild(tr);
-    });
-    tb.appendChild(body); host.appendChild(tb);
-    host.appendChild(el("figcaption", null, "Table 4. Pages by views. Read half / to the end: the share of views whose viewport reached 50 % / 100 % of the page height."));
+    if (list.length) {
+      var tb = el("table", "dt"), hd = el("thead"), hr = el("tr");
+      ["Page", "Views", "Time on page", "Read half", "Read to the end"].forEach(function(h, i){ hr.appendChild(el("th", i ? "num" : null, h)); });
+      hd.appendChild(hr); tb.appendChild(hd); var body = el("tbody");
+      list.slice(0, 12).forEach(function(x){
+        var tr = el("tr"), rc = el("td", "route", x.key); rc.title = x.key; tr.appendChild(rc);
+        var r = reach[x.key] || {};
+        tr.appendChild(el("td", "num", fmt(x.count)));
+        tr.appendChild(el("td", "num", x.count ? dur((eng[x.key] || 0) / x.count) : "-"));
+        tr.appendChild(el("td", "num", share(Math.min(r["50"] || 0, x.count), x.count)));
+        tr.appendChild(el("td", "num", share(Math.min(r["100"] || 0, x.count), x.count)));
+        body.appendChild(tr);
+      });
+      tb.appendChild(body); host.appendChild(tb);
+      host.appendChild(el("figcaption", null, "Table 4. Pages by views. Read half / to the end: the share of views whose viewport reached 50 % / 100 % of the page height."));
+    }
     ixTable(document.getElementById("ixclicks"), pairs(B.ix_click), "Clicks", "No clicks recorded in this period.");
     var flags = pairs(B.ix_rage).map(function(x){ return { route: x.route, key: x.key + "  (rage)", count: x.count }; })
       .concat(pairs(B.ix_dead).map(function(x){ return { route: x.route, key: x.key + "  (dead)", count: x.count }; }))
       .sort(function(a, b){ return b.count - a.count; });
     ixTable(document.getElementById("ixflags"), flags, "Clicks", "No rage or dead clicks in this period.");
-    document.getElementById("c-visits").textContent = fmt(views);
+    // sources, campaigns
+    var ns = T0.ix_sessions || nv;
+    listTable(document.getElementById("ixref"), B.ix_ref, "Source", "Visits", ns, "No visits recorded in this period.", 10);
+    var utm = [];
+    [["source", "Source"], ["medium", "Medium"], ["campaign", "Campaign"]].forEach(function(f){ (B["ix_utm_" + f[0]] || []).slice(0, 5).forEach(function(x){ utm.push({ key: f[1] + ": " + x.key, count: x.count }); }); });
+    listTable(document.getElementById("ixutm"), utm, "utm value", "Visits", ns, "No campaign links (utm_source, utm_medium, utm_campaign) in this period.", 15);
+    // devices
+    var dev = document.getElementById("ixdev"); dev.textContent = "";
+    [["ix_device", "Device"], ["ix_browser", "Browser"], ["ix_os", "Operating system"], ["ix_country", "Country"], ["ix_returning", "New or returning"]].forEach(function(d){
+      var box = el("div"); box.appendChild(el("h2", null, d[1])); var t = el("div"); box.appendChild(t);
+      listTable(t, (B[d[0]] || []).map(function(x){ return d[0] === "ix_returning" ? { key: x.key === "new" ? "New" : "Returning", count: x.count } : x; }), d[1], "Visits", sum(B[d[0]]) || ns, "Nothing recorded.", 8, d[0] === "ix_country");
+      dev.appendChild(box);
+    });
+    // sessions
+    var se = document.getElementById("ixsess"); se.textContent = "";
+    if (!nv) {
+      se.appendChild(el("p", "quiet", "No visits yet: this app sends page views from a runtime without visits. Visits, sources, devices, entry and exit pages and funnels need the newest ${RUNTIME_PKG} (copy the prompt again from Connect or update the package)."));
+    } else {
+      var sd = el("dl", "health"), pv = (S.previous || {}).ix_sessions, ret = map(B.ix_returning);
+      row(sd, "Visits", fmt(nv), typeof pv === "number" && pv ? delta(T0.ix_sessions || nv, pv) : "page views with no gap over 30 minutes");
+      row(sd, "Visits per day", S.range === "24h" ? fmt(nv) + " in 24 h" : fmt(nv / Math.max(1, (S.series || []).length)), "on average over the period");
+      row(sd, "Pages per visit", V.sessions ? (Math.round(10 * V.pages / V.sessions) / 10).toString() : "-", "page views of the visits that started in the period");
+      row(sd, "One-page visits", V.sessions ? share(V.bounces, V.sessions) : "-", "visits that ended on the page they started on (bounce rate)");
+      if ((ret.new || 0) + (ret.returning || 0)) row(sd, "Returning", share(ret.returning || 0, (ret.new || 0) + (ret.returning || 0)), "visits from a browser that had visited before (a flag it keeps, no id)");
+      se.appendChild(sd);
+      visitChart(se, S);
+    }
+    listTable(document.getElementById("ixentry"), V.entry, "Page", "Visits", V.sessions, "No visits recorded in this period.", 10);
+    listTable(document.getElementById("ixexit"), V.exit, "Page", "Visits", V.sessions, "No visits recorded in this period.", 10);
+    funnels(S, list);
     moves(S);
   }
   // navigation paths (ANALYTICS.md section 11): entries, steps, how views were reached, first interactions, exits, paths
@@ -999,12 +1104,12 @@ const DASH_JS = `
     if (!on) return;
     var am = map(arrive), hist = (am.back || 0) + (am.forward || 0) + (am.pop || 0) + (am.back_forward || 0);
     var dl = el("dl", "health");
-    row(dl, "Entries", fmt(entries), "page views that started a page load");
+    row(dl, "Page loads", fmt(entries), "page views that started a page load (a visit can hold several)");
     row(dl, "Steps between pages", fmt(sum(B.ix_nav || [])), entries ? (Math.round(10 * sum(B.ix_nav || []) / entries) / 10) + " per page load" : "");
     row(dl, "Back and forward", views ? share(hist, views) + " of views" : "-", arrive.length ? arrive.slice().sort(function(a, b){ return b.count - a.count; }).slice(0, 4).map(function(x){ return (NAVS[x.key] || x.key) + " " + share(x.count, views); }).join(", ") : "");
-    row(dl, "Exits", fmt(exits), entries ? share(Math.min(exits, entries), entries) + " of page loads sent their end (a closed or discarded background tab may not)" : "");
+    row(dl, "Page load ends", fmt(exits), entries ? share(Math.min(exits, entries), entries) + " of page loads sent their end (a closed or discarded background tab may not)" : "");
     var mh = document.getElementById("ixmoves"); mh.textContent = ""; mh.appendChild(dl);
-    mh.appendChild(el("figcaption", null, "A full page load to another page of this app ends one path and starts another: page loads are never linked, so on a site without client-side routing each page view is a path of one."));
+    mh.appendChild(el("figcaption", null, "These paths and steps are within one page load: a full page load to another page of this app starts a new one, so on a site without client-side routing each is one page long. Visits (Tables 10 and 11, Fig. 4) follow the pages across page loads."));
     var ph = document.getElementById("ixpaths"); ph.textContent = "";
     var paths = (B.ix_path || []).slice().sort(function(a, b){ return b.count - a.count; });
     if (paths.length) {
@@ -1018,7 +1123,7 @@ const DASH_JS = `
         body.appendChild(tr);
       });
       tb.appendChild(body); ph.appendChild(tb);
-      ph.appendChild(el("figcaption", null, "Table 7. The most taken paths: the routes of one page load in order, counted when the page load ended."));
+      ph.appendChild(el("figcaption", null, "Table 12. The most taken paths: the routes of one page load in order, counted when the page load ended."));
     }
     var sh = document.getElementById("ixsteps"); sh.textContent = "";
     var gaps = map(B.ix_nav_ms), steps = pairs(B.ix_nav).sort(function(a, b){ return b.count - a.count; });
@@ -1033,7 +1138,7 @@ const DASH_JS = `
         body2.appendChild(tr);
       });
       tb2.appendChild(body2); sh.appendChild(tb2);
-      sh.appendChild(el("figcaption", null, "Table 8. Page to page: in-app steps between routes, with the average time from the first page's start to the step."));
+      sh.appendChild(el("figcaption", null, "Table 13. Page to page: in-app steps between routes, with the average time from the first page's start to the step."));
     }
     var xh = document.getElementById("ixexits"); xh.textContent = "";
     var vm = map(B.ix_views), em = map(B.ix_entry), xm = map(B.ix_exit), fn = map(B.ix_first_n), fms = map(B.ix_first_ms), back = {}, firsts = {};
@@ -1042,7 +1147,7 @@ const DASH_JS = `
     var list = (B.ix_views || []).slice().sort(function(a, b){ return b.count - a.count; });
     if (!list.length) return;
     var tb3 = el("table", "dt"), hd3 = el("thead"), hr3 = el("tr");
-    ["Page", "Entries", "Exits", "Exit rate", "Back/forward", "First interaction", "Time to it"].forEach(function(h, i){ hr3.appendChild(el("th", i && i !== 5 ? "num" : null, h)); });
+    ["Page", "Page loads started", "Page loads ended", "End rate", "Back/forward", "First interaction", "Time to it"].forEach(function(h, i){ hr3.appendChild(el("th", i && i !== 5 ? "num" : null, h)); });
     hd3.appendChild(hr3); tb3.appendChild(hd3); var body3 = el("tbody");
     list.slice(0, 12).forEach(function(x){
       var tr = el("tr"), rc = el("td", "route", x.key); rc.title = x.key; tr.appendChild(rc);
@@ -1055,7 +1160,73 @@ const DASH_JS = `
       body3.appendChild(tr);
     });
     tb3.appendChild(body3); xh.appendChild(tb3);
-    xh.appendChild(el("figcaption", null, "Table 9. Per page: where page loads started and ended (exit rate: exits over views), arrivals by back or forward, and the element most often interacted with first (a click, or a focus on a form field after a key press) with the average time to the first interaction."));
+    xh.appendChild(el("figcaption", null, "Table 14. Per page: where page loads started and ended (end rate: ends over views), arrivals by back or forward, and the element most often interacted with first (a click, or a focus on a form field after a key press) with the average time to the first interaction."));
+  }
+  // ---------- funnels (Fig. 4): the app's funnels, the visits that reached each step in order, and their editor
+  var funnelsUrl = P.funnelsUrl || ("/api/projects/" + encodeURIComponent(secret) + "/funnels"), editing = false, lastS = null;
+  function funnels(S, pagesByViews){
+    lastS = S;
+    var host = document.getElementById("ixfun"), F = S.funnels || []; host.textContent = "";
+    if (!F.length && !editing) host.appendChild(el("p", "quiet", "No funnels yet. A funnel is 2 to 6 pages in order, like a product page, the cart and checkout: it shows how many visits reached each step."));
+    F.forEach(function(f, fi){
+      var box = el("div", "fun"); box.appendChild(el("h3", null, f.name));
+      var first = f.counts[0] || 0, tb = el("table", "dt"), hd = el("thead"), hr = el("tr");
+      ["Step", "Page", "Visits", "Of step 1", "From the step before", ""].forEach(function(h, i){ hr.appendChild(el("th", i >= 2 && i <= 4 ? "num" : null, h)); });
+      hd.appendChild(hr); tb.appendChild(hd); var body = el("tbody");
+      f.steps.forEach(function(st, i){
+        var n = f.counts[i] || 0, tr = el("tr");
+        tr.appendChild(el("td", null, String(i + 1)));
+        var rc = el("td", "route", st); rc.title = st; tr.appendChild(rc);
+        tr.appendChild(el("td", "num", fmt(n)));
+        tr.appendChild(el("td", "num", i ? share(n, first) : "-"));
+        tr.appendChild(el("td", "num", i ? share(n, f.counts[i - 1] || 0) : "-"));
+        var td = el("td", "wide"), mix = el("div", "mix"), b = el("i"); b.style.width = (first ? 100 * n / first : 0) + "%"; b.style.background = "var(--t1)"; mix.appendChild(b); td.appendChild(mix); tr.appendChild(td);
+        body.appendChild(tr);
+      });
+      tb.appendChild(body); var wrap = el("div", "tablewrap"); wrap.appendChild(tb); box.appendChild(wrap);
+      var drop = 0, at = -1;
+      for (var i = 1; i < f.steps.length; i++) { var d = (f.counts[i - 1] || 0) - (f.counts[i] || 0); if (d > drop) { drop = d; at = i; } }
+      if (at > 0) box.appendChild(el("p", "drop mt-s", "Most visits are lost between step " + at + " and step " + (at + 1) + ": " + plural(drop, "visit", "visits") + "."));
+      host.appendChild(box);
+    });
+    if (F.length) host.appendChild(el("figcaption", null, "Fig. 4. Visits that started in the period (at most the last 90 days) and reached each step after the ones before it, in order; other pages may come between. A step ending in * counts every page under it."));
+    var ed = document.getElementById("ixfunedit"); ed.textContent = "";
+    if (!editing) {
+      var b = el("button", "btn ghost sm", F.length ? "Edit funnels" : "Add a funnel"); b.type = "button";
+      b.addEventListener("click", function(){ editing = true; funnels(lastS, pagesByViews); var f0 = document.querySelector("#ixfunedit input"); if (f0) f0.focus(); });
+      var acts = el("div", "mt-s"); acts.appendChild(b); ed.appendChild(acts);
+      return;
+    }
+    var form = el("form", "funedit"); form.setAttribute("novalidate", "");
+    var rows = F.length ? F.map(function(f){ return { name: f.name, steps: f.steps.join("\\n") }; })
+      : [{ name: "Funnel 1", steps: (pagesByViews || []).slice(0, 3).map(function(x){ return x.key; }).join("\\n") }];
+    function addRow(r){
+      var fe = el("div", "fe"), nm = el("input"), ta = el("textarea"), rm = el("button", "btn ghost sm", "Remove");
+      nm.type = "text"; nm.value = r.name; nm.maxLength = 60; nm.setAttribute("aria-label", "Funnel name");
+      ta.value = r.steps; ta.setAttribute("aria-label", "Pages in order, one per line"); ta.placeholder = "/products/:id\\n/cart\\n/checkout"; ta.spellcheck = false;
+      rm.type = "button"; rm.addEventListener("click", function(){ fe.remove(); });
+      fe.appendChild(nm); fe.appendChild(ta); fe.appendChild(rm); list.appendChild(fe);
+    }
+    var list = el("div", "stack"); form.appendChild(el("p", "muted small", "One page per line, in order: 2 to 6 pages, up to 5 funnels. Use the routes as Table 4 shows them (/products/:id); end one with * for every page under it (/docs/*)."));
+    form.appendChild(list); rows.forEach(addRow);
+    var acts2 = el("div", "acts"), save = el("button", "btn green sm", "Save funnels"), add = el("button", "btn ghost sm", "Add another"), cancel = el("button", "btn ghost sm", "Cancel"), err = el("p", "err");
+    save.type = "submit"; add.type = "button"; cancel.type = "button"; err.setAttribute("role", "alert");
+    add.addEventListener("click", function(){ if (list.children.length < 5) addRow({ name: "Funnel " + (list.children.length + 1), steps: "" }); });
+    cancel.addEventListener("click", function(){ editing = false; funnels(lastS, pagesByViews); });
+    acts2.appendChild(save); acts2.appendChild(add); acts2.appendChild(cancel); form.appendChild(acts2); form.appendChild(err);
+    form.addEventListener("submit", function(e){
+      e.preventDefault();
+      var out = [].slice.call(list.children).map(function(fe){
+        return { name: fe.querySelector("input").value, steps: fe.querySelector("textarea").value.split(/\\n+/).map(function(x){ return x.trim(); }).filter(Boolean) };
+      }).filter(function(f){ return f.steps.length; });
+      save.disabled = true; err.textContent = "";
+      fetch(funnelsUrl, { method: "PUT", headers: { "content-type": "application/json", accept: "application/json" }, credentials: "same-origin", body: JSON.stringify({ funnels: out }) })
+        .then(function(r){ return r.json().then(function(j){ if (!r.ok) throw new Error(j && j.error || "HTTP " + r.status); return j; }); })
+        .then(function(){ editing = false; load(); })
+        .catch(function(x){ err.textContent = "Not saved: " + x.message + "."; })
+        .then(function(){ save.disabled = false; });
+    });
+    ed.appendChild(form);
   }
 
   // ---------- the closed loop (Fig. 3): this app's problems, what the agent does with each, the shared fix, prove, ship
@@ -1209,6 +1380,7 @@ const DASH_JS = `
     if (!show(first, false)) show(per && per.classList.contains("hidden") ? "connect" : "top", false);
   })();
   document.title = P.name + " | GenClass dashboard";
+  document.querySelectorAll("#ixsetup [data-copy]").forEach(function(b){ b.addEventListener("click", function(){ gcCopy(b, b.getAttribute("data-copy"), null); }); });
   if (document.getElementById("ptok")) {
     document.getElementById("ptok").textContent = P.token;
     document.getElementById("ptokc").appendChild(copyBtn(function(){ return P.token; }, "token", function(){ return document.getElementById("ptok"); }));
@@ -1285,6 +1457,8 @@ const CONNECT_JS = `
 export interface DashboardOptions {
   /** This collector's own ingest URL when it is self-hosted (ownEndpoint): the snippets name it. */
   endpoint?: string | null;
+  /** The origin account dashboards live on (AUTH_ORIGIN), for the link in the analytics prompt; default genclass.dev. */
+  origin?: string;
   /** Owned-app mode (/account/apps/<id>): the account's apps in the sidebar, the Connect panel, account stats API. */
   account?: { apps: { id: string; name: string }[]; current: string; email: string | null };
   /** The project's id (account mode). */
@@ -1337,7 +1511,36 @@ export function ownEndpoint(env: { DASHBOARD_ORIGIN?: string; AUTH_ORIGIN?: stri
   return /^https?:\/\/[^/\s"'<>]+$/.test(o) && o !== "https://genclass.dev" ? `${o}/v1/events` : null;
 }
 
-function connectPanel(token: string, connected: boolean, runtimeReady: boolean, endpoint: string | null = null): string {
+/** The origin dashboard links use (DashboardOptions.origin, default genclass.dev). */
+const ORIGIN_OF = (o: DashboardOptions): string => (o.origin ?? "https://genclass.dev").replace(/\/+$/, "");
+
+/**
+ * The prompt the "Copy the prompt for your coding agent" buttons copy: install or upgrade the runtime, turn analytics on
+ * with this app's token wherever GenClass is configured, consent, a dev-server check, and where the numbers appear.
+ */
+export function analyticsPrompt(token: string, where: string, endpoint: string | null = null): string {
+  return [
+    "Turn on GenClass visitor analytics in this web app: page views, visits, where visitors come from, devices and funnels, on the app's GenClass dashboard.",
+    "",
+    `1. Install or upgrade the runtime to the newest beta with the project's package manager: npm install ${RUNTIME_PKG} (or pnpm add / yarn add / bun add). 0.2.x has no analytics. If GenClass is not set up in this app yet, run npx ${RUNTIME_PKG} init first.`,
+    `2. Turn analytics on where GenClass is configured, with this app's token ${token}:`,
+    `   - GenClass.init({ ... }) in code: add analytics: true, for example GenClass.init({ token: "${token}", analytics: true }).`,
+    "   - The config object in genclass.config.ts or genclass.config.js (which init writes): add analytics: true to it.",
+    `   - <meta name="genclass" content="..."> in the HTML head: add analytics=on, for example content="token=${token}, analytics=on".`,
+    '   - The script tag (cdn.jsdelivr.net/npm/@genclass/runtime): add data-analytics="on".',
+    ...(endpoint ? [`   Keep telemetry: { endpoint: "${endpoint}" } in that config: this app's collector is self-hosted.`] : []),
+    '3. Consent: if the app has a cookie or consent banner, or visitors in the EU, EEA or UK, leave analytics off in the config and start them once the visitor accepts analytics: GenClass.runtime?.analytics?.start() (import { GenClass } from "@genclass/runtime"; window.GenClass.runtime with the script tag). Call .stop() if they withdraw consent.',
+    "4. Run the dev server once and load a page to check the app builds and runs without errors. Local hosts (localhost, private networks) send nothing by default, so the numbers come from the deployed site, whose browser console then shows \"[GenClass] Interaction analytics are on\".",
+    `5. Tell me what you changed, and that the numbers appear on ${where} about a minute after the first visits to the deployed site.`,
+  ].join("\n");
+}
+
+/** One big primary button that copies analyticsPrompt, and at most two lines under it. */
+function promptBlock(token: string, where: string, endpoint: string | null, sub: string): string {
+  return `<div class="cprompt"><button class="btn green xl" type="button" data-copy="${esc(analyticsPrompt(token, where, endpoint))}">Copy the prompt for your coding agent</button><p class="cp-sub">${sub}</p></div>`;
+}
+
+function connectPanel(token: string, connected: boolean, runtimeReady: boolean, endpoint: string | null = null, analytics = ""): string {
   const t = esc(token);
   // a self-hosted collector's endpoint goes in GenClass.init or window.GENCLASS_CONFIG (a meta tag may only name
   // same-origin URLs, src/cdn/config.ts)
@@ -1382,6 +1585,7 @@ function connectPanel(token: string, connected: boolean, runtimeReady: boolean, 
       ${snip(endpoint ? "With a bundler" : "Meta tag, with a bundler", endpoint ? "the bundler setup" : "the meta tag", meta)}
     </div>
   </div>
+  ${analytics ? `<div class="cana"><div class="eb">Visitor analytics</div>${analytics}</div>` : ""}
   <p class="fine">The key needs @genclass/runtime ${KEY_RUNTIME} or later: 0.2.x does not send it. Events arrive in batches every 10 seconds.
   Local hosts (localhost, *.local, *.test, private networks) do not send by default, even with a key (telemetry: true or a telemetry options object opts them in), so the first event usually comes from your deployed site.<span id="cpoll"> The status line above checks every 5 seconds.</span></p>
 </section>`;
@@ -1396,7 +1600,7 @@ export function dashboardPage(
   if (acct && opts.locked) return lockedDashboardPage(nonce, project, { ...opts, account: acct });
   const waiting = !!acct && !project.lastEvent;
   const data = acct
-    ? { ...project, id: opts.id, firstEvent: opts.firstEvent ?? null, statsUrl: `/api/account/projects/${opts.id}/stats`, account: true }
+    ? { ...project, id: opts.id, firstEvent: opts.firstEvent ?? null, statsUrl: `/api/account/projects/${opts.id}/stats`, funnelsUrl: `/api/account/projects/${opts.id}/funnels`, account: true }
     : opts.endpoint
       ? { ...project, endpoint: opts.endpoint }
       : project;
@@ -1428,7 +1632,7 @@ export function dashboardPage(
     <a href="#where">Pages <span id="c-pages"></span></a>
     <a href="#did">Actions <span id="c-did"></span></a>
     <a href="#recent-s">Activity</a>
-    <a href="#visits" id="nav-visits" class="hidden">Visitors <span id="c-visits"></span></a>
+    <a href="#visits" id="nav-visits">Visitors <span id="c-visits"></span></a>
     <a href="#health-s">Health</a>
     <a href="#loop">Loop</a>
     ${acct ? "" : '<a href="#setup">Setup</a>'}
@@ -1467,7 +1671,7 @@ export function dashboardPage(
   <div class="meta"><span id="updated"></span><button class="btn ghost sm" id="refresh" type="button">Refresh</button>${acct ? '<a class="btn sm" href="#connect" data-goto="connect">Connect</a>' : ""}<a class="btn ghost sm" href="https://genclass.dev/docs/dashboard">Dashboard guide</a></div>
   <p class="summary" id="summary" data-v="overview"></p>
 </section>
-${acct ? connectPanel(project.token, !!project.lastEvent, opts.runtimeReady === true, opts.endpoint ?? null) : ""}
+${acct ? connectPanel(project.token, !!project.lastEvent, opts.runtimeReady === true, opts.endpoint ?? null, promptBlock(project.token, `this app's GenClass dashboard, under Visitors (${ORIGIN_OF(opts)}/account/apps/${opts.id ?? ""}#visits)`, opts.endpoint ?? null, "Page views, visits, sources, devices and funnels on this dashboard. Paste the prompt into your coding agent and it turns them on.")) : ""}
 <section id="nodata" class="first hidden" data-v="overview"><p>No data yet. Add the snippet under Setup to your app, load a page, and come back in a minute.
 Events arrive in batches every 10 seconds and when a tab is hidden. The token needs @genclass/runtime ${KEY_RUNTIME} or later; earlier
 versions ignore it. ${LOCAL_HOSTS} Your deployed site sends by default.</p></section>
@@ -1511,10 +1715,32 @@ versions ignore it. ${LOCAL_HOSTS} Your deployed site sends by default.</p></sec
   <tbody id="recent"></tbody></table></div>
   <p class="quiet hidden" id="recent0">Nothing detected in this period.</p>
 </section>
-<section class="blk hidden" id="visits" data-v="visitors">
+<section class="blk" id="visits" data-v="visitors">
   <div class="blk-h"><h2>How visitors use this app</h2><span class="aside">Interaction analytics, for apps that turn them on</span></div>
+  <div id="ixsetup" class="hidden">${promptBlock(project.token, acct && opts.id ? `this app's GenClass dashboard, under Visitors (${ORIGIN_OF(opts)}/account/apps/${opts.id}#visits)` : "this app's GenClass dashboard (the private link I opened it from), under Visitors", opts.endpoint ?? null, "This app has not turned visitor analytics on. Paste the prompt into your coding agent (Claude Code, Cursor, Codex) and it sets them up.")}</div>
   <div id="ixsum"></div>
   <div id="ixpages" class="mt-l"></div>
+</section>
+<section class="blk two hidden" id="ix-sources" data-v="visitors">
+  <div><div class="blk-h"><h2>Sources</h2><span class="aside">Table 7. The site each visit came from</span></div><div id="ixref"></div></div>
+  <div><div class="blk-h"><h2>Campaigns</h2><span class="aside">Table 8. Visits from links with utm values</span></div><div id="ixutm"></div></div>
+</section>
+<section class="blk hidden" id="ix-devices" data-v="visitors">
+  <div class="blk-h"><h2>Devices</h2><span class="aside">Table 9. Device, browser, system, country and new or returning, per visit</span></div>
+  <div class="kv mt-s" id="ixdev"></div>
+</section>
+<section class="blk hidden" id="ix-sessions" data-v="visitors">
+  <div class="blk-h"><h2>Sessions</h2><span class="aside">A visit: page views with no gap over 30 minutes</span></div>
+  <div id="ixsess"></div>
+</section>
+<section class="blk two hidden" id="ix-entry" data-v="visitors">
+  <div><div class="blk-h"><h2>Entry pages</h2><span class="aside">Table 10. Where visits started</span></div><div id="ixentry"></div></div>
+  <div><div class="blk-h"><h2>Exit pages</h2><span class="aside">Table 11. Where visits ended</span></div><div id="ixexit"></div></div>
+</section>
+<section class="blk hidden" id="ix-funnels" data-v="visitors">
+  <div class="blk-h"><h2>Funnels</h2><span class="aside">Fig. 4. Visits that reached each step, in order</span></div>
+  <div id="ixfun"></div>
+  <div id="ixfunedit"></div>
 </section>
 <section class="blk two hidden" id="clicks" data-v="visitors">
   <div><div class="blk-h"><h2>Most clicked</h2><span class="aside">Table 5. Elements by clicks</span></div><div id="ixclicks"></div></div>
@@ -1538,8 +1764,9 @@ versions ignore it. ${LOCAL_HOSTS} Your deployed site sends by default.</p></sec
 ${setup}
 ${opts.extra?.html ?? ""}
 <footer class="dfoot">This page shows counts only: the kind of problem, the page route, confidence, what GenClass did and how fast it
-decided, and, for apps that turn on interaction analytics, page views, the path between pages, time on page, scroll depth and clicks
-per element (named by a selector or a name the app gave it, never its text). No text from your pages, no IP addresses and no user agents are stored. Data is kept ${(opts.keepDays ?? 90) >= 365 ? "1 year" : `${opts.keepDays ?? 90} days`} (hourly detail 48 hours). ${privacy}</footer>
+decided, and, for apps that turn on interaction analytics, page views, time on page, scroll depth and clicks per element (named by a
+selector or a name the app gave it, never its text), the path between pages within a page load, and per visit the pages in order,
+the referring site, campaign, device type, browser, system, country and whether the browser visited before. No text from your pages, no IP addresses and no user agents are stored. Data is kept ${(opts.keepDays ?? 90) >= 365 ? "1 year" : `${opts.keepDays ?? 90} days`} (hourly detail 48 hours). ${privacy}</footer>
 </div>
 </div>`;
   return shell(

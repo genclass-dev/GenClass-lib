@@ -261,13 +261,13 @@ describe("token on telemetry batches", () => {
     expect(bd("model_errors")).toEqual({ inference_failed: 1 });
     expect(bd("latency_bucket")).toEqual({ "<50 ms": 1, "100-250 ms": 1 });
     expect(s.series).toHaveLength(7);
-    expect(s.series.at(-1)).toEqual({ bucket: "2026-10-08", sessions: 1, decisions: 2, detections: 1, acted: 1, possible: 0, ix_views: 0 });
+    expect(s.series.at(-1)).toEqual({ bucket: "2026-10-08", sessions: 1, decisions: 2, detections: 1, acted: 1, possible: 0, ix_views: 0, ix_sessions: 0 });
     // the dashboard's type x page view and per-type timeline, and the period before for deltas
     expect(bd("detect_issue")).toEqual({ "stale\t/cart/:id": 1 });
     expect(s.typeSeries).toHaveLength(7);
     expect(s.typeSeries.at(-1)).toEqual({ bucket: "2026-10-08", counts: { stale: 1 } });
     expect(s.typeSeries[0]).toEqual({ bucket: "2026-10-02", counts: {} });
-    expect(s.previous).toEqual({ sessions: 0, detections: 0, acted: 0, ix_views: 0 });
+    expect(s.previous).toEqual({ sessions: 0, detections: 0, acted: 0, ix_views: 0, ix_sessions: 0 });
     expect(s.recent).toEqual([
       // the diagnosis confidence (0.97), not p(action) (0.95)
       { t: NOW.toISOString(), route: "/cart/:id", fn: "saveCart", trigger: "mutation", diagnosis: "stale", action: "discard", ran: "discard", confidence: 0.97, mode: "heal", executed: true, acted: true, kind: "detect" },
@@ -283,7 +283,7 @@ describe("token on telemetry batches", () => {
     expect(h.typeSeries.at(-1)).toEqual({ bucket: "2026-10-08T12", counts: { stale: 1 } });
     // a later 7 d window sees this week as the previous period
     const later = (await (await handle(new Request(`https://genclass.dev/api/projects/${secretOf(json.dashboardUrl)}?range=7d`), env, { ...opts, now: () => new Date(NOW.getTime() + 7 * 86_400_000) })).json()) as any;
-    expect(later.previous).toEqual({ sessions: 1, detections: 1, acted: 1, ix_views: 0 });
+    expect(later.previous).toEqual({ sessions: 1, detections: 1, acted: 1, ix_views: 0, ix_sessions: 0 });
     expect(later.totals.detections ?? 0).toBe(0);
     const m = (await (await handle(new Request(`https://genclass.dev/api/projects/${secretOf(json.dashboardUrl)}?range=30d`), env, opts)).json()) as any;
     expect(m.series).toHaveLength(30);
