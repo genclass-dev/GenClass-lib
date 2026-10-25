@@ -1,0 +1,131 @@
+--- a/src/api.ts
++++ b/src/api.ts
+@@ -5,6 +5,9 @@
+   name: string
+ }
+ 
++/** WORKAROUND: the recipes of optimistic updates whose mutation is still in flight, by mutation requestId. */
++export const pendingUpdates = new Map<string, (draft: Item[]) => void>()
++
+ export const api = createApi({
+   baseQuery: fetchBaseQuery({ baseUrl: '/api/' }),
+   tagTypes: ['Item'],
+@@ -21,17 +24,19 @@
+     // (docs/rtk-query/usage/manual-cache-updates.mdx, "Optimistic Updates").
+     renameItem: build.mutation<Item, Pick<Item, 'id' | 'name'>>({
+       query: ({ id, name }) => ({ url: `items/${id}`, method: 'PUT', body: { name } }),
+-      async onQueryStarted({ id, name }, { dispatch, queryFulfilled }) {
+-        const patchResult = dispatch(
+-          api.util.updateQueryData('getItems', undefined, (draft) => {
+-            const item = draft.find((i) => i.id === id)
+-            if (item) item.name = name
+-          }),
+-        )
++      async onQueryStarted({ id, name }, { dispatch, queryFulfilled, requestId }) {
++        const recipe = (draft: Item[]) => {
++          const item = draft.find((i) => i.id === id)
++          if (item) item.name = name
++        }
++        dispatch(api.util.updateQueryData('getItems', undefined, recipe))
++        pendingUpdates.set(requestId, recipe)
+         try {
+           await queryFulfilled
+         } catch {
+-          patchResult.undo()
++          dispatch(api.util.invalidateTags(['Item'])) // not undo(): the data under the patch may have changed
++        } finally {
++          pendingUpdates.delete(requestId)
+         }
+       },
+       invalidatesTags: (_result, _error, { id }) => [{ type: 'Item', id }],
+--- a/src/store.ts
++++ b/src/store.ts
+@@ -1,6 +1,14 @@
+ import { configureStore, type Middleware } from '@reduxjs/toolkit'
+ import { setupListeners } from '@reduxjs/toolkit/query'
+-import { api, type Item } from './api'
++import { api, pendingUpdates, type Item } from './api'
++
++// WORKAROUND: after any getItems fetch fulfills, run the recipes of in-flight optimistic updates again
++const reapplyPendingUpdates: Middleware = (store) => (next) => (action) => {
++  const result = next(action)
++  if (api.endpoints.getItems.matchFulfilled(action))
++    for (const recipe of pendingUpdates.values()) store.dispatch(api.util.updateQueryData('getItems', undefined, recipe) as any)
++  return result
++}
+ 
+ // A small action log, the same information Redux DevTools shows, kept on the page so the sequence is visible
+ // without the extension: every RTK Query action that can change the getItems cache entry, with item 1's cached
+@@ -58,7 +66,7 @@
+ 
+ export const store = configureStore({
+   reducer: { [api.reducerPath]: api.reducer },
+-  middleware: (gDM) => gDM().concat(api.middleware, logger),
++  middleware: (gDM) => gDM().concat(reapplyPendingUpdates, api.middleware, logger),
+ })
+ 
+ // Needed for refetchOnFocus (the focus variant). It does nothing for the polling variant, which does not opt in.
+--- a/test/optimisticUpdates.pending.test.ts
++++ b/test/optimisticUpdates.pending.test.ts
+@@ -9,7 +9,7 @@
+ // fulfills meanwhile. On @reduxjs/toolkit 2.13.0 the control passes and the polling and focus tests fail: that
+ // fetch's fulfilled write replaces the patch.
+ 
+-import { configureStore, type UnknownAction } from '@reduxjs/toolkit'
++import { configureStore, type Middleware, type UnknownAction } from '@reduxjs/toolkit'
+ import { createApi, setupListeners } from '@reduxjs/toolkit/query'
+ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+ 
+@@ -21,6 +21,16 @@
+ 
+ // ---------------------------------------------------------------- as in optimisticUpdates.test.tsx
+ 
++// WORKAROUND: the recipes of optimistic updates whose mutation is still in flight; run again after every post fetch
++const pendingUpdates = new Map<string, { arg: string; recipe: (draft: Post) => void }>()
++const reapplyPendingUpdates: Middleware = (store) => (next) => (action) => {
++  const result = next(action)
++  if (api.endpoints.post.matchFulfilled(action))
++    for (const { arg, recipe } of pendingUpdates.values())
++      if (arg === action.meta.arg.originalArgs) store.dispatch(api.util.updateQueryData('post', arg, recipe) as any)
++  return result
++}
++
+ const baseQuery = vi.fn()
+ beforeEach(() => {
+   baseQuery.mockReset()
+@@ -47,13 +57,19 @@
+         method: 'PATCH',
+         body: patch,
+       }),
+-      async onQueryStarted({ id, ...patch }, { dispatch, queryFulfilled }) {
+-        const { undo } = dispatch(
+-          api.util.updateQueryData('post', id, (draft) => {
+-            Object.assign(draft, patch)
+-          }),
+-        )
+-        queryFulfilled.catch(undo)
++      async onQueryStarted({ id, ...patch }, { dispatch, queryFulfilled, requestId }) {
++        const recipe = (draft: Post) => {
++          Object.assign(draft, patch)
++        }
++        dispatch(api.util.updateQueryData('post', id, recipe))
++        pendingUpdates.set(requestId, { arg: id, recipe })
++        try {
++          await queryFulfilled
++        } catch {
++          dispatch(api.util.invalidateTags(['Post']))
++        } finally {
++          pendingUpdates.delete(requestId)
++        }
+       },
+       invalidatesTags: (result) => (result ? ['Post'] : []),
+     }),
+@@ -68,7 +84,7 @@
+ const getStore = () =>
+   configureStore({
+     reducer: { api: api.reducer, ...actionsReducer },
+-    middleware: (gdm) => gdm({ serializableCheck: false, immutableCheck: false }).concat(api.middleware),
++    middleware: (gdm) => gdm({ serializableCheck: false, immutableCheck: false }).concat(reapplyPendingUpdates, api.middleware),
+     enhancers: (gde) => gde({ autoBatch: false }),
+   })
+ const storeRef = { store: getStore() }

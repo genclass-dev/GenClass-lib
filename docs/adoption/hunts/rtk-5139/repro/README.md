@@ -22,8 +22,9 @@ Or copy just this folder: `npx degit genclass-dev/GenClass-lib/docs/adoption/hun
 
 Press **Rename item 1**. The name changes to `Edited 1` at once (the optimistic update), goes back to `Original`
 within about 100 ms (the next poll's `executeQuery/fulfilled`), and shows `Edited 1` again after the PUT returns and
-`invalidatesTags` refetches. The page lists every RTK Query action since the click with item 1's cached name after
-each one, the changed rows highlighted.
+`invalidatesTags` refetches. The page lists the RTK Query actions that can change that cache entry
+(`executeQuery/*`, `executeMutation/*`, `queryResultPatched`, `__rtkq/*`) since the click, with item 1's cached name
+after each one and the changed rows highlighted.
 
 | page | query options | what you see |
 |---|---|---|
@@ -40,7 +41,12 @@ npx playwright install chromium && npm run test:e2e   # Playwright against the d
 
 Both assert that once the optimistic value is shown it stays while the mutation is pending. On 2.13.0 the polling
 and focus tests fail and the controls pass. The vitest file uses the endpoints, `baseQuery` mock and `storeRef` of
-`packages/toolkit/src/query/tests/optimisticUpdates.test.tsx`, so its last `describe` can be pasted into that file.
+`packages/toolkit/src/query/tests/optimisticUpdates.test.tsx`, so its last `describe` can be pasted into that file
+once it also imports `setupListeners` from `@reduxjs/toolkit/query`.
+
+`../workaround.patch` is a userland workaround (re-run the optimistic recipes of in-flight mutations after each
+fulfilled `getItems` fetch). With it applied (`patch -p1 < ../workaround.patch`; undo with `patch -R -p1 <
+../workaround.patch`) both suites pass.
 
 ## Files
 

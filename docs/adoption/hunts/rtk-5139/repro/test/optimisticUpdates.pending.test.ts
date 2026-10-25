@@ -1,10 +1,11 @@
 // Redux-only tests (no React, no DOM) for reduxjs/redux-toolkit#5139, in the shape of
 // packages/toolkit/src/query/tests/optimisticUpdates.test.tsx: the same `post` / `updatePost` endpoints, the same
 // `baseQuery` mock and a `storeRef` like that file's `setupApiStore(api, { ...actionsReducer })`. The tests in the
-// last `describe` use only `api`, `baseQuery` and `storeRef`, so they can be pasted into that file as they are.
+// last `describe` use `api`, `baseQuery`, `storeRef`, `vi` and `setupListeners`, so they can be pasted into that file
+// once it also has `import { setupListeners } from '@reduxjs/toolkit/query'`.
 //
-// They assert what the reporter expects and what the optimistic-updates docs describe: while the mutation is in
-// flight, the cache keeps the optimistic value, even when a polling or refetch-on-focus fetch of the same entry
+// They assert what the reporter expects and the docs' stated purpose of an optimistic update: while the mutation is
+// in flight, the cache keeps the optimistic value, even when a polling or refetch-on-focus fetch of the same entry
 // fulfills meanwhile. On @reduxjs/toolkit 2.13.0 the control passes and the polling and focus tests fail: that
 // fetch's fulfilled write replaces the patch.
 
@@ -101,7 +102,7 @@ describe('updateQueryData while the mutation is pending (#5139)', () => {
   const sequence = (from: number) =>
     (storeRef.store.getState() as any).actions
       .slice(from)
-      .map((a: UnknownAction) => a.type)
+      .map((a: { type: string }) => a.type)
       .join(', ') + ` | contents now: ${JSON.stringify(selectPost().data?.contents)}`
   /** Waits until a fetch other than `requestId` has fulfilled for post 3. */
   const laterFetchFulfilled = (requestId: string | undefined) =>

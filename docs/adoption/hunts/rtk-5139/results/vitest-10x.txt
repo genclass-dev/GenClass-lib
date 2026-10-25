@@ -1,0 +1,102 @@
+# @reduxjs/toolkit 2.13.0, v22.22.0, Playwright 1.63.0, 2026-10-25T00:33Z
+$ npx tsc --noEmit
+ok
+$ npx vitest run   # run 1
+     × a polling refetch that fulfills while the mutation is pending keeps the optimistic update 71ms
+     × a refetchOnFocus refetch that fulfills while the mutation is pending keeps the optimistic update 59ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  2 failed | 1 passed (3)
+$ npx vitest run   # run 2
+     × a polling refetch that fulfills while the mutation is pending keeps the optimistic update 71ms
+     × a refetchOnFocus refetch that fulfills while the mutation is pending keeps the optimistic update 58ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  2 failed | 1 passed (3)
+$ npx vitest run   # run 3
+     × a polling refetch that fulfills while the mutation is pending keeps the optimistic update 70ms
+     × a refetchOnFocus refetch that fulfills while the mutation is pending keeps the optimistic update 59ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  2 failed | 1 passed (3)
+$ npx vitest run   # run 4
+     × a polling refetch that fulfills while the mutation is pending keeps the optimistic update 63ms
+     × a refetchOnFocus refetch that fulfills while the mutation is pending keeps the optimistic update 57ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  2 failed | 1 passed (3)
+$ npx vitest run   # run 5
+     × a polling refetch that fulfills while the mutation is pending keeps the optimistic update 71ms
+     × a refetchOnFocus refetch that fulfills while the mutation is pending keeps the optimistic update 60ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  2 failed | 1 passed (3)
+$ npx vitest run   # run 6
+     × a polling refetch that fulfills while the mutation is pending keeps the optimistic update 64ms
+     × a refetchOnFocus refetch that fulfills while the mutation is pending keeps the optimistic update 56ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  2 failed | 1 passed (3)
+$ npx vitest run   # run 7
+     × a polling refetch that fulfills while the mutation is pending keeps the optimistic update 65ms
+     × a refetchOnFocus refetch that fulfills while the mutation is pending keeps the optimistic update 58ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  2 failed | 1 passed (3)
+$ npx vitest run   # run 8
+     × a polling refetch that fulfills while the mutation is pending keeps the optimistic update 68ms
+     × a refetchOnFocus refetch that fulfills while the mutation is pending keeps the optimistic update 58ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  2 failed | 1 passed (3)
+$ npx vitest run   # run 9
+     × a polling refetch that fulfills while the mutation is pending keeps the optimistic update 64ms
+     × a refetchOnFocus refetch that fulfills while the mutation is pending keeps the optimistic update 58ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  2 failed | 1 passed (3)
+$ npx vitest run   # run 10
+     × a polling refetch that fulfills while the mutation is pending keeps the optimistic update 70ms
+     × a refetchOnFocus refetch that fulfills while the mutation is pending keeps the optimistic update 62ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  2 failed | 1 passed (3)
+$ npx vitest run   # full output of one run
+
+ RUN  v5.0.5 docs/adoption/hunts/rtk-5139/repro
+
+ ❯ test/optimisticUpdates.pending.test.ts (3 tests | 2 failed) 196ms
+   ❯ updateQueryData while the mutation is pending (#5139) (3)
+     × a polling refetch that fulfills while the mutation is pending keeps the optimistic update 67ms
+     × a refetchOnFocus refetch that fulfills while the mutation is pending keeps the optimistic update 57ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/optimisticUpdates.pending.test.ts > updateQueryData while the mutation is pending (#5139) > a polling refetch that fulfills while the mutation is pending keeps the optimistic update
+AssertionError: api/executeMutation/pending, api/queries/queryResultPatched, api/invalidation/updateProvidedBy, api/executeQuery/pending, api/executeQuery/fulfilled, api/executeQuery/pending, api/executeQuery/fulfilled, api/executeQuery/pending, api/executeQuery/fulfilled, api/executeQuery/pending, api/executeQuery/fulfilled | contents now: "TODO": expected 'TODO' to be 'I love cheese!' // Object.is equality
+
+Expected: "I love cheese!"
+Received: "TODO"
+
+ ❯ test/optimisticUpdates.pending.test.ts:147:57
+    145|     // fetches and fulfills while the PATCH is still pending
+    146|     await laterFetchFulfilled(requestId)
+    147|     expect(selectPost().data?.contents, sequence(from)).toBe('I love c…
+       |                                                         ^
+    148|
+    149|     srv.release()
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  test/optimisticUpdates.pending.test.ts > updateQueryData while the mutation is pending (#5139) > a refetchOnFocus refetch that fulfills while the mutation is pending keeps the optimistic update
+AssertionError: api/executeMutation/pending, api/queries/queryResultPatched, api/invalidation/updateProvidedBy, __rtkq/focused, api/executeQuery/pending, api/executeQuery/fulfilled | contents now: "TODO": expected 'TODO' to be 'I love cheese!' // Object.is equality
+
+Expected: "I love cheese!"
+Received: "TODO"
+
+ ❯ test/optimisticUpdates.pending.test.ts:175:57
+    173|     refocus()
+    174|     await laterFetchFulfilled(requestId)
+    175|     expect(selectPost().data?.contents, sequence(from)).toBe('I love c…
+       |                                                         ^
+    176|
+    177|     srv.release()
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 1 passed (3)
+   Start at  00:34:09
+   Duration  411ms (tests 79%, import 14%, transform 5%, worker 2%)
+

@@ -1,7 +1,13 @@
 # Draft comment for reduxjs/redux-toolkit#5139
 
-For the owner to post (not posted). The links assume `docs/adoption/hunts/rtk-5139/` is on genclass-dev/GenClass-lib
-`main`; adjust them if it lands elsewhere. Everything in it is measured in [rtk-5139.md](rtk-5139.md).
+For the owner to post (not posted). Before posting:
+
+- The links assume `docs/adoption/hunts/rtk-5139/` and `rtk-5139.md` are on genclass-dev/GenClass-lib `main` and the
+  repository is public; adjust them if they land elsewhere.
+- Open the StackBlitz link once and drop that line if the project does not boot (it was not tested: Vite 8 inside
+  StackBlitz's WebContainers).
+
+Everything in it is measured in [rtk-5139.md](rtk-5139.md).
 
 ---
 
@@ -21,11 +27,11 @@ https://github.com/genclass-dev/GenClass-lib/tree/main/docs/adoption/hunts/rtk-5
 ```
     +1  api/executeMutation/pending     renameItem   "Original"
     +4  api/queries/queryResultPatched  getItems     "Edited 1"   optimistic update
-   +64  api/executeQuery/pending        getItems     next poll (forceRefetch: true, subscribe: false), sent at +69
+   +64  api/executeQuery/pending        getItems     next poll (forceRefetch: true, subscribe: false)
    +76  api/executeQuery/fulfilled      getItems     "Original"   optimistic update replaced, PUT still pending
         ... 15 more polls fulfilled with "Original" ...
- +2038  api/executeMutation/fulfilled   renameItem   "Original"   tag invalidation waits for an in-flight poll
- +2059  api/executeQuery/fulfilled      getItems     "Edited 1"   that poll, answered after the PUT
+ +2038  api/executeMutation/fulfilled   renameItem   "Original"   tag invalidation waits: a poll is pending
+ +2059  api/executeQuery/fulfilled      getItems     "Edited 1"   that poll
  +2060  api/executeQuery/pending        getItems     invalidatesTags refetch
  +2086  api/executeQuery/fulfilled      getItems     "Edited 1"
 ```
@@ -36,25 +42,29 @@ With `refetchOnFocus` it is the same at the focus: `__rtkq/focused` (+328), `exe
 
 **Why**, as far as I can read 2.13.0: polling and focus both go through `refetchQuery`
 (`initiate(originalArgs, { subscribe: false, forceRefetch: true })`), and `writeFulfilledCacheEntry` replaces `data`
-with the payload whenever the `requestId` is current. The patch from `updateQueryData` is recorded only in the
-`PatchCollection` returned to the caller, so nothing can re-apply it. Two shapes hit this: a fetch already in flight
-when the patch is applied (#5103 / discussion #5105) and a fetch started after it while the mutation is pending (this
-issue).
+with the payload (or hands it to the endpoint's `merge`) whenever the `requestId` is current. The patches from
+`updateQueryData` are applied by `queryResultPatched` and then kept nowhere in the store or the middleware, and
+nothing ties them to the pending mutation, so RTK has nothing to re-apply. Two shapes hit this: a fetch already in
+flight when the patch is applied (#5103 / discussion #5105) and a fetch started after it while the mutation is pending
+(this issue).
 
 **Tests** that fail on 2.13.0 (the controls pass):
 
 - Redux-only vitest using the `post` / `updatePost` endpoints, `baseQuery` mock and `storeRef` shape of
-  `optimisticUpdates.test.tsx`, so it can be pasted there:
+  `optimisticUpdates.test.tsx`; its last `describe` can be pasted there once that file also imports `setupListeners`
+  from `@reduxjs/toolkit/query`:
   https://github.com/genclass-dev/GenClass-lib/blob/main/docs/adoption/hunts/rtk-5139/repro/test/optimisticUpdates.pending.test.ts
 - Playwright against the repro (the name shown in the DOM while the PUT is pending):
   https://github.com/genclass-dev/GenClass-lib/blob/main/docs/adoption/hunts/rtk-5139/repro/e2e/rtk-5139.spec.ts
 
-Polling and focus failed 10 of 10 runs each; the controls passed 10 of 10.
+With `--repeat-each=10` the Playwright polling and focus tests failed 10 of 10 and the control passed 10 of 10; the
+vitest gave 2 failed, 1 passed on each of 10 runs.
 
 On the "what should happen" question: re-running the recipes of in-flight mutations after each fulfilled fetch of the
-entry (a small userland middleware, roughly the reporter's suggestion) makes both tests pass, so that behaviour is
-reachable without dropping fresh data. Sketch and trade-offs of the alternatives:
+entry (a small userland middleware, roughly the reporter's suggestion) makes both suites pass every time without
+dropping fresh data. The patch against the repro and the test, and the trade-offs of the alternatives:
+https://github.com/genclass-dev/GenClass-lib/blob/main/docs/adoption/hunts/rtk-5139/workaround.patch and
 https://github.com/genclass-dev/GenClass-lib/blob/main/docs/adoption/hunts/rtk-5139.md#fix-directions-no-pr
 
-(The timing was recorded with GenClass, which logs requests next to store writes; the action log above is all it
-needs.)
+(The actions and values above are the Redux action log; the request timing behind the notes was recorded with
+GenClass, which logs requests next to store writes.)

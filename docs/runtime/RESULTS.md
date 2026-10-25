@@ -851,5 +851,5 @@ The witness fires only when the overwriting request started before the patch (by
 in the issue's own shape the fetch is newer on the page and stale only against the server, so it is not witnessed.
 MCP findings over the 40 runs: 4 `stale-write`, 1 the bug and 3 bookkeeping (true happens-before facts, not bugs);
 none from the control. The Playwright test `genclass_explain` generated for the bug passed 5 of 5 on the buggy app
-(the witness depends on the click's timing, which a delivery-order replay does not recreate). One case, not a recall
-figure.
+(the witness depends on the click's timing, which a delivery-order replay does not recreate; run log not kept). One
+case, not a recall figure. Raw output: `docs/adoption/hunts/rtk-5139/timeline/output/`.
