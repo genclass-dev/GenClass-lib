@@ -1,0 +1,90 @@
+diff --git a/frontend/app/composables/recipes/__tests__/use-recipe-search.test.ts b/frontend/app/composables/recipes/__tests__/use-recipe-search.test.ts
+new file mode 100644
+index 000000000..51281e891
+--- /dev/null
++++ b/frontend/app/composables/recipes/__tests__/use-recipe-search.test.ts
+@@ -0,0 +1,57 @@
++import { describe, expect, test, vi } from "vitest";
++import { useRecipeSearch } from "../use-recipe-search";
++import type { UserApi } from "~/lib/api";
++import type { Recipe } from "~/lib/api/types/recipe";
++
++describe("useRecipeSearch", () => {
++  const recipesFor = (term: string): Recipe[] => [{ name: `${term} recipe` }];
++
++  // each search resolves only when the test says so, so responses can arrive out of order
++  function createApi() {
++    const pending: Record<string, () => void> = {};
++    const search = vi.fn(({ search }: { search: string }) => new Promise((resolve) => {
++      pending[search] = () => resolve({ data: { items: recipesFor(search) }, error: null });
++    }));
++    const api = { recipes: { search } } as unknown as UserApi;
++    return { api, search, pending };
++  }
++
++  test("an older response that arrives last does not overwrite newer results", async () => {
++    const { api, pending } = createApi();
++    const search = useRecipeSearch(api);
++
++    search.query.value = "chi";
++    const first = search.trigger();
++    search.query.value = "chicken";
++    const second = search.trigger();
++
++    pending.chicken();
++    await second;
++    expect(search.data.value).toEqual(recipesFor("chicken"));
++    expect(search.loading.value).toBe(false);
++
++    pending.chi();
++    await first;
++    expect(search.data.value).toEqual(recipesFor("chicken"));
++  });
++
++  test("loading stays on until the latest search returns", async () => {
++    const { api, pending } = createApi();
++    const search = useRecipeSearch(api);
++
++    search.query.value = "chi";
++    const first = search.trigger();
++    search.query.value = "chicken";
++    const second = search.trigger();
++
++    pending.chi();
++    await first;
++    expect(search.loading.value).toBe(true);
++    expect(search.data.value).toEqual([]);
++
++    pending.chicken();
++    await second;
++    expect(search.loading.value).toBe(false);
++    expect(search.data.value).toEqual(recipesFor("chicken"));
++  });
++});
+diff --git a/frontend/app/composables/recipes/use-recipe-search.ts b/frontend/app/composables/recipes/use-recipe-search.ts
+index e0a9dd711..9ae0a5639 100644
+--- a/frontend/app/composables/recipes/use-recipe-search.ts
++++ b/frontend/app/composables/recipes/use-recipe-search.ts
+@@ -22,8 +22,10 @@ export function useRecipeSearch(api: UserApi | ExploreApi): UseRecipeSearchRetur
+   const error = ref("");
+   const loading = ref(false);
+   const recipes = ref<Recipe[]>([]);
++  let latestRequest = 0;
+ 
+   async function searchRecipes(term: string) {
++    const request = ++latestRequest;
+     loading.value = true;
+     const { data, error } = await api.recipes.search({
+       search: term,
+@@ -34,6 +36,11 @@ export function useRecipeSearch(api: UserApi | ExploreApi): UseRecipeSearchRetur
+       _searchSeed: Date.now().toString(),
+     });
+ 
++    // a newer search started while this one was in flight; let it set the results
++    if (request !== latestRequest) {
++      return;
++    }
++
+     if (error) {
+       console.error(error);
+       loading.value = false;

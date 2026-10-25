@@ -1,0 +1,103 @@
+name: MCP server
+
+# @genclass/mcp (packages/mcp): typecheck, build and unit tests, then the end-to-end check of the agent loop in
+# Chromium (packages/mcp/test/e2e/race.e2e.mjs): a search page with a stale-response race, the real runtime and its
+# @genclass/runtime/agent link, the real bridge and MCP tools. Explore must find the race on the buggy page, the replay
+# must reproduce it, the generated regression test must fail there and pass on the fixed page, and explore must report
+# nothing on the fixed page. A separate workflow from ci.yml so it never blocks the main CI job. It sends nothing
+# anywhere: the bridge and the app listen on 127.0.0.1 inside the runner.
+
+on:
+  push:
+    paths:
+      - "packages/mcp/**"
+      - "packages/runtime/src/agent/**"
+      - "packages/runtime/src/runtime.ts"
+      - "package-lock.json"
+      - ".github/workflows/mcp.yml"
+      - ".github/workflows/release-mcp.yml"
+      - ".claude-plugin/**"
+      - ".cursor-plugin/**"
+      - "gemini-extension.json"
+      - "glama.json"
+      - "llms-install.md"
+      - "docs/adoption/listings/mcp.md"
+  pull_request:
+    paths:
+      - "packages/mcp/**"
+      - "packages/runtime/src/agent/**"
+      - "packages/runtime/src/runtime.ts"
+      - "package-lock.json"
+      - ".github/workflows/mcp.yml"
+      - ".github/workflows/release-mcp.yml"
+      - ".claude-plugin/**"
+      - ".cursor-plugin/**"
+      - "gemini-extension.json"
+      - "glama.json"
+      - "llms-install.md"
+      - "docs/adoption/listings/mcp.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mcp-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    name: "@genclass/mcp: typecheck, build, unit tests, e2e in Chromium"
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      ONNXRUNTIME_NODE_INSTALL: skip
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - name: Typecheck
+        run: npm run typecheck -w @genclass/mcp
+
+      - name: Build
+        run: |
+          npm run build -w @genclass/runtime
+          npm run build -w @genclass/mcp
+
+      - name: Unit tests
+        working-directory: packages/mcp
+        run: npx vitest run
+
+      - name: MCP Bundle (built, validated, unpacked server answers initialize; not uploaded)
+        working-directory: packages/mcp
+        run: npm run bundle
+
+      # Claude Code's own validator, pinned to a release older than two weeks (2.1.310 adds --profile directory, which
+      # also checks the directory's README rule; test/manifests.test.ts covers that rule meanwhile)
+      - name: Claude Code plugin and marketplace manifests
+        run: |
+          npx -y @anthropic-ai/claude-code@2.1.296 plugin validate packages/mcp/plugin --strict
+          npx -y @anthropic-ai/claude-code@2.1.296 plugin validate . --strict
+
+      - name: Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: The agent loop end to end (explore, replay, regression test, fixed page)
+        run: node packages/mcp/test/e2e/race.e2e.mjs | tee "$RUNNER_TEMP/e2e.log"
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo '### GenClass agent loop, end to end'
+            echo '```json'
+            sed -n '/^{/,$p' "$RUNNER_TEMP/e2e.log" | tail -40
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

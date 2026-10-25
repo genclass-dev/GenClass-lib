@@ -1,0 +1,35 @@
+---
+// One page with a search box written the way a lot of code is: every keystroke fetches, and whichever answer arrives
+// last wins. The API route (src/pages/api/search.ts) answers in a random 50-900 ms, so type quickly and an older
+// answer can overwrite a newer one. GenClass watches this with no code here (the integration in astro.config.mjs
+// injects its one line into every page): open the overlay (bottom right, development only) to see what it finds.
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>GenClass + Astro</title>
+  </head>
+  <body>
+    <main style="font-family: system-ui, sans-serif; max-width: 520px; margin: 48px auto; padding: 0 16px">
+      <h1>GenClass + Astro</h1>
+      <p>Type a city quickly, for example “san”, then look at the GenClass overlay.</p>
+      <input id="q" placeholder="Search cities" autofocus style="width: 100%; padding: 8px; font-size: 16px" />
+      <ul id="results"></ul>
+    </main>
+    <script>
+      const input = document.getElementById("q") as HTMLInputElement;
+      const list = document.getElementById("results") as HTMLUListElement;
+      input.addEventListener("input", () => {
+        const q = input.value;
+        if (!q) return void list.replaceChildren();
+        fetch(`/api/search?q=${encodeURIComponent(q)}`)
+          .then((r) => r.json())
+          .then((r: { results: string[] }) => {
+            list.replaceChildren(...r.results.map((c) => Object.assign(document.createElement("li"), { textContent: c })));
+          });
+      });
+    </script>
+  </body>
+</html>

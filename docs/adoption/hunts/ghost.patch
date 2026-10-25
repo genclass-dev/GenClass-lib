@@ -1,0 +1,7 @@
+No patch for Ghost.
+
+The race hunt against Ghost's admin at commit 268846abf3d3b65d33fc61d84200accc6d21382f (6.73.0-rc.0) found no race,
+so there is no fix and no regression test to propose. See docs/adoption/hunts/ghost.md for every scenario and verdict,
+and docs/adoption/hunts/ghost-issue.md for the text that would have gone to the maintainers.
+
+The harness that ran the hunt, which a later hunt on Ghost can start from, is docs/adoption/hunts/ghost/hunt.mjs.

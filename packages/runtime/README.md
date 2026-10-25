@@ -19,7 +19,7 @@ runtime has no list of known bugs: triage picks the situations, the model decide
 **One line covers the whole app.** First in `<head>`:
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@0.3.0-beta.0"></script>
+<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@0.3.0-beta.1"></script>
 ```
 
 (pin the version: the unversioned URL may serve an older release from the CDN cache) or first in your entry file (any bundler; Next.js: `instrumentation-client.ts`, or [only in some builds](#only-in-some-builds-nextjs)):
@@ -48,7 +48,7 @@ GenClass at a few functions instead of the whole app. See [Your dashboard](#your
 > browsers sending Global Privacy Control are never collected. Details: [Privacy and telemetry](#privacy-and-telemetry)
 > and [TELEMETRY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md).
 
-> **Status: `0.3.0-beta.0` (npm `beta` dist-tag: `npm install @genclass/runtime@beta`; the stable line is `0.2.x`),
+> **Status: `0.3.0-beta.1` (npm `beta` dist-tag: `npm install @genclass/runtime@beta`; the stable line is `0.2.x`),
 > with model `@genclass/runtime-model@0.2.0`.**
 >
 > - **The model loads by default.** A default `GenClass.init()` loads `@genclass/runtime-model@0.2.0` (10.2 MB q8,
@@ -78,7 +78,7 @@ Questions, bug reports and false detections: [GitHub Issues](https://github.com/
 
 ## Contents
 
-[Install](#install) · [Function-specific: protect()](#function-specific-protect) · [Your dashboard](#your-dashboard) ·
+[Install](#install) · [Your coding agent](#your-coding-agent-replay-and-explore) · [Function-specific: protect()](#function-specific-protect) · [Your dashboard](#your-dashboard) ·
 [Automatic state discovery](#automatic-state-discovery) ·
 [Why it's an easy yes](#why-its-an-easy-yes-measured) · [Modes](#modes) ·
 [What it looks for](#what-it-looks-for) · [Visual and CSS checks](#visual-and-css-checks-new-in-030) ·
@@ -247,7 +247,7 @@ It exposes `window.GenClass`, discovers the app's state like the import does, an
 Runtime Web and the overlay on demand from the same version on the CDN. `data-mode` takes `observe` (the default), `guard` or `heal`; `data-devtools="local"` shows the
 overlay only on localhost; `data-manual` skips the automatic `GenClass.init()`. Since `0.3.0`: `data-token="gc_..."`
 (your app's token), `data-scope="functions"` and `window.GenClass.protect`. Pin a version in production
-(`https://cdn.jsdelivr.net/npm/@genclass/runtime@0.3.0-beta.0`); the plain-HTML path of `init` writes a pinned
+(`https://cdn.jsdelivr.net/npm/@genclass/runtime@0.3.0-beta.1`); the plain-HTML path of `init` writes a pinned
 jsDelivr URL with SRI.
 
 **4. By hand:**
@@ -339,6 +339,37 @@ value, or none, builds without GenClass. Like every `NEXT_PUBLIC_*` value, it is
   was 64 B gzip larger than before GenClass was added (the empty `instrumentation-client` hook). Not checked with
   `next build --webpack`.
 
+## Your coding agent: replay and explore
+
+A race depends on the network's timing, so it rarely shows on your fast machine and never in a test where mocked APIs
+answer in order. `@genclass/runtime/agent` connects your development build to `@genclass/mcp`, an MCP server for
+Claude Code and other coding agents, and lets the agent:
+
+- **see what happened, in order:** clicks, requests, the order their responses were delivered, the state each one
+  wrote, errors with the click and request behind them, and this runtime's detections;
+- **replay** the exact delivery order that produced a bug, on any machine, before the fix (reproduced) and after it
+  (not reproduced);
+- **explore**: run the same steps with overlapping responses delivered in different seeded orders, optionally slower,
+  and report what ends differently from the run where responses came back in order;
+- **keep the proof:** a generated Playwright test that sets the same order and fails while the bug is there.
+
+```bash
+claude mcp add genclass -- npx -y @genclass/mcp@0.1.0
+```
+
+```ts
+import { GenClass } from "@genclass/runtime";
+import { connectAgent } from "@genclass/runtime/agent";
+
+const rt = GenClass.init();
+if (import.meta.env.DEV) connectAgent(rt); // development builds only
+```
+
+`connectAgent` is its own entry (no first-load cost), runs only on pages served from your machine, talks only to a
+loopback address, and holds a response only when you or your agent set a schedule (each at most 1.5 s beyond its
+emulated delay; never changed; protected requests never). Without one it only records (a page load's first responses
+wait for the bridge's hello, at most 0.6 s). Design and measurements: [AGENT.md](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/AGENT.md).
+
 ## Function-specific: protect()
 
 **New in `0.3.0`** (`0.2.x` has no `protect` export: importing it fails). Use this when you want GenClass
@@ -412,7 +443,7 @@ where GenClass acts.
 web app gets a **project key** (token: `gc_` + 22 letters and digits) that groups its diagnostics on a dashboard at
 genclass.dev. The key is public: it ships in your page and can only add telemetry to its app. Keep the dashboards in
 a GenClass account, or use one private link per app without an account. The dashboard is free for every app, with
-90 days of history; [Individual](https://genclass.dev/pricing) adds a classifier GenClass trains for you.
+90 days of history, and so is your own classifier, which GenClass trains on your app ([pricing](https://genclass.dev/pricing)).
 
 **With an account:**
 
@@ -942,7 +973,7 @@ npx @genclass/runtime@beta init --sink webhook:/genclass   # or console-json; re
 
 ```html
 <meta name="genclass" content="sink=webhook:/genclass+console-json">     <!-- + joins names: commas separate the meta keys -->
-<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@0.3.0-beta.0" data-sink="webhook:/genclass,console-json"></script>
+<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@0.3.0-beta.1" data-sink="webhook:/genclass,console-json"></script>
 <script>window.GENCLASS_CONFIG = { sinks: ["webhook:https://collector.example/genclass"] };</script>
 ```
 
@@ -1022,7 +1053,7 @@ GenClass runs with safe defaults (`mode: "observe"`, a `"balanced"` gate that ap
 
 Action limits default to 60 per minute overall, 10 per minute on the same subject (store field or endpoint), and 200 per session.
 
-URL overrides (`?genclass`, `?genclass-mode`, `?genclass-aggr`, `?genclass-sample`, and `localStorage.genclass`) can only lower settings, with or without `debug: true`. Only `?genclass=` and `localStorage.genclass` may raise the mode, and only on a development host (`localhost`, `127.0.0.1`, `[::1]` or `*.localhost` with an explicit port, or `*.test`; see the kill switch above); `?genclass-mode`, `?genclass-aggr` and `?genclass-sample` never raise. Since 0.2.2 a link such as `?genclass=guard` can no longer raise a production site that set no `mode` (it stays in `observe`); since 0.3.0-beta.1 `debug: true` no longer lets it either.
+URL overrides (`?genclass`, `?genclass-mode`, `?genclass-aggr`, `?genclass-sample`, and `localStorage.genclass`) can only lower settings, with or without `debug: true`. Only `?genclass=` and `localStorage.genclass` may raise the mode, and only on a development host (`localhost`, `127.0.0.1`, `[::1]` or `*.localhost` with an explicit port, or `*.test`; see the kill switch above); `?genclass-mode`, `?genclass-aggr` and `?genclass-sample` never raise. Since 0.2.2 a link such as `?genclass=guard` can no longer raise a production site that set no `mode` (it stays in `observe`); since 0.2.3 and 0.3.0-beta.2 `debug: true` no longer lets it either.
 
 ```ts
 import { GenClass } from "@genclass/runtime";
@@ -1259,7 +1290,7 @@ The `0.1.0-beta.3` "no measurable change" leaves out loading GenClass's code, wh
 runtime's own install work) was not measured. To ship no GenClass code in builds that do not use it, see
 [Only in some builds (Next.js)](#only-in-some-builds-nextjs): `?genclass=off`, `enabled: false` and `model: false`
 stop work, not the download. Method and the build sizes:
-[RESULTS.md §16](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/RESULTS.md#16-one-apps-browser-cost-030-beta0-measured-by-the-apps-owner-2026-10-17).
+[RESULTS.md §21](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/RESULTS.md#21-one-apps-browser-cost-030-beta0-measured-by-the-apps-owner-2026-10-17).
 
 **Automatic state discovery** (`0.2.0`, the pilot app with only the one line, 2026-10-10; same build with
 `autoState: false` as the control; Playwright Chromium, 390×844, observe mode, telemetry off):

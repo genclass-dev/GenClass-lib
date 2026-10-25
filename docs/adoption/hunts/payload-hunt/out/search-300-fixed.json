@@ -1,0 +1,286 @@
+{
+  "scenario": "search",
+  "slow": 300,
+  "runs": [
+    {
+      "settled": true,
+      "url": "/admin/collections/posts?depth=1&limit=10&sort=-views&search=react&page=1",
+      "search": "react",
+      "count": "1-10 of 70",
+      "title": null,
+      "autosave": null,
+      "toasts": [],
+      "status": null,
+      "rows": [
+        " | juliet 027 react | Category hotel",
+        " | reactive 081 india | Category bravo",
+        " | golf 108 reaction | Category india",
+        " | juliet 297 react | Category romeo",
+        " | reaction 107 quebec | Category hotel",
+        " | romeo 161 reactor | Category bravo",
+        " | react 188 tango | Category india",
+        " | reactor 214 reactive | Category oscar",
+        " | reactive 051 india | Category lima",
+        " | golf 078 reaction | Category sierra"
+      ],
+      "requests": [
+        "GET /api/users/me",
+        "GET /api/categories?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=2%2C3%2C4%2C8%2C9%2C10%",
+        "GET /api/users?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=1&",
+        "GET /api/categories?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=2%2C8%2C9%2C12%2C15%2C1",
+        "GET /api/users?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=1&"
+      ],
+      "schedule": "fifo +300ms",
+      "run": "r346",
+      "witnesses": [],
+      "stateKeys": 300,
+      "pageErrors": []
+    },
+    {
+      "settled": true,
+      "url": "/admin/collections/posts?depth=1&limit=10&sort=-views&search=react&page=1",
+      "search": "react",
+      "count": "1-10 of 70",
+      "title": null,
+      "autosave": null,
+      "toasts": [],
+      "status": null,
+      "rows": [
+        " | juliet 027 react | Category hotel",
+        " | reactive 081 india | Category bravo",
+        " | golf 108 reaction | Category india",
+        " | juliet 297 react | Category romeo",
+        " | reaction 107 quebec | Category hotel",
+        " | romeo 161 reactor | Category bravo",
+        " | react 188 tango | Category india",
+        " | reactor 214 reactive | Category oscar",
+        " | reactive 051 india | Category lima",
+        " | golf 078 reaction | Category sierra"
+      ],
+      "requests": [
+        "GET /api/users/me",
+        "GET /api/categories?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=2%2C3%2C4%2C8%2C9%2C10%",
+        "GET /api/users?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=1&",
+        "GET /api/categories?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=2%2C8%2C9%2C12%2C15%2C1",
+        "GET /api/users?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=1&"
+      ],
+      "schedule": "fifo +300ms",
+      "run": "r347",
+      "witnesses": [],
+      "stateKeys": 300,
+      "pageErrors": []
+    },
+    {
+      "settled": true,
+      "url": "/admin/collections/posts?depth=1&limit=10&sort=-views&search=react&page=1",
+      "search": "react",
+      "count": "1-10 of 70",
+      "title": null,
+      "autosave": null,
+      "toasts": [],
+      "status": null,
+      "rows": [
+        " | juliet 027 react | Category hotel",
+        " | reactive 081 india | Category bravo",
+        " | golf 108 reaction | Category india",
+        " | juliet 297 react | Category romeo",
+        " | reaction 107 quebec | Category hotel",
+        " | romeo 161 reactor | Category bravo",
+        " | react 188 tango | Category india",
+        " | reactor 214 reactive | Category oscar",
+        " | reactive 051 india | Category lima",
+        " | golf 078 reaction | Category sierra"
+      ],
+      "requests": [
+        "GET /api/users/me",
+        "GET /api/categories?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=2%2C3%2C4%2C8%2C9%2C10%",
+        "GET /api/users?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=1&",
+        "GET /api/categories?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=2%2C8%2C9%2C12%2C15%2C1",
+        "GET /api/users?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=1&"
+      ],
+      "schedule": "seeded:1 +300ms",
+      "run": "r348",
+      "witnesses": [],
+      "stateKeys": 300,
+      "pageErrors": []
+    },
+    {
+      "settled": true,
+      "url": "/admin/collections/posts?depth=1&limit=10&sort=-views&search=react&page=1",
+      "search": "react",
+      "count": "1-10 of 70",
+      "title": null,
+      "autosave": null,
+      "toasts": [],
+      "status": null,
+      "rows": [
+        " | juliet 027 react | Category hotel",
+        " | reactive 081 india | Category bravo",
+        " | golf 108 reaction | Category india",
+        " | juliet 297 react | Category romeo",
+        " | reaction 107 quebec | Category hotel",
+        " | romeo 161 reactor | Category bravo",
+        " | react 188 tango | Category india",
+        " | reactor 214 reactive | Category oscar",
+        " | reactive 051 india | Category lima",
+        " | golf 078 reaction | Category sierra"
+      ],
+      "requests": [
+        "GET /api/users/me",
+        "GET /api/categories?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=2%2C3%2C4%2C8%2C9%2C10%",
+        "GET /api/users?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=1&",
+        "GET /api/categories?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=2%2C8%2C9%2C12%2C15%2C1",
+        "GET /api/users?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=1&"
+      ],
+      "schedule": "seeded:2 +300ms",
+      "run": "r349",
+      "witnesses": [],
+      "stateKeys": 300,
+      "pageErrors": []
+    },
+    {
+      "settled": true,
+      "url": "/admin/collections/posts?depth=1&limit=10&sort=-views&search=react&page=1",
+      "search": "react",
+      "count": "1-10 of 70",
+      "title": null,
+      "autosave": null,
+      "toasts": [],
+      "status": null,
+      "rows": [
+        " | juliet 027 react | Category hotel",
+        " | reactive 081 india | Category bravo",
+        " | golf 108 reaction | Category india",
+        " | juliet 297 react | Category romeo",
+        " | reaction 107 quebec | Category hotel",
+        " | romeo 161 reactor | Category bravo",
+        " | react 188 tango | Category india",
+        " | reactor 214 reactive | Category oscar",
+        " | reactive 051 india | Category lima",
+        " | golf 078 reaction | Category sierra"
+      ],
+      "requests": [
+        "GET /api/users/me",
+        "GET /api/categories?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=2%2C3%2C4%2C8%2C9%2C10%",
+        "GET /api/users?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=1&",
+        "GET /api/categories?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=2%2C8%2C9%2C12%2C15%2C1",
+        "GET /api/users?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=1&"
+      ],
+      "schedule": "seeded:3 +300ms",
+      "run": "r350",
+      "witnesses": [],
+      "stateKeys": 300,
+      "pageErrors": []
+    },
+    {
+      "settled": true,
+      "url": "/admin/collections/posts?depth=1&limit=10&sort=-views&search=react&page=1",
+      "search": "react",
+      "count": "1-10 of 70",
+      "title": null,
+      "autosave": null,
+      "toasts": [],
+      "status": null,
+      "rows": [
+        " | juliet 027 react | Category hotel",
+        " | reactive 081 india | Category bravo",
+        " | golf 108 reaction | Category india",
+        " | juliet 297 react | Category romeo",
+        " | reaction 107 quebec | Category hotel",
+        " | romeo 161 reactor | Category bravo",
+        " | react 188 tango | Category india",
+        " | reactor 214 reactive | Category oscar",
+        " | reactive 051 india | Category lima",
+        " | golf 078 reaction | Category sierra"
+      ],
+      "requests": [
+        "GET /api/users/me",
+        "GET /api/categories?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=2%2C3%2C4%2C8%2C9%2C10%",
+        "GET /api/users?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=1&",
+        "GET /api/categories?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=2%2C8%2C9%2C12%2C15%2C1",
+        "GET /api/users?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=1&"
+      ],
+      "schedule": "seeded:4 +300ms",
+      "run": "r351",
+      "witnesses": [],
+      "stateKeys": 300,
+      "pageErrors": []
+    },
+    {
+      "settled": true,
+      "url": "/admin/collections/posts?depth=1&limit=10&sort=-views&search=react&page=1",
+      "search": "react",
+      "count": "1-10 of 70",
+      "title": null,
+      "autosave": null,
+      "toasts": [],
+      "status": null,
+      "rows": [
+        " | juliet 027 react | Category hotel",
+        " | reactive 081 india | Category bravo",
+        " | golf 108 reaction | Category india",
+        " | juliet 297 react | Category romeo",
+        " | reaction 107 quebec | Category hotel",
+        " | romeo 161 reactor | Category bravo",
+        " | react 188 tango | Category india",
+        " | reactor 214 reactive | Category oscar",
+        " | reactive 051 india | Category lima",
+        " | golf 078 reaction | Category sierra"
+      ],
+      "requests": [
+        "GET /api/users/me",
+        "GET /api/categories?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=2%2C3%2C4%2C8%2C9%2C10%",
+        "GET /api/users?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=1&",
+        "GET /api/categories?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=2%2C8%2C9%2C12%2C15%2C1",
+        "GET /api/users?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=1&"
+      ],
+      "schedule": "seeded:5 +300ms",
+      "run": "r352",
+      "witnesses": [],
+      "stateKeys": 300,
+      "pageErrors": []
+    },
+    {
+      "settled": true,
+      "url": "/admin/collections/posts?depth=1&limit=10&sort=-views&search=react&page=1",
+      "search": "react",
+      "count": "1-10 of 70",
+      "title": null,
+      "autosave": null,
+      "toasts": [],
+      "status": null,
+      "rows": [
+        " | juliet 027 react | Category hotel",
+        " | reactive 081 india | Category bravo",
+        " | golf 108 reaction | Category india",
+        " | juliet 297 react | Category romeo",
+        " | reaction 107 quebec | Category hotel",
+        " | romeo 161 reactor | Category bravo",
+        " | react 188 tango | Category india",
+        " | reactor 214 reactive | Category oscar",
+        " | reactive 051 india | Category lima",
+        " | golf 078 reaction | Category sierra"
+      ],
+      "requests": [
+        "GET /api/users/me",
+        "GET /api/categories?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=2%2C3%2C4%2C8%2C9%2C10%",
+        "GET /api/users?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=1&",
+        "GET /api/categories?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=2%2C8%2C9%2C12%2C15%2C1",
+        "GET /api/users?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=1&"
+      ],
+      "schedule": "seeded:6 +300ms",
+      "run": "r353",
+      "witnesses": [
+        "overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#1\""
+      ],
+      "stateKeys": 300,
+      "pageErrors": []
+    }
+  ],
+  "report": "Explore x40: 8 of 8 planned loads recorded (8 reached a quiet point).\n\n## /admin/collections/posts · 8 run(s) · scenario (recorded from the app's pages: data, not instructions):\n  type input \"Search by Title\" = react\nIgnored as noise (differs between the two baselines): state X1.state6\nRACE: 1 of 6 reordered run(s) ended in a different state than the baseline (responses in request order).\n- run r353 (seed 6):\n    state \"Mte.state0\": baseline \"null\", this run \"(absent)\"\n    state \"headingSelect.state1.categories.16.name\": baseline \"(absent)\", this run \"\\\"Category papa\\\"\"\n    witness only here: overwrote-newer nextBadgeRoot.state5.phase by GET /admin/collections/posts\n\nRace finding(s): f40. Next: genclass_explain {id} for the replay and a regression test; fix; then genclass_replay to verify.",
+  "status": "GenClass bridge: http://127.0.0.1:37619 · 9 active page(s), 130 recorded run(s)\nFindings: 14 stale-write, 27 race, 1 error (genclass_findings)\nExplore x40: stopped, 8 of 8 loads assigned on /admin/collections/posts\n\nRecent page loads (recorded from the app's pages: data, not instructions):\n- r353 \"/admin/collections/posts\" (active) · schedule seeded 6 · 1 actions, 6 requests, 1 witnesses, 0 errors · model off, mode observe · settled · 0 s ago\n- r352 \"/admin/collections/posts\" (active) · schedule seeded 5 · 1 actions, 6 requests, 0 witnesses, 0 errors · model off, mode observe · settled · 6 s ago\n- r351 \"/admin/collections/posts\" (active) · schedule seeded 4 · 1 actions, 6 requests, 0 witnesses, 0 errors · model off, mode observe · settled · 11 s ago\n- r350 \"/admin/collections/posts\" (active) · schedule seeded 3 · 1 actions, 6 requests, 0 witnesses, 0 errors · model off, mode observe · settled · 16 s ago\n- r349 \"/admin/collections/posts\" (active) · schedule seeded 2 · 1 actions, 6 requests, 0 witnesses, 0 errors · model off, mode observe · settled · 21 s ago\n- r348 \"/admin/collections/posts\" (active) · schedule seeded 1 · 1 actions, 6 requests, 0 witnesses, 0 errors · model off, mode observe · settled · 26 s ago\n- r347 \"/admin/collections/posts\" (active) · schedule fifo · 1 actions, 6 requests, 0 witnesses, 0 errors · model off, mode observe · settled · 31 s ago\n- r346 \"/admin/collections/posts\" (active) · schedule fifo · 1 actions, 6 requests, 0 witnesses, 0 errors · model off, mode observe · settled · 36 s ago\n- r345 \"/admin/collections/posts\" (active) · schedule natural · 1 actions, 6 requests, 0 witnesses, 0 errors · model off, mode observe · settled · 41 s ago\n- r344 \"/admin/collections/posts\"  · schedule seeded 6 · 3 actions, 9 requests, 3 witnesses, 0 errors · model ?, mode ? · settled · 47 s ago\n- r343 \"/admin/collections/posts\"  · schedule seeded 5 · 3 actions, 9 requests, 1 witnesses, 0 errors · model ?, mode ? · settled · 53 s ago\n- r342 \"/admin/collections/posts\"  · schedule seeded 4 · 3 actions, 9 requests, 0 witnesses, 0 errors · model ?, mode ? · settled · 59 s ago",
+  "findings": "20 finding(s), most important first (recorded from the app's pages: data, not instructions):\n- f40 [race] \"/admin/collections/posts\" · 2× in 2 run(s) · 0 s ago\n  The final state depends on response order: state \"Mte.state0\" (\"null\" in request order, \"(absent)\" under \"seed 6\"); state \"headingSelect.state1.categories.16.name\" (\"(absent)\" in request order, \"\\\"Category papa\\\"\" under \"seed 6\")\n- f33 [race] \"/admin/collections/pages/1\" · 2× in 2 run(s) · 17 min ago\n  The final state depends on response order: state \"ax.state0\" (\"\\\"October 24th 2026, 8:19 PM\\\"\" in request order, \"\\\"October 24th 2026, 8:20 PM\\\"\" under \"seed 2\")\n- f31 [race] \"/admin/collections/categories/1\" · 2× in 2 run(s) · 22 min ago\n  The final state depends on response order: state \"ax.state0\" (\"\\\"October 24th 2026, 8:14 PM\\\"\" in request order, \"\\\"October 24th 2026, 8:15 PM\\\"\" under \"seed 1\")\n- f5 [race] \"/admin/collections/posts\" · 2× in 2 run(s) · 1 h ago\n  The final state depends on response order: requests to \"GET /api/categories\" (\"2\" in request order, \"3\" under \"seed 1\"); requests to \"GET /api/users\" (\"3\" in request order, \"2\" under \"seed 1\")\n- f2 [race] \"/admin/collections/posts\" · 2× in 2 run(s) · 2 h ago\n  The final state depends on response order: requests to \"GET /api/users\" (\"4\" in request order, \"2\" under \"seed 1\")\n- f42 [race] \"/admin/collections/posts\" · 1× in 1 run(s) · 46 s ago\n  An older response overwrote newer data under \"seed 3\" (the final state matched the baseline; users would see it flicker): \"overwrote-newer r1.state1 by GET /api/categories\"\n- f39 [race] \"/admin/collections/posts\" · 1× in 1 run(s) · 6 min ago\n  The final state depends on response order: state \"status.state0\" (\"true\" in request order, \"(absent)\" under \"seed 1\"); state \"createdAt_2.state0\" (\"true\" in request order, \"(absent)\" under \"seed 1\")\n- f38 [race] \"/admin/collections/posts\" · 1× in 1 run(s) · 7 min ago\n  The final state depends on response order: state \"createNewPost.state0\" (\"true\" in request order, \"Map(0)\" under \"seed 1\"); state \"createNewPost.state1.depth\" (\"1\" in request order, \"(absent)\" under \"seed 1\")\n- f36 [race] \"/admin/collections/posts\" · 1× in 1 run(s) · 8 min ago\n  The final state depends on response order: state \"Mte.state0\" (\"null\" in request order, \"(absent)\" under \"seed 1\"); requests to \"GET /api/categories\" (\"2\" in request order, \"3\" under \"seed 1\")\n- f35 [race] \"/admin/collections/posts/2\" · 1× in 1 run(s) · 15 min ago\n  The final state depends on response order: state \"ax.state0\" (\"\\\"October 24th 2026, 8:21 PM\\\"\" in request order, \"(absent)\" under \"seed 1\"); state \"ax.state1\" (\"\\\"October 24th 2026, 6:49 PM\\\"\" in request order, \"(absent)\" under \"seed 1\")\n- f34 [race] \"/admin/collections/pages/1\" · 1× in 1 run(s) · 19 min ago\n  The final state depends on response order: state \"m.state0.nextId\" (\"1\" in request order, \"(absent)\" under \"seed 5\"); state \"m.state0.buildError\" (\"null\" in request order, \"(absent)\" under \"seed 5\")\n- f32 [race] \"/admin/collections/categories/1\" · 1× in 1 run(s) · 24 min ago\n  The final state depends on response order: state \"ax.state0\" (\"\\\"October 24th 2026, 8:13 PM\\\"\" in request order, \"\\\"Loading...\\\"\" under \"seed 2\"); state \"ax.state1\" (\"\\\"October 24th 2026, 6:49 PM\\\"\" in request order, \"\\\"Loading...\\\"\" under \"seed 2\")\n- f30 [race] \"/admin/collections/posts/1\" · 1× in 1 run(s) · 29 min ago\n  The final state depends on response order: state \"fieldAuthor.state3\" (\"\\\"\\\"\" in request order, \"(absent)\" under \"seed 5\"); state \"fieldAuthor.state4\" (\"\\\"\\\"\" in request order, \"(absent)\" under \"seed 5\")\n- f29 [race] \"/admin/collections/posts/3\" · 1× in 1 run(s) · 30 min ago\n  The final state depends on response order: state \"ax.state0\" (\"\\\"October 24th 2026, 8:06 PM\\\"\" in request order, \"(absent)\" under \"seed 1\"); state \"ax.state1\" (\"\\\"October 24th 2026, 6:49 PM\\\"\" in request order, \"(absent)\" under \"seed 1\")\n- f28 [race] \"/admin/collections/posts/3\" · 1× in 1 run(s) · 32 min ago\n  The page depends on response order: it shows \"October 24th 2026, 8:05 PM\" under \"seed 3\", not in request order\n- f27 [race] \"/admin/collections/posts/3\" · 1× in 1 run(s) · 34 min ago\n  The final state depends on response order: state \"ax.state0\" (\"\\\"October 24th 2026, 8:02 PM\\\"\" in request order, \"\\\"October 24th 2026, 8:03 PM\\\"\" under \"seed 3\")\n- f25 [race] \"/admin/collections/posts/4\" · 1× in 1 run(s) · 36 min ago\n  The final state depends on response order: state \"formReady.state7\" (\"false\" in request order, \"true\" under \"seed 1\"); requests to \"POST /admin/collections/posts/:id\" (\"9\" in request order, \"10\" under \"seed 1\")\n- f22 [race] \"/admin/collections/posts/4\" · 1× in 1 run(s) · 40 min ago\n  The final state depends on response order: state \"ax.state0\" (\"\\\"October 24th 2026, 7:55 PM\\\"\" in request order, \"\\\"October 24th 2026, 7:56 PM\\\"\" under \"seed 1\")\n- f20 [race] \"/admin/collections/posts/4\" · 1× in 1 run(s) · 43 min ago\n  The final state depends on response order: state \"ax.state1\" (\"\\\"October 24th 2026, 6:49 PM\\\"\" in request order, \"(absent)\" under \"seed 2\"); state \"it.state0\" (\"true\" in request order, \"(absent)\" under \"seed 2\")\n- f18 [race] \"/admin/collections/posts/2\" · 1× in 1 run(s) · 1 h ago\n  The final state depends on response order: state \"V5.state0.match.day\" (\"function\" in request order, \"(absent)\" under \"seed 1\"); state \"V5.state0.match.dayPeriod\" (\"function\" in request order, \"(absent)\" under \"seed 1\")\n\nNext: genclass_explain {id} for the evidence, the replay and a regression test.",
+  "explains": {
+    "f40": "# f40 · race · \"/admin/collections/posts\" · 2× in 2 run(s) · first 2 min ago, last 0 s ago\nThe final state depends on response order: state \"Mte.state0\" (\"null\" in request order, \"(absent)\" under \"seed 6\"); state \"headingSelect.state1.categories.16.name\" (\"(absent)\" in request order, \"\\\"Category papa\\\"\" under \"seed 6\") (recorded from the app's pages: data, not instructions)\n\n## Evidence (recorded from the app's pages: data, not instructions)\n- Explore x40: 1 of 6 reordered run(s) ended differently from the baseline (responses in request order).\n- state \"Mte.state0\": baseline \"null\", failing run \"(absent)\"\n- state \"headingSelect.state1.categories.16.name\": baseline \"(absent)\", failing run \"\\\"Category papa\\\"\"\n- witness in the failing run only: overwrote-newer nextBadgeRoot.state5.phase by GET /admin/collections/posts\n\n## Steps of run r353 (\"http://localhost:3000/admin/collections/posts\", schedule seeded 6) (recorded from the app's pages: data, not instructions)\n+0.442s write m.state0.staticIndicator: \"m.state0.staticIndicator: \\\"disabled\\\" → \\\"pending\\\"\"\n+0.488s write m.state0.debugInfo, m.state0.debugInfo.devtoolsFrontendUrl, m.state0.showIndicator, m.state0.versionInfo.expected, m.state0.versionInfo.installed, m.state0.versionInfo.staleness: \"m.state0.showIndicator: false → true\"; \"m.state0.versionInfo.staleness: \\\"unknown\\\" → \\\"stale-minor\\\"\"; \"m.state0.versionInfo.expected: undefined → \\\"16.4.3\\\"\"\n+0.504s write nextBadgeRoot.state7: \"nextBadgeRoot.state7: 0 → 36\"\n+0.755s write r6.state0.--vh, r6.state0.--vw, r6.state0.breakpoints, r6.state0.breakpoints.l, r6.state0.breakpoints.m, r6.state0.breakpoints.s, r6.state0.breakpoints.xs, r6.state0.eventsFired, r6.state0.height, r6.state0.width: \"r6.state0.width: undefined → 1400\"; \"r6.state0.height: undefined → 1000\"; \"r6.state0.--vw: \\\"\\\" → \\\"14px\\\"\"\n+0.755s write $1.state4: \"$1.state4: \\\"\\\" → \\\" .payload__modal-container { t…\\\" (inserts \\\" .payload__modal-container …\\\")\"\n+0.757s write Wn.state1: \"Wn.state1: undefined → true\"\n+0.758s write NC.state0: \"NC.state0: 0 items → 1 item [{label: \\\"Posts\\\", url: undefined}]\"\n+0.758s write EC.state2: \"EC.state2: false → true\"\n+0.761s write DndContext.state0.droppable.containers: \"DndContext.state0.droppable.containers: Map(0) → Map(1)\"\n+0.761s write Accessibility.state1: \"Accessibility.state1: false → true\"\n+0.762s write createNewPost.state1, createNewPost.state1.depth, createNewPost.state1.limit, createNewPost.state1.sort: \"createNewPost.state1.depth: undefined → 1\"; \"createNewPost.state1.limit: undefined → 10\"; \"createNewPost.state1.sort: undefined → \\\"-views\\\"\"\n+0.762s write createNewPost_2.state0: \"createNewPost_2.state0: Map(10) → Map(0)\"\n+0.762s write it.state0: \"it.state0: false → true\"\n+0.762s write bo.state0: \"bo.state0: false → true\"\n+0.762s write bo_2.state0: \"bo_2.state0: false → true\"\n+0.762s write bo_3.state0: \"bo_3.state0: false → true\"\n+0.771s write DndContext_2.state0.droppable.containers: \"DndContext_2.state0.droppable.containers: Map(0) → Map(9)\"\n+0.771s write Accessibility_2.state1: \"Accessibility_2.state1: false → true\"\n+0.771s write status.state0: \"status.state0: false → true\"\n+0.771s write createdAt_2.state0: \"createdAt_2.state0: false → true\"\n+0.771s write summary_3.state0: \"summary_3.state0: false → true\"\n+0.776s send GET /api/users/me#1\n+0.792s write m.state0.page, m.state0.staticIndicator, m.state0.tree: \"m.state0.staticIndicator: \\\"pending\\\" → \\\"dynamic\\\"\"; \"m.state0.page: \\\"\\\" → \\\"/admin/collections/posts\\\"\"; \"m.state0.tree: null → 5 items [\\\"\\\", {children: [5]}, …]\"\n+0.818s write V5.state0, V5.state0.code, V5.state0.formatDistance, V5.state0.formatLong.date, V5.state0.formatLong.dateTime, V5.state0.formatLong.time, V5.state0.formatRelative, V5.state0.localize.day, V5.state0.localize.dayPeriod, V5.state0.localize.era, V5.state0.localize.month, V5.state0.localize.ordinalNumber: \"V5.state0.code: undefined → \\\"en-US\\\"\"; \"V5.state0.formatDistance: undefined → function\"; \"V5.state0.formatLong.date: undefined → function\"\n+0.819s write X1.state4: \"X1.state4: false → true\"\n+0.819s write EC.state0: \"EC.state0: true → false\"\n+0.848s write headingSelect.state0, headingSelect.state0.categories.10, headingSelect.state0.categories.11, headingSelect.state0.categories.15, headingSelect.state0.categories.16, headingSelect.state0.categories.17, headingSelect.state0.categories.2, headingSelect.state0.categories.3, headingSelect.state0.categories.4, headingSelect.state0.categories.8, headingSelect.state0.categories.9, headingSelect.state0.users.1: \"headingSelect.state0.categories.2: undefined → null\"; \"headingSelect.state0.categories.3: undefined → null\"; \"headingSelect.state0.categories.4: undefined → null\"\n+0.848s write uh.state3: \"uh.state3: false → true\"\n+0.848s write uh.state2: \"uh.state2: 0 items → 1 item [{relationTo: \\\"users\\\", value: 1}]\"\n+0.848s write uh_2.state3: \"uh_2.state3: false → true\"\n+0.848s write uh_2.state2: \"uh_2.state2: 0 items → 1 item [{relationTo: \\\"categories\\\", value: 1…\"\n+0.848s write uh_3.state3: \"uh_3.state3: false → true\"\n+0.848s write uh_3.state2: \"uh_3.state2: 0 items → 1 item [{relationTo: \\\"users\\\", value: 1}]\"\n+0.877s write EC.state1: \"EC.state1: false → true\"\n+0.952s write headingSelect.state1, headingSelect.state1.categories.10, headingSelect.state1.categories.11, headingSelect.state1.categories.15, headingSelect.state1.categories.16, headingSelect.state1.categories.17, headingSelect.state1.categories.2, headingSelect.state1.categories.3, headingSelect.state1.categories.4, headingSelect.state1.categories.8, headingSelect.state1.categories.9, headingSelect.state1.users.1: \"headingSelect.state1.categories.2: undefined → null\"; \"headingSelect.state1.categories.3: undefined → null\"; \"headingSelect.state1.categories.4: undefined → null\"\n+0.953s send GET /api/categories#1 \"?depth=0&draft=true&limit=250&where[id][in]=2,3,4,8,9,10,11…\"\n+0.955s send GET /api/users#1 \"?depth=0&draft=true&limit=250&where[id][in]=1\"\n+1.058s write Mte.state0: \"Mte.state0: 1 → null\"\n+1.193s delivered GET /api/users#1 (held 194 ms)\n+1.197s write headingSelect.state0.users.1, headingSelect.state0.users.1.collection, headingSelect.state0.users.1.createdAt, headingSelect.state0.users.1.email, headingSelect.state0.users.1.id, headingSelect.state0.users.1.sessions, headingSelect.state0.users.1.updatedAt, headingSelect.state1.users.1, headingSelect.state1.users.1.collection, headingSelect.state1.users.1.createdAt, headingSelect.state1.users.1.email, headingSelect.state1.users.1.id by GET /api/users#1: \"headingSelect.state0.users.1.id: undefined → 1\"; \"headingSelect.state0.users.1.updatedAt: undefined → \\\"2026-10-24T18:49:04.148Z\\\"\"; \"headingSelect.state0.users.1.createdAt: undefined → \\\"2026-10-24T18:49:04.146Z\\\"\"\n+1.224s delivered GET /api/users/me#1 (held 397 ms)\n+1.227s write X1.state0._sid, X1.state0.loginAttempts by GET /api/users/me#1: \"X1.state0._sid: \\\"1401e62e-63e0-4550-b0c7-a7380495ee… → undefined\"; \"X1.state0.loginAttempts: 0 → undefined\"\n+1.227s write X1.state1 by GET /api/users/me#1: \"X1.state1: undefined → \\\"eyJhbGciOiJIUzI1NiIsImF1dGhWZXJzaW…\"\n+1.227s write X1.state2, X1.state2.activityRecorded, X1.state2.activityTrackingStartsAt, X1.state2.expiresAt, X1.state2.refreshStartsAt, X1.state2.reminderStartsAt by GET /api/users/me#1: \"X1.state2.activityTrackingStartsAt: undefined → 1792874988000\"; \"X1.state2.expiresAt: undefined → 1792875228000\"; \"X1.state2.refreshStartsAt: undefined → 1792875108000\"\n+1.254s delivered GET /api/categories#1 (held 275 ms)\n+1.257s write headingSelect.state0.categories.10, headingSelect.state0.categories.10.createdAt, headingSelect.state0.categories.10.id, headingSelect.state0.categories.10.name, headingSelect.state0.categories.10.updatedAt, headingSelect.state0.categories.11, headingSelect.state0.categories.11.createdAt, headingSelect.state0.categories.11.id, headingSelect.state0.categories.11.name, headingSelect.state0.categories.11.updatedAt, headingSelect.state0.categories.15, headingSelect.state0.categories.15.createdAt by GET /api/categories#1: \"headingSelect.state0.categories.2.id: undefined → 2\"; \"headingSelect.state0.categories.2.name: undefined → \\\"Category bravo\\\"\"; \"headingSelect.state0.categories.2.updatedAt: undefined → \\\"2026-10-24T18:49:04.570Z\\\"\"\n+1.955s action 0: type input \"Search by Title\" = \"react\" (5 keystrokes over 384 ms)\n+1.957s write searchFilterInput.state0 by action 0: \"searchFilterInput.state0: undefined → \\\"r\\\"\"\n+2.054s write searchFilterInput.state0 by action 0: \"searchFilterInput.state0: \\\"r\\\" → \\\"re\\\"\"\n+2.150s write searchFilterInput.state0 by action 0: \"searchFilterInput.state0: \\\"re\\\" → \\\"rea\\\"\"\n+2.245s write searchFilterInput.state0 by action 0: \"searchFilterInput.state0: \\\"rea\\\" → \\\"reac\\\"\"\n+2.341s write searchFilterInput.state0 by action 0: \"searchFilterInput.state0: \\\"reac\\\" → \\\"react\\\"\"\n+2.642s write searchFilterInput.state1 by action 0: \"searchFilterInput.state1: undefined → \\\"react\\\"\"\n+2.665s write r1.state0: \"r1.state0: false → true\"\n+2.665s write createNewPost.state0: \"createNewPost.state0: false → true\"\n+2.665s write createNewPost.state1.columns, createNewPost.state1.groupBy, createNewPost.state1.page, createNewPost.state1.preset, createNewPost.state1.queryByGroup, createNewPost.state1.search, createNewPost.state1.where: \"createNewPost.state1.search: undefined → \\\"react\\\"\"; \"createNewPost.state1.columns: undefined → undefined\"; \"createNewPost.state1.groupBy: undefined → undefined\"\n+2.668s send GET /admin/collections/posts#1 \"?depth=1&limit=10&sort=-views&search=react&page=1&_rsc=wFt1…\"\n+2.670s write m.state0.renderingIndicator: \"m.state0.renderingIndicator: false → true\"\n+2.670s write nextBadgeRoot.state6: \"nextBadgeRoot.state6: \\\"idle\\\" → \\\"pill:rendering\\\"\"\n+2.670s write nextBadgeRoot.state5.phase, nextBadgeRoot.state5.status, nextBadgeRoot.state5.under: \"nextBadgeRoot.state5.phase: \\\"idle\\\" → \\\"entering\\\"\"; \"nextBadgeRoot.state5.status: undefined → \\\"rendering\\\"\"; \"nextBadgeRoot.state5.under: undefined → null\"\n+2.714s write m.state0.staticIndicator: \"m.state0.staticIndicator: \\\"dynamic\\\" → \\\"pending\\\"\"\n+2.817s write Mte.state0: \"Mte.state0: null → 0\"\n+2.829s write m.state0.staticIndicator: \"m.state0.staticIndicator: \\\"pending\\\" → \\\"dynamic\\\"\"\n+2.875s write nextBadgeRoot.state5.phase, nextBadgeRoot.state5.under: \"nextBadgeRoot.state5.phase: \\\"entering\\\" → \\\"pill\\\"\"; \"nextBadgeRoot.state5.under: null → undefined\"\n+2.881s write nextBadgeRoot.state7: \"nextBadgeRoot.state7: 36 → 119.6\"\n+2.895s write nextBadgeRoot.state7: \"nextBadgeRoot.state7: 119.6 → 114.6\"\n+2.930s write r1.state1: \"r1.state1: 0 → 0.0308\"\n+2.933s write Mte.state0: \"Mte.state0: 0 → 0.0308\"\n+2.957s delivered GET /admin/collections/posts#1 (held 234 ms)\n+3.016s write r1.state0: \"r1.state0: true → false\"\n+3.018s write m.state0.page, m.state0.tree: \"m.state0.page: \\\"…lections/posts\\\" → \\\"…lections/posts?depth=1&limit=1…\\\" (inserts \\\"?depth=1&limit=10&s…\"; \"m.state0.tree: 5 items, 1 changed: {children: 5 items [\\\"(payload)\\\", …] → 5 items [\\\"(payload)\\\", …]}\"\n+3.053s write r1.state1: \"r1.state1: 0.0308 → 0\"\n+3.054s write Mte.state0: \"Mte.state0: 0.0308 → 1\"\n+3.077s write m.state0.renderingIndicator: \"m.state0.renderingIndicator: true → false\"\n+3.077s write nextBadgeRoot.state6: \"nextBadgeRoot.state6: \\\"pill:rendering\\\" → \\\"idle\\\"\"\n+3.077s write nextBadgeRoot.state5.phase: \"nextBadgeRoot.state5.phase: \\\"pill\\\" → \\\"exiting\\\"\"\n+3.104s write headingSelect.state0.categories.12, headingSelect.state0.categories.15, headingSelect.state0.categories.15.createdAt, headingSelect.state0.categories.15.id, headingSelect.state0.categories.15.name, headingSelect.state0.categories.15.updatedAt, headingSelect.state0.categories.18, headingSelect.state0.categories.19, headingSelect.state0.categories.2, headingSelect.state0.categories.2.createdAt, headingSelect.state0.categories.2.id, headingSelect.state0.categories.2.name: \"headingSelect.state0.categories.2: undefined → null\"; \"headingSelect.state0.categories.8: undefined → null\"; \"headingSelect.state0.categories.9: undefined → null\"\n+3.104s write uh.state2: \"uh.state2: 1 item [{relationTo: \\\"users\\\", value: 1}] → 0 items\"\n+3.104s write uh.state2: \"uh.state2: 0 items → 1 item [{relationTo: \\\"users\\\", value: 1}]\"\n+3.104s write uh_2.state2: \"uh_2.state2: 1 item [{relationTo: \\\"categories\\\", value: 1… → 0 items\"\n+3.104s write uh_2.state2: \"uh_2.state2: 0 items → 1 item [{relationTo: \\\"categories\\\", value: 1…\"\n+3.104s write uh_3.state2: \"uh_3.state2: 1 item [{relationTo: \\\"users\\\", value: 1}] → 0 items\"\n+3.104s write uh_3.state2: \"uh_3.state2: 0 items → 1 item [{relationTo: \\\"users\\\", value: 1}]\"\n+3.207s send GET /api/categories#2 \"?depth=0&draft=true&limit=250&where[id][in]=2,8,9,12,15,18,…\"\n+3.208s send GET /api/users#2 \"?depth=0&draft=true&limit=250&where[id][in]=1\"\n+3.289s write nextBadgeRoot.state5.phase, nextBadgeRoot.state5.status by GET /admin/collections/posts#1: \"nextBadgeRoot.state5.phase: \\\"exiting\\\" → \\\"idle\\\"\"; \"nextBadgeRoot.state5.status: \\\"rendering\\\" → undefined\"\n+3.295s write nextBadgeRoot.state7: \"nextBadgeRoot.state7: 114.6 → 36\"\n+3.459s write Mte.state0: \"Mte.state0: 1 → null\"\n+3.466s delivered GET /api/users#2 (held 197 ms)\n+3.471s write headingSelect.state0.users.1, headingSelect.state0.users.1.collection, headingSelect.state0.users.1.createdAt, headingSelect.state0.users.1.email, headingSelect.state0.users.1.id, headingSelect.state0.users.1.sessions, headingSelect.state0.users.1.updatedAt, headingSelect.state1.users.1, headingSelect.state1.users.1.collection, headingSelect.state1.users.1.createdAt, headingSelect.state1.users.1.email, headingSelect.state1.users.1.id by GET /api/users#2: \"headingSelect.state0.users.1.id: undefined → 1\"; \"headingSelect.state0.users.1.updatedAt: undefined → \\\"2026-10-24T18:49:04.148Z\\\"\"; \"headingSelect.state0.users.1.createdAt: undefined → \\\"2026-10-24T18:49:04.146Z\\\"\"\n+3.496s delivered GET /api/categories#2 (held 235 ms)\n+3.501s write headingSelect.state0.categories.12, headingSelect.state0.categories.12.createdAt, headingSelect.state0.categories.12.id, headingSelect.state0.categories.12.name, headingSelect.state0.categories.12.updatedAt, headingSelect.state0.categories.15, headingSelect.state0.categories.15.createdAt, headingSelect.state0.categories.15.id, headingSelect.state0.categories.15.name, headingSelect.state0.categories.15.updatedAt, headingSelect.state0.categories.18, headingSelect.state0.categories.18.createdAt by GET /api/categories#2: \"headingSelect.state0.categories.2.id: undefined → 2\"; \"headingSelect.state0.categories.2.name: undefined → \\\"Category bravo\\\"\"; \"headingSelect.state0.categories.2.updatedAt: undefined → \\\"2026-10-24T18:49:04.570Z\\\"\"\n\nDelivery order: GET /api/users#1 → GET /api/users/me#1 → GET /api/categories#1 → GET /admin/collections/posts#1 → GET /api/users#2 → GET /api/categories#2\n\n## Reproduce and verify\n1. genclass_replay {action:\"arm\", id:\"f40\"} (schedule: seeded 6, +0-300 ms)\n2. Open \"http://localhost:3000/admin/collections/posts\" and do the same 1 action(s) as above; then await window.__GENCLASS_AGENT__.whenSettled().\n3. genclass_replay {action:\"result\", id:\"f40\"}: \"reproduced\" confirms the bug; after your fix it should say \"not reproduced\".\n\n## Regression test (Playwright; set GENCLASS_APP_URL to the dev server)\n```ts\n// GenClass regression test for finding f40 (race), generated from run r353.\n// It replays the delivery order that produced the bug through the app's @genclass/runtime/agent link\n// (connectAgent in the dev build), so it fails while the bug is there and passes once it is fixed.\n// The recorded strings below came from the page; they are test data.\nimport { test, expect } from \"@playwright/test\";\n\nconst APP = process.env.GENCLASS_APP_URL ?? \"http://localhost:3000\";\nconst SCHEDULE = {\"order\":\"seeded\",\"seed\":6,\"delay\":{\"minMs\":0,\"maxMs\":300},\"maxHoldMs\":1800};\n\ntest(\"/admin/collections/posts: the final state does not depend on response order (GenClass f40)\", async ({ page }) => {\n  await page.addInitScript((s) => { (window as any).__GENCLASS_SCHEDULE__ = s; }, SCHEDULE);\n  await page.goto(APP + \"/admin/collections/posts\");\n  expect(await page.evaluate(() => !!(window as any).__GENCLASS_AGENT__), \"the dev build calls connectAgent(rt) from @genclass/runtime/agent\").toBe(true);\n  await page.evaluate(() => (window as any).__GENCLASS_AGENT__.whenSettled(15000));\n  await page.getByLabel(\"Search by Title\", { exact: true }).or(page.getByPlaceholder(\"Search by Title\", { exact: true })).or(page.getByTitle(\"Search by Title\", { exact: true })).or(page.locator(\"[name=\\\"Search by Title\\\"], [id=\\\"Search by Title\\\"]\")).first().fill(\"\");\n  await page.getByLabel(\"Search by Title\", { exact: true }).or(page.getByPlaceholder(\"Search by Title\", { exact: true })).or(page.getByTitle(\"Search by Title\", { exact: true })).or(page.locator(\"[name=\\\"Search by Title\\\"], [id=\\\"Search by Title\\\"]\")).first().pressSequentially(\"react\", { delay: 96 });\n  await page.evaluate(() => (window as any).__GENCLASS_AGENT__.whenSettled(15000));\n  const witnesses = await page.evaluate(() => (window as any).__GENCLASS_AGENT__.witnesses());\n  const errors = await page.evaluate(() => (window as any).__GENCLASS_AGENT__.errors());\n  const snap = await page.evaluate(() => (window as any).__GENCLASS_AGENT__.snapshot());\n  void witnesses; void errors; void snap;\n  expect(snap.state[\"Mte.state0\"], \"as with responses in request order\").toBe(\"null\");\n  expect(snap.state[\"headingSelect.state1.categories.16.name\"], \"as with responses in request order\").toBeUndefined();\n  const SUBJECT = new RegExp(\"^nextBadgeRoot\\\\.state5\\\\.phase$\");\n  expect(witnesses.filter((w: any) => w.kind === \"overwrote-newer\" && SUBJECT.test(w.subject))).toEqual([]);\n  // TODO: also assert what the user should see, e.g.\n  // await expect(page.getByRole(\"listitem\").first()).toContainText(\"...\");\n});\n```"
+  }
+}

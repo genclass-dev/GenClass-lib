@@ -1,0 +1,71 @@
+name: Svelte CLI add-on
+
+# @genclass/sv (packages/sv): typecheck, build and the unit tests of the add-on's edits, then the end-to-end test on
+# the Svelte CLI's own add-on harness (sv/testing): SvelteKit apps in TypeScript and JavaScript are scaffolded, the
+# add-on is applied twice, the apps are type-checked, built and loaded once in Chromium (the runtime built from this
+# commit, its model from jsDelivr, no console errors), and `genclass-runtime remove` must give the files back. A
+# separate workflow from ci.yml so it never blocks the main CI job. It sends nothing anywhere beyond installing
+# packages and loading the model.
+
+on:
+  push:
+    paths:
+      - "packages/sv/**"
+      - "packages/runtime/bin/**"
+      - "package-lock.json"
+      - ".github/workflows/sv-addon.yml"
+  pull_request:
+    paths:
+      - "packages/sv/**"
+      - "packages/runtime/bin/**"
+      - "package-lock.json"
+      - ".github/workflows/sv-addon.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sv-addon-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: "@genclass/sv: typecheck, build, unit tests, e2e in Chromium"
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      ONNXRUNTIME_NODE_INSTALL: skip
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      # sv/testing installs the scaffolded apps with pnpm
+      - name: pnpm
+        run: npm install -g pnpm@10
+
+      - name: Typecheck
+        run: npm run typecheck -w @genclass/sv
+
+      - name: Build
+        run: |
+          npm run build -w @genclass/runtime
+          npm run build -w @genclass/sv
+
+      - name: Unit tests
+        working-directory: packages/sv
+        run: npx vitest run --project unit
+
+      - name: Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: End to end (scaffold, apply, check, build, Chromium, remove)
+        working-directory: packages/sv
+        run: npx vitest run --project e2e

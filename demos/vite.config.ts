@@ -21,6 +21,7 @@ const shimAlias = useShim
       { find: /^@genclass\/runtime\/redux$/, replacement: here("./src/dev/runtime-shim/redux.ts") },
       { find: /^@genclass\/runtime\/zustand$/, replacement: here("./src/dev/runtime-shim/zustand.ts") },
       { find: /^@genclass\/runtime\/devtools$/, replacement: here("./src/dev/runtime-shim/devtools.ts") },
+      { find: /^@genclass\/runtime\/agent$/, replacement: here("./src/dev/runtime-shim/agent.ts") },
     ]
   : [
       // Always build against THIS checkout's runtime (node_modules may be a symlink into another worktree, whose
@@ -30,6 +31,7 @@ const shimAlias = useShim
       { find: /^@genclass\/runtime\/redux$/, replacement: here("../packages/runtime/dist/adapters/redux.js") },
       { find: /^@genclass\/runtime\/zustand$/, replacement: here("../packages/runtime/dist/adapters/zustand.js") },
       { find: /^@genclass\/runtime\/devtools$/, replacement: here("../packages/runtime/dist/devtools/index.js") },
+      { find: /^@genclass\/runtime\/agent$/, replacement: here("../packages/runtime/dist/agent.js") },
     ];
 
 // bench/heal (GENCLASS_DISCOVER=1): the same apps with NO store registered by hand, as a plain app with the one line

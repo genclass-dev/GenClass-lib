@@ -1,0 +1,9 @@
+{
+  "name": "genclass-nuxt-playground",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev",
+    "build": "nuxt build"
+  }
+}

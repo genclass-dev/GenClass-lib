@@ -6,7 +6,8 @@
   "workspaces": [
     "packages/*",
     "sim",
-    "demos"
+    "demos",
+    "bench/hunt"
   ],
   "scripts": {
     "build": "npm run build -w @genclass/runtime",

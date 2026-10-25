@@ -139,9 +139,12 @@ export default defineConfig([
       visual: "src/visual/entry.ts",
       // interaction analytics: the lazy chunk (one file, no static imports), loaded only when an app turns them on
       "analytics/index": "src/analytics/index.ts",
+      // the coding-agent link (docs/runtime/AGENT.md): one file, no static imports of runtime code (only types), so it
+      // shares no chunk with the first load; apps import it from a development-only branch
+      agent: "src/agent/index.ts",
     },
     format: ["esm"],
-    dts: { entry: { index: "src/index.ts", auto: "src/auto.ts", "auto/observe": "src/cdn/auto-observe.ts", "auto/guard": "src/cdn/auto-guard.ts", "auto/heal": "src/cdn/auto-heal.ts", "adapters/react": "src/adapters/react.ts", "adapters/redux": "src/adapters/redux.ts", "adapters/zustand": "src/adapters/zustand.ts", "devtools/index": "src/devtools/index.ts", discover: "src/discover/entry.ts", visual: "src/visual/entry.ts", ...SINK_ENTRIES } },
+    dts: { entry: { index: "src/index.ts", auto: "src/auto.ts", "auto/observe": "src/cdn/auto-observe.ts", "auto/guard": "src/cdn/auto-guard.ts", "auto/heal": "src/cdn/auto-heal.ts", "adapters/react": "src/adapters/react.ts", "adapters/redux": "src/adapters/redux.ts", "adapters/zustand": "src/adapters/zustand.ts", "devtools/index": "src/devtools/index.ts", discover: "src/discover/entry.ts", visual: "src/visual/entry.ts", agent: "src/agent/index.ts", ...SINK_ENTRIES } },
     target: "es2022",
     platform: "browser",
     splitting: true,

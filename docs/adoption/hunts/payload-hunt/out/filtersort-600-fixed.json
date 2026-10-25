@@ -1,0 +1,314 @@
+{
+  "scenario": "filtersort",
+  "slow": 600,
+  "runs": [
+    {
+      "settled": true,
+      "url": "/admin/collections/posts?depth=1&limit=10&sort=-views&page=1&search=echo",
+      "search": "echo",
+      "count": "1-10 of 20",
+      "title": null,
+      "autosave": null,
+      "toasts": [],
+      "status": null,
+      "rows": [
+        " | lima 053 echo | Category november",
+        " | echo 052 victor | Category mike",
+        " | lima 023 echo | Category delta",
+        " | lima 293 echo | Category november",
+        " | echo 022 victor | Category charlie",
+        " | echo 292 victor | Category mike",
+        " | lima 263 echo | Category delta",
+        " | echo 262 victor | Category charlie",
+        " | lima 233 echo | Category november",
+        " | echo 232 victor | Category mike"
+      ],
+      "requests": [
+        "GET /api/users/me",
+        "GET /api/categories?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=2%2C3%2C4%2C8%2C9%2C10%",
+        "GET /api/users?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=1&",
+        "GET /api/categories?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=1%2C6%2C11%2C16&",
+        "GET /api/users?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=1&",
+        "GET /api/categories?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=3%2C4%2C13%2C14&",
+        "GET /api/users?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=1&"
+      ],
+      "schedule": "fifo +600ms",
+      "run": "r337",
+      "witnesses": [
+        "overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#2\""
+      ],
+      "stateKeys": 300,
+      "pageErrors": []
+    },
+    {
+      "settled": true,
+      "url": "/admin/collections/posts?depth=1&limit=10&sort=-views&page=1&search=echo",
+      "search": "echo",
+      "count": "1-10 of 20",
+      "title": null,
+      "autosave": null,
+      "toasts": [],
+      "status": null,
+      "rows": [
+        " | lima 053 echo | Category november",
+        " | echo 052 victor | Category mike",
+        " | lima 023 echo | Category delta",
+        " | lima 293 echo | Category november",
+        " | echo 022 victor | Category charlie",
+        " | echo 292 victor | Category mike",
+        " | lima 263 echo | Category delta",
+        " | echo 262 victor | Category charlie",
+        " | lima 233 echo | Category november",
+        " | echo 232 victor | Category mike"
+      ],
+      "requests": [
+        "GET /api/users/me",
+        "GET /api/categories?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=2%2C3%2C4%2C8%2C9%2C10%",
+        "GET /api/users?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=1&",
+        "GET /api/categories?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=1%2C6%2C11%2C16&",
+        "GET /api/users?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=1&",
+        "GET /api/categories?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=3%2C4%2C13%2C14&",
+        "GET /api/users?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=1&"
+      ],
+      "schedule": "fifo +600ms",
+      "run": "r338",
+      "witnesses": [
+        "overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#2\""
+      ],
+      "stateKeys": 300,
+      "pageErrors": []
+    },
+    {
+      "settled": true,
+      "url": "/admin/collections/posts?depth=1&limit=10&sort=-views&page=1&search=echo",
+      "search": "echo",
+      "count": "1-10 of 20",
+      "title": null,
+      "autosave": null,
+      "toasts": [],
+      "status": null,
+      "rows": [
+        " | lima 053 echo | Category november",
+        " | echo 052 victor | Category mike",
+        " | lima 023 echo | Category delta",
+        " | lima 293 echo | Category november",
+        " | echo 022 victor | Category charlie",
+        " | echo 292 victor | Category mike",
+        " | lima 263 echo | Category delta",
+        " | echo 262 victor | Category charlie",
+        " | lima 233 echo | Category november",
+        " | echo 232 victor | Category mike"
+      ],
+      "requests": [
+        "GET /api/users/me",
+        "GET /api/categories?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=2%2C3%2C4%2C8%2C9%2C10%",
+        "GET /api/users?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=1&",
+        "GET /api/categories?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=1%2C6%2C11%2C16&",
+        "GET /api/users?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=1&",
+        "GET /api/categories?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=3%2C4%2C13%2C14&",
+        "GET /api/users?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=1&"
+      ],
+      "schedule": "seeded:1 +600ms",
+      "run": "r339",
+      "witnesses": [],
+      "stateKeys": 300,
+      "pageErrors": []
+    },
+    {
+      "settled": true,
+      "url": "/admin/collections/posts?depth=1&limit=10&sort=-views&page=1&search=echo",
+      "search": "echo",
+      "count": "1-10 of 20",
+      "title": null,
+      "autosave": null,
+      "toasts": [],
+      "status": null,
+      "rows": [
+        " | lima 053 echo | Category november",
+        " | echo 052 victor | Category mike",
+        " | lima 023 echo | Category delta",
+        " | lima 293 echo | Category november",
+        " | echo 022 victor | Category charlie",
+        " | echo 292 victor | Category mike",
+        " | lima 263 echo | Category delta",
+        " | echo 262 victor | Category charlie",
+        " | lima 233 echo | Category november",
+        " | echo 232 victor | Category mike"
+      ],
+      "requests": [
+        "GET /api/users/me",
+        "GET /api/categories?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=2%2C3%2C4%2C8%2C9%2C10%",
+        "GET /api/users?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=1&",
+        "GET /api/categories?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=1%2C6%2C11%2C16&",
+        "GET /api/users?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=1&",
+        "GET /api/categories?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=3%2C4%2C13%2C14&",
+        "GET /api/users?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=1&"
+      ],
+      "schedule": "seeded:2 +600ms",
+      "run": "r340",
+      "witnesses": [],
+      "stateKeys": 300,
+      "pageErrors": []
+    },
+    {
+      "settled": true,
+      "url": "/admin/collections/posts?depth=1&limit=10&sort=-views&page=1&search=echo",
+      "search": "echo",
+      "count": "1-10 of 20",
+      "title": null,
+      "autosave": null,
+      "toasts": [],
+      "status": null,
+      "rows": [
+        " | lima 053 echo | Category november",
+        " | echo 052 victor | Category mike",
+        " | lima 023 echo | Category delta",
+        " | lima 293 echo | Category november",
+        " | echo 022 victor | Category charlie",
+        " | echo 292 victor | Category mike",
+        " | lima 263 echo | Category delta",
+        " | echo 262 victor | Category charlie",
+        " | lima 233 echo | Category november",
+        " | echo 232 victor | Category mike"
+      ],
+      "requests": [
+        "GET /api/users/me",
+        "GET /api/categories?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=2%2C3%2C4%2C8%2C9%2C10%",
+        "GET /api/users?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=1&",
+        "GET /api/categories?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=1%2C6%2C11%2C16&",
+        "GET /api/users?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=1&",
+        "GET /api/categories?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=3%2C4%2C13%2C14&",
+        "GET /api/users?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=1&"
+      ],
+      "schedule": "seeded:3 +600ms",
+      "run": "r341",
+      "witnesses": [
+        "overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#1\"",
+        "overwrote-newer r1.state1 by \"GET /api/categories#2\"",
+        "overwrote-newer Mte.state0 by \"GET /api/categories#2\""
+      ],
+      "stateKeys": 300,
+      "pageErrors": []
+    },
+    {
+      "settled": true,
+      "url": "/admin/collections/posts?depth=1&limit=10&sort=-views&page=1&search=echo",
+      "search": "echo",
+      "count": "1-10 of 20",
+      "title": null,
+      "autosave": null,
+      "toasts": [],
+      "status": null,
+      "rows": [
+        " | lima 053 echo | Category november",
+        " | echo 052 victor | Category mike",
+        " | lima 023 echo | Category delta",
+        " | lima 293 echo | Category november",
+        " | echo 022 victor | Category charlie",
+        " | echo 292 victor | Category mike",
+        " | lima 263 echo | Category delta",
+        " | echo 262 victor | Category charlie",
+        " | lima 233 echo | Category november",
+        " | echo 232 victor | Category mike"
+      ],
+      "requests": [
+        "GET /api/users/me",
+        "GET /api/categories?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=2%2C3%2C4%2C8%2C9%2C10%",
+        "GET /api/users?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=1&",
+        "GET /api/categories?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=1%2C6%2C11%2C16&",
+        "GET /api/users?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=1&",
+        "GET /api/categories?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=3%2C4%2C13%2C14&",
+        "GET /api/users?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=1&"
+      ],
+      "schedule": "seeded:4 +600ms",
+      "run": "r342",
+      "witnesses": [],
+      "stateKeys": 300,
+      "pageErrors": []
+    },
+    {
+      "settled": true,
+      "url": "/admin/collections/posts?depth=1&limit=10&sort=-views&page=1&search=echo",
+      "search": "echo",
+      "count": "1-10 of 20",
+      "title": null,
+      "autosave": null,
+      "toasts": [],
+      "status": null,
+      "rows": [
+        " | lima 053 echo | Category november",
+        " | echo 052 victor | Category mike",
+        " | lima 023 echo | Category delta",
+        " | lima 293 echo | Category november",
+        " | echo 022 victor | Category charlie",
+        " | echo 292 victor | Category mike",
+        " | lima 263 echo | Category delta",
+        " | echo 262 victor | Category charlie",
+        " | lima 233 echo | Category november",
+        " | echo 232 victor | Category mike"
+      ],
+      "requests": [
+        "GET /api/users/me",
+        "GET /api/categories?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=2%2C3%2C4%2C8%2C9%2C10%",
+        "GET /api/users?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=1&",
+        "GET /api/categories?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=1%2C6%2C11%2C16&",
+        "GET /api/users?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=1&",
+        "GET /api/categories?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=3%2C4%2C13%2C14&",
+        "GET /api/users?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=1&"
+      ],
+      "schedule": "seeded:5 +600ms",
+      "run": "r343",
+      "witnesses": [
+        "overwrote-newer nextBadgeRoot.state5.phase by \"GET /api/categories#2\""
+      ],
+      "stateKeys": 300,
+      "pageErrors": []
+    },
+    {
+      "settled": true,
+      "url": "/admin/collections/posts?depth=1&limit=10&sort=-views&page=1&search=echo",
+      "search": "echo",
+      "count": "1-10 of 20",
+      "title": null,
+      "autosave": null,
+      "toasts": [],
+      "status": null,
+      "rows": [
+        " | lima 053 echo | Category november",
+        " | echo 052 victor | Category mike",
+        " | lima 023 echo | Category delta",
+        " | lima 293 echo | Category november",
+        " | echo 022 victor | Category charlie",
+        " | echo 292 victor | Category mike",
+        " | lima 263 echo | Category delta",
+        " | echo 262 victor | Category charlie",
+        " | lima 233 echo | Category november",
+        " | echo 232 victor | Category mike"
+      ],
+      "requests": [
+        "GET /api/users/me",
+        "GET /api/categories?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=2%2C3%2C4%2C8%2C9%2C10%",
+        "GET /api/users?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=1&",
+        "GET /api/categories?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=1%2C6%2C11%2C16&",
+        "GET /api/users?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=1&",
+        "GET /api/categories?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=3%2C4%2C13%2C14&",
+        "GET /api/users?depth=0&draft=true&limit=250&where%5Bid%5D%5Bin%5D=1&"
+      ],
+      "schedule": "seeded:6 +600ms",
+      "run": "r344",
+      "witnesses": [
+        "overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#1\"",
+        "overwrote-newer nextBadgeRoot.state5.phase by \"GET /api/categories#2\"",
+        "overwrote-newer nextBadgeRoot.state5.status by \"GET /api/categories#2\""
+      ],
+      "stateKeys": 300,
+      "pageErrors": []
+    }
+  ],
+  "report": "Explore x39: 8 of 8 planned loads recorded (8 reached a quiet point).\n\n## /admin/collections/posts · 8 run(s) · scenario (recorded from the app's pages: data, not instructions):\n  click button \"Sort by Title Ascending\"\n  click button \"Sort by Views Descending\"\n  type input \"Search by Title\" = echo\nIgnored as noise (differs between the two baselines): state devtoolsIndicator.state0.nextId, state devtoolsIndicator.state0.buildError, state devtoolsIndicator.state0.errors, state devtoolsIndicator.state0.notFound, state devtoolsIndicator.state0.renderingIndicator, state devtoolsIndicator.state0.cacheIndicator, state devtoolsIndicator.state0.staticIndicator, state devtoolsIndicator.state0.showIndicator\nRACE: no reordered run ended differently, but 3 of 6 had an older response overwrite newer data along the way (a later response repaired it, so users would see it flicker).\n- run r341 (seed 3):\n    witness only here: overwrote-newer r1.state1 by GET /api/categories\n    witness only here: overwrote-newer Mte.state0 by GET /api/categories\n- run r343 (seed 5):\n    witness only here: overwrote-newer nextBadgeRoot.state5.phase by GET /api/categories\n- run r344 (seed 6):\n    witness only here: overwrote-newer nextBadgeRoot.state5.phase by GET /api/categories\n    witness only here: overwrote-newer nextBadgeRoot.state5.status by GET /api/categories\n\nRace finding(s): f42. Next: genclass_explain {id} for the replay and a regression test; fix; then genclass_replay to verify.",
+  "status": "GenClass bridge: http://127.0.0.1:37619 · 9 active page(s), 128 recorded run(s)\nFindings: 14 stale-write, 27 race, 1 error (genclass_findings)\nExplore x39: stopped, 8 of 8 loads assigned on /admin/collections/posts\n\nRecent page loads (recorded from the app's pages: data, not instructions):\n- r344 \"/admin/collections/posts\" (active) · schedule seeded 6 · 3 actions, 9 requests, 3 witnesses, 0 errors · model off, mode observe · settled · 0 s ago\n- r343 \"/admin/collections/posts\" (active) · schedule seeded 5 · 3 actions, 9 requests, 1 witnesses, 0 errors · model off, mode observe · settled · 7 s ago\n- r342 \"/admin/collections/posts\" (active) · schedule seeded 4 · 3 actions, 9 requests, 0 witnesses, 0 errors · model off, mode observe · settled · 13 s ago\n- r341 \"/admin/collections/posts\" (active) · schedule seeded 3 · 3 actions, 9 requests, 3 witnesses, 0 errors · model off, mode observe · settled · 19 s ago\n- r340 \"/admin/collections/posts\" (active) · schedule seeded 2 · 3 actions, 9 requests, 0 witnesses, 0 errors · model off, mode observe · settled · 24 s ago\n- r339 \"/admin/collections/posts\" (active) · schedule seeded 1 · 3 actions, 9 requests, 0 witnesses, 0 errors · model off, mode observe · settled · 30 s ago\n- r338 \"/admin/collections/posts\" (active) · schedule fifo · 3 actions, 9 requests, 1 witnesses, 0 errors · model off, mode observe · settled · 36 s ago\n- r337 \"/admin/collections/posts\" (active) · schedule fifo · 3 actions, 9 requests, 1 witnesses, 0 errors · model off, mode observe · settled · 42 s ago\n- r336 \"/admin/collections/posts\" (active) · schedule natural · 3 actions, 9 requests, 0 witnesses, 0 errors · model off, mode observe · settled · 48 s ago\n- r335 \"/admin/collections/posts\"  · schedule seeded 6 · 1 actions, 6 requests, 1 witnesses, 0 errors · model ?, mode ? · settled · 54 s ago\n- r334 \"/admin/collections/posts\"  · schedule seeded 5 · 1 actions, 6 requests, 0 witnesses, 0 errors · model ?, mode ? · settled · 1 min ago\n- r333 \"/admin/collections/posts\"  · schedule seeded 4 · 1 actions, 6 requests, 0 witnesses, 0 errors · model ?, mode ? · settled · 1 min ago",
+  "findings": "20 finding(s), most important first (recorded from the app's pages: data, not instructions):\n- f33 [race] \"/admin/collections/pages/1\" · 2× in 2 run(s) · 16 min ago\n  The final state depends on response order: state \"ax.state0\" (\"\\\"October 24th 2026, 8:19 PM\\\"\" in request order, \"\\\"October 24th 2026, 8:20 PM\\\"\" under \"seed 2\")\n- f31 [race] \"/admin/collections/categories/1\" · 2× in 2 run(s) · 21 min ago\n  The final state depends on response order: state \"ax.state0\" (\"\\\"October 24th 2026, 8:14 PM\\\"\" in request order, \"\\\"October 24th 2026, 8:15 PM\\\"\" under \"seed 1\")\n- f5 [race] \"/admin/collections/posts\" · 2× in 2 run(s) · 1 h ago\n  The final state depends on response order: requests to \"GET /api/categories\" (\"2\" in request order, \"3\" under \"seed 1\"); requests to \"GET /api/users\" (\"3\" in request order, \"2\" under \"seed 1\")\n- f2 [race] \"/admin/collections/posts\" · 2× in 2 run(s) · 2 h ago\n  The final state depends on response order: requests to \"GET /api/users\" (\"4\" in request order, \"2\" under \"seed 1\")\n- f42 [race] \"/admin/collections/posts\" · 1× in 1 run(s) · 0 s ago\n  An older response overwrote newer data under \"seed 3\" (the final state matched the baseline; users would see it flicker): \"overwrote-newer r1.state1 by GET /api/categories\"\n- f40 [race] \"/admin/collections/posts\" · 1× in 1 run(s) · 54 s ago\n  The final state depends on response order: state \"Mte.state0\" (\"null\" in request order, \"(absent)\" under \"seed 5\"); state \"headingSelect.state1.categories.16.name\" (\"(absent)\" in request order, \"\\\"Category papa\\\"\" under \"seed 5\")\n- f39 [race] \"/admin/collections/posts\" · 1× in 1 run(s) · 5 min ago\n  The final state depends on response order: state \"status.state0\" (\"true\" in request order, \"(absent)\" under \"seed 1\"); state \"createdAt_2.state0\" (\"true\" in request order, \"(absent)\" under \"seed 1\")\n- f38 [race] \"/admin/collections/posts\" · 1× in 1 run(s) · 6 min ago\n  The final state depends on response order: state \"createNewPost.state0\" (\"true\" in request order, \"Map(0)\" under \"seed 1\"); state \"createNewPost.state1.depth\" (\"1\" in request order, \"(absent)\" under \"seed 1\")\n- f36 [race] \"/admin/collections/posts\" · 1× in 1 run(s) · 7 min ago\n  The final state depends on response order: state \"Mte.state0\" (\"null\" in request order, \"(absent)\" under \"seed 1\"); requests to \"GET /api/categories\" (\"2\" in request order, \"3\" under \"seed 1\")\n- f35 [race] \"/admin/collections/posts/2\" · 1× in 1 run(s) · 14 min ago\n  The final state depends on response order: state \"ax.state0\" (\"\\\"October 24th 2026, 8:21 PM\\\"\" in request order, \"(absent)\" under \"seed 1\"); state \"ax.state1\" (\"\\\"October 24th 2026, 6:49 PM\\\"\" in request order, \"(absent)\" under \"seed 1\")\n- f34 [race] \"/admin/collections/pages/1\" · 1× in 1 run(s) · 18 min ago\n  The final state depends on response order: state \"m.state0.nextId\" (\"1\" in request order, \"(absent)\" under \"seed 5\"); state \"m.state0.buildError\" (\"null\" in request order, \"(absent)\" under \"seed 5\")\n- f32 [race] \"/admin/collections/categories/1\" · 1× in 1 run(s) · 23 min ago\n  The final state depends on response order: state \"ax.state0\" (\"\\\"October 24th 2026, 8:13 PM\\\"\" in request order, \"\\\"Loading...\\\"\" under \"seed 2\"); state \"ax.state1\" (\"\\\"October 24th 2026, 6:49 PM\\\"\" in request order, \"\\\"Loading...\\\"\" under \"seed 2\")\n- f30 [race] \"/admin/collections/posts/1\" · 1× in 1 run(s) · 28 min ago\n  The final state depends on response order: state \"fieldAuthor.state3\" (\"\\\"\\\"\" in request order, \"(absent)\" under \"seed 5\"); state \"fieldAuthor.state4\" (\"\\\"\\\"\" in request order, \"(absent)\" under \"seed 5\")\n- f29 [race] \"/admin/collections/posts/3\" · 1× in 1 run(s) · 29 min ago\n  The final state depends on response order: state \"ax.state0\" (\"\\\"October 24th 2026, 8:06 PM\\\"\" in request order, \"(absent)\" under \"seed 1\"); state \"ax.state1\" (\"\\\"October 24th 2026, 6:49 PM\\\"\" in request order, \"(absent)\" under \"seed 1\")\n- f28 [race] \"/admin/collections/posts/3\" · 1× in 1 run(s) · 31 min ago\n  The page depends on response order: it shows \"October 24th 2026, 8:05 PM\" under \"seed 3\", not in request order\n- f27 [race] \"/admin/collections/posts/3\" · 1× in 1 run(s) · 33 min ago\n  The final state depends on response order: state \"ax.state0\" (\"\\\"October 24th 2026, 8:02 PM\\\"\" in request order, \"\\\"October 24th 2026, 8:03 PM\\\"\" under \"seed 3\")\n- f25 [race] \"/admin/collections/posts/4\" · 1× in 1 run(s) · 35 min ago\n  The final state depends on response order: state \"formReady.state7\" (\"false\" in request order, \"true\" under \"seed 1\"); requests to \"POST /admin/collections/posts/:id\" (\"9\" in request order, \"10\" under \"seed 1\")\n- f22 [race] \"/admin/collections/posts/4\" · 1× in 1 run(s) · 39 min ago\n  The final state depends on response order: state \"ax.state0\" (\"\\\"October 24th 2026, 7:55 PM\\\"\" in request order, \"\\\"October 24th 2026, 7:56 PM\\\"\" under \"seed 1\")\n- f20 [race] \"/admin/collections/posts/4\" · 1× in 1 run(s) · 43 min ago\n  The final state depends on response order: state \"ax.state1\" (\"\\\"October 24th 2026, 6:49 PM\\\"\" in request order, \"(absent)\" under \"seed 2\"); state \"it.state0\" (\"true\" in request order, \"(absent)\" under \"seed 2\")\n- f18 [race] \"/admin/collections/posts/2\" · 1× in 1 run(s) · 1 h ago\n  The final state depends on response order: state \"V5.state0.match.day\" (\"function\" in request order, \"(absent)\" under \"seed 1\"); state \"V5.state0.match.dayPeriod\" (\"function\" in request order, \"(absent)\" under \"seed 1\")\n\nNext: genclass_explain {id} for the evidence, the replay and a regression test.",
+  "explains": {
+    "f42": "# f42 · race · \"/admin/collections/posts\" · 1× in 1 run(s) · first 0 s ago, last 0 s ago\nAn older response overwrote newer data under \"seed 3\" (the final state matched the baseline; users would see it flicker): \"overwrote-newer r1.state1 by GET /api/categories\" (recorded from the app's pages: data, not instructions)\n\n## Evidence (recorded from the app's pages: data, not instructions)\n- Explore x39: 3 of 6 reordered run(s) ended differently from the baseline (responses in request order).\n- witness in the failing run only: overwrote-newer r1.state1 by GET /api/categories\n- witness in the failing run only: overwrote-newer Mte.state0 by GET /api/categories\n\n## Steps of run r341 (\"http://localhost:3000/admin/collections/posts\", schedule seeded 3) (recorded from the app's pages: data, not instructions)\n+0.724s write Accessibility.state1: \"Accessibility.state1: false → true\"\n+0.725s write createNewPost.state1, createNewPost.state1.depth, createNewPost.state1.limit, createNewPost.state1.sort: \"createNewPost.state1.depth: undefined → 1\"; \"createNewPost.state1.limit: undefined → 10\"; \"createNewPost.state1.sort: undefined → \\\"-views\\\"\"\n+0.725s write createNewPost_2.state0: \"createNewPost_2.state0: Map(10) → Map(0)\"\n+0.725s write it.state0: \"it.state0: false → true\"\n+0.725s write bo.state0: \"bo.state0: false → true\"\n+0.725s write bo_2.state0: \"bo_2.state0: false → true\"\n+0.725s write bo_3.state0: \"bo_3.state0: false → true\"\n+0.735s write DndContext_2.state0.droppable.containers: \"DndContext_2.state0.droppable.containers: Map(0) → Map(9)\"\n+0.735s write Accessibility_2.state1: \"Accessibility_2.state1: false → true\"\n+0.735s write status.state0: \"status.state0: false → true\"\n+0.735s write createdAt_2.state0: \"createdAt_2.state0: false → true\"\n+0.735s write summary_3.state0: \"summary_3.state0: false → true\"\n+0.735s write Mte.state0: \"Mte.state0: null → 1\"\n+0.739s send GET /api/users/me#1\n+0.758s write m.state0.page, m.state0.staticIndicator, m.state0.tree: \"m.state0.staticIndicator: \\\"pending\\\" → \\\"dynamic\\\"\"; \"m.state0.page: \\\"\\\" → \\\"/admin/collections/posts\\\"\"; \"m.state0.tree: null → 5 items [\\\"\\\", {children: [5]}, …]\"\n+0.790s write V5.state0, V5.state0.code, V5.state0.formatDistance, V5.state0.formatLong.date, V5.state0.formatLong.dateTime, V5.state0.formatLong.time, V5.state0.formatRelative, V5.state0.localize.day, V5.state0.localize.dayPeriod, V5.state0.localize.era, V5.state0.localize.month, V5.state0.localize.ordinalNumber: \"V5.state0.code: undefined → \\\"en-US\\\"\"; \"V5.state0.formatDistance: undefined → function\"; \"V5.state0.formatLong.date: undefined → function\"\n+0.790s write X1.state4: \"X1.state4: false → true\"\n+0.791s write EC.state0: \"EC.state0: true → false\"\n+0.831s write headingSelect.state0, headingSelect.state0.categories.10, headingSelect.state0.categories.11, headingSelect.state0.categories.15, headingSelect.state0.categories.16, headingSelect.state0.categories.17, headingSelect.state0.categories.2, headingSelect.state0.categories.3, headingSelect.state0.categories.4, headingSelect.state0.categories.8, headingSelect.state0.categories.9, headingSelect.state0.users.1: \"headingSelect.state0.categories.2: undefined → null\"; \"headingSelect.state0.categories.3: undefined → null\"; \"headingSelect.state0.categories.4: undefined → null\"\n+0.831s write uh.state3: \"uh.state3: false → true\"\n+0.831s write uh.state2: \"uh.state2: 0 items → 1 item [{relationTo: \\\"users\\\", value: 1}]\"\n+0.831s write uh_2.state3: \"uh_2.state3: false → true\"\n+0.831s write uh_2.state2: \"uh_2.state2: 0 items → 1 item [{relationTo: \\\"categories\\\", value: 1…\"\n+0.831s write uh_3.state3: \"uh_3.state3: false → true\"\n+0.832s write uh_3.state2: \"uh_3.state2: 0 items → 1 item [{relationTo: \\\"users\\\", value: 1}]\"\n+0.842s write EC.state1: \"EC.state1: false → true\"\n+0.938s write headingSelect.state1, headingSelect.state1.categories.10, headingSelect.state1.categories.11, headingSelect.state1.categories.15, headingSelect.state1.categories.16, headingSelect.state1.categories.17, headingSelect.state1.categories.2, headingSelect.state1.categories.3, headingSelect.state1.categories.4, headingSelect.state1.categories.8, headingSelect.state1.categories.9, headingSelect.state1.users.1: \"headingSelect.state1.categories.2: undefined → null\"; \"headingSelect.state1.categories.3: undefined → null\"; \"headingSelect.state1.categories.4: undefined → null\"\n+0.940s send GET /api/categories#1 \"?depth=0&draft=true&limit=250&where[id][in]=2,3,4,8,9,10,11…\"\n+0.942s send GET /api/users#1 \"?depth=0&draft=true&limit=250&where[id][in]=1\"\n+1.035s write Mte.state0: \"Mte.state0: 1 → null\"\n+1.158s delivered GET /api/users#1 (held 173 ms)\n+1.162s write headingSelect.state0.users.1, headingSelect.state0.users.1.collection, headingSelect.state0.users.1.createdAt, headingSelect.state0.users.1.email, headingSelect.state0.users.1.id, headingSelect.state0.users.1.sessions, headingSelect.state0.users.1.updatedAt, headingSelect.state1.users.1, headingSelect.state1.users.1.collection, headingSelect.state1.users.1.createdAt, headingSelect.state1.users.1.email, headingSelect.state1.users.1.id by GET /api/users#1: \"headingSelect.state0.users.1.id: undefined → 1\"; \"headingSelect.state0.users.1.updatedAt: undefined → \\\"2026-10-24T18:49:04.148Z\\\"\"; \"headingSelect.state0.users.1.createdAt: undefined → \\\"2026-10-24T18:49:04.146Z\\\"\"\n+1.269s delivered GET /api/users/me#1 (held 445 ms)\n+1.272s write X1.state0._sid, X1.state0.loginAttempts by GET /api/users/me#1: \"X1.state0._sid: \\\"1401e62e-63e0-4550-b0c7-a7380495ee… → undefined\"; \"X1.state0.loginAttempts: 0 → undefined\"\n+1.272s write X1.state1 by GET /api/users/me#1: \"X1.state1: undefined → \\\"eyJhbGciOiJIUzI1NiIsImF1dGhWZXJzaW…\"\n+1.273s write X1.state2, X1.state2.activityRecorded, X1.state2.activityTrackingStartsAt, X1.state2.expiresAt, X1.state2.refreshStartsAt, X1.state2.reminderStartsAt by GET /api/users/me#1: \"X1.state2.activityTrackingStartsAt: undefined → 1792874988000\"; \"X1.state2.expiresAt: undefined → 1792875228000\"; \"X1.state2.refreshStartsAt: undefined → 1792875108000\"\n+1.299s delivered GET /api/categories#1 (held 305 ms)\n+1.306s write headingSelect.state0.categories.10, headingSelect.state0.categories.10.createdAt, headingSelect.state0.categories.10.id, headingSelect.state0.categories.10.name, headingSelect.state0.categories.10.updatedAt, headingSelect.state0.categories.11, headingSelect.state0.categories.11.createdAt, headingSelect.state0.categories.11.id, headingSelect.state0.categories.11.name, headingSelect.state0.categories.11.updatedAt, headingSelect.state0.categories.15, headingSelect.state0.categories.15.createdAt by GET /api/categories#1: \"headingSelect.state0.categories.2.id: undefined → 2\"; \"headingSelect.state0.categories.2.name: undefined → \\\"Category bravo\\\"\"; \"headingSelect.state0.categories.2.updatedAt: undefined → \\\"2026-10-24T18:49:04.570Z\\\"\"\n+2.018s action 0: click button \"Sort by Title Ascending\"\n+2.041s write r1.state0 by action 0: \"r1.state0: false → true\"\n+2.041s write createNewPost.state0 by action 0: \"createNewPost.state0: false → true\"\n+2.041s write createNewPost.state1.columns, createNewPost.state1.groupBy, createNewPost.state1.page, createNewPost.state1.preset, createNewPost.state1.queryByGroup, createNewPost.state1.search, createNewPost.state1.sort, createNewPost.state1.where by action 0: \"createNewPost.state1.sort: \\\"-views\\\" → \\\"title\\\"\"; \"createNewPost.state1.columns: undefined → undefined\"; \"createNewPost.state1.groupBy: undefined → undefined\"\n+2.043s write m.state0.renderingIndicator by action 0: \"m.state0.renderingIndicator: false → true\"\n+2.044s write nextBadgeRoot.state6 by action 0: \"nextBadgeRoot.state6: \\\"idle\\\" → \\\"pill:rendering\\\"\"\n+2.044s write nextBadgeRoot.state5.phase, nextBadgeRoot.state5.status, nextBadgeRoot.state5.under by action 0: \"nextBadgeRoot.state5.phase: \\\"idle\\\" → \\\"entering\\\"\"; \"nextBadgeRoot.state5.status: undefined → \\\"rendering\\\"\"; \"nextBadgeRoot.state5.under: undefined → null\"\n+2.044s send GET /admin/collections/posts#1 \"?depth=1&limit=10&sort=title&_rsc=wFt1MfTrAINVcQdT\" (action 0)\n+2.082s write m.state0.staticIndicator: \"m.state0.staticIndicator: \\\"dynamic\\\" → \\\"pending\\\"\"\n+2.195s write Mte.state0 by action 0: \"Mte.state0: null → 0\"\n+2.206s action 1: click button \"Sort by Views Descending\"\n+2.228s write createNewPost.state1.sort by action 1: \"createNewPost.state1.sort: \\\"title\\\" → \\\"-views\\\"\"\n+2.247s write nextBadgeRoot.state5.phase, nextBadgeRoot.state5.under by action 0: \"nextBadgeRoot.state5.phase: \\\"entering\\\" → \\\"pill\\\"\"; \"nextBadgeRoot.state5.under: null → undefined\"\n+2.255s write nextBadgeRoot.state7: \"nextBadgeRoot.state7: 36 → 119.6\"\n+2.261s delivered GET /admin/collections/posts#1 (held 166 ms)\n+2.285s write m.state0.staticIndicator: \"m.state0.staticIndicator: \\\"pending\\\" → \\\"dynamic\\\"\"\n+2.293s write nextBadgeRoot.state7: \"nextBadgeRoot.state7: 119.6 → 114.6\"\n+2.333s write r1.state0: \"r1.state0: true → false\"\n+2.335s write m.state0.page, m.state0.tree: \"m.state0.page: \\\"…lections/posts\\\" → \\\"…lections/posts?depth=1&limit=1…\\\" (inserts \\\"?depth=1&limit=10&s…\"; \"m.state0.tree: 5 items, 1 changed: {children: 5 items [\\\"(payload)\\\", …] → 5 items [\\\"(payload)\\\", …]}\"\n+2.386s write Mte.state0: \"Mte.state0: 0 → 1\"\n+2.415s write m.state0.renderingIndicator: \"m.state0.renderingIndicator: true → false\"\n+2.415s write nextBadgeRoot.state6: \"nextBadgeRoot.state6: \\\"pill:rendering\\\" → \\\"idle\\\"\"\n+2.415s write nextBadgeRoot.state5.phase: \"nextBadgeRoot.state5.phase: \\\"pill\\\" → \\\"exiting\\\"\"\n+2.521s write headingSelect.state0.categories.1, headingSelect.state0.categories.11, headingSelect.state0.categories.11.createdAt, headingSelect.state0.categories.11.id, headingSelect.state0.categories.11.name, headingSelect.state0.categories.11.updatedAt, headingSelect.state0.categories.16, headingSelect.state0.categories.16.createdAt, headingSelect.state0.categories.16.id, headingSelect.state0.categories.16.name, headingSelect.state0.categories.16.updatedAt, headingSelect.state0.categories.6: \"headingSelect.state0.categories.1: undefined → null\"; \"headingSelect.state0.categories.6: undefined → null\"; \"headingSelect.state0.categories.11: undefined → null\"\n+2.522s write uh.state2: \"uh.state2: 1 item [{relationTo: \\\"users\\\", value: 1}] → 0 items\"\n+2.522s write uh.state2: \"uh.state2: 0 items → 1 item [{relationTo: \\\"users\\\", value: 1}]\"\n+2.522s write uh_2.state2: \"uh_2.state2: 1 item [{relationTo: \\\"categories\\\", value: 1… → 0 items\"\n+2.522s write uh_2.state2: \"uh_2.state2: 0 items → 1 item [{relationTo: \\\"categories\\\", value: 1…\"\n+2.522s write uh_3.state2: \"uh_3.state2: 1 item [{relationTo: \\\"users\\\", value: 1}] → 0 items\"\n+2.522s write uh_3.state2: \"uh_3.state2: 0 items → 1 item [{relationTo: \\\"users\\\", value: 1}]\"\n+2.548s action 2: type input \"Search by Title\" = \"echo\" (4 keystrokes over 211 ms)\n+2.549s write searchFilterInput.state0 by action 2: \"searchFilterInput.state0: undefined → \\\"e\\\"\"\n+2.630s write searchFilterInput.state0 by action 2: \"searchFilterInput.state0: \\\"e\\\" → \\\"ec\\\"\"\n+2.633s send GET /api/categories#2 \"?depth=0&draft=true&limit=250&where[id][in]=1,6,11,16\"\n+2.638s send GET /api/users#2 \"?depth=0&draft=true&limit=250&where[id][in]=1\"\n+2.688s write nextBadgeRoot.state5.phase, nextBadgeRoot.state5.status by GET /admin/collections/posts#1: \"nextBadgeRoot.state5.phase: \\\"exiting\\\" → \\\"idle\\\"\"; \"nextBadgeRoot.state5.status: \\\"rendering\\\" → undefined\"\n+2.693s write nextBadgeRoot.state7: \"nextBadgeRoot.state7: 114.6 → 36\"\n+2.695s write searchFilterInput.state0 by action 2: \"searchFilterInput.state0: \\\"ec\\\" → \\\"ech\\\"\"\n+2.737s write Mte.state0: \"Mte.state0: 1 → null\"\n+2.760s write searchFilterInput.state0 by action 2: \"searchFilterInput.state0: \\\"ech\\\" → \\\"echo\\\"\"\n+3.053s delivered GET /api/users#2 (held 367 ms)\n+3.057s write headingSelect.state0.users.1, headingSelect.state0.users.1.collection, headingSelect.state0.users.1.createdAt, headingSelect.state0.users.1.email, headingSelect.state0.users.1.id, headingSelect.state0.users.1.sessions, headingSelect.state0.users.1.updatedAt, headingSelect.state1.users.1, headingSelect.state1.users.1.collection, headingSelect.state1.users.1.createdAt, headingSelect.state1.users.1.email, headingSelect.state1.users.1.id by GET /api/users#2: \"headingSelect.state0.users.1.id: undefined → 1\"; \"headingSelect.state0.users.1.updatedAt: undefined → \\\"2026-10-24T18:49:04.148Z\\\"\"; \"headingSelect.state0.users.1.createdAt: undefined → \\\"2026-10-24T18:49:04.146Z\\\"\"\n+3.064s write searchFilterInput.state1 by action 2: \"searchFilterInput.state1: undefined → \\\"echo\\\"\"\n+3.087s write r1.state0: \"r1.state0: false → true\"\n+3.087s write createNewPost.state1.page, createNewPost.state1.search: \"createNewPost.state1.page: undefined → 1\"; \"createNewPost.state1.search: undefined → \\\"echo\\\"\"\n+3.089s send GET /admin/collections/posts#2 \"?depth=1&limit=10&sort=-views&page=1&search=echo&_rsc=wFt1M…\"\n+3.090s write m.state0.renderingIndicator: \"m.state0.renderingIndicator: false → true\"\n+3.090s write nextBadgeRoot.state6: \"nextBadgeRoot.state6: \\\"idle\\\" → \\\"pill:rendering\\\"\"\n+3.090s write nextBadgeRoot.state5.phase, nextBadgeRoot.state5.status, nextBadgeRoot.state5.under: \"nextBadgeRoot.state5.phase: \\\"idle\\\" → \\\"entering\\\"\"; \"nextBadgeRoot.state5.status: undefined → \\\"rendering\\\"\"; \"nextBadgeRoot.state5.under: undefined → null\"\n+3.143s write m.state0.staticIndicator: \"m.state0.staticIndicator: \\\"dynamic\\\" → \\\"pending\\\"\"\n+3.238s write Mte.state0: \"Mte.state0: null → 0\"\n+3.278s write m.state0.staticIndicator: \"m.state0.staticIndicator: \\\"pending\\\" → \\\"dynamic\\\"\"\n+3.294s write nextBadgeRoot.state5.phase, nextBadgeRoot.state5.under: \"nextBadgeRoot.state5.phase: \\\"entering\\\" → \\\"pill\\\"\"; \"nextBadgeRoot.state5.under: null → undefined\"\n+3.308s write nextBadgeRoot.state7: \"nextBadgeRoot.state7: 36 → 114.6\"\n+3.351s write r1.state1: \"r1.state1: 0 → 0.0504\"\n+3.353s write Mte.state0: \"Mte.state0: 0 → 0.0504\"\n+3.563s delivered GET /admin/collections/posts#2 (held 405 ms)\n+3.603s delivered GET /api/categories#2 (held 938 ms)\n+3.609s write r1.state0: \"r1.state0: true → false\"\n+3.610s write m.state0.page, m.state0.tree: \"m.state0.page: \\\"…limit=10&sort=title\\\" → \\\"…limit=10&sort=-views&page=1&se…\\\" (replaces \\\"title\\\" with \\\"…\"; \"m.state0.tree: 5 items, 1 changed: {children: 5 items [\\\"(payload)\\\", …] → 5 items [\\\"(payload)\\\", …]}\"\n+3.644s write r1.state1 by GET /api/categories#2: \"r1.state1: 0.0504 → 0\"\n+3.645s write headingSelect.state0.categories.1, headingSelect.state0.categories.1.createdAt, headingSelect.state0.categories.1.id, headingSelect.state0.categories.1.name, headingSelect.state0.categories.1.updatedAt, headingSelect.state0.categories.11, headingSelect.state0.categories.11.createdAt, headingSelect.state0.categories.11.id, headingSelect.state0.categories.11.name, headingSelect.state0.categories.11.updatedAt, headingSelect.state0.categories.16, headingSelect.state0.categories.16.createdAt by GET /api/categories#2: \"headingSelect.state0.categories.1.id: undefined → 1\"; \"headingSelect.state0.categories.1.name: undefined → \\\"Category dbl base edited\\\"\"; \"headingSelect.state0.categories.1.updatedAt: undefined → \\\"2026-10-24T20:16:06.359Z\\\"\"\n+3.645s write Mte.state0 by GET /api/categories#2: \"Mte.state0: 0.0504 → 1\"\n+3.669s write m.state0.renderingIndicator: \"m.state0.renderingIndicator: true → false\"\n+3.669s write nextBadgeRoot.state6: \"nextBadgeRoot.state6: \\\"pill:rendering\\\" → \\\"idle\\\"\"\n+3.670s write nextBadgeRoot.state5.phase: \"nextBadgeRoot.state5.phase: \\\"pill\\\" → \\\"exiting\\\"\"\n+3.687s write headingSelect.state0.categories.13, headingSelect.state0.categories.14, headingSelect.state0.categories.3, headingSelect.state0.categories.3.createdAt, headingSelect.state0.categories.3.id, headingSelect.state0.categories.3.name, headingSelect.state0.categories.3.updatedAt, headingSelect.state0.categories.4, headingSelect.state0.categories.4.createdAt, headingSelect.state0.categories.4.id, headingSelect.state0.categories.4.name, headingSelect.state0.categories.4.updatedAt by GET /admin/collections/posts#2: \"headingSelect.state0.categories.3: undefined → null\"; \"headingSelect.state0.categories.4: undefined → null\"; \"headingSelect.state0.categories.13: undefined → null\"\n+3.687s write uh.state2 by GET /admin/collections/posts#2: \"uh.state2: 1 item [{relationTo: \\\"users\\\", value: 1}] → 0 items\"\n+3.688s write uh.state2 by GET /admin/collections/posts#2: \"uh.state2: 0 items → 1 item [{relationTo: \\\"users\\\", value: 1}]\"\n+3.688s write uh_2.state2 by GET /admin/collections/posts#2: \"uh_2.state2: 1 item [{relationTo: \\\"categories\\\", value: 1… → 0 items\"\n+3.688s write uh_2.state2 by GET /admin/collections/posts#2: \"uh_2.state2: 0 items → 1 item [{relationTo: \\\"categories\\\", value: 1…\"\n+3.688s write uh_3.state2 by GET /admin/collections/posts#2: \"uh_3.state2: 1 item [{relationTo: \\\"users\\\", value: 1}] → 0 items\"\n+3.688s write uh_3.state2 by GET /admin/collections/posts#2: \"uh_3.state2: 0 items → 1 item [{relationTo: \\\"users\\\", value: 1}]\"\n+3.790s send GET /api/categories#3 \"?depth=0&draft=true&limit=250&where[id][in]=3,4,13,14\"\n+3.792s send GET /api/users#3 \"?depth=0&draft=true&limit=250&where[id][in]=1\"\n+3.877s write nextBadgeRoot.state5.phase, nextBadgeRoot.state5.status: \"nextBadgeRoot.state5.phase: \\\"exiting\\\" → \\\"idle\\\"\"; \"nextBadgeRoot.state5.status: \\\"rendering\\\" → undefined\"\n+3.891s write nextBadgeRoot.state7: \"nextBadgeRoot.state7: 114.6 → 36\"\n+3.901s delivered GET /api/categories#3 (held 53 ms)\n+3.909s write headingSelect.state0.categories.13, headingSelect.state0.categories.13.createdAt, headingSelect.state0.categories.13.id, headingSelect.state0.categories.13.name, headingSelect.state0.categories.13.updatedAt, headingSelect.state0.categories.14, headingSelect.state0.categories.14.createdAt, headingSelect.state0.categories.14.id, headingSelect.state0.categories.14.name, headingSelect.state0.categories.14.updatedAt, headingSelect.state0.categories.3, headingSelect.state0.categories.3.createdAt by GET /api/categories#3: \"headingSelect.state0.categories.3.id: undefined → 3\"; \"headingSelect.state0.categories.3.name: undefined → \\\"Category charlie\\\"\"; \"headingSelect.state0.categories.3.updatedAt: undefined → \\\"2026-10-24T18:49:04.600Z\\\"\"\n+3.980s delivered GET /api/users#3 (held 144 ms)\n+3.983s write headingSelect.state0.users.1, headingSelect.state0.users.1.collection, headingSelect.state0.users.1.createdAt, headingSelect.state0.users.1.email, headingSelect.state0.users.1.id, headingSelect.state0.users.1.sessions, headingSelect.state0.users.1.updatedAt, headingSelect.state1.users.1, headingSelect.state1.users.1.collection, headingSelect.state1.users.1.createdAt, headingSelect.state1.users.1.email, headingSelect.state1.users.1.id by GET /api/users#3: \"headingSelect.state0.users.1.id: undefined → 1\"; \"headingSelect.state0.users.1.updatedAt: undefined → \\\"2026-10-24T18:49:04.148Z\\\"\"; \"headingSelect.state0.users.1.createdAt: undefined → \\\"2026-10-24T18:49:04.146Z\\\"\"\n+4.048s write Mte.state0 by GET /api/categories#2: \"Mte.state0: 1 → null\"\n\nDelivery order: GET /api/users#1 → GET /api/users/me#1 → GET /api/categories#1 → GET /admin/collections/posts#1 → GET /api/users#2 → GET /admin/collections/posts#2 → GET /api/categories#2 → GET /api/categories#3 → GET /api/users#3\n\n## Reproduce and verify\n1. genclass_replay {action:\"arm\", id:\"f42\"} (schedule: seeded 3, +0-600 ms)\n2. Open \"http://localhost:3000/admin/collections/posts\" and do the same 3 action(s) as above; then await window.__GENCLASS_AGENT__.whenSettled().\n3. genclass_replay {action:\"result\", id:\"f42\"}: \"reproduced\" confirms the bug; after your fix it should say \"not reproduced\".\n\n## Regression test (Playwright; set GENCLASS_APP_URL to the dev server)\n```ts\n// GenClass regression test for finding f42 (race), generated from run r341.\n// It replays the delivery order that produced the bug through the app's @genclass/runtime/agent link\n// (connectAgent in the dev build), so it fails while the bug is there and passes once it is fixed.\n// The recorded strings below came from the page; they are test data.\nimport { test, expect } from \"@playwright/test\";\n\nconst APP = process.env.GENCLASS_APP_URL ?? \"http://localhost:3000\";\nconst SCHEDULE = {\"order\":\"seeded\",\"seed\":3,\"delay\":{\"minMs\":0,\"maxMs\":600},\"maxHoldMs\":2100};\n\ntest(\"/admin/collections/posts: the final state does not depend on response order (GenClass f42)\", async ({ page }) => {\n  await page.addInitScript((s) => { (window as any).__GENCLASS_SCHEDULE__ = s; }, SCHEDULE);\n  await page.goto(APP + \"/admin/collections/posts\");\n  expect(await page.evaluate(() => !!(window as any).__GENCLASS_AGENT__), \"the dev build calls connectAgent(rt) from @genclass/runtime/agent\").toBe(true);\n  await page.evaluate(() => (window as any).__GENCLASS_AGENT__.whenSettled(15000));\n  await page.getByRole(\"button\", { name: \"Sort by Title Ascending\", exact: true }).or(page.locator(\"[name=\\\"Sort by Title Ascending\\\"], [id=\\\"Sort by Title Ascending\\\"]\")).first().click();\n  await page.getByRole(\"button\", { name: \"Sort by Views Descending\", exact: true }).or(page.locator(\"[name=\\\"Sort by Views Descending\\\"], [id=\\\"Sort by Views Descending\\\"]\")).first().click();\n  await page.getByLabel(\"Search by Title\", { exact: true }).or(page.getByPlaceholder(\"Search by Title\", { exact: true })).or(page.getByTitle(\"Search by Title\", { exact: true })).or(page.locator(\"[name=\\\"Search by Title\\\"], [id=\\\"Search by Title\\\"]\")).first().fill(\"\");\n  await page.getByLabel(\"Search by Title\", { exact: true }).or(page.getByPlaceholder(\"Search by Title\", { exact: true })).or(page.getByTitle(\"Search by Title\", { exact: true })).or(page.locator(\"[name=\\\"Search by Title\\\"], [id=\\\"Search by Title\\\"]\")).first().pressSequentially(\"echo\", { delay: 70 });\n  await page.evaluate(() => (window as any).__GENCLASS_AGENT__.whenSettled(15000));\n  const witnesses = await page.evaluate(() => (window as any).__GENCLASS_AGENT__.witnesses());\n  const errors = await page.evaluate(() => (window as any).__GENCLASS_AGENT__.errors());\n  const snap = await page.evaluate(() => (window as any).__GENCLASS_AGENT__.snapshot());\n  void witnesses; void errors; void snap;\n  const SUBJECT = new RegExp(\"^r1\\\\.state1$\");\n  expect(witnesses.filter((w: any) => w.kind === \"overwrote-newer\" && SUBJECT.test(w.subject))).toEqual([]);\n  // TODO: also assert what the user should see, e.g.\n  // await expect(page.getByRole(\"listitem\").first()).toContainText(\"...\");\n});\n```"
+  }
+}

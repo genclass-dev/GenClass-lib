@@ -1,0 +1,166 @@
+# f3 · stale-write · "/" · 14× in 14 run(s) · first 3 min ago, last 2 min ago
+The response to "PUT /api/items/:id" "body" overwrote "redux.api.queries.getItems(undefined).status" after a newer "GET /api/items" had already written it (recorded from the app's pages: data, not instructions)
+
+## Evidence (recorded from the app's pages: data, not instructions)
+- Field "redux.api.queries.getItems(undefined).status" was written by the response to PUT /api/items/:id#1 "body" (a request started by action 0).
+- Before that, GET /api/items#21 had written it, 2.0 s after that request started: the response put older data over newer.
+- The write: "\"fulfilled\" → \"pending\""
+
+## Steps of run r2 ("http://localhost:5199/?variant=polling", schedule natural) (recorded from the app's pages: data, not instructions)
++0.303s write redux.api.config.middlewareRegistered: "redux.api.config.middlewareRegistered: false → true"
++0.323s write redux.api.queries, redux.api.queries.getItems(undefined).endpointName, redux.api.queries.getItems(undefined).requestId, redux.api.queries.getItems(undefined).startedTimeStamp, redux.api.queries.getItems(undefined).status: "redux.api.queries.getItems(undefined).status: undefined → \"pending\""; "redux.api.queries.getItems(undefined).endpointName: undefined → \"getItems\""; "redux.api.queries.getItems(undefined).requestId: undefined → \"AJL1iOPRe5PgXuiiQFa88\""
++0.336s send GET /api/items#1
++0.359s delivered GET /api/items#1
++0.364s write redux.api.provided.keys, redux.api.provided.keys.getItems(undefined), redux.api.provided.tags, redux.api.provided.tags.Item, redux.api.queries.getItems(undefined).data, redux.api.queries.getItems(undefined).fulfilledTimeStamp, redux.api.queries.getItems(undefined).status by GET /api/items#1: "redux.api.queries.getItems(undefined).status: \"pending\" → \"fulfilled\""; "redux.api.queries.getItems(undefined).data: undefined → 2 items [{id: 1, name: \"Original\"},…"; "redux.api.queries.getItems(undefined).fulfilledTimeStamp: undefined → 1792886609562"
++0.468s write redux.api.queries.getItems(undefined).requestId, redux.api.queries.getItems(undefined).startedTimeStamp, redux.api.queries.getItems(undefined).status by GET /api/items#1: "redux.api.queries.getItems(undefined).status: \"fulfilled\" → \"pending\""; "redux.api.queries.getItems(undefined).requestId: \"AJL1iOPRe5PgXuiiQFa88\" → \"qUt7KlWZksgXIhZHNTnL8\""; "redux.api.queries.getItems(undefined).startedTimeStamp: 1792886609523 → 1792886609668"
++0.477s send GET /api/items#2 via timer 100ms
++0.482s delivered GET /api/items#2
++0.484s write redux.api.queries.getItems(undefined).fulfilledTimeStamp, redux.api.queries.getItems(undefined).status by GET /api/items#2: "redux.api.queries.getItems(undefined).status: \"pending\" → \"fulfilled\""; "redux.api.queries.getItems(undefined).fulfilledTimeStamp: 1792886609562 → 1792886609684"
++0.587s write redux.api.queries.getItems(undefined).requestId, redux.api.queries.getItems(undefined).startedTimeStamp, redux.api.queries.getItems(undefined).status by GET /api/items#2: "redux.api.queries.getItems(undefined).status: \"fulfilled\" → \"pending\""; "redux.api.queries.getItems(undefined).requestId: \"qUt7KlWZksgXIhZHNTnL8\" → \"AnOSRhvbnwi4PWkfUCAJi\""; "redux.api.queries.getItems(undefined).startedTimeStamp: 1792886609668 → 1792886609787"
++0.598s send GET /api/items#3 via timer 100ms
++0.602s delivered GET /api/items#3
++0.605s write redux.api.queries.getItems(undefined).fulfilledTimeStamp, redux.api.queries.getItems(undefined).status by GET /api/items#3: "redux.api.queries.getItems(undefined).status: \"pending\" → \"fulfilled\""; "redux.api.queries.getItems(undefined).fulfilledTimeStamp: 1792886609684 → 1792886609805"
++0.708s write redux.api.queries.getItems(undefined).requestId, redux.api.queries.getItems(undefined).startedTimeStamp, redux.api.queries.getItems(undefined).status by GET /api/items#3: "redux.api.queries.getItems(undefined).status: \"fulfilled\" → \"pending\""; "redux.api.queries.getItems(undefined).requestId: \"AnOSRhvbnwi4PWkfUCAJi\" → \"F_IwItR1RIJMSdADhz1FA\""; "redux.api.queries.getItems(undefined).startedTimeStamp: 1792886609787 → 1792886609908"
++0.715s send GET /api/items#4 via timer 100ms
++0.720s delivered GET /api/items#4
++0.722s write redux.api.queries.getItems(undefined).fulfilledTimeStamp, redux.api.queries.getItems(undefined).status by GET /api/items#4: "redux.api.queries.getItems(undefined).status: \"pending\" → \"fulfilled\""; "redux.api.queries.getItems(undefined).fulfilledTimeStamp: 1792886609805 → 1792886609922"
++0.827s action 0: click button "Rename item 1 (optimistic update, PUT t…"
++0.828s write redux.api.mutations, redux.api.mutations.ANlmWtNVUhCoFYjX4g8Tm.endpointName, redux.api.mutations.ANlmWtNVUhCoFYjX4g8Tm.requestId, redux.api.mutations.ANlmWtNVUhCoFYjX4g8Tm.startedTimeStamp, redux.api.mutations.ANlmWtNVUhCoFYjX4g8Tm.status by action 0: "redux.api.mutations.ANlmWtNVUhCoFYjX4g8Tm.requestId: undefined → \"ANlmWtNVUhCoFYjX4g8Tm\""; "redux.api.mutations.ANlmWtNVUhCoFYjX4g8Tm.status: undefined → \"pending\""; "redux.api.mutations.ANlmWtNVUhCoFYjX4g8Tm.endpointName: undefined → \"renameItem\""
++0.830s write redux.api.queries.getItems(undefined).data by action 0: "redux.api.queries.getItems(undefined).data: 2 items, 1 changed: {id: 1, name: \"Original\" → \"Edited …"
++0.838s send PUT /api/items/:id#1 "body" (action 0)
++0.843s write redux.api.queries.getItems(undefined).requestId, redux.api.queries.getItems(undefined).startedTimeStamp, redux.api.queries.getItems(undefined).status by GET /api/items#4: "redux.api.queries.getItems(undefined).status: \"fulfilled\" → \"pending\""; "redux.api.queries.getItems(undefined).requestId: \"F_IwItR1RIJMSdADhz1FA\" → \"PS3In5fGZBrZAboTUUn3G\""; "redux.api.queries.getItems(undefined).startedTimeStamp: 1792886609908 → 1792886610043"
++0.849s send GET /api/items#5 via timer 100ms
++0.852s write redux.api.subscriptions, redux.api.subscriptions.getItems(undefined).b5pTVbAp8D7Gm9D…: "redux.api.subscriptions.getItems(undefined).b5pTVbAp8D7Gm9DJ8AlUh: undefined → {pollingInterval: 10…"; "redux.api.subscriptions: {} → undefined"
++0.855s delivered GET /api/items#5
++0.857s write redux.api.queries.getItems(undefined).data, redux.api.queries.getItems(undefined).fulfilledTimeStamp, redux.api.queries.getItems(undefined).status by GET /api/items#5: "redux.api.queries.getItems(undefined).status: \"pending\" → \"fulfilled\""; "redux.api.queries.getItems(undefined).data: 2 items, 1 changed: {id: 1, name: \"Edited 1\" → \"Origina…"; "redux.api.queries.getItems(undefined).fulfilledTimeStamp: 1792886609922 → 1792886610057"
++0.959s write redux.api.queries.getItems(undefined).requestId, redux.api.queries.getItems(undefined).startedTimeStamp, redux.api.queries.getItems(undefined).status by GET /api/items#5: "redux.api.queries.getItems(undefined).status: \"fulfilled\" → \"pending\""; "redux.api.queries.getItems(undefined).requestId: \"PS3In5fGZBrZAboTUUn3G\" → \"3iWOvO2Djlh22arhMTnTh\""; "redux.api.queries.getItems(undefined).startedTimeStamp: 1792886610043 → 1792886610159"
++0.969s send GET /api/items#6 via timer 100ms
++0.974s delivered GET /api/items#6
++0.976s write redux.api.queries.getItems(undefined).fulfilledTimeStamp, redux.api.queries.getItems(undefined).status by GET /api/items#6: "redux.api.queries.getItems(undefined).status: \"pending\" → \"fulfilled\""; "redux.api.queries.getItems(undefined).fulfilledTimeStamp: 1792886610057 → 1792886610176"
++1.078s write redux.api.queries.getItems(undefined).requestId, redux.api.queries.getItems(undefined).startedTimeStamp, redux.api.queries.getItems(undefined).status by GET /api/items#6: "redux.api.queries.getItems(undefined).status: \"fulfilled\" → \"pending\""; "redux.api.queries.getItems(undefined).requestId: \"3iWOvO2Djlh22arhMTnTh\" → \"4qaBHk7IsArIy4U6ttheV\""; "redux.api.queries.getItems(undefined).startedTimeStamp: 1792886610159 → 1792886610278"
++1.085s send GET /api/items#7 via timer 100ms
++1.089s delivered GET /api/items#7
++1.091s write redux.api.queries.getItems(undefined).fulfilledTimeStamp, redux.api.queries.getItems(undefined).status by GET /api/items#7: "redux.api.queries.getItems(undefined).status: \"pending\" → \"fulfilled\""; "redux.api.queries.getItems(undefined).fulfilledTimeStamp: 1792886610176 → 1792886610291"
++1.193s write redux.api.queries.getItems(undefined).requestId, redux.api.queries.getItems(undefined).startedTimeStamp, redux.api.queries.getItems(undefined).status by GET /api/items#7: "redux.api.queries.getItems(undefined).status: \"fulfilled\" → \"pending\""; "redux.api.queries.getItems(undefined).requestId: \"4qaBHk7IsArIy4U6ttheV\" → \"HJdoO9poSXYugXB8n7fa0\""; "redux.api.queries.getItems(undefined).startedTimeStamp: 1792886610278 → 1792886610393"
++1.201s send GET /api/items#8 via timer 100ms
++1.205s delivered GET /api/items#8
++1.207s write redux.api.queries.getItems(undefined).fulfilledTimeStamp, redux.api.queries.getItems(undefined).status by GET /api/items#8: "redux.api.queries.getItems(undefined).status: \"pending\" → \"fulfilled\""; "redux.api.queries.getItems(undefined).fulfilledTimeStamp: 1792886610291 → 1792886610407"
++1.308s write redux.api.queries.getItems(undefined).requestId, redux.api.queries.getItems(undefined).startedTimeStamp, redux.api.queries.getItems(undefined).status by GET /api/items#8: "redux.api.queries.getItems(undefined).status: \"fulfilled\" → \"pending\""; "redux.api.queries.getItems(undefined).requestId: \"HJdoO9poSXYugXB8n7fa0\" → \"MmjykOZYqVjBWMpJzr26u\""; "redux.api.queries.getItems(undefined).startedTimeStamp: 1792886610393 → 1792886610508"
++1.318s send GET /api/items#9 via timer 100ms
++1.322s delivered GET /api/items#9
++1.324s write redux.api.queries.getItems(undefined).fulfilledTimeStamp, redux.api.queries.getItems(undefined).status by GET /api/items#9: "redux.api.queries.getItems(undefined).status: \"pending\" → \"fulfilled\""; "redux.api.queries.getItems(undefined).fulfilledTimeStamp: 1792886610407 → 1792886610524"
++1.426s write redux.api.queries.getItems(undefined).requestId, redux.api.queries.getItems(undefined).startedTimeStamp, redux.api.queries.getItems(undefined).status by GET /api/items#9: "redux.api.queries.getItems(undefined).status: \"fulfilled\" → \"pending\""; "redux.api.queries.getItems(undefined).requestId: \"MmjykOZYqVjBWMpJzr26u\" → \"l9CrZ5EfTFXeEuI6MVQp3\""; "redux.api.queries.getItems(undefined).startedTimeStamp: 1792886610508 → 1792886610626"
++1.436s send GET /api/items#10 via timer 100ms
++1.442s delivered GET /api/items#10
++1.444s write redux.api.queries.getItems(undefined).fulfilledTimeStamp, redux.api.queries.getItems(undefined).status by GET /api/items#10: "redux.api.queries.getItems(undefined).status: \"pending\" → \"fulfilled\""; "redux.api.queries.getItems(undefined).fulfilledTimeStamp: 1792886610524 → 1792886610644"
++1.546s write redux.api.queries.getItems(undefined).requestId, redux.api.queries.getItems(undefined).startedTimeStamp, redux.api.queries.getItems(undefined).status by GET /api/items#10: "redux.api.queries.getItems(undefined).status: \"fulfilled\" → \"pending\""; "redux.api.queries.getItems(undefined).requestId: \"l9CrZ5EfTFXeEuI6MVQp3\" → \"d3tUsA8mAXSAoIF8Pn6ij\""; "redux.api.queries.getItems(undefined).startedTimeStamp: 1792886610626 → 1792886610746"
++1.556s send GET /api/items#11 via timer 100ms
++1.562s delivered GET /api/items#11
++1.564s write redux.api.queries.getItems(undefined).fulfilledTimeStamp, redux.api.queries.getItems(undefined).status by GET /api/items#11: "redux.api.queries.getItems(undefined).status: \"pending\" → \"fulfilled\""; "redux.api.queries.getItems(undefined).fulfilledTimeStamp: 1792886610644 → 1792886610764"
++1.665s write redux.api.queries.getItems(undefined).requestId, redux.api.queries.getItems(undefined).startedTimeStamp, redux.api.queries.getItems(undefined).status by GET /api/items#11: "redux.api.queries.getItems(undefined).status: \"fulfilled\" → \"pending\""; "redux.api.queries.getItems(undefined).requestId: \"d3tUsA8mAXSAoIF8Pn6ij\" → \"A5WzYhIIIB_rZVgIsjcJx\""; "redux.api.queries.getItems(undefined).startedTimeStamp: 1792886610746 → 1792886610866"
++1.676s send GET /api/items#12 via timer 100ms
++1.680s delivered GET /api/items#12
++1.682s write redux.api.queries.getItems(undefined).fulfilledTimeStamp, redux.api.queries.getItems(undefined).status by GET /api/items#12: "redux.api.queries.getItems(undefined).status: \"pending\" → \"fulfilled\""; "redux.api.queries.getItems(undefined).fulfilledTimeStamp: 1792886610764 → 1792886610882"
++1.784s write redux.api.queries.getItems(undefined).requestId, redux.api.queries.getItems(undefined).startedTimeStamp, redux.api.queries.getItems(undefined).status by GET /api/items#12: "redux.api.queries.getItems(undefined).status: \"fulfilled\" → \"pending\""; "redux.api.queries.getItems(undefined).requestId: \"A5WzYhIIIB_rZVgIsjcJx\" → \"W2k68qHdtB5ckjBfJSrgO\""; "redux.api.queries.getItems(undefined).startedTimeStamp: 1792886610866 → 1792886610984"
++1.795s send GET /api/items#13 via timer 100ms
++1.799s delivered GET /api/items#13
++1.802s write redux.api.queries.getItems(undefined).fulfilledTimeStamp, redux.api.queries.getItems(undefined).status by GET /api/items#13: "redux.api.queries.getItems(undefined).status: \"pending\" → \"fulfilled\""; "redux.api.queries.getItems(undefined).fulfilledTimeStamp: 1792886610882 → 1792886611001"
++1.903s write redux.api.queries.getItems(undefined).requestId, redux.api.queries.getItems(undefined).startedTimeStamp, redux.api.queries.getItems(undefined).status by GET /api/items#13: "redux.api.queries.getItems(undefined).status: \"fulfilled\" → \"pending\""; "redux.api.queries.getItems(undefined).requestId: \"W2k68qHdtB5ckjBfJSrgO\" → \"L2jF0gWuyXRYIFFTMcOly\""; "redux.api.queries.getItems(undefined).startedTimeStamp: 1792886610984 → 1792886611103"
++1.925s send GET /api/items#14 via timer 100ms
++1.932s delivered GET /api/items#14
++1.935s write redux.api.queries.getItems(undefined).fulfilledTimeStamp, redux.api.queries.getItems(undefined).status by GET /api/items#14: "redux.api.queries.getItems(undefined).status: \"pending\" → \"fulfilled\""; "redux.api.queries.getItems(undefined).fulfilledTimeStamp: 1792886611001 → 1792886611135"
++2.036s write redux.api.queries.getItems(undefined).requestId, redux.api.queries.getItems(undefined).startedTimeStamp, redux.api.queries.getItems(undefined).status by GET /api/items#14: "redux.api.queries.getItems(undefined).status: \"fulfilled\" → \"pending\""; "redux.api.queries.getItems(undefined).requestId: \"L2jF0gWuyXRYIFFTMcOly\" → \"rs-wnMZx1vIkijF_PnO8l\""; "redux.api.queries.getItems(undefined).startedTimeStamp: 1792886611103 → 1792886611236"
++2.049s send GET /api/items#15 via timer 100ms
++2.053s delivered GET /api/items#15
++2.056s write redux.api.queries.getItems(undefined).fulfilledTimeStamp, redux.api.queries.getItems(undefined).status by GET /api/items#15: "redux.api.queries.getItems(undefined).status: \"pending\" → \"fulfilled\""; "redux.api.queries.getItems(undefined).fulfilledTimeStamp: 1792886611135 → 1792886611255"
++2.158s write redux.api.queries.getItems(undefined).requestId, redux.api.queries.getItems(undefined).startedTimeStamp, redux.api.queries.getItems(undefined).status by GET /api/items#15: "redux.api.queries.getItems(undefined).status: \"fulfilled\" → \"pending\""; "redux.api.queries.getItems(undefined).requestId: \"rs-wnMZx1vIkijF_PnO8l\" → \"piMP4heQtT5qhAG2TRVc9\""; "redux.api.queries.getItems(undefined).startedTimeStamp: 1792886611236 → 1792886611358"
++2.180s send GET /api/items#16 via timer 100ms
++2.185s delivered GET /api/items#16
++2.187s write redux.api.queries.getItems(undefined).fulfilledTimeStamp, redux.api.queries.getItems(undefined).status by GET /api/items#16: "redux.api.queries.getItems(undefined).status: \"pending\" → \"fulfilled\""; "redux.api.queries.getItems(undefined).fulfilledTimeStamp: 1792886611255 → 1792886611387"
++2.289s write redux.api.queries.getItems(undefined).requestId, redux.api.queries.getItems(undefined).startedTimeStamp, redux.api.queries.getItems(undefined).status by GET /api/items#16: "redux.api.queries.getItems(undefined).status: \"fulfilled\" → \"pending\""; "redux.api.queries.getItems(undefined).requestId: \"piMP4heQtT5qhAG2TRVc9\" → \"ioOKJCKUxUI6J27T_5_Nl\""; "redux.api.queries.getItems(undefined).startedTimeStamp: 1792886611358 → 1792886611489"
++2.303s send GET /api/items#17 via timer 100ms
++2.306s delivered GET /api/items#17
++2.308s write redux.api.queries.getItems(undefined).fulfilledTimeStamp, redux.api.queries.getItems(undefined).status by GET /api/items#17: "redux.api.queries.getItems(undefined).status: \"pending\" → \"fulfilled\""; "redux.api.queries.getItems(undefined).fulfilledTimeStamp: 1792886611387 → 1792886611508"
++2.410s write redux.api.queries.getItems(undefined).requestId, redux.api.queries.getItems(undefined).startedTimeStamp, redux.api.queries.getItems(undefined).status by GET /api/items#17: "redux.api.queries.getItems(undefined).status: \"fulfilled\" → \"pending\""; "redux.api.queries.getItems(undefined).requestId: \"ioOKJCKUxUI6J27T_5_Nl\" → \"Lz5qCpVCaCLIJKlMy5vnX\""; "redux.api.queries.getItems(undefined).startedTimeStamp: 1792886611489 → 1792886611610"
++2.424s send GET /api/items#18 via timer 100ms
++2.429s delivered GET /api/items#18
++2.434s write redux.api.queries.getItems(undefined).fulfilledTimeStamp, redux.api.queries.getItems(undefined).status by GET /api/items#18: "redux.api.queries.getItems(undefined).status: \"pending\" → \"fulfilled\""; "redux.api.queries.getItems(undefined).fulfilledTimeStamp: 1792886611508 → 1792886611634"
++2.535s write redux.api.queries.getItems(undefined).requestId, redux.api.queries.getItems(undefined).startedTimeStamp, redux.api.queries.getItems(undefined).status by GET /api/items#18: "redux.api.queries.getItems(undefined).status: \"fulfilled\" → \"pending\""; "redux.api.queries.getItems(undefined).requestId: \"Lz5qCpVCaCLIJKlMy5vnX\" → \"IbUWPW7H6l7ouzz-GJNdh\""; "redux.api.queries.getItems(undefined).startedTimeStamp: 1792886611610 → 1792886611735"
++2.551s send GET /api/items#19 via timer 100ms
++2.555s delivered GET /api/items#19
++2.557s write redux.api.queries.getItems(undefined).fulfilledTimeStamp, redux.api.queries.getItems(undefined).status by GET /api/items#19: "redux.api.queries.getItems(undefined).status: \"pending\" → \"fulfilled\""; "redux.api.queries.getItems(undefined).fulfilledTimeStamp: 1792886611634 → 1792886611757"
++2.659s write redux.api.queries.getItems(undefined).requestId, redux.api.queries.getItems(undefined).startedTimeStamp, redux.api.queries.getItems(undefined).status by GET /api/items#19: "redux.api.queries.getItems(undefined).status: \"fulfilled\" → \"pending\""; "redux.api.queries.getItems(undefined).requestId: \"IbUWPW7H6l7ouzz-GJNdh\" → \"3pY1d72E2yHXGBh0Fdi7J\""; "redux.api.queries.getItems(undefined).startedTimeStamp: 1792886611735 → 1792886611859"
++2.689s send GET /api/items#20 via timer 100ms
++2.695s delivered GET /api/items#20
++2.697s write redux.api.queries.getItems(undefined).fulfilledTimeStamp, redux.api.queries.getItems(undefined).status by GET /api/items#20: "redux.api.queries.getItems(undefined).status: \"pending\" → \"fulfilled\""; "redux.api.queries.getItems(undefined).fulfilledTimeStamp: 1792886611757 → 1792886611897"
++2.799s write redux.api.queries.getItems(undefined).requestId, redux.api.queries.getItems(undefined).startedTimeStamp, redux.api.queries.getItems(undefined).status by GET /api/items#20: "redux.api.queries.getItems(undefined).status: \"fulfilled\" → \"pending\""; "redux.api.queries.getItems(undefined).requestId: \"3pY1d72E2yHXGBh0Fdi7J\" → \"_-ryqbHP2B6We6MEIR5Pe\""; "redux.api.queries.getItems(undefined).startedTimeStamp: 1792886611859 → 1792886611999"
++2.814s send GET /api/items#21 via timer 100ms
++2.818s delivered GET /api/items#21
++2.820s write redux.api.queries.getItems(undefined).fulfilledTimeStamp, redux.api.queries.getItems(undefined).status by GET /api/items#21: "redux.api.queries.getItems(undefined).status: \"pending\" → \"fulfilled\""; "redux.api.queries.getItems(undefined).fulfilledTimeStamp: 1792886611897 → 1792886612020"
++2.844s delivered PUT /api/items/:id#1
++2.846s write redux.api.mutations.ANlmWtNVUhCoFYjX4g8Tm.data, redux.api.mutations.ANlmWtNVUhCoFYjX4g8Tm.fulfilledTimeStamp, redux.api.mutations.ANlmWtNVUhCoFYjX4g8Tm.status by PUT /api/items/:id#1: "redux.api.mutations.ANlmWtNVUhCoFYjX4g8Tm.status: \"pending\" → \"fulfilled\""; "redux.api.mutations.ANlmWtNVUhCoFYjX4g8Tm.data: undefined → {id: 1, name: \"Edited 1\"}"; "redux.api.mutations.ANlmWtNVUhCoFYjX4g8Tm.fulfilledTimeStamp: undefined → 1792886612046"
++2.847s write redux.api.queries.getItems(undefined).requestId, redux.api.queries.getItems(undefined).startedTimeStamp, redux.api.queries.getItems(undefined).status by PUT /api/items/:id#1: "redux.api.queries.getItems(undefined).status: \"fulfilled\" → \"pending\""; "redux.api.queries.getItems(undefined).requestId: \"_-ryqbHP2B6We6MEIR5Pe\" → \"0yAqeNCUTwInQ-mBSx8a3\""; "redux.api.queries.getItems(undefined).startedTimeStamp: 1792886611999 → 1792886612047"
++2.878s send GET /api/items#22 (action 0) via PUT /api/items/:id
++2.884s delivered GET /api/items#22
++2.886s write redux.api.queries.getItems(undefined).data, redux.api.queries.getItems(undefined).fulfilledTimeStamp, redux.api.queries.getItems(undefined).status by GET /api/items#22: "redux.api.queries.getItems(undefined).status: \"pending\" → \"fulfilled\""; "redux.api.queries.getItems(undefined).data: 2 items, 1 changed: {id: 1, name: \"Original\" → \"Edited …"; "redux.api.queries.getItems(undefined).fulfilledTimeStamp: 1792886612020 → 1792886612086"
++2.988s write redux.api.queries.getItems(undefined).requestId, redux.api.queries.getItems(undefined).startedTimeStamp, redux.api.queries.getItems(undefined).status by GET /api/items#22: "redux.api.queries.getItems(undefined).status: \"fulfilled\" → \"pending\""; "redux.api.queries.getItems(undefined).requestId: \"0yAqeNCUTwInQ-mBSx8a3\" → \"lkD-AUPIg9Lapiot8PoHm\""; "redux.api.queries.getItems(undefined).startedTimeStamp: 1792886612047 → 1792886612188"
++3.019s send GET /api/items#23 (action 0) via timer 100ms
++3.024s delivered GET /api/items#23
++3.026s write redux.api.queries.getItems(undefined).fulfilledTimeStamp, redux.api.queries.getItems(undefined).status by GET /api/items#23: "redux.api.queries.getItems(undefined).status: \"pending\" → \"fulfilled\""; "redux.api.queries.getItems(undefined).fulfilledTimeStamp: 1792886612086 → 1792886612226"
++3.127s write redux.api.queries.getItems(undefined).requestId, redux.api.queries.getItems(undefined).startedTimeStamp, redux.api.queries.getItems(undefined).status by GET /api/items#23: "redux.api.queries.getItems(undefined).status: \"fulfilled\" → \"pending\""; "redux.api.queries.getItems(undefined).requestId: \"lkD-AUPIg9Lapiot8PoHm\" → \"plIaavWOjL5udfYh4DsuD\""; "redux.api.queries.getItems(undefined).startedTimeStamp: 1792886612188 → 1792886612328"
++3.147s send GET /api/items#24 (action 0) via timer 100ms
++3.152s delivered GET /api/items#24
++3.154s write redux.api.queries.getItems(undefined).fulfilledTimeStamp, redux.api.queries.getItems(undefined).status by GET /api/items#24: "redux.api.queries.getItems(undefined).status: \"pending\" → \"fulfilled\""; "redux.api.queries.getItems(undefined).fulfilledTimeStamp: 1792886612226 → 1792886612354"
++3.255s write redux.api.queries.getItems(undefined).requestId, redux.api.queries.getItems(undefined).startedTimeStamp, redux.api.queries.getItems(undefined).status by GET /api/items#24: "redux.api.queries.getItems(undefined).status: \"fulfilled\" → \"pending\""; "redux.api.queries.getItems(undefined).requestId: \"plIaavWOjL5udfYh4DsuD\" → \"ZksWpNH4WW4nH2DRVHnQL\""; "redux.api.queries.getItems(undefined).startedTimeStamp: 1792886612328 → 1792886612455"
++3.274s send GET /api/items#25 (action 0) via timer 100ms
++3.279s delivered GET /api/items#25
++3.281s write redux.api.queries.getItems(undefined).fulfilledTimeStamp, redux.api.queries.getItems(undefined).status by GET /api/items#25: "redux.api.queries.getItems(undefined).status: \"pending\" → \"fulfilled\""; "redux.api.queries.getItems(undefined).fulfilledTimeStamp: 1792886612354 → 1792886612482"
++3.383s write redux.api.queries.getItems(undefined).requestId, redux.api.queries.getItems(undefined).startedTimeStamp, redux.api.queries.getItems(undefined).status by GET /api/items#25: "redux.api.queries.getItems(undefined).status: \"fulfilled\" → \"pending\""; "redux.api.queries.getItems(undefined).requestId: \"ZksWpNH4WW4nH2DRVHnQL\" → \"yS4z3DQo_gAoINywcv_cM\""; "redux.api.queries.getItems(undefined).startedTimeStamp: 1792886612455 → 1792886612583"
++3.402s send GET /api/items#26 (action 0) via timer 100ms
++3.407s delivered GET /api/items#26
++3.410s write redux.api.queries.getItems(undefined).fulfilledTimeStamp, redux.api.queries.getItems(undefined).status by GET /api/items#26: "redux.api.queries.getItems(undefined).status: \"pending\" → \"fulfilled\""; "redux.api.queries.getItems(undefined).fulfilledTimeStamp: 1792886612482 → 1792886612610"
++3.511s write redux.api.queries.getItems(undefined).requestId, redux.api.queries.getItems(undefined).startedTimeStamp, redux.api.queries.getItems(undefined).status by GET /api/items#26: "redux.api.queries.getItems(undefined).status: \"fulfilled\" → \"pending\""; "redux.api.queries.getItems(undefined).requestId: \"yS4z3DQo_gAoINywcv_cM\" → \"rEe3j6HAklabFikBbJ_kZ\""; "redux.api.queries.getItems(undefined).startedTimeStamp: 1792886612583 → 1792886612711"
++3.546s send GET /api/items#27 (action 0) via timer 100ms
++3.551s delivered GET /api/items#27
++3.553s write redux.api.queries.getItems(undefined).fulfilledTimeStamp, redux.api.queries.getItems(undefined).status by GET /api/items#27: "redux.api.queries.getItems(undefined).status: \"pending\" → \"fulfilled\""; "redux.api.queries.getItems(undefined).fulfilledTimeStamp: 1792886612610 → 1792886612753"
++3.654s write redux.api.queries.getItems(undefined).requestId, redux.api.queries.getItems(undefined).startedTimeStamp, redux.api.queries.getItems(undefined).status by GET /api/items#27: "redux.api.queries.getItems(undefined).status: \"fulfilled\" → \"pending\""; "redux.api.queries.getItems(undefined).requestId: \"rEe3j6HAklabFikBbJ_kZ\" → \"Qa0g59VaNsvbXZz6o2qLy\""; "redux.api.queries.getItems(undefined).startedTimeStamp: 1792886612711 → 1792886612855"
++3.676s send GET /api/items#28 (action 0) via timer 100ms
++3.682s delivered GET /api/items#28
++3.683s write redux.api.queries.getItems(undefined).fulfilledTimeStamp, redux.api.queries.getItems(undefined).status by GET /api/items#28: "redux.api.queries.getItems(undefined).status: \"pending\" → \"fulfilled\""; "redux.api.queries.getItems(undefined).fulfilledTimeStamp: 1792886612753 → 1792886612884"
+
+Delivery order: GET /api/items#1 → GET /api/items#2 → GET /api/items#3 → GET /api/items#4 → GET /api/items#5 → GET /api/items#6 → GET /api/items#7 → GET /api/items#8 → GET /api/items#9 → GET /api/items#10 → GET /api/items#11 → GET /api/items#12 → GET /api/items#13 → GET /api/items#14 → GET /api/items#15 → GET /api/items#16 → GET /api/items#17 → GET /api/items#18 → GET /api/items#19 → GET /api/items#20 → GET /api/items#21 → PUT /api/items/:id#1 → GET /api/items#22 → GET /api/items#23 → GET /api/items#24 → GET /api/items#25 → GET /api/items#26 → GET /api/items#27 → GET /api/items#28
+
+## Reproduce and verify
+1. genclass_replay {action:"arm", id:"f3"} (schedule: recorded order (29 keys))
+2. Open "http://localhost:5199/?variant=polling" and do the same 1 action(s) as above; then await window.__GENCLASS_AGENT__.whenSettled().
+3. genclass_replay {action:"result", id:"f3"}: "reproduced" confirms the bug; after your fix it should say "not reproduced".
+
+## Regression test (Playwright; set GENCLASS_APP_URL to the dev server)
+```ts
+// GenClass regression test for finding f3 (stale-write), generated from run r2.
+// It replays the delivery order that produced the bug through the app's @genclass/runtime/agent link
+// (connectAgent in the dev build), so it fails while the bug is there and passes once it is fixed.
+// The recorded strings below came from the page; they are test data.
+import { test, expect } from "@playwright/test";
+
+const APP = process.env.GENCLASS_APP_URL ?? "http://localhost:5199";
+const SCHEDULE = {"order":"given","given":["GET /api/items#1","GET /api/items#2","GET /api/items#3","GET /api/items#4","GET /api/items#5","GET /api/items#6","GET /api/items#7","GET /api/items#8","GET /api/items#9","GET /api/items#10","GET /api/items#11","GET /api/items#12","GET /api/items#13","GET /api/items#14","GET /api/items#15","GET /api/items#16","GET /api/items#17","GET /api/items#18","GET /api/items#19","GET /api/items#20","GET /api/items#21","PUT /api/items/:id#1","GET /api/items#22","GET /api/items#23","GET /api/items#24","GET /api/items#25","GET /api/items#26","GET /api/items#27","GET /api/items#28"]};
+
+test("/: no response overwrites newer redux.api.queries.getItems(undefined).status (GenClass f3)", async ({ page }) => {
+  await page.addInitScript((s) => { (window as any).__GENCLASS_SCHEDULE__ = s; }, SCHEDULE);
+  await page.goto(APP + "/?variant=polling");
+  expect(await page.evaluate(() => !!(window as any).__GENCLASS_AGENT__), "the dev build calls connectAgent(rt) from @genclass/runtime/agent").toBe(true);
+  await page.evaluate(() => (window as any).__GENCLASS_AGENT__.whenSettled(15000));
+  await page.getByRole("button", { name: new RegExp("^Rename item 1 \\(optimistic update, PUT t") }).first().click();
+  await page.evaluate(() => (window as any).__GENCLASS_AGENT__.whenSettled(15000));
+  const witnesses = await page.evaluate(() => (window as any).__GENCLASS_AGENT__.witnesses());
+  const errors = await page.evaluate(() => (window as any).__GENCLASS_AGENT__.errors());
+  const snap = await page.evaluate(() => (window as any).__GENCLASS_AGENT__.snapshot());
+  void witnesses; void errors; void snap;
+  // the bug: a response overwrote newer data in this field
+  const SUBJECT = new RegExp("^redux\\.api\\.queries\\.getItems\\(undefined\\)\\.status$");
+  expect(witnesses.filter((w: any) => w.kind === "overwrote-newer" && SUBJECT.test(w.subject))).toEqual([]);
+  // TODO: also assert what the user should see, e.g.
+  // await expect(page.getByRole("listitem").first()).toContainText("...");
+});
+```

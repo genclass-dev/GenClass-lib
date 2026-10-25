@@ -210,7 +210,7 @@ Runtime API:
   - Results go in an LRU cache keyed by `method+" "+url`, 256 entries. Matchers are compiled once, in the `runtime.ts` constructor.
 - **`OpRec.scope`**: `{ mode, aggressiveness, protected, crossOrigin, label?, route?, correlationId? }`, set in `NetHost.startOp`.
 - **`runtime.ts computeScope()`** runs on init, on nav, on `setMode`/`setAggressiveness`, on a breaker trip or reset, and when `enabled` changes. It stores `this.scope`, which is snapshotted per op or mutation.
-- **URL overrides** (`?genclass-mode`, `?genclass-aggr`, `?genclass-sample=0`) may only demote, on every host, with or without `debug:true` (debug is console logging only). `?genclass-sample=1` has no effect: no URL value puts a session in the act cohort. Before 0.3.0-beta.1, `debug:true` let them raise the value and `?genclass-sample=1` under debug forced the act cohort; a link could then raise any site that left debug on in production. The page's own `?genclass=` / `localStorage.genclass` (src/index.ts) may raise the mode only on a development host (src/devhost.ts: http(s) on a loopback name with an explicit port, or `*.test`). For QA on a staging or production host, set `mode` / `sample` per environment, call `rt.setMode()`, or use the devtools overlay.
+- **URL overrides** (`?genclass-mode`, `?genclass-aggr`, `?genclass-sample=0`) may only demote, on every host, with or without `debug:true` (debug is console logging only). `?genclass-sample=1` has no effect: no URL value puts a session in the act cohort. Before 0.2.3 and 0.3.0-beta.2, `debug:true` let them raise the value and `?genclass-sample=1` under debug forced the act cohort; a link could then raise any site that left debug on in production. The page's own `?genclass=` / `localStorage.genclass` (src/index.ts) may raise the mode only on a development host (src/devhost.ts: http(s) on a loopback name with an explicit port, or `*.test`). For QA on a staging or production host, set `mode` / `sample` per environment, call `rt.setMode()`, or use the devtools overlay.
 
 ## 4. Options
 
@@ -238,7 +238,7 @@ Runtime API:
 ### 4.2 `sample`
 **Type** `number` in [0,1], clamped with a warning. **Default** `1`.
 
-**Semantics.** Sessions outside the fraction get an `observe` cap. The model still loads, so they form the comparison group. The bucket is **decided once at init** as `hash(session.id)/2^32 < sample`, then frozen and stored in `sessionStorage["genclass:bucket"]` (wrapped in try/catch). A later `setSession({id})` does not change it. An app that passes a stable user id gets the same bucket in every tab, which is the intended behaviour. `?genclass-sample=0` always forces observe, and `=1` has no effect (since 0.3.0-beta.1; before, it forced the act cohort under debug).
+**Semantics.** Sessions outside the fraction get an `observe` cap. The model still loads, so they form the comparison group. The bucket is **decided once at init** as `hash(session.id)/2^32 < sample`, then frozen and stored in `sessionStorage["genclass:bucket"]` (wrapped in try/catch). A later `setSession({id})` does not change it. An app that passes a stable user id gets the same bucket in every tab, which is the intended behaviour. `?genclass-sample=0` always forces observe, and `=1` has no effect (since 0.2.3 and 0.3.0-beta.2; before, it forced the act cohort under debug).
 
 **Precedence.** It is one term of the min. `setMode` cannot lift it.
 
@@ -699,7 +699,7 @@ status.mode = requested; status.effectiveMode / Report.mode / SinkRecord.mode = 
   4. `model.loadIf` defaults to a device floor: no model on devices reporting 2 GB or less or on Save-Data connections (`{ minDeviceMemoryGB: 4, saveData: "skip" }`; the earlier draft said `saveData:"lazy"`).
   5. Hidden tabs skip background evaluation and release held items immediately (counted in `summary.model.hiddenSkipped`). 0.3.0: in observe they are deferred and decided when the tab is visible again (§5.1, §5.3).
   6. Query and fragment values in recorded URLs are now `…` in situation text. **Model input changes, so add this to the eval plan and re-measure accuracy before release.** Sent URLs are unchanged.
-  7. URL overrides can no longer raise mode or aggressiveness without `debug:true`. (Since 0.3.0-beta.1 not with it either: `debug` is console logging only.)
+  7. URL overrides can no longer raise mode or aggressiveness without `debug:true`. (Since 0.2.3 and 0.3.0-beta.2 not with it either: `debug` is console logging only.)
   8. Ops created under `off`/`observe` route scope can no longer be action targets.
 - **Renames from the earlier draft:**
 

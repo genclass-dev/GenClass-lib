@@ -177,7 +177,7 @@ interface Runtime {
 Kill switch: `?genclass=off` in the page URL or `localStorage.genclass = "off"` makes `init` install nothing
 (one console line says so); `?genclass=observe|guard|heal` (or that `localStorage.genclass` value) may only lower the
 mode, from the app's `mode` or `observe` when it sets none, and may raise it only on a development host (`src/devhost.ts`:
-http(s) on a loopback name with an explicit port, or `*.test`). `debug` never lets it raise (since 0.3.0-beta.1).
+http(s) on a loopback name with an explicit port, or `*.test`). `debug` never lets it raise (since 0.2.3 and 0.3.0-beta.2).
 `?genclass-mode`, `?genclass-aggr` and `?genclass-sample` only lower, on every host. This is for "is my app broken
 or did GenClass change something?" debugging.
 
@@ -540,7 +540,7 @@ genuinely different failures or decisions):
 - Devtools and adapters are owned by UI (`src/devtools/**`, `src/adapters/**`).
 - **Default mode is `observe`** (approved by the owner 2026-10-08, MVP): `GenClass.init()` and `createRuntime()` start
   in `observe` when no `mode` is given, so a fresh install reports findings and never holds, delays or changes
-  anything. `guard` is opt-in (`mode: "guard"`; `?genclass=guard` only on a development host: since 0.2.2 not on a production host, and since 0.3.0-beta.1 neither with `debug: true` nor on hosts that only look local); `heal` is experimental. Situation text,
+  anything. `guard` is opt-in (`mode: "guard"`; `?genclass=guard` only on a development host: since 0.2.2 not on a production host, and since 0.2.3 and 0.3.0-beta.2 neither with `debug: true` nor on hosts that only look local); `heal` is experimental. Situation text,
   facts and questions are unchanged (they do not depend on the mode), so `situation-v1` training data stays valid.
 
 ## 14. Measured visual checks (added 2026-10-13; owner to confirm before merge)
@@ -587,3 +587,22 @@ Design, every check, threshold and exclusion: [VISUAL.md](VISUAL.md). Code: `pac
   dead clicks per element key built from markup only (never element text). No visitor id, nothing stored on the
   device. The maintainers use them only for the app's dashboard and export, never for model training or evaluation.
 - **Determinism (section 0 rule 3).** All timing uses the injected `Clock`; no randomness.
+
+## 16. The coding-agent link (added 2026-10-19; owner to confirm before merge)
+
+`@genclass/runtime/agent` (`src/agent/`, design: `docs/runtime/AGENT.md`) connects a development page to a local MCP
+server for coding agents (`packages/mcp`). It is a test harness, outside "observe never holds, delays or changes
+anything" (section 13), on these terms:
+
+- **Opt-in, development only.** It runs only after an explicit `connectAgent(rt)` call, which apps make from a
+  development-only branch; it is its own entry (never in the first-load bundle) and is inert on pages not served from
+  the developer's machine (localhost, 127.x, [::1], `*.localhost`) unless `anyHost` is set.
+- **Holds, bounded.** With a delivery schedule (set by the developer, their agent or a test) it holds fetch/XHR
+  responses, each at most its emulated delay plus `maxHoldMs`; without one it holds only a page load's first responses
+  until the bridge's hello, at most `helloTimeoutMs`; `hold: false` disables every hold. Responses are never changed,
+  dropped or invented. Protected requests and routes in mode "off" are never held unless `holdProtected` is set.
+- **Facts, not decisions.** Its recording (requests by key, delivery order, writes, errors, the `overwrote-newer` and
+  `identical-in-flight` witnesses, snapshots) never feeds the model, situations, the gate or the event log, and it
+  maps no fact to a diagnosis or an action. Model-visible text is unchanged (`situation-v2.3`).
+- **Nothing leaves the machine.** It talks only to a loopback URL; telemetry is unchanged.
+- **Determinism (section 0 rule 3).** Timing uses the injected `Clock`; schedules are hashes of a seed and a request key.

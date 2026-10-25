@@ -1,0 +1,18 @@
+{
+  "name": "genclass",
+  "owner": {
+    "name": "GenClass"
+  },
+  "metadata": {
+    "description": "GenClass for coding agents: see the race, replay it, prove the fix."
+  },
+  "plugins": [
+    {
+      "name": "genclass",
+      "source": "packages/mcp/plugin",
+      "description": "The GenClass MCP server and a skill for intermittent and timing-dependent frontend bugs.",
+      "version": "0.1.0",
+      "category": "development"
+    }
+  ]
+}
