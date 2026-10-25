@@ -14,7 +14,8 @@ model skipped), 50 seeds for every strategy on fast, jittery and lossy (4,200 ru
 ```bash
 node run.mjs --conditions off --profiles fast,jittery,lossy --workers 12
 node run.mjs --conditions off --profiles tail --strategies a,b,c,d,e,f,g,h,i,j --workers 12
-node run.mjs --conditions model,skipped --profiles fast,jittery,lossy --seeds 50 --model-workers 4 --workers 6
+node run.mjs --conditions model --profiles fast,jittery,lossy --seeds 50 --model-workers 5
+PORT=4518 node run.mjs --conditions skipped --profiles fast,jittery,lossy --seeds 50 --workers 4   # alongside the model pass
 ```
 
 Keep the machine otherwise idle while it runs: with three runners at once on 4 vCPU the gap between keystrokes

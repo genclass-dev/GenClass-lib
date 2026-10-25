@@ -311,7 +311,7 @@ export function report(raw = RAW, outDir = null) {
   const drift = summaries.filter((s) => s.keyDrift).map((s) => s.keyDrift.p95);
   L.push("## Run health");
   L.push("");
-  L.push(`Runs: ${summaries.reduce((a, s) => a + s.n, 0)}; left out after three tries (harness errors): ${errs}; ended at the ${SETTLE_CAP_MS / 1000} s cap: ${capped}; with a page error: ${pageErr}. Typing: the gap between keystrokes as the page saw it differed from the planned one by at most ${ms(quantile(drift, 0.5))} in the median cell's 95th percentile run (worst cell: ${ms(Math.max(...drift))}).`);
+  L.push(`Runs: ${summaries.reduce((a, s) => a + s.n, 0).toLocaleString("en")}; left out after three tries (harness errors): ${errs}; ended at the ${SETTLE_CAP_MS / 1000} s cap: ${capped}; with a page error: ${pageErr}. Typing: the gap between keystrokes as the page saw it differed from the planned one by at most ${ms(quantile(drift, 0.5))} in the median cell's 95th percentile run (worst cell: ${ms(Math.max(...drift))}).`);
   L.push("");
   writeFileSync(mdFile, L.join("\n"));
   console.log(`wrote ${mdFile} and ${summaryFile} from ${cells.length} cells`);
