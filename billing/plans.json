@@ -29,7 +29,8 @@
         { "text": "Interaction analytics: clicks, scrolls and time on page (coming next)", "available": false },
         { "text": "The genclass.dev page check", "available": true },
         { "text": "Private mode: run the open-source collector on your own Cloudflare account, so your data never passes through us", "available": true },
-        { "text": "Email mehar@daybot.ca to start your classifier", "available": true }
+        { "text": "Your coding agent closes the loop: @genclass/mcp on your own machine records races, replays them and writes the regression test", "available": true },
+      { "text": "Email mehar@daybot.ca to start your classifier", "available": true }
       ]
     },
     {
@@ -46,6 +47,7 @@
         { "text": "Everything in Free", "available": true },
         { "text": "GenClass's models run in our cloud for your apps, for pages and devices that cannot run them on-device", "available": true },
         { "text": "A classifier for each of your products", "available": true },
+      { "text": "Closed-loop development as a service: the MCP server, collector and dashboard run for your developers, hosted by GenClass or inside your network", "available": true },
         { "text": "1 year of dashboard history", "available": true },
         { "text": "Self-hosting, invoices and a contract, by agreement", "available": true },
         { "text": "Priority support", "available": true }
