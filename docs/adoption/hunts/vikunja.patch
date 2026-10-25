@@ -1,0 +1,341 @@
+From ece91da75b62889b35c3cae3f98a1ea259dc83f8 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sat, 24 Oct 2026 23:54:03 +0000
+Subject: [PATCH 1/2] fix(tasks): keep the newest edit when task saves answer
+ out of order
+
+Two quick edits in the task detail (the due date, then the priority) send two
+PATCH requests that overlap. Each response was applied as it arrived, so when
+the first one landed last the detail and every cached copy fell back to the
+older value, and the next save sent that older value back to the server.
+
+Only the newest save of a task now writes its response; it carries every
+edit made before it.
+---
+ .../src/client/queries/taskMutations.test.ts  | 22 ++++++++
+ frontend/src/client/queries/taskMutations.ts  | 20 +++++--
+ .../src/views/tasks/TaskDetailView.test.ts    | 30 +++++++++++
+ frontend/src/views/tasks/TaskDetailView.vue   | 10 +++-
+ frontend/tests/e2e/task/task.spec.ts          | 53 +++++++++++++++++++
+ 5 files changed, 129 insertions(+), 6 deletions(-)
+
+diff --git a/frontend/src/client/queries/taskMutations.test.ts b/frontend/src/client/queries/taskMutations.test.ts
+index 7536784..1c25958 100644
+--- a/frontend/src/client/queries/taskMutations.test.ts
++++ b/frontend/src/client/queries/taskMutations.test.ts
+@@ -119,6 +119,28 @@ describe('task mutations', () => {
+ 		expect(client.getQueryData<Task>(taskKeys.detail(1))?.title).toBe('new')
+ 	})
+ 
++	it('keeps the newer save in the cache when the older response lands last', async () => {
++		const client = new QueryClient()
++		client.setQueryData(taskKeys.detail(1), {id: 1, priority: 1})
++		const answers: (() => void)[] = []
++		sdk.patchTasksRead.mockImplementation(({body}: {body: {path: string, value: unknown}[]}) => new Promise(resolve => {
++			answers.push(() => resolve({data: {id: 1, priority: body.find(op => op.path === '/priority')?.value}}))
++		}))
++		const save = (priority: number) => client.getMutationCache()
++			.build(client, updateTaskMutationOptions())
++			.execute({id: 1, priority})
++		const older = save(2)
++		const newer = save(3)
++		await vi.waitFor(() => expect(answers).toHaveLength(2))
++
++		answers[1]!()
++		await newer
++		answers[0]!()
++		await older
++
++		expect(client.getQueryData<Task>(taskKeys.detail(1))?.priority).toBe(3)
++	})
++
+ 	it('addresses the delete endpoint by task id', async () => {
+ 		const client = new QueryClient()
+ 		sdk.tasksDelete.mockResolvedValue({})
+diff --git a/frontend/src/client/queries/taskMutations.ts b/frontend/src/client/queries/taskMutations.ts
+index 5b4976d..7cc0524 100644
+--- a/frontend/src/client/queries/taskMutations.ts
++++ b/frontend/src/client/queries/taskMutations.ts
+@@ -179,17 +179,29 @@ export function createTaskMutationOptions() {
+ 	})
+ }
+ 
++// Quick edits overlap their saves, and the responses can land in any order.
++const latestTaskUpdates = new Map<number, Task>()
++
++// Only the newest save of a task may write its response: it carries every edit made before it.
++export function isLatestTaskUpdate(input: Task & Required<Pick<Task, 'id'>>) {
++	return latestTaskUpdates.get(input.id) === input
++}
++
+ export function updateTaskMutationOptions(optimistic = false) {
+ 	return contextMutationOptions({
+-		mutationFn: async (task: Task & Required<Pick<Task, 'id'>>) => (await patchTasksRead({
+-			path: {task: task.id},
+-			body: taskPatchBody(task),
+-		})).data,
++		mutationFn: async (task: Task & Required<Pick<Task, 'id'>>) => {
++			latestTaskUpdates.set(task.id, task)
++			return (await patchTasksRead({
++				path: {task: task.id},
++				body: taskPatchBody(task),
++			})).data
++		},
+ 		optimistic: optimistic ? {
+ 			queryKeys: ({id}, client) => taskQueryKeys(client, id),
+ 			update: (task, client) => replaceTaskEverywhere(client, task),
+ 		} : undefined,
+ 		onSuccess: (task, input, client) => {
++			if (!isLatestTaskUpdate(input)) return
+ 			replaceTaskEverywhere(client, task)
+ 			reconcileDoneBuckets(client, normalizeTask({...task, id: input.id}))
+ 		},
+diff --git a/frontend/src/views/tasks/TaskDetailView.test.ts b/frontend/src/views/tasks/TaskDetailView.test.ts
+index 4a3e2d0..fb87afc 100644
+--- a/frontend/src/views/tasks/TaskDetailView.test.ts
++++ b/frontend/src/views/tasks/TaskDetailView.test.ts
+@@ -24,8 +24,10 @@ vi.mock('vue-i18n', async importOriginal => ({
+ }))
+ 
+ import {mapTaskEverywhere} from '@/client/queries/taskCache'
++import {taskKeys} from '@/client/queries/tasks'
+ import EditLabels from '@/components/tasks/partials/EditLabels.vue'
+ import PercentDoneSelect from '@/components/tasks/partials/PercentDoneSelect.vue'
++import PrioritySelect from '@/components/tasks/partials/PrioritySelect.vue'
+ import Datepicker from '@/components/input/Datepicker.vue'
+ import TaskDetailView from './TaskDetailView.vue'
+ 
+@@ -122,4 +124,32 @@ describe('TaskDetailView draft', () => {
+ 		expect(sdk.patchTasksRead).toHaveBeenCalledOnce()
+ 		expect(wrapper.findAllComponents(Datepicker)[0]?.props('modelValue')).toEqual(new Date('2024-03-03T10:00:00Z'))
+ 	})
++
++	it('keeps the newer edit when the response to an older save lands last', async () => {
++		sdk.tasksRead.mockImplementation(async ({path}: {path: {task: number}}) => ({data: serverTask(path.task, {priority: 1})}))
++		const answers: ((task: ReturnType<typeof serverTask>) => void)[] = []
++		sdk.patchTasksRead.mockImplementation(() => new Promise(resolve => answers.push(task => resolve({data: task}))))
++		const wrapper = await mountDetail()
++
++		wrapper.findComponent(PercentDoneSelect).vm.$emit('update:modelValue', 0.5)
++		await flushPromises()
++		wrapper.findComponent(PrioritySelect).vm.$emit('update:modelValue', 3)
++		await flushPromises()
++		expect(answers).toHaveLength(2)
++
++		// The server applied both saves in order, but the first answer arrives last.
++		answers[1]!(serverTask(1, {priority: 3, percent_done: 0.5}))
++		await flushPromises()
++		answers[0]!(serverTask(1, {priority: 1, percent_done: 0.5}))
++		await flushPromises()
++
++		expect(wrapper.findComponent(PrioritySelect).props('modelValue')).toBe(3)
++		const [[, cached]] = queryClient.getQueriesData<ReturnType<typeof serverTask>>({queryKey: [...taskKeys.details, 1]})
++		expect(cached?.priority).toBe(3)
++
++		// The next save must not send the older priority back.
++		wrapper.findComponent(PercentDoneSelect).vm.$emit('update:modelValue', 0.7)
++		await flushPromises()
++		expect(sdk.patchTasksRead.mock.calls[2]?.[0].body).toContainEqual({op: 'add', path: '/priority', value: 3})
++	})
+ })
+diff --git a/frontend/src/views/tasks/TaskDetailView.vue b/frontend/src/views/tasks/TaskDetailView.vue
+index dab1144..5dc59f8 100644
+--- a/frontend/src/views/tasks/TaskDetailView.vue
++++ b/frontend/src/views/tasks/TaskDetailView.vue
+@@ -702,6 +702,7 @@ import {playPopSound} from '@/helpers/playPop'
+ import {taskLoadErrorAction} from './taskDetailError'
+ 
+ import {
++	isLatestTaskUpdate,
+ 	useUpdateTaskMutation,
+ 	useDeleteTaskMutation,
+ 	useFavoriteTaskMutation,
+@@ -1145,8 +1146,13 @@ async function saveTask(
+ 		currentTask.end_date = currentTask.due_date
+ 	}
+ 
+-	seedTask(mergeTask(task.value, await updateTask.mutateAsync({...currentTask, id: currentTask.id!})))
+-	setActiveFields()
++	const update = {...currentTask, id: currentTask.id!}
++	const updated = await updateTask.mutateAsync(update)
++	// A newer save is in flight with the edits made since; this older response would undo them.
++	if (isLatestTaskUpdate(update)) {
++		seedTask(mergeTask(task.value, updated))
++		setActiveFields()
++	}
+ 
+ 	let actions: MessageAction[] = []
+ 	if (undoCallback) {
+diff --git a/frontend/tests/e2e/task/task.spec.ts b/frontend/tests/e2e/task/task.spec.ts
+index 2591443..56230f2 100644
+--- a/frontend/tests/e2e/task/task.spec.ts
++++ b/frontend/tests/e2e/task/task.spec.ts
+@@ -678,6 +678,59 @@ test.describe('Task', () => {
+ 			await expect(assignees).toContainText(kept.username)
+ 		})
+ 
++		test('Keeps the newer edit when the response to an older save arrives last', async ({authenticatedPage: page, apiContext, userToken}) => {
++			const [task] = await TaskFactory.create(1, {
++				id: 1,
++				done: false,
++				priority: 1,
++				percent_done: 0.1,
++			})
++			// The server applies both saves in order; only the first answer is held until the second one is in.
++			let saves = 0
++			let releaseFirst = () => {}
++			const secondAnswered = new Promise<void>(resolve => releaseFirst = resolve)
++			await page.route(`**/tasks/${task.id}`, async route => {
++				if (route.request().method() !== 'PATCH') {
++					return route.continue()
++				}
++				const save = ++saves
++				const response = await route.fetch()
++				if (save === 1) {
++					await secondAnswered
++				}
++				await route.fulfill({response})
++				if (save === 2) {
++					releaseFirst()
++				}
++			})
++			await page.goto(`/tasks/${task.id}`)
++
++			const details = page.locator('.task-view .columns.details .column')
++			const priority = details.filter({hasText: 'Priority'}).locator('.select select')
++			const progress = details.filter({hasText: 'Progress'}).locator('.select select')
++			await progress.selectOption('50%')
++			await priority.selectOption('High')
++			// Both saves have answered once their success messages merged into one.
++			await expect(page.locator('.global-notification .vue-notification.success')).toContainText('×2')
++			await expect(priority).toHaveValue('3')
++
++			// The next save sends the whole draft, so a stale priority in it would be stored.
++			const saved = page.waitForResponse(r =>
++				r.url().includes(`/tasks/${task.id}`) && r.request().method() === 'PATCH',
++			)
++			await progress.selectOption('70%')
++			await saved
++
++			const resp = await apiContext.get(`tasks/${task.id}`, {
++				headers: {Authorization: `Bearer ${userToken}`},
++			})
++			expect(resp.ok()).toBe(true)
++			expect((await resp.json()).priority).toBe(3)
++
++			await page.reload()
++			await expect(priority).toHaveValue('3')
++		})
++
+ 		test('Can add a new label to a task', async ({authenticatedPage: page}) => {
+ 			const tasks = await TaskFactory.create(1, {
+ 				id: 1,
+-- 
+2.43.0
+
+
+From bbf5465c1669ab86068a6f45e56554e61e59e5f6 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sat, 24 Oct 2026 23:56:49 +0000
+Subject: [PATCH 2/2] fix(tasks): save only the edited field from the title and
+ the description
+
+The title and the description each sent the whole task as they last saw it.
+Saving the title while the description's save was still in flight sent the
+older description along, and the server stored it over the new one.
+---
+ .../components/tasks/partials/Description.vue |  2 +-
+ .../src/components/tasks/partials/Heading.vue |  2 +-
+ frontend/tests/e2e/task/task.spec.ts          | 48 +++++++++++++++++++
+ 3 files changed, 50 insertions(+), 2 deletions(-)
+
+diff --git a/frontend/src/components/tasks/partials/Description.vue b/frontend/src/components/tasks/partials/Description.vue
+index 113b713..47fe1b7 100644
+--- a/frontend/src/components/tasks/partials/Description.vue
++++ b/frontend/src/components/tasks/partials/Description.vue
+@@ -205,8 +205,8 @@ async function save() {
+ 	saving.value = true
+ 
+ 	try {
++		// Only the description: the rest of the task may predate a save still in flight, and would overwrite it.
+ 		const updated = await updateTask.mutateAsync({
+-			...props.modelValue,
+ 			id: props.modelValue.id!,
+ 			description: description.value,
+ 		})
+diff --git a/frontend/src/components/tasks/partials/Heading.vue b/frontend/src/components/tasks/partials/Heading.vue
+index bec6e1d..7004394 100644
+--- a/frontend/src/components/tasks/partials/Heading.vue
++++ b/frontend/src/components/tasks/partials/Heading.vue
+@@ -159,8 +159,8 @@ async function save(element: HTMLElement) {
+ 
+ 	try {
+ 		saving.value = true
++		// Only the title: the rest of the task may predate a save still in flight, and would overwrite it.
+ 		const newTask = await updateTask.mutateAsync({
+-			...props.task,
+ 			id: props.task.id!,
+ 			title,
+ 		})
+diff --git a/frontend/tests/e2e/task/task.spec.ts b/frontend/tests/e2e/task/task.spec.ts
+index 56230f2..f162842 100644
+--- a/frontend/tests/e2e/task/task.spec.ts
++++ b/frontend/tests/e2e/task/task.spec.ts
+@@ -731,6 +731,54 @@ test.describe('Task', () => {
+ 			await expect(priority).toHaveValue('3')
+ 		})
+ 
++		test('Keeps the description when the title is saved while the description save is in flight', async ({authenticatedPage: page, apiContext, userToken}) => {
++			const [task] = await TaskFactory.create(1, {
++				id: 1,
++				done: false,
++				description: 'Old description',
++			})
++			// Hold the description's answer until the title save is in, as a slow network can.
++			let saves = 0
++			let releaseFirst = () => {}
++			const secondAnswered = new Promise<void>(resolve => releaseFirst = resolve)
++			await page.route(`**/tasks/${task.id}`, async route => {
++				if (route.request().method() !== 'PATCH') {
++					return route.continue()
++				}
++				const save = ++saves
++				const response = await route.fetch()
++				if (save === 1) {
++					await secondAnswered
++				}
++				await route.fulfill({response})
++				if (save === 2) {
++					releaseFirst()
++				}
++			})
++			await page.goto(`/tasks/${task.id}`)
++
++			await page.locator('.task-view .details.content.description .tiptap button.done-edit').click()
++			await page.locator('.task-view .details.content.description .tiptap__editor .tiptap.ProseMirror').fill('New description')
++			await page.locator('[data-cy="saveEditor"]').filter({hasText: 'Save'}).click()
++			await expect.poll(() => saves).toBe(1)
++			const title = page.locator('.task-view h1.title.input')
++			await title.click()
++			await page.keyboard.press('ControlOrMeta+a')
++			await page.keyboard.type('New title')
++			await page.keyboard.press('Enter')
++			await expect.poll(() => saves).toBe(2)
++
++			await expect(title).toHaveText('New title')
++			await expect(page.locator('.task-view .details.content.description')).toContainText('New description')
++			const resp = await apiContext.get(`tasks/${task.id}`, {
++				headers: {Authorization: `Bearer ${userToken}`},
++			})
++			expect(resp.ok()).toBe(true)
++			const stored = await resp.json()
++			expect(stored.title).toBe('New title')
++			expect(stored.description).toContain('New description')
++		})
++
+ 		test('Can add a new label to a task', async ({authenticatedPage: page}) => {
+ 			const tasks = await TaskFactory.create(1, {
+ 				id: 1,
+-- 
+2.43.0
+
