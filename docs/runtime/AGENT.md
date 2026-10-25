@@ -37,14 +37,17 @@ results are in section 7 and in [RESULTS.md](RESULTS.md) section 16.
 ## 1. Setup
 
 ```bash
-claude mcp add genclass -- npx -y @genclass/mcp        # or: npx @genclass/mcp init  (writes .mcp.json)
+claude mcp add genclass -- npx -y @genclass/mcp@0.1.0   # or: npx -y @genclass/mcp@0.1.0 init  (writes .mcp.json)
 ```
 
 Or as a Claude Code plugin from this repository's marketplace (`.claude-plugin/marketplace.json`; the plugin is
 `packages/mcp/plugin`: the server, a `UserPromptSubmit` hook and a skill whose description tells Claude when to use
-it): `/plugin marketplace add genclass-dev/GenClass-lib`, then `/plugin install genclass@genclass`.
-`packages/mcp/server.json` is the entry for the official MCP Registry (published with `mcp-publisher` after the npm
-package).
+it): `/plugin marketplace add genclass-dev/GenClass-lib`, then `/plugin install genclass@genclass`. Other clients
+(Cursor, VS Code, Codex CLI, Gemini CLI, Windsurf, Cline, Goose, Zed, JetBrains, OpenCode): the install blocks in
+[packages/mcp/README.md](../../packages/mcp/README.md#install), or `npx -y @genclass/mcp@0.1.0 config <client>`.
+Every launcher is pinned to the release. `packages/mcp/server.json` is the entry for the official MCP Registry
+(published by the release workflow with GitHub OIDC after the npm package); the listings for other directories are
+drafted in [docs/adoption/listings/mcp.md](../adoption/listings/mcp.md).
 
 In the app's browser entry, development builds only (`@genclass/runtime` 0.3.0-beta.1 or later):
 
@@ -288,7 +291,7 @@ measurements above were taken again after all fixes. The first pass also found a
 whose aborted held delivery could release the next request's listeners early, a defect of the runtime's own holds as
 well, fixed in `src/observe/xhr.ts`.
 
-Tests: 36 in `packages/runtime/test/agent.test.ts`, 57 in `packages/mcp/test/`; the runtime's whole suite passes, and
+Tests: 36 in `packages/runtime/test/agent.test.ts`, 104 in `packages/mcp/test/`; the runtime's whole suite passes, and
 the first load stays within its limits.
 
 This is one page and one bug class, a proof of the mechanism, not a recall figure. The demos' and real apps' numbers
