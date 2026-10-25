@@ -1,0 +1,14 @@
+import { chromium } from "playwright";
+const b = await chromium.launch();
+const ctx = await b.newContext({ storageState: "/home/user/hunt/harness/state.json" });
+const page = await ctx.newPage();
+await page.goto("http://localhost:3000/admin/setup", { waitUntil: "networkidle", timeout: 120000 });
+await page.getByText("I'm already set up").click();
+await page.waitForTimeout(3000);
+await page.waitForLoadState("networkidle");
+console.log("at", page.url());
+await page.goto("http://localhost:3000/", { waitUntil: "networkidle" });
+console.log("root ->", page.url());
+await page.screenshot({ path: "/home/user/hunt/shots/home2.png" });
+await ctx.storageState({ path: "/home/user/hunt/harness/state.json" });
+await b.close();
