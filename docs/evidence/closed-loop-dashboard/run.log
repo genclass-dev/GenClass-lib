@@ -1,43 +1,43 @@
-# 2026-10-25T15:47:50Z on b41862d
+# 2026-10-25T17:23:58Z on b41862d
 
 ## 1. Collector: the agent report route, storage, stages, log, migration 0011, retention; the page's Fig. 3 and Table 15
  ✓ test/agent.test.ts > agent reports > normalizes routes the way the dashboard keys them: path only, ids replaced, capped 2ms
- ✓ test/agent.test.ts > agent reports > stores found, replay and test events per finding; a replay that stops reproducing after one that did proves the fix 11ms
- ✓ test/agent.test.ts > agent reports > mirrors the log: every step is a row, newest first, and the stages count found, explained, reproduced, fixed, closed, open and round again 4ms
- ✓ test/agent.test.ts > agent reports > keeps the last AGENT_LOG_CAP log rows per app and shows AGENT_LOG_SHOWN; another app's rows are untouched 13ms
- ✓ test/agent.test.ts > agent reports > migration 0011 on a populated database: older agent_reports rows keep their state and count in the stages 5ms
+ ✓ test/agent.test.ts > agent reports > stores found, replay and test events per finding; a replay that stops reproducing after one that did proves the fix 15ms
+ ✓ test/agent.test.ts > agent reports > mirrors the log: every step is a row, newest first, and the stages count found, explained, reproduced, fixed, closed, open and round again 8ms
+ ✓ test/agent.test.ts > agent reports > keeps the last AGENT_LOG_CAP log rows per app and shows AGENT_LOG_SHOWN; another app's rows are untouched 15ms
+ ✓ test/agent.test.ts > agent reports > migration 0011 on a populated database: older agent_reports rows keep their state and count in the stages 3ms
  ✓ test/agent.test.ts > agent reports > refuses the wrong schema, too many events and non-objects; stores nothing from them 4ms
  ✓ test/agent.test.ts > agent reports > the route: the dashboard's private link authenticates, the sample and unknown secrets 404, bad bodies 400, the limiter 429 39ms
- ✓ test/agent.test.ts > agent reports > retention drops reports older than 90 days with the rest 7ms
- ✓ test/pages.test.ts > dashboard page: the closed loop (Fig. 3) > draws this app's problems, one agent step each, the shared fix, prove and ship, and observe with the deltas 91ms
- ✓ test/pages.test.ts > dashboard page: the closed loop (Fig. 3) > with nothing found, the flow says so and still shows the shared chain 39ms
- ✓ test/pages.test.ts > dashboard page: the closed loop (Fig. 3) > without agent reports the rows carry no agent line and the foot says reporting is off by default 47ms
- ✓ test/pages.test.ts > dashboard page: the closed loop (Fig. 3) > the stages (Fig. 3): every issue's path with the period's counts, the round-again edge and the loop back to production 38ms
- ✓ test/pages.test.ts > dashboard page: the closed loop (Fig. 3) > the log (Table 15): the agent's steps newest first, each with its finding, page and outcome; never page text 175ms
+ ✓ test/agent.test.ts > agent reports > retention drops reports older than 90 days with the rest 3ms
+ ✓ test/pages.test.ts > dashboard page: the closed loop (Fig. 3) > draws this app's problems, one agent step each, the shared fix, prove and ship, and observe with the deltas 87ms
+ ✓ test/pages.test.ts > dashboard page: the closed loop (Fig. 3) > with nothing found, the flow says so and still shows the shared chain 43ms
+ ✓ test/pages.test.ts > dashboard page: the closed loop (Fig. 3) > without agent reports the rows carry no agent line and the foot says reporting is off by default 35ms
+ ✓ test/pages.test.ts > dashboard page: the closed loop (Fig. 3) > the stages (Fig. 3): every issue's path with the period's counts, the round-again edge and the loop back to production 75ms
+ ✓ test/pages.test.ts > dashboard page: the closed loop (Fig. 3) > the log (Table 15): the agent's steps newest first, each with its finding, page and outcome; never page text 128ms
  Test Files  2 passed (2)
       Tests  13 passed | 30 skipped (43)
 
 ## 2. MCP server: the reporter and the API wrapper
- ✓ test/report.test.ts > report target > is off without GENCLASS_REPORT; on takes GENCLASS_DASHBOARD; a link or secret works alone; the sample is never a target 3ms
+ ✓ test/report.test.ts > report target > is off without GENCLASS_REPORT; on takes GENCLASS_DASHBOARD; a link or secret works alone; the sample is never a target 2ms
  ✓ test/report.test.ts > report events > carry the id, kind, page path and time only: no title, evidence, query string or snapshot 1ms
- ✓ test/report.test.ts > report events > batches to POST <origin>/api/projects/<secret>/agent with the schema, flushes on close, swallows failures and logs once 2ms
- ✓ test/report.test.ts > report events > the API wrapper reports the evidence read, the test written, a replay armed, the last replay verdict, an explore report and a clear, and changes nothing the agent gets 1ms
- ✓ test/mcp.test.ts > mcp: genclass_setup and the client named at initialize (README Install) > adds the config block for a known client 33ms
- ✓ test/mcp.test.ts > mcp: genclass_setup and the client named at initialize (README Install) > points an unknown client to the config command 25ms
- ✓ test/mcp.test.ts > mcp: genclass_setup installs the newest runtime line (README Install) > no runtime, 0.2.x, a range without a version, or an older installed copy: install @beta 3ms
- ✓ test/mcp.test.ts > mcp: genclass_setup installs the newest runtime line (README Install) > 0.3.0-beta.1 or later (or the beta tag) counts as installed 1ms
+ ✓ test/report.test.ts > report events > batches to POST <origin>/api/projects/<secret>/agent with the schema, flushes on close, swallows failures and logs once 1ms
+ ✓ test/report.test.ts > report events > the API wrapper reports the evidence read, the test written, a replay armed, the last replay verdict, an explore report and a clear, and changes nothing the agent gets 0ms
+ ✓ test/mcp.test.ts > mcp: genclass_setup and the client named at initialize (README Install) > adds the config block for a known client 30ms
+ ✓ test/mcp.test.ts > mcp: genclass_setup and the client named at initialize (README Install) > points an unknown client to the config command 31ms
+ ✓ test/mcp.test.ts > mcp: genclass_setup installs the newest runtime line (README Install) > no runtime, 0.2.x, a range without a version, or an older installed copy: install @beta 13ms
+ ✓ test/mcp.test.ts > mcp: genclass_setup installs the newest runtime line (README Install) > 0.3.0-beta.1 or later (or the beta tag) counts as installed 2ms
  ✓ test/mcp.test.ts > mcp: protocol > initialize: version negotiation, instructions, tools and the channel capability 56ms
  ✓ test/mcp.test.ts > mcp: protocol > an unknown protocol version gets the server's own 0ms
- ✓ test/mcp.test.ts > mcp: protocol > bad JSON is a parse error, not a crash 11ms
- ✓ test/mcp.test.ts > mcp: tools against a live bridge > status → a page connects → findings → explain with a replay and a regression test → replay arm/result 106ms
- ✓ test/mcp.test.ts > mcp: tools against a live bridge > explore start → runs → report finds the race and names the seed 52ms
- ✓ test/mcp.test.ts > mcp: tools against a live bridge > explore report: store values that differ while the page is the same are internal state, not a race; 0 compared says so 78ms
- ✓ test/mcp.test.ts > mcp: tools against a live bridge > pushes a channel event for a new finding 217ms
- ✓ test/mcp.test.ts > mcp: tools against a live bridge > analytics: local endpoints from the pages' baselines; production explains how to connect 28ms
- ✓ test/mcp.test.ts > mcp: tools against a live bridge > a page's text never becomes structure: control characters and quotes stay inside a quoted field 25ms
- ✓ test/mcp.test.ts > mcp: tools against a live bridge > batches are answered as one array; notifications get no answer 124ms
+ ✓ test/mcp.test.ts > mcp: protocol > bad JSON is a parse error, not a crash 14ms
+ ✓ test/mcp.test.ts > mcp: tools against a live bridge > status → a page connects → findings → explain with a replay and a regression test → replay arm/result 97ms
+ ✓ test/mcp.test.ts > mcp: tools against a live bridge > explore start → runs → report finds the race and names the seed 51ms
+ ✓ test/mcp.test.ts > mcp: tools against a live bridge > explore report: store values that differ while the page is the same are internal state, not a race; 0 compared says so 74ms
+ ✓ test/mcp.test.ts > mcp: tools against a live bridge > pushes a channel event for a new finding 220ms
+ ✓ test/mcp.test.ts > mcp: tools against a live bridge > analytics: local endpoints from the pages' baselines; production explains how to connect 27ms
+ ✓ test/mcp.test.ts > mcp: tools against a live bridge > a page's text never becomes structure: control characters and quotes stay inside a quoted field 26ms
+ ✓ test/mcp.test.ts > mcp: tools against a live bridge > batches are answered as one array; notifications get no answer 123ms
  ✓ test/mcp.test.ts > mcp: tools against a live bridge > a second session shares the first one's bridge, and takes the port over when the first exits 3074ms
- ✓ test/mcp.test.ts > mcp: tools against a live bridge > channelEvent meta keys are channel-safe 1ms
+ ✓ test/mcp.test.ts > mcp: tools against a live bridge > channelEvent meta keys are channel-safe 0ms
  Test Files  2 passed (2)
       Tests  20 passed (20)
 

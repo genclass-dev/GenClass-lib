@@ -77,6 +77,20 @@ and the round trip sends none; the sample page shows it filled.
 | ![Fig. 3 after the round trip](01-e2e-closed-loop.png) | ![Table 15 after the round trip](02-e2e-log.png) |
 | ![The sample app's view](03-sample-closed-loop.png) | |
 
+## Full suites
+
+`run-suites.log` holds the summaries of the whole `telemetry-worker` suite, run on the branch's own tree (a
+`git archive` of it, so nothing uncommitted in the checkout takes part), and of `@genclass/mcp`'s typecheck, build
+and suite. All pass.
+
+## Live
+
+Migration 0011 was applied to the remote D1 and the worker deployed from this branch on 2026-10-25 (version
+`4161c9d3`, from a `git archive` of the branch at 4491fa1). Checked against the live site right after: `genclass.dev/dashboard/sample#loop` serves the view (the
+sidebar says "Closed loop", the page has Fig. 3 and Table 15), `GET /api/projects/sample?range=7d` carries
+`agent.stages` and sixteen `agent.log` rows, `POST /api/projects/sample/agent` answers 404 and a GET 405 as designed,
+the events preflight answers 204 and a bad batch 400, and the health check is OK.
+
 ## What is not covered here
 
 - The real `@genclass/mcp` process end to end over stdio with a real page: the round trip drives the same `Store`,
