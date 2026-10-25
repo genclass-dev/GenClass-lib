@@ -147,13 +147,14 @@ analytics: they ignore `analytics: true` without a word (reproduced on 0.2.2 in 
 `runtime.analytics`, nothing sent; a TypeScript app gets a type error for the unknown option). Those releases cannot
 change, so every path that the newest line controls says it instead:
 
-- **The runtime.** When the analytics chunk does not load (a self-hosted `dist/` without `analytics/`, a stale bundler
-  chunk after a deploy), the stub warns once per load, `[GenClass] analytics <version> did not load; nothing is
-  recorded.`, and `runtime.analytics` reports `{ enabled: false, reason: "error" }`. The stub passes its own version to
-  the chunk; a chunk of another release (files of two versions in one `dist/`) warns once per page with both versions
-  and the install line, and still records. The version check is in the chunk, so the first load grows only by the
-  argument and the warning (with the `@beta` console hints of the same change: 52 B gzip on `/auto`, 47 B on the
-  main entry).
+- **The runtime.** The script tag loads `dist/analytics/index.js` by URL from its base, so a self-hosted `dist/` can
+  lack it or hold files of two releases (an app's bundler ships the chunk with the runtime it came with, so the ESM
+  entries cannot mix them). The tag's loader (`src/cdn/analytics-loader.ts`) warns when the chunk does not load,
+  once per load: `[GenClass] analytics: <url> (@genclass/runtime <version>) did not load; nothing is recorded. Serve
+  every file of this version's dist/.`, and `runtime.analytics` reports `{ enabled: false, reason: "error" }`. It
+  passes the tag's version to the chunk, and a chunk of another release warns once per page with both versions and
+  the install line, and still records. Both live in the script-tag build and the lazy chunk: the ESM first load does
+  not grow for them.
 - **The CLI.** `init` prints its version and the dist-tag it came from, says when npm has a newer release, and
   upgrades an older `@genclass/runtime` in the project instead of keeping it (packages/runtime/README.md, "Which
   version").

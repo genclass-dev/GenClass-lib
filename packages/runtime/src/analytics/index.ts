@@ -209,22 +209,22 @@ let noticeShown = false;
 let mismatchShown = false;
 export const ANALYTICS_NOTICE = "[GenClass] Interaction analytics are on (this app turned them on): page views, time on page, scroll depth and clicks per element, never page text.";
 
-/** Interaction analytics first shipped in this runtime; the stub (src/analytics/start.ts) passes its own version. */
+/** Interaction analytics first shipped in this runtime. */
 export const ANALYTICS_SINCE = "0.3.0-beta.1";
 
 /**
- * The warning when this chunk and the runtime that loaded it are not the same release (a self-hosted dist/ with files
- * of two versions, a stale bundler chunk), or null. `version`: what the stub passed; none means a runtime from before
- * the stub passed it.
+ * The warning when this chunk and the script tag that loaded it are not the same release (a self-hosted dist/ with
+ * files of two versions), or null. `version`: the tag's (src/cdn/analytics-loader.ts); the ESM entries pass none,
+ * since an app's bundler ships the chunk with the runtime it came with.
  */
 export function versionMismatch(version: string | undefined): string | null {
-  if (version === VERSION) return null;
-  return `[GenClass] analytics: this analytics code is @genclass/runtime ${VERSION} but the runtime that loaded it is ${version ?? `older than ${ANALYTICS_SINCE}`}. Serve every file from one version's dist/ (interaction analytics need ${ANALYTICS_SINCE} or later: npm install @genclass/runtime@beta).`;
+  if (version === undefined || version === VERSION) return null;
+  return `[GenClass] analytics: this analytics code is @genclass/runtime ${VERSION} but the script tag that loaded it is ${version}. Serve every file from one version's dist/ (interaction analytics need ${ANALYTICS_SINCE} or later: npm install @genclass/runtime@beta).`;
 }
 
 /**
  * Start recording (the stub checked telemetry and the token). `ignored`: dom-user's ignoredEvent; `data`: DATA_LIKE;
- * `version`: the stub's runtime version (one warning per page when it is not this chunk's; recording still starts).
+ * `version`: the script tag's version (one warning per page when it is not this chunk's; recording still starts).
  */
 export function startAnalytics(rt: RuntimeImpl, t: TelemetryClient, ignored: (e: Event) => boolean, data: RegExp, version?: string): AnalyticsController {
   const g = rt.global as G;

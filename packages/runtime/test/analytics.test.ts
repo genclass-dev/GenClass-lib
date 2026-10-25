@@ -10,6 +10,8 @@ import { DATA_LIKE, type TelemetryClient } from "../src/telemetry/client.js";
 import { fromPairs, readMetaConfig } from "../src/cdn/config.js";
 import { ANALYTICS_NOTICE, ANALYTICS_SINCE, IDLE_MS, KEY_MAX, keyOf, versionMismatch, type KeyContext } from "../src/analytics/index.js";
 import { analyticsRegistry } from "../src/analytics/start.js";
+import type { AnalyticsChunk } from "../src/analytics/index.js";
+import { analyticsLoader } from "../src/cdn/analytics-loader.js";
 import { RUNTIME_VERSION } from "../src/version.js";
 import { normalizePath } from "../src/util.js";
 import type { TelemetryTransport } from "../src/types.js";
@@ -170,47 +172,47 @@ describe("interaction analytics: loud when the code is missing or from another v
   afterEach(() => {
     delete analyticsRegistry.loader;
   });
+  const URL0 = "https://cdn.example/npm/@genclass/runtime@9.9.9/dist/analytics/index.js";
+  const chunk = () => import("../src/analytics/index.js") as Promise<AnalyticsChunk>;
 
-  it("a chunk that does not load: one warning per load naming the version, enabled false, reason error", async () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-    analyticsRegistry.loader = () => Promise.reject(new Error("404"));
+  it("the script tag's loader: a chunk that does not load warns (once per load) naming the URL and version; reason error", async () => {
+    const said: string[] = [];
+    analyticsRegistry.loader = analyticsLoader(() => Promise.reject(new Error("404")), "9.9.9", URL0, (m) => said.push(m));
     const { rt: r } = await arun({ noWait: true });
     await vi.waitFor(() => expect(r.analytics).toMatchObject({ enabled: false, reason: "error" }));
-    const said = () => warn.mock.calls.flat().filter((m) => String(m).includes("did not load"));
-    expect(said()).toEqual([`[GenClass] analytics ${RUNTIME_VERSION} did not load; nothing is recorded.`]);
-    // start() tries again: one more warning for that load
+    expect(said).toEqual([`[GenClass] analytics: ${URL0} (@genclass/runtime 9.9.9) did not load; nothing is recorded. Serve every file of this version's dist/.`]);
     expect(r.analytics!.start()).toBe(true);
-    await vi.waitFor(() => expect(said()).toHaveLength(2));
-    expect(r.analytics).toMatchObject({ enabled: false, reason: "error" });
+    await vi.waitFor(() => expect(said).toHaveLength(2));
   });
 
-  it("the stub passes its version to the chunk; the same release says nothing, another one warns", async () => {
-    const seen: unknown[] = [];
-    analyticsRegistry.loader = () =>
-      import("../src/analytics/index.js").then((m) => ({
-        startAnalytics: (...a: Parameters<typeof m.startAnalytics>) => (seen.push(a[4]), m.startAnalytics(...a)),
-      }));
-    await arun();
-    expect(seen).toEqual([RUNTIME_VERSION]);
-    expect(versionMismatch(RUNTIME_VERSION)).toBeNull();
-    expect(versionMismatch("0.3.0-beta.9")).toContain(`is @genclass/runtime ${RUNTIME_VERSION} but the runtime that loaded it is 0.3.0-beta.9`);
-    const older = versionMismatch(undefined)!;
-    expect(older).toContain(`older than ${ANALYTICS_SINCE}`);
-    expect(older).toContain("npm install @genclass/runtime@beta");
-    expect(ANALYTICS_SINCE).toBe("0.3.0-beta.1");
-  });
-
-  it("a chunk from another release warns once per page and still records", async () => {
+  it("the script tag's loader passes its version; the same release says nothing", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-    analyticsRegistry.loader = () =>
-      import("../src/analytics/index.js").then((m) => ({
-        startAnalytics: (rt: Parameters<typeof m.startAnalytics>[0], t: TelemetryClient, i: (e: Event) => boolean, d: RegExp) => m.startAnalytics(rt, t, i, d, "0.3.0-beta.9"),
-      }));
+    const seen: unknown[] = [];
+    analyticsRegistry.loader = analyticsLoader(
+      () => chunk().then((m) => ({ startAnalytics: (...a: Parameters<AnalyticsChunk["startAnalytics"]>) => (seen.push(a[4]), m.startAnalytics(...a)) })),
+      RUNTIME_VERSION,
+      URL0,
+      () => undefined,
+    );
+    const a = await arun();
+    expect(a.rt.analytics).toMatchObject({ enabled: true });
+    expect(seen).toEqual([RUNTIME_VERSION]);
+    expect(warn.mock.calls.flat().filter((m) => String(m).includes("script tag that loaded it"))).toEqual([]);
+  });
+
+  it("a chunk from another release than the script tag warns once per page and still records; the ESM entries pass no version", async () => {
+    expect(versionMismatch(undefined)).toBeNull();
+    expect(versionMismatch(RUNTIME_VERSION)).toBeNull();
+    expect(versionMismatch("0.3.0-beta.9")).toContain(`is @genclass/runtime ${RUNTIME_VERSION} but the script tag that loaded it is 0.3.0-beta.9`);
+    expect(versionMismatch("0.3.0-beta.9")).toContain(`need ${ANALYTICS_SINCE} or later: npm install @genclass/runtime@beta`);
+    expect(ANALYTICS_SINCE).toBe("0.3.0-beta.1");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    analyticsRegistry.loader = analyticsLoader(chunk, "0.3.0-beta.9", URL0, () => undefined);
     const a = await arun();
     expect(a.rt.analytics).toMatchObject({ enabled: true });
     a.rt.destroy();
     await arun();
-    expect(warn.mock.calls.flat().filter((m) => String(m).includes("but the runtime that loaded it is 0.3.0-beta.9")).length).toBe(1);
+    expect(warn.mock.calls.flat().filter((m) => String(m).includes("but the script tag that loaded it is 0.3.0-beta.9")).length).toBe(1);
   });
 });
 

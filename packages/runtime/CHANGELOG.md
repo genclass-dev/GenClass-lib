@@ -16,12 +16,12 @@
   newest line first and the stable `0.2.x` as the exception. No model-visible text changed (`situation-v2.3`).
 - **Interaction analytics are loud when their code is missing or from another release**
   ([docs/runtime/ANALYTICS.md](../../docs/runtime/ANALYTICS.md) section 4.1). `0.2.x` and `0.3.0-beta.0` ignore
-  `analytics: true` without a word (reproduced on 0.2.2; they cannot change). On this line, a chunk that does not load
-  (a self-hosted `dist/` without `analytics/`, a stale bundler chunk) warns once per load, `[GenClass] analytics
-  <version> did not load; nothing is recorded.`, with `runtime.analytics.reason` `"error"` as before; the stub passes
-  its version to the chunk, and a chunk of another release warns once per page with both versions and the install
-  line, and still records. First load, with the `@beta` console messages above: +52 B gzip on `/auto`, +47 B on the
-  main entry (the check itself is in the chunk). The dashboard's Visitors view and Connect panel name the version analytics need.
+  `analytics: true` without a word (reproduced on 0.2.2; they cannot change). On this line, the script tag's analytics chunk that does not
+  load (a self-hosted `dist/` without `analytics/`) warns once per load, `[GenClass] analytics: <url>
+  (@genclass/runtime <version>) did not load; nothing is recorded. ...`, with `runtime.analytics.reason` `"error"` as
+  before; the tag passes its version to the chunk, and a chunk of another release warns once per page with both
+  versions and the install line, and still records (`src/cdn/analytics-loader.ts`, the chunk). Not in the ESM first
+  load; the `@beta` console messages above add 16 B gzip to `/auto` and 13 B to the main entry. The dashboard's Visitors view and Connect panel name the version analytics need.
 - **`rt.summary().requests`: the requests GenClass saw, per host** (issue 94; [API.md](../../docs/runtime/API.md)
   "Requests in `rt.summary()`"). Counts of the `fetch` and XHR requests of the page load, in total and per host
   (`"same-origin"` or the API's host, 30 at most): `requests`, answers by status class, `network` (no answer),

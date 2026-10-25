@@ -952,7 +952,7 @@ export interface InitOptions {
    * (the EU, EEA and UK), leave it off and call `runtime.analytics.start()` once the visitor agrees. Also
    * `data-analytics="on"`, `<meta name="genclass" content="analytics=on">`, `window.GENCLASS_CONFIG.analytics`.
    * Since 0.3.0-beta.1 (`npm install @genclass/runtime@beta`; 0.2.x, npm's `latest` until 0.3.0, ignores it). When the
-   * analytics code does not load, one console warning and `runtime.analytics.reason` "error".
+   * analytics code does not load, `runtime.analytics.reason` is "error" (the script tag also warns on the console).
    */
   analytics?: boolean;
   /**
