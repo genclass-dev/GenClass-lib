@@ -33,7 +33,7 @@ Longer description, if the form has one:
 > EventSource and user input in the browser and reports stale responses, duplicate requests, retries and failure
 > storms; it starts in observe mode, which never changes a request. Its model (about 13 MB, cached) is downloaded from
 > jsDelivr on a browser's first visit. The add-on writes GenClass's telemetry opt-out unless you choose to send
-> anonymous diagnostics. `npx @genclass/runtime remove` undoes it.
+> anonymous diagnostics. `npx @genclass/runtime@beta remove` undoes it.
 
 ## The GenClass README
 

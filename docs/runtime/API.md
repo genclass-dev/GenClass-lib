@@ -58,9 +58,9 @@ hosts (`0.2.1` sends from them too, by mistake; fixed in `0.2.2`), outside a bro
 [packages/runtime/TELEMETRY.md](../../packages/runtime/TELEMETRY.md).
 
 **App token and dashboard** (0.3.0: `0.2.x` ignores `token`). `token: "gc_..."` (from
-`npx @genclass/runtime init` or https://genclass.dev/start) is sent with each telemetry batch so the app's diagnostics
+`npx @genclass/runtime@beta init` or https://genclass.dev/start) is sent with each telemetry batch so the app's diagnostics
 show up on its private dashboard (`https://genclass.dev/dashboard/<secret>`; free on every plan, and
-`npx @genclass/runtime dashboard` prints the link for the app in the current folder); with a token, decision events also
+`npx @genclass/runtime@beta dashboard` prints the link for the app in the current folder); with a token, decision events also
 carry `fn` (see "Protected functions"). Public; malformed values log one warning and are ignored; it does nothing
 while telemetry is off (on a local host the console says so once). `rt.telemetry.token` reports it while telemetry
 is on. `token` and `scope` are fixed when GenClass starts: on a runtime already started by `/auto` or the script tag,
@@ -78,6 +78,11 @@ whether the browser visited before. Every telemetry opt-out and Global Privacy C
 event log: nothing reaches a situation, a decision or the model. `rt.analytics.start()` / `stop()` turn them on and
 off later (consent; `stop()` drops the counts not sent yet and removes the visit entry). Also `data-analytics="on"`, `analytics=on` in the meta
 tag, `window.GENCLASS_CONFIG.analytics`. Schema: [TELEMETRY.md](../../packages/runtime/TELEMETRY.md#interaction-analytics).
+With the script tag, a chunk that does not load warns once per load (`[GenClass] analytics: <url> (@genclass/runtime
+<version>) did not load; nothing is recorded. ...`, `reason: "error"`), and a chunk of another release than the tag
+warns once with both versions. `0.2.x` (npm's `latest` until 0.3.0)
+and `0.3.0-beta.0` have no analytics and ignore the option silently: install `@genclass/runtime@beta`
+([ANALYTICS.md](ANALYTICS.md) section 4.1).
 
 ## Options
 
@@ -211,7 +216,7 @@ the model's recent median latency, 150 to 800 ms), then proceed unchanged; nothi
 expected to answer within that budget. Serving your page with `Cross-Origin-Opener-Policy: same-origin` and
 `Cross-Origin-Embedder-Policy: require-corp` enables WASM threads (about 3× faster without WebGPU).
 
-Self-hosting the model: `npx @genclass/runtime fetch-model public/genclass-model` then
+Self-hosting the model: `npx @genclass/runtime@beta fetch-model public/genclass-model` then
 `GenClass.init({ model: { baseUrl: "/genclass-model/" } })`.
 
 ## State
@@ -670,7 +675,7 @@ never caps its `summary` record.
 Sinks by name, with no code, in the zero-code entries (`/auto`, the script tag): `window.GENCLASS_CONFIG = { sinks:
 ["webhook:/genclass"] }`, `<meta name="genclass" content="sink=webhook:/genclass+console-json">` (`+` joins names,
 since commas separate the meta keys), `data-sink="webhook:/genclass,console-json"` on the script tag, or
-`npx @genclass/runtime init --sink webhook:/genclass` (the names are `console-json` and `webhook:<url>`;
+`npx @genclass/runtime@beta init --sink webhook:/genclass` (the names are `console-json` and `webhook:<url>`;
 `console-json:noevidence` makes its adapter with `evidence: false`). The names `sentry`, `posthog` and `datadog` (any
 case, with or without an option) are left out at init with one console warning for them all, `Ignored sink <names>:
 Sentry, PostHog and Datadog forwarding is not in the free runtime: https://genclass.dev/pricing`, and nothing is loaded or sent for them; `init --sink sentry` is a usage error that says

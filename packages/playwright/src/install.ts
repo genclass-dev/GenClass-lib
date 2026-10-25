@@ -116,7 +116,7 @@ export function resolveRuntimeDir(given?: string): string {
   try {
     pkg = require.resolve("@genclass/runtime/package.json");
   } catch {
-    throw new Error("@genclass/playwright: @genclass/runtime is not installed (npm install -D @genclass/runtime), or pass genclass.runtimeDir");
+    throw new Error("@genclass/playwright: @genclass/runtime is not installed (npm install -D @genclass/runtime@beta), or pass genclass.runtimeDir");
   }
   const dir = join(dirname(pkg), "dist");
   if (!existsSync(join(dir, "genclass.global.js"))) throw new Error(`@genclass/playwright: ${dir} has no genclass.global.js: the installed @genclass/runtime has no build`);

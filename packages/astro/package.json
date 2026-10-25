@@ -46,7 +46,7 @@
     "test": "vitest run"
   },
   "peerDependencies": {
-    "@genclass/runtime": ">=0.2.0 || ^0.3.0-beta.0",
+    "@genclass/runtime": ">=0.3.0-beta.1",
     "astro": ">=4.0.0"
   },
   "devDependencies": {

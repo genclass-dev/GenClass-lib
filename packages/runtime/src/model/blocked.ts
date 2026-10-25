@@ -73,7 +73,7 @@ export function blockedMessage(b: BlockedFetch): string {
     : "could not be fetched (most likely a Content-Security-Policy connect-src without it; an extension or the network can also block it)";
   return (
     `The model could not load: ${b.origin} ${why}. GenClass keeps running without a model (observing only). ` +
-    `Fix: self-host the model and ONNX Runtime files (npx @genclass/runtime fetch-model public/genclass-model, then ` +
+    `Fix: self-host the model and ONNX Runtime files (npx @genclass/runtime@beta fetch-model public/genclass-model, then ` +
     `GenClass.init({ model: { baseUrl: "/genclass-model/", ortWasmPaths: "/genclass-model/ort/" } })), or allow ${b.origin} in the CSP's connect-src. ` +
     `Blocked: ${b.url}`
   );

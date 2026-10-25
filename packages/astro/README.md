@@ -39,8 +39,9 @@ export default defineConfig({
 That is all the setup. The integration injects one script into every page, bundled by Vite with the page's other
 scripts, whose first line is the runtime's `import "@genclass/runtime/auto"`: GenClass is installed when the page's
 scripts run, before your islands hydrate and before their first request. On the server (SSR, endpoints, the build)
-nothing is imported and nothing runs. The `@beta` tag gets `@genclass/runtime` 0.3.0, which the `token` option needs;
-the stable `0.2.x` works with every other option.
+nothing is imported and nothing runs. The `@beta` tag gets the newest runtime line, `@genclass/runtime`
+0.3.0-beta.1 or later, which the peer range asks for (the `token` option, the dashboard and interaction analytics need
+it); a bare `npm install @genclass/runtime` gets npm's `latest`, the older `0.2.x`, which does not satisfy it.
 
 With options:
 

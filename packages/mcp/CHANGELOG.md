@@ -2,6 +2,10 @@
 
 ## 0.1.0 (unreleased)
 
+- **`genclass_setup` installs the newest runtime line.** It prints `npm install @genclass/runtime@beta` (the agent
+  entry and interaction analytics need 0.3.0-beta.1 or later) for a project on 0.2.x, on a range without a version
+  (`*`, `latest`: npm's `latest` is still 0.2.x) or with an older copy in `node_modules`, and says what the project
+  has. The README's connect step names `@beta` first.
 - **`genclass_scan {url, phone?, hosted?}`: audit any page in one step** ([docs/runtime/AGENT.md](../../docs/runtime/AGENT.md)
   section 4.2). It runs `@genclass/runtime`'s `scan --json` (the project's own runtime when it has the command, else
   `npx -y @genclass/runtime@beta`) in the project's folder: headless Chromium at desktop and phone sizes with the 23

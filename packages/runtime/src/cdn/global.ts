@@ -1,6 +1,6 @@
 // Script-tag build (dist/genclass.global.js, dist/genclass.global.min.js). Owner: INSTALL.
 //
-//   <script src="https://cdn.jsdelivr.net/npm/@genclass/runtime/dist/genclass.global.min.js" data-mode="guard" data-devtools></script>
+//   <script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@0.3.0-beta.1/dist/genclass.global.min.js" data-mode="guard" data-devtools></script>
 //
 // Runs GenClass.init() as soon as the tag executes (put it first in <head> so it sees the page's first requests),
 // with options from the tag's data attributes, <meta name="genclass"> and window.GENCLASS_CONFIG (src/cdn/config.ts),
@@ -24,6 +24,7 @@ import type { VisualChunk } from "../visual/host.js";
 import { visualRegistry } from "../visual/registry.js";
 import type { AnalyticsChunk } from "../analytics/index.js";
 import { analyticsRegistry } from "../analytics/start.js";
+import { analyticsLoader } from "./analytics-loader.js";
 import { devtoolsOptions, fromDataset, isKilled, mergeConfig, readMetaConfig, readWindowConfig, splitConfig, whenBody, type PageConfig } from "./config.js";
 import { applySinks, type SinkResolver } from "./sinks.js";
 import { fanout, type SinkModule } from "./sinks-fanout.js";
@@ -118,8 +119,9 @@ function install(): void {
   const resolveSinks: SinkResolver = (names, warn) => fanout(names, (name) => load(`sinks/${name}.js`) as Promise<SinkModule>, warn);
   // the visual checks chunk comes from the same place as this file (never inlined into the script tag)
   visualRegistry.loader = () => load("visual/index.js") as Promise<VisualChunk>;
-  // interaction analytics too (docs/runtime/ANALYTICS.md), only when the app turned them on
-  analyticsRegistry.loader = () => load("analytics/index.js") as Promise<AnalyticsChunk>;
+  // interaction analytics too (docs/runtime/ANALYTICS.md), only when the app turned them on; with this tag's version,
+  // so files of two releases or a missing chunk say so (src/cdn/analytics-loader.ts)
+  analyticsRegistry.loader = analyticsLoader(() => load("analytics/index.js") as Promise<AnalyticsChunk>, VERSION, `${base}analytics/index.js`, (m) => console.warn(m));
 
   const withCdnModel = (opts: InitOptions): InitOptions => {
     if (opts.decider !== undefined || opts.model === false) return opts;

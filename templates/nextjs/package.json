@@ -8,7 +8,7 @@
     "start": "next start"
   },
   "dependencies": {
-    "@genclass/runtime": "^0.2.0",
+    "@genclass/runtime": "^0.3.0-beta.1",
     "next": "^16.4.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"

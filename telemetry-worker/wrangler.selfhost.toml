@@ -27,7 +27,7 @@ AUTH_ORIGIN = "https://genclass-collector.YOUR-SUBDOMAIN.workers.dev"
 AUTH_RP_ID = "genclass-collector.YOUR-SUBDOMAIN.workers.dev"
 DASHBOARD_ORIGIN = "https://genclass-collector.YOUR-SUBDOMAIN.workers.dev"
 # The newest @genclass/runtime on npm that sends app tokens (the Connect panel says so until it is published).
-RUNTIME_ON_NPM = "0.3.0-beta.0"
+RUNTIME_ON_NPM = "0.3.0-beta.1"
 MANAGED_PAYMENTS = "off"
 
 [observability]

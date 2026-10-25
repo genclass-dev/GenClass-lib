@@ -22,7 +22,7 @@ import genclass from '@genclass/runtime/auto';
 ```
 
 That is all the setup. GenClass runs in the browser only: server rendering, hydration and your server code are
-untouched. It watches fetch, XHR, WebSocket, EventSource, user input and timers. `npx @genclass/runtime init`
+untouched. It watches fetch, XHR, WebSocket, EventSource, user input and timers. `npx @genclass/runtime@beta init`
 writes the same file into an existing app.
 
 **What it sees in a Svelte app.** Automatic state discovery covers React, Redux and Zustand, not Svelte runes or
@@ -54,7 +54,7 @@ if (import.meta.env.DEV) import('@genclass/runtime/devtools').then((d) => d.moun
 
 - For one page load: add `?genclass=off` to the URL (nothing is installed).
 - For a browser: `localStorage.genclass = "off"`.
-- For good: delete `src/hooks.client.ts` (or run `npx @genclass/runtime remove`).
+- For good: delete `src/hooks.client.ts` (or run `npx @genclass/runtime@beta remove`).
 
 ## Privacy
 

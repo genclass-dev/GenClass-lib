@@ -30,7 +30,7 @@ Testing; getting there means being noticed, not applying.
 ## What the entry needs
 
 GenClass has no Svelte-specific package: the runtime is framework-agnostic, and the SvelteKit path is one import in
-`src/hooks.client.ts` ([templates/sveltekit](../../../templates/sveltekit/README.md); `npx @genclass/runtime init`
+`src/hooks.client.ts` ([templates/sveltekit](../../../templates/sveltekit/README.md); `npx @genclass/runtime@beta init`
 writes it). The entry should therefore describe `@genclass/runtime` as it behaves in a SvelteKit app, which is what the
 template's README already does honestly: it works from the network and user input (stale typeahead responses, duplicate
 submits, failure storms, retries, stalls); Svelte runes and stores are not discovered automatically, so decisions that

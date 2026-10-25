@@ -25,8 +25,13 @@ runtime has no list of known bugs: triage picks the situations, the model decide
 (pin the version: the unversioned URL may serve an older release from the CDN cache) or first in your entry file (any bundler; Next.js: `instrumentation-client.ts`):
 
 ```ts
-import "@genclass/runtime/auto";
+import "@genclass/runtime/auto"; // after npm install @genclass/runtime@beta
 ```
+
+Use the newest line, `0.3.0-beta.1` (npm dist-tag `beta`): every command in this README names `@beta`. Without it,
+npm installs its `latest`, the older `0.2.x`, which has no token, dashboard, interaction analytics, visual checks or
+agent link and ignores those options without a word (a TypeScript app gets a type error for `analytics` and
+`token`). `0.2.x` is the exception, for an app that cannot take a prerelease.
 
 That is the whole setup. Network traffic, user actions, errors and timing are observed, and so is your app's state:
 React component state (`useState`, `useReducer`, `useSyncExternalStore`, class state), Redux and Redux Toolkit
@@ -48,8 +53,9 @@ GenClass at a few functions instead of the whole app. See [Your dashboard](#your
 > browsers sending Global Privacy Control are never collected. Details: [Privacy and telemetry](#privacy-and-telemetry)
 > and [TELEMETRY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md).
 
-> **Status: `0.3.0-beta.1` (npm `beta` dist-tag: `npm install @genclass/runtime@beta`; the stable line is `0.2.x`),
-> with model `@genclass/runtime-model@0.2.0`.**
+> **Status: `0.3.0-beta.1`, the newest line (npm `beta` dist-tag: `npm install @genclass/runtime@beta`; npm's
+> `latest` is still the older `0.2.x`, the exception for apps that cannot take a prerelease), with model
+> `@genclass/runtime-model@0.2.0`.**
 >
 > - **The model loads by default.** A default `GenClass.init()` loads `@genclass/runtime-model@0.2.0` (10.2 MB q8,
 >   `genclass-runtime-r17` 2.0.0-rc4t, run `r17-v2dT`, with a gain gate and three aggressiveness profiles) from
@@ -139,8 +145,22 @@ npx @genclass/runtime@beta init --dry-run     # show the diff, write nothing
 npx @genclass/runtime@beta remove             # undo exactly what init added
 ```
 
-Other flags: `--no-install`, `--no-devtools`, `--cwd <dir>`, `--cdn <url>`, `--no-sri` and `--sync` (plain HTML),
-`remove --keep-package`.
+Other flags: `--no-install`, `--no-devtools`, `--no-network`, `--cwd <dir>`, `--cdn <url>`, `--no-sri` and `--sync`
+(plain HTML), `remove --keep-package`.
+
+**Which version.** `init` (and `login`, `connect`) first prints its own version and the npm dist-tag it came from,
+asks npm's dist-tags once (`npm view @genclass/runtime dist-tags`, at most 3 s; never with `--dry-run`,
+`--no-network`, `--no-token` or `--no-telemetry`, nothing when offline) and says when a newer release is on npm, with
+the command that runs it:
+
+```
+  ✔ Version    @genclass/runtime 0.3.0-beta.1 (npm dist-tag beta)
+  ▲ Newer      @genclass/runtime 0.3.0-beta.2 is on npm (dist-tag beta): run npx @genclass/runtime@beta init instead
+```
+
+It installs its own version (`@genclass/runtime@^0.3.0-beta.1`), and a project that already has an older one (a
+`0.2.x` from `npx @genclass/runtime init` without `@beta`) is upgraded, after the same diff and question. Every
+command it prints names `@beta` while it is a prerelease.
 
 On a plain HTML site `init` writes the script tag with `defer` (after `0.3.0-beta.1`), so a slow or blocked CDN never
 holds up the page. GenClass then starts once the page is parsed: before your `defer` and `type="module"` scripts and
@@ -161,7 +181,7 @@ to `https://genclass.dev/api/projects`, writes the token it gets back into what 
   Your dashboard  https://genclass.dev/dashboard/...
   Keep this link private; it is the only way to open your dashboard.
   Free for every app: what GenClass found, on which pages, and what it did, and (with analytics: true)
-  how visitors use each page. Print this link again any time: npx @genclass/runtime dashboard
+  how visitors use each page. Print this link again any time: npx @genclass/runtime@beta dashboard
   Saved in .genclass.local (added to .gitignore).
 ```
 
@@ -246,15 +266,15 @@ returns an inert runtime.
 **3. One script tag** (no build step), first in `<head>`:
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime" data-mode="observe" data-devtools="local"></script>
+<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@0.3.0-beta.1" data-mode="observe" data-devtools="local"></script>
 ```
 
 It exposes `window.GenClass`, discovers the app's state like the import does, and loads the model worker, ONNX
 Runtime Web and the overlay on demand from the same version on the CDN. `data-mode` takes `observe` (the default), `guard` or `heal`; `data-devtools="local"` shows the
 overlay only on localhost; `data-manual` skips the automatic `GenClass.init()`. Since `0.3.0`: `data-token="gc_..."`
-(your app's token), `data-scope="functions"` and `window.GenClass.protect`. Pin a version in production
-(`https://cdn.jsdelivr.net/npm/@genclass/runtime@0.3.0-beta.1`); the plain-HTML path of `init` writes a pinned
-jsDelivr URL with SRI.
+(your app's token), `data-scope="functions"` and `window.GenClass.protect`. Keep the version pinned, as above: the
+unversioned URL serves npm's `latest` (the older `0.2.x` until `0.3.0` is stable); the plain-HTML path of `init`
+writes a pinned jsDelivr URL with SRI.
 
 **4. By hand:**
 
@@ -494,7 +514,13 @@ console warning and is ignored.
 model load, backend (WebGPU or WASM) and latency, runtime and model versions, and recent detections. With
 `analytics: true` (new in `0.3.0-beta.1`, off by default), also how visitors use the app: page views, time on page and
 scroll depth per page, the most clicked elements, and rage and dead clicks ([Privacy and telemetry](#privacy-and-telemetry)).
-Put `data-genclass-name="pricing-cta"` on an element to give it a readable name there.
+Put `data-genclass-name="pricing-cta"` on an element to give it a readable name there. Analytics need
+`0.3.0-beta.1` or later (`npm install @genclass/runtime@beta`): `0.2.x`, npm's `latest` until 0.3.0, ignores
+`analytics: true` without a word, so the dashboard's Visitors view says which runtime versions your app sends from.
+With the script tag, when the analytics code itself does not load (a self-hosted `dist/` missing `analytics/`), the
+console says so and `runtime.analytics.reason` is `"error"`; files of two releases in one `dist/` get one warning
+naming both
+([ANALYTICS.md](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/ANALYTICS.md) section 4.1).
 
 **What it needs:** telemetry on (the default with `GenClass.init()` in a browser) on a deployed host. Local hosts
 (`localhost`, `*.local`, `*.test`, private networks) do not send by default, so a page there does not feed the

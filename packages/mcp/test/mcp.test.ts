@@ -1,10 +1,13 @@
 // The MCP server (AGENT.md §4.2): the protocol over stdio, the tools end to end against a live bridge, channel pushes.
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import { afterEach, describe, expect, it } from "vitest";
 import { McpServer, PROTOCOL_VERSIONS } from "../src/mcp.js";
 import { serve, channelEvent, type Served } from "../src/server.js";
 import { VERSION } from "../src/http.js";
-import { INSTRUCTIONS, TOOLS } from "../src/tools.js";
+import { INSTRUCTIONS, TOOLS, setupText } from "../src/tools.js";
 import { act, page, snap, tokenDir } from "./helpers.js";
 
 /** A client on in-memory streams: send requests, read replies and notifications. */
@@ -77,6 +80,36 @@ describe("mcp: genclass_setup and the client named at initialize (README Install
     const r = await call(c, "genclass_setup");
     expect(r.text).toContain(`npx -y @genclass/mcp@${VERSION} config <client>`);
     expect(r.text).not.toContain("/plugin install");
+  });
+});
+
+describe("mcp: genclass_setup installs the newest runtime line (README Install)", () => {
+  const app = (deps: Record<string, string>, installed?: string) => {
+    const dir = mkdtempSync(join(tmpdir(), "gc-setup-"));
+    writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "app", dependencies: { vite: "^7", ...deps } }));
+    if (installed) {
+      mkdirSync(join(dir, "node_modules", "@genclass", "runtime"), { recursive: true });
+      writeFileSync(join(dir, "node_modules", "@genclass", "runtime", "package.json"), JSON.stringify({ version: installed }));
+    }
+    return dir;
+  };
+  const INSTALL = "npm install @genclass/runtime@beta";
+
+  it("no runtime, 0.2.x, a range without a version, or an older installed copy: install @beta", () => {
+    expect(setupText(app({}))).toContain(INSTALL);
+    expect(setupText(app({ "@genclass/runtime": "^0.2.0" }))).toContain(`this project has "^0.2.0"): ${INSTALL}`);
+    for (const r of ["*", "latest", ""]) expect(setupText(app({ "@genclass/runtime": r }))).toContain(INSTALL);
+    expect(setupText(app({ "@genclass/runtime": "^0.3.0-beta.0" }))).toContain(INSTALL);
+    expect(setupText(app({ "@genclass/runtime": "^0.3.0-beta.1" }, "0.2.2"))).toContain(`this project has "^0.3.0-beta.1", installed 0.2.2): ${INSTALL}`);
+  });
+
+  it("0.3.0-beta.1 or later (or the beta tag) counts as installed", () => {
+    for (const r of ["^0.3.0-beta.1", "0.3.0-beta.2", "^0.3.0", "beta"]) {
+      const t = setupText(app({ "@genclass/runtime": r }));
+      expect(t).toContain("@genclass/runtime is installed.");
+      expect(t).not.toContain(INSTALL);
+    }
+    expect(setupText(app({ "@genclass/runtime": "*" }, "0.3.0-beta.1"))).toContain("@genclass/runtime is installed.");
   });
 });
 

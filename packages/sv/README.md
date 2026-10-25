@@ -36,7 +36,7 @@ SvelteKit runs `src/hooks.client` in the browser before the app starts, so GenCl
 components and stores. Server rendering, hydration and your server code are not touched. The overlay import sits
 behind `import.meta.env.DEV`, so it is never in a production build.
 
-Every line it adds carries the `genclass:init` marker that `npx @genclass/runtime init` writes, so GenClass's own
+Every line it adds carries the `genclass:init` marker that `npx @genclass/runtime@beta init` writes, so GenClass's own
 CLI recognises the setup and can take it out again. Running the add-on twice adds nothing twice; running it again
 with other answers switches the mode or the telemetry line in place.
 

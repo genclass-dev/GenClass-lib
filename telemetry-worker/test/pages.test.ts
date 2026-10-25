@@ -2,7 +2,7 @@
 // through packages/runtime): what a developer reads on the page, the possible-issues tier and the display fixes.
 import { describe, expect, it } from "vitest";
 import { Window } from "happy-dom";
-import { analyticsPrompt, CDN_SCRIPT, DASH_CSS, dashboardPage, esc, KEY_RUNTIME, MESH_SCRIPT, RUNTIME_PKG, securityHeaders, SNIPPET_RUNTIME, startPage, type DashboardOptions } from "../src/pages.js";
+import { ANALYTICS_RUNTIME, analyticsPrompt, CDN_SCRIPT, DASH_CSS, dashboardPage, esc, KEY_RUNTIME, MESH_SCRIPT, RUNTIME_PKG, securityHeaders, SNIPPET_RUNTIME, startPage, type DashboardOptions } from "../src/pages.js";
 import { accountPage, devicePage, forgotPage, lockedLinkPage, loginPage, messagePage, passkeyStepPage, pendingPage, signupPage } from "../src/account-pages.js";
 import { sampleStats } from "../src/sample.js";
 import type { Stats } from "../src/dashboard.js";
@@ -210,6 +210,10 @@ describe("dashboard page: account mode (/account/apps/<id>) with live stats", ()
     // not on npm yet (runtimeReady unset): said first, with the @beta command
     expect(r.text("#cnote")).toContain(`Project keys ship in @genclass/runtime ${KEY_RUNTIME} (npm dist-tag beta), which is not published yet`);
     expect(r.text("#connect")).toContain(`npx ${RUNTIME_PKG} login`);
+    // analytics: the version they need and the exact install line
+    expect(r.text("#canalytics")).toBe(
+      `Interaction analytics (the Visitors view) need @genclass/runtime ${ANALYTICS_RUNTIME} or later and analytics: true: npm install ${RUNTIME_PKG}. Earlier versions ignore the option without a word.`,
+    );
     await r.close();
   });
 });
@@ -473,6 +477,9 @@ describe("dashboard page: interaction analytics (docs/runtime/ANALYTICS.md secti
     expect(box.children).toHaveLength(2);
     expect(box.querySelectorAll("p.cp-sub br")).toHaveLength(0);
     expect(text("#ixsetup .cp-sub").length).toBeLessThanOrEqual(160);
+    // under the button: the runtime analytics need and the install line (0.2.x ignores the option)
+    expect(text("#ixver")).toBe(`They need @genclass/runtime ${ANALYTICS_RUNTIME} or later (npm install ${RUNTIME_PKG}); earlier versions ignore analytics: true without a word.`);
+    expect(ANALYTICS_RUNTIME).toBe("0.3.0-beta.1");
     expect(doc.querySelector(".dfoot")!.textContent).toContain("never its text");
     expect(doc.querySelector(".dfoot")!.textContent).toContain("No text from your pages, no IP addresses and no user agents are stored.");
     await close();
@@ -590,6 +597,18 @@ describe("dashboard page: visitors, sources, devices, sessions, entry and exit p
     expect(block).toContain("Copy the prompt for your coding agent</button>");
     expect(block).toContain(esc("https://genclass.dev/account/apps/0123456789abcdef#visits"));
     expect(html).toContain('"funnelsUrl":"/api/account/projects/0123456789abcdef/funnels"');
+  });
+});
+
+describe("dashboard page: the Visitors empty state names the app's older runtime (docs/runtime/ANALYTICS.md section 4.1)", () => {
+  it("lists the versions older than the first with analytics, not the newer ones", async () => {
+    const st = sampleStats("7d", NOW);
+    for (const k of Object.keys(st.breakdowns)) if (k.startsWith("ix_")) delete st.breakdowns[k];
+    for (const k of Object.keys(st.totals)) if (k.startsWith("ix_")) delete st.totals[k];
+    st.breakdowns.runtime = [{ key: "0.2.2", count: 5 }, { key: "0.3.0-beta.0", count: 3 }, { key: "0.3.0-beta.1", count: 2 }, { key: "0.3.0", count: 1 }, { key: "(unknown)", count: 1 }];
+    const { text, close } = await render(st);
+    expect(text("#ixold")).toBe("This app sends from @genclass/runtime 0.2.2, 0.3.0-beta.0, which has no analytics.");
+    await close();
   });
 });
 

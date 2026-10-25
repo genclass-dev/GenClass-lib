@@ -26,7 +26,7 @@ import genclass from "@genclass/runtime/auto";
 It goes first so GenClass is installed before Angular bootstraps and before your app's first requests. GenClass runs
 in the browser only: `src/main.server.ts` and `src/server.ts` never import it, so server rendering, hydration and your
 server's `fetch` are untouched. It watches fetch and XHR (both `HttpClient` backends), WebSocket, EventSource, user
-input and timers. `npx @genclass/runtime init` writes the same line into an existing app.
+input and timers. `npx @genclass/runtime@beta init` writes the same line into an existing app.
 
 One Angular detail, nothing to do with GenClass: the SSR server only answers requests addressed to the hosts in
 `angular.json`'s `security.allowedHosts` (`127.0.0.1` and `localhost` here, Angular's protection against server-side
@@ -63,7 +63,7 @@ if (isDevMode()) import("@genclass/runtime/devtools").then((d) => d.mountDevtool
 
 - For one page load: add `?genclass=off` to the URL (nothing is installed).
 - For a browser: `localStorage.genclass = "off"`.
-- For good: remove the import (or run `npx @genclass/runtime remove`).
+- For good: remove the import (or run `npx @genclass/runtime@beta remove`).
 
 ## Privacy
 
