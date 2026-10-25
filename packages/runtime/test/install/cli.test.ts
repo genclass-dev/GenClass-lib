@@ -812,6 +812,30 @@ describe("init options: --no-telemetry / --telemetry / --model-url (Troy trial, 
     expect(usage).toContain("--no-telemetry");
     expect(usage).toContain("--model-url");
   });
+
+  it("the docs describe --telemetry as init does it: it undoes --no-telemetry and never writes `telemetry: true` (Troy check, 2026-10-17)", () => {
+    // the README called the flag "explicitly on"; init writes no telemetry option for it (the tests above), so the
+    // default applies and local hosts stay off. Any wording is fine as long as it does not promise an opt-in.
+    const usage = cli(project({}), "init", "--help").out.replace(/\s+/g, " ");
+    expect(usage).toMatch(/--telemetry undo --no-telemetry/);
+    const repo = resolve(HERE, "..", "..", "..", "..");
+    const docs = ["packages/runtime/README.md", "README.md", "packages/runtime/TELEMETRY.md", "docs/runtime/API.md", "docs/runtime/OPTIONS-SPEC.md", "templates/nextjs/README.md"];
+    const mentions: { doc: string; text: string }[] = [];
+    for (const doc of docs) {
+      const path = join(repo, doc);
+      if (!existsSync(path)) continue;
+      const text = readFileSync(path, "utf8").replace(/\s+/g, " ");
+      // the flag itself, not --no-telemetry; what follows it, across line breaks
+      for (const m of text.matchAll(/(?<![-\w])--telemetry\b/g)) mentions.push({ doc, text: text.slice(m.index!, m.index! + 200) });
+    }
+    expect(mentions.length).toBeGreaterThan(0);
+    for (const { doc, text } of mentions) {
+      expect(text, `${doc}: ${text}`).not.toMatch(/explicitly on/i);
+      expect(text, `${doc}: ${text}`).not.toMatch(/\bwrites?\s+`?telemetry\s*:\s*true/i);
+    }
+    // the package README says what --help says: it undoes the opt-out
+    expect(mentions.some((m) => m.doc === "packages/runtime/README.md" && /\bundo/i.test(m.text))).toBe(true);
+  });
 });
 
 describe("init finds a Content-Security-Policy and prints the self-host steps", () => {

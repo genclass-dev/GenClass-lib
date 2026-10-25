@@ -596,7 +596,11 @@ export class Visual implements VisualController {
     });
   }
 
-  /** VISUAL.md 2.3: network quiet and DOM quiet for 500 ms (each doubled after a slow read), capped at 10 s. */
+  /**
+   * VISUAL.md 2.3, 8 step 3: 500 ms with nothing in flight (host.inflight) and no counted mutation, together; one 10 s
+   * cap for both from here, after the fonts wait. Runs once, before the first pass, so `slow` is 1 unless a manual
+   * pass (rt.checkNow) hit a slow read before it ended.
+   */
   private async settle(): Promise<void> {
     await this.whenVisible();
     const start = this.clock.now();
@@ -646,7 +650,8 @@ export class Visual implements VisualController {
         }
         const u = this.clock.now() - u0;
         if (u > 16) {
-          // one read forced a long layout: end the pass, wait longer next time, measure fewer elements
+          // one read forced a long layout: end the pass, double later persistence waits (2x at most), measure fewer
+          // elements
           this.slow = Math.min(8, this.slow * 2);
           this.maxEl = Math.max(50, Math.floor(this.maxEl / 2));
           this.account(this.clock.now() - t0);

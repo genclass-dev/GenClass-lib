@@ -200,8 +200,11 @@ that sets a readable colour on one element (text measured below 1.5:1), or remov
 Every term can only lower the mode: `routes` rules, `sample`, the breaker (after 2 undos or 3 errors following actions,
 the session drops to `observe`), a hidden tab (nothing new is held; background decisions are skipped in guard and heal, and deferred until the tab is
 visible in observe, where they can only detect) and
-`?genclass-mode`. Since 0.2.2 no URL or `localStorage` switch can raise it on a production host: `?genclass=guard`
-or `heal` raises only with `debug: true` or on a development host (see [THREAT-MODEL.md](../../docs/runtime/THREAT-MODEL.md)).
+`?genclass-mode` (and `?genclass-aggr`, `?genclass-sample=0`), on every host. Since 0.2.2 no URL or `localStorage`
+switch can raise the mode on a production host, and since 0.2.3 and 0.3.0-beta.2 `debug: true` does not change that:
+`?genclass=guard` or `heal` raises only on a development host, http(s) on a loopback name with an explicit port or
+`*.test` ([src/devhost.ts](src/devhost.ts); never Capacitor, Tauri, Electron, intranet or private-address hosts; see
+[THREAT-MODEL.md](../../docs/runtime/THREAT-MODEL.md)).
 
 ## What it never does
 

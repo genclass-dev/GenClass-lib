@@ -235,11 +235,16 @@ flows.
 **Threat.** Someone who can make a user open a link, or inject markup, changes GenClass's configuration.
 
 **Mitigations.** `?genclass-mode`, `?genclass-aggr` and `?genclass-sample=0` can only lower the mode, aggressiveness or
-sampling unless the app sets `debug: true`; `?genclass=off` turns GenClass off for that visitor only
-([runtime.ts](../../packages/runtime/src/runtime.ts) constructor, [index.ts](../../packages/runtime/src/index.ts)
-`initUnsafe`). Since 0.2.2 `?genclass=` and `localStorage.genclass` also only demote, from the app's mode or from
-`observe` when it sets none: a crafted link can no longer raise a production site to guard or heal. Raising from the
-URL needs `debug: true` or a development host (`localhost`, `*.local`, `*.test`, private networks). With the zero-code
+sampling, on every host and whatever `debug` says (`?genclass-sample=1` does nothing); `?genclass=off` turns GenClass
+off for that visitor only ([runtime.ts](../../packages/runtime/src/runtime.ts) constructor,
+[index.ts](../../packages/runtime/src/index.ts) `initUnsafe`). Since 0.2.2 `?genclass=` and `localStorage.genclass`
+also only demote, from the app's mode or from `observe` when it sets none: a crafted link can no longer raise a
+production site to guard or heal. Since 0.2.3 and 0.3.0-beta.2 `debug: true` is console logging only and no longer lets any
+URL or `localStorage` switch raise anything, and only a development host lets `?genclass=` / `localStorage.genclass`
+raise the mode ([devhost.ts](../../packages/runtime/src/devhost.ts): http(s) on `localhost`, `127.0.0.1`, `[::1]` or
+`*.localhost` with an explicit port, or `*.test`). Hosts that only look local are production hosts there: Capacitor
+(`https://localhost`), Tauri (`tauri.localhost`), Electron (`file:`), intranet names, private addresses, `*.internal`
+and `*.local` (before 0.2.3 and 0.3.0-beta.2 all of these counted as development hosts, and a link could raise them). With the zero-code
 entries (`/auto`, the script tag), only `<meta name="genclass">` tags inside `<head>` are read, so markup injected into
 the body cannot configure GenClass, and the model, onnxruntime-web and webhook sink URLs a meta tag names must be
 same-origin (cross-origin ones are ignored with a warning; [cdn/config.ts](../../packages/runtime/src/cdn/config.ts)
@@ -253,8 +258,10 @@ PostHog or Datadog adapter, so an injected `sink=sentry` loads and sends nothing
 
 **Residual.** Markup injected into `<head>` can still set the mode and same-origin sinks (not a cross-origin model or
 webhook): pages that let untrusted HTML into `<head>` should configure through `window.GENCLASS_CONFIG` (it wins) or
-`GenClass.init(options)`. A same-origin endpoint that forwards elsewhere is the site's own. An app that sets
-`debug: true` in production lets the URL raise its mode.
+`GenClass.init(options)`. A same-origin endpoint that forwards elsewhere is the site's own. A production app served
+from a loopback name with an explicit port (an Electron app with an embedded server, a self-hosted local tool on
+`http://127.0.0.1:<port>`) counts as a development host, so a crafted link can raise its mode with `?genclass=`; such
+apps should not rely on the URL switch being demote-only.
 
 ## T9. Cached and shared responses
 
@@ -315,7 +322,8 @@ tools ([AGENT.md](AGENT.md) section 6).
 6. Discovered state is read and appears in situation text; DevTools-composed Redux stores are actionable.
 7. In guard/heal, identical POSTs within 2 s may be coalesced; heal may block requests or roll back whole stores; a
    late revert may make a loop resend (bounded).
-8. Meta tags in `<head>` configure the zero-code entries (mode, same-origin model URLs); `debug: true` lets the URL raise the mode.
+8. Meta tags in `<head>` configure the zero-code entries (mode, same-origin model URLs); a crafted `?genclass=` link
+   can raise the mode of a production app served from a loopback name with an explicit port.
 9. `serve_cached` ignores cookies (cross-user responses in a long-lived SPA session, heal only).
 10. Telemetry and sink routes keep path segments that are neither id-like nor hold an `@` (usernames, names, search
     terms in the path); app tokens are public, so anyone can post forged batches to an app's dashboard (T5).
