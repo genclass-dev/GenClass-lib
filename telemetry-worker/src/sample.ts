@@ -215,6 +215,15 @@ export function sampleStats(rangeParam: string | null, now: Date): Stats {
   const ixFirst = IX_FIRST.map(([r0, k, rate]) => ({ key: `${r0}\t${k}`, count: Math.round(viewsOf(r0) * rate) }));
   const coalesce = Math.round((tot.duplicate ?? 0) * 0.55), discard = Math.round((tot.stale ?? 0) * 0.4);
   const interventions = coalesce + discard;
+  // the series' acted: the interventions spread over the buckets where the repeats and stale responses happened
+  const actable = typeSeries.map((b) => (b.counts.duplicate ?? 0) + (b.counts.stale ?? 0));
+  const actTotal = actable.reduce((a, x) => a + x, 0);
+  let left = interventions;
+  series.forEach((s, i) => {
+    const n = i === series.length - 1 ? left : Math.min(left, actTotal ? Math.round((interventions * actable[i]!) / actTotal) : 0);
+    s.acted = n;
+    left -= n;
+  });
   const undone = interventions > 6 ? 1 : 0;
   const ready = Math.round(sessions * 0.968), failed = Math.max(1, Math.round(sessions * 0.004));
   const recent: Record<string, unknown>[] = [];
