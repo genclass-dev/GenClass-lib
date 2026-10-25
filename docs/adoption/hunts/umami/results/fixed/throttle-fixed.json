@@ -1,0 +1,234 @@
+{
+  "app": "http://localhost:3000",
+  "at": "2026-10-25T00:27:34.630Z",
+  "results": [
+    {
+      "latency": 0,
+      "page": "websites",
+      "typed": "shop stu",
+      "trials": 10,
+      "lost": 0,
+      "values": [
+        "shop stu",
+        "shop stu",
+        "shop stu",
+        "shop stu",
+        "shop stu",
+        "shop stu",
+        "shop stu",
+        "shop stu",
+        "shop stu",
+        "shop stu"
+      ]
+    },
+    {
+      "latency": 0,
+      "page": "users",
+      "typed": "anna_sto",
+      "trials": 10,
+      "lost": 0,
+      "values": [
+        "anna_sto",
+        "anna_sto",
+        "anna_sto",
+        "anna_sto",
+        "anna_sto",
+        "anna_sto",
+        "anna_sto",
+        "anna_sto",
+        "anna_sto",
+        "anna_sto"
+      ]
+    },
+    {
+      "latency": 150,
+      "page": "websites",
+      "typed": "shop stu",
+      "trials": 10,
+      "lost": 0,
+      "values": [
+        "shop stu",
+        "shop stu",
+        "shop stu",
+        "shop stu",
+        "shop stu",
+        "shop stu",
+        "shop stu",
+        "shop stu",
+        "shop stu",
+        "shop stu"
+      ]
+    },
+    {
+      "latency": 150,
+      "page": "users",
+      "typed": "anna_sto",
+      "trials": 10,
+      "lost": 0,
+      "values": [
+        "anna_sto",
+        "anna_sto",
+        "anna_sto",
+        "anna_sto",
+        "anna_sto",
+        "anna_sto",
+        "anna_sto",
+        "anna_sto",
+        "anna_sto",
+        "anna_sto"
+      ]
+    },
+    {
+      "latency": 200,
+      "page": "websites",
+      "typed": "shop stu",
+      "trials": 10,
+      "lost": 0,
+      "values": [
+        "shop stu",
+        "shop stu",
+        "shop stu",
+        "shop stu",
+        "shop stu",
+        "shop stu",
+        "shop stu",
+        "shop stu",
+        "shop stu",
+        "shop stu"
+      ]
+    },
+    {
+      "latency": 200,
+      "page": "users",
+      "typed": "anna_sto",
+      "trials": 10,
+      "lost": 0,
+      "values": [
+        "anna_sto",
+        "anna_sto",
+        "anna_sto",
+        "anna_sto",
+        "anna_sto",
+        "anna_sto",
+        "anna_sto",
+        "anna_sto",
+        "anna_sto",
+        "anna_sto"
+      ]
+    },
+    {
+      "latency": 250,
+      "page": "websites",
+      "typed": "shop stu",
+      "trials": 10,
+      "lost": 0,
+      "values": [
+        "shop stu",
+        "shop stu",
+        "shop stu",
+        "shop stu",
+        "shop stu",
+        "shop stu",
+        "shop stu",
+        "shop stu",
+        "shop stu",
+        "shop stu"
+      ]
+    },
+    {
+      "latency": 250,
+      "page": "users",
+      "typed": "anna_sto",
+      "trials": 10,
+      "lost": 0,
+      "values": [
+        "anna_sto",
+        "anna_sto",
+        "anna_sto",
+        "anna_sto",
+        "anna_sto",
+        "anna_sto",
+        "anna_sto",
+        "anna_sto",
+        "anna_sto",
+        "anna_sto"
+      ]
+    },
+    {
+      "latency": 300,
+      "page": "websites",
+      "typed": "shop stu",
+      "trials": 10,
+      "lost": 0,
+      "values": [
+        "shop stu",
+        "shop stu",
+        "shop stu",
+        "shop stu",
+        "shop stu",
+        "shop stu",
+        "shop stu",
+        "shop stu",
+        "shop stu",
+        "shop stu"
+      ]
+    },
+    {
+      "latency": 300,
+      "page": "users",
+      "typed": "anna_sto",
+      "trials": 10,
+      "lost": 0,
+      "values": [
+        "anna_sto",
+        "anna_sto",
+        "anna_sto",
+        "anna_sto",
+        "anna_sto",
+        "anna_sto",
+        "anna_sto",
+        "anna_sto",
+        "anna_sto",
+        "anna_sto"
+      ]
+    },
+    {
+      "latency": 400,
+      "page": "websites",
+      "typed": "shop stu",
+      "trials": 10,
+      "lost": 0,
+      "values": [
+        "shop stu",
+        "shop stu",
+        "shop stu",
+        "shop stu",
+        "shop stu",
+        "shop stu",
+        "shop stu",
+        "shop stu",
+        "shop stu",
+        "shop stu"
+      ]
+    },
+    {
+      "latency": 400,
+      "page": "users",
+      "typed": "anna_sto",
+      "trials": 10,
+      "lost": 0,
+      "values": [
+        "anna_sto",
+        "anna_sto",
+        "anna_sto",
+        "anna_sto",
+        "anna_sto",
+        "anna_sto",
+        "anna_sto",
+        "anna_sto",
+        "anna_sto",
+        "anna_sto"
+      ]
+    }
+  ]
+}

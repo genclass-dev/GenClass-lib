@@ -1,0 +1,24 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.genclass-dev/genclass",
+  "title": "GenClass",
+  "description": "Find race conditions in your web app by reordering its responses, replay one, prove the fix.",
+  "websiteUrl": "https://genclass.dev",
+  "repository": {
+    "url": "https://github.com/genclass-dev/GenClass-lib",
+    "source": "github",
+    "subfolder": "packages/mcp"
+  },
+  "version": "0.1.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "@genclass/mcp",
+      "version": "0.1.0",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}

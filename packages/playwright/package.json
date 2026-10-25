@@ -1,7 +1,7 @@
 {
   "name": "@genclass/playwright",
   "version": "0.1.0",
-  "description": "A Playwright reporter for GenClass race files: reads what the GenClass fixture flagged in each test (duplicate submits, stale responses, failing endpoints, with the evidence line and the model's confidence) and writes one markdown report your CI can post on the pull request. No runtime dependencies.",
+  "description": "GenClass for Playwright: a fixture that puts @genclass/runtime on every page under test (observe mode, seeded network chaos with page.route) and writes one race file per test, and a reporter that turns those files into one markdown report your CI posts on the pull request. Peer dependencies only.",
   "type": "module",
   "license": "Apache-2.0",
   "repository": {
@@ -39,6 +39,11 @@
       "import": "./dist/reporter.js",
       "default": "./dist/reporter.js"
     },
+    "./fixture": {
+      "types": "./dist/fixture.d.ts",
+      "import": "./dist/fixture.js",
+      "default": "./dist/fixture.js"
+    },
     "./package.json": "./package.json"
   },
   "bin": {
@@ -57,7 +62,20 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run"
   },
+  "peerDependencies": {
+    "@genclass/runtime": ">=0.3.0-beta.1",
+    "@playwright/test": ">=1.40.0"
+  },
+  "peerDependenciesMeta": {
+    "@genclass/runtime": {
+      "optional": true
+    },
+    "@playwright/test": {
+      "optional": true
+    }
+  },
   "devDependencies": {
+    "@genclass/runtime": "0.3.0-beta.1",
     "@playwright/test": "1.63.0",
     "@types/node": "^22.0.0",
     "tsup": "^8.5.1",

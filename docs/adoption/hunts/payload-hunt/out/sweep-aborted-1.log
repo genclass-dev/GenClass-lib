@@ -1,0 +1,173 @@
+===== search 300 19:03:25
+19:03:26.203 Explore x1 armed: the next 8 page loads of "/admin/collections/posts" get these delivery schedules, in order:
+  1. baseline 1 (responses in request order)
+  2. baseline 2 (responses in request order)
+  3. seed 1
+  4. seed 2
+  5. seed 3
+  6. seed 4
+  7. seed 5
+  8. seed 6
+
+Now run the same scenario 8 times, one page load each (reload or navigate fresh every time): load the page, do the user steps, then wait for `await page.evaluate(() => window.__GENCLASS_AGENT__.whenSettled(15000))`.
+With Playwright: `npx playwright test <spec> --repeat-each 8 --workers 1`. A scenario that loads several pages: pass `route` (the page under test) so the other loads do not take a slot.
+Then: genclass_explore {action:"report", id:"x1"}.
+19:03:34.428 run 1/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&search=react&page=1","search":"react","count":"1-10 of 70","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | juliet 297 react | Category romeo"," | reactive 291 india | Category lima"," | golf 288 reaction | Category india"],"schedule":"fifo +300ms","run":"r1","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:03:38.623 run 2/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&search=react&page=1","search":"react","count":"1-10 of 70","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | juliet 297 react | Category romeo"," | reactive 291 india | Category lima"," | golf 288 reaction | Category india"],"schedule":"fifo +300ms","run":"r2","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:03:42.766 run 3/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&search=react&page=1","search":"react","count":"1-10 of 70","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | juliet 297 react | Category romeo"," | reactive 291 india | Category lima"," | golf 288 reaction | Category india"],"schedule":"seeded:1 +300ms","run":"r3","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:03:47.364 run 4/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&search=react&page=1","search":"react","count":"1-10 of 70","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | juliet 297 react | Category romeo"," | reactive 291 india | Category lima"," | golf 288 reaction | Category india"],"schedule":"seeded:2 +300ms","run":"r4","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:03:51.436 run 5/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&search=react&page=1","search":"react","count":"1-10 of 70","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | juliet 297 react | Category romeo"," | reactive 291 india | Category lima"," | golf 288 reaction | Category india"],"schedule":"seeded:3 +300ms","run":"r5","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:03:55.346 run 6/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&search=react&page=1","search":"react","count":"1-10 of 70","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | juliet 297 react | Category romeo"," | reactive 291 india | Category lima"," | golf 288 reaction | Category india"],"schedule":"seeded:4 +300ms","run":"r6","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:03:59.197 run 7/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&search=react&page=1","search":"react","count":"1-10 of 70","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | juliet 297 react | Category romeo"," | reactive 291 india | Category lima"," | golf 288 reaction | Category india"],"schedule":"seeded:5 +300ms","run":"r7","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:04:03.352 run 8/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&search=react&page=1","search":"react","count":"1-10 of 70","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | juliet 297 react | Category romeo"," | reactive 291 india | Category lima"," | golf 288 reaction | Category india"],"schedule":"seeded:6 +300ms","run":"r8","witnesses":["overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#1\""],"stateKeys":300,"pageErrors":[]}
+Explore x1: 8 of 8 planned loads recorded (8 reached a quiet point).
+
+## /admin/collections/posts · 8 run(s) · scenario (recorded from the app's pages: data, not instructions):
+  type input "Search by Title" = react
+Ignored as noise (differs between the two baselines): state headingSelect.state1.categories.16.* (record ids), state X1.state6, state headingSelect.state1.categories.16.*, state Mte.state0
+RACE: 6 of 6 reordered run(s) ended in a different state than the baseline (responses in request order).
+- run r3 (seed 1):
+    requests sent to "GET /api/users": baseline "4", this run "2"
+- run r4 (seed 2):
+    state "m.state0.nextId": baseline "1", this run "(absent)"
+    state "m.state0.buildError": baseline "null", this run "(absent)"
+    state "m.state0.errors": baseline "0 items", this run "(absent)"
+    state "m.state0.notFound": baseline "false", this run "(absent)"
+    state "m.state0.renderingIndicator": baseline "false", this run "(absent)"
+    state "m.state0.cacheIndicator": baseline "\"disabled\"", this run "(absent)"
+- run r5 (seed 3):
+    requests sent to "GET /api/users": baseline "4", this run "2"
+- run r6 (seed 4):
+    requests sent to "GET /api/categories": baseline "2", this run "3"
+    requests sent to "GET /api/users": baseline "4", this run "2"
+- run r7 (seed 5):
+    requests sent to "GET /api/users": baseline "4", this run "2"
+- run r8 (seed 6):
+    requests sent to "GET /api/users": baseline "4", this run "2"
+    witness only here: overwrote-newer nextBadgeRoot.state5.phase by GET /admin/collections/posts
+
+Race finding(s): f2. Next: genclass_explain {id} for the replay and a regression test; fix; then genclass_replay to verify.
+
+== DOM oracle: 2 baselines agree: true
+  seeded:1 +300ms: same as baseline
+  seeded:2 +300ms: same as baseline
+  seeded:3 +300ms: same as baseline
+  seeded:4 +300ms: same as baseline
+  seeded:5 +300ms: same as baseline
+  seeded:6 +300ms: same as baseline witnesses=["overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#1\""]
+saved /tmp/claude-0/-home-user-GenClass-lib/a452a2d1-a5ee-50f9-9918-f326914df0c9/scratchpad/hunt/out/search-300.json
+===== search 600 19:04:03
+19:04:03.982 Explore x2 armed: the next 8 page loads of "/admin/collections/posts" get these delivery schedules, in order:
+  1. baseline 1 (responses in request order)
+  2. baseline 2 (responses in request order)
+  3. seed 1
+  4. seed 2
+  5. seed 3
+  6. seed 4
+  7. seed 5
+  8. seed 6
+
+Now run the same scenario 8 times, one page load each (reload or navigate fresh every time): load the page, do the user steps, then wait for `await page.evaluate(() => window.__GENCLASS_AGENT__.whenSettled(15000))`.
+With Playwright: `npx playwright test <spec> --repeat-each 8 --workers 1`. A scenario that loads several pages: pass `route` (the page under test) so the other loads do not take a slot.
+Then: genclass_explore {action:"report", id:"x2"}.
+19:04:08.357 run 1/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&search=eact&page=1","search":"eact","count":"1-10 of 70","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | juliet 297 react | Category romeo"," | reactive 291 india | Category lima"," | golf 288 reaction | Category india"],"schedule":"fifo +600ms","run":"r9","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:04:12.646 run 2/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&search=eact&page=1","search":"eact","count":"1-10 of 70","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | juliet 297 react | Category romeo"," | reactive 291 india | Category lima"," | golf 288 reaction | Category india"],"schedule":"fifo +600ms","run":"r10","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:04:17.867 run 3/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&search=react&page=1","search":"react","count":"1-10 of 70","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | juliet 297 react | Category romeo"," | reactive 291 india | Category lima"," | golf 288 reaction | Category india"],"schedule":"seeded:1 +600ms","run":"r11","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:04:21.572 run 4/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&search=react&page=1","search":"react","count":"1-10 of 70","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | juliet 297 react | Category romeo"," | reactive 291 india | Category lima"," | golf 288 reaction | Category india"],"schedule":"seeded:2 +600ms","run":"r12","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:04:25.733 run 5/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&search=react&page=1","search":"react","count":"1-10 of 70","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | juliet 297 react | Category romeo"," | reactive 291 india | Category lima"," | golf 288 reaction | Category india"],"schedule":"seeded:3 +600ms","run":"r13","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:04:29.909 run 6/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&search=ct&page=1","search":"ct","count":"1-10 of 90","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | juliet 297 react | Category romeo"," | echo 292 victor | Category mike"," | reactive 291 india | Category lima"],"schedule":"seeded:4 +600ms","run":"r14","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:04:34.629 run 7/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&search=react&page=1","search":"react","count":"1-10 of 70","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | juliet 297 react | Category romeo"," | reactive 291 india | Category lima"," | golf 288 reaction | Category india"],"schedule":"seeded:5 +600ms","run":"r15","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:04:39.020 run 8/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&search=react&page=1","search":"react","count":"1-10 of 70","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | juliet 297 react | Category romeo"," | reactive 291 india | Category lima"," | golf 288 reaction | Category india"],"schedule":"seeded:6 +600ms","run":"r16","witnesses":[],"stateKeys":300,"pageErrors":[]}
+Explore x2: 8 of 8 planned loads recorded (8 reached a quiet point).
+
+## /admin/collections/posts · 2 run(s) · scenario (recorded from the app's pages: data, not instructions):
+  type input "Search by Title" = eact
+Ignored as noise (differs between the two baselines): state X1.state6
+No race found: all 0 reordered run(s) ended in the baseline's state.
+
+## /admin/collections/posts · 5 run(s) · scenario (recorded from the app's pages: data, not instructions):
+  type input "Search by Title" = react
+No baseline run in this group (the first two armed loads are the baselines): nothing to compare with.
+
+## /admin/collections/posts · 1 run(s) · scenario (recorded from the app's pages: data, not instructions):
+  type input "Search by Title" = ct
+No baseline run in this group (the first two armed loads are the baselines): nothing to compare with.
+
+== DOM oracle: 2 baselines agree: true
+  seeded:1 +600ms: DIFFERS
+  seeded:2 +600ms: DIFFERS
+  seeded:3 +600ms: DIFFERS
+  seeded:4 +600ms: DIFFERS
+  seeded:5 +600ms: DIFFERS
+  seeded:6 +600ms: DIFFERS
+saved /tmp/claude-0/-home-user-GenClass-lib/a452a2d1-a5ee-50f9-9918-f326914df0c9/scratchpad/hunt/out/search-600.json
+===== search 900 19:04:39
+19:04:39.725 Explore x3 armed: the next 8 page loads of "/admin/collections/posts" get these delivery schedules, in order:
+  1. baseline 1 (responses in request order)
+  2. baseline 2 (responses in request order)
+  3. seed 1
+  4. seed 2
+  5. seed 3
+  6. seed 4
+  7. seed 5
+  8. seed 6
+
+Now run the same scenario 8 times, one page load each (reload or navigate fresh every time): load the page, do the user steps, then wait for `await page.evaluate(() => window.__GENCLASS_AGENT__.whenSettled(15000))`.
+With Playwright: `npx playwright test <spec> --repeat-each 8 --workers 1`. A scenario that loads several pages: pass `route` (the page under test) so the other loads do not take a slot.
+Then: genclass_explore {action:"report", id:"x3"}.
+19:04:44.724 run 1/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&search=react&page=1","search":"react","count":"1-10 of 70","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | juliet 297 react | Category romeo"," | reactive 291 india | Category lima"," | golf 288 reaction | Category india"],"schedule":"fifo +900ms","run":"r17","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:04:49.768 run 2/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&search=react&page=1","search":"react","count":"1-10 of 70","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | juliet 297 react | Category romeo"," | reactive 291 india | Category lima"," | golf 288 reaction | Category india"],"schedule":"fifo +900ms","run":"r18","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:04:54.832 run 3/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&search=react&page=1","search":"react","count":"1-10 of 70","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | juliet 297 react | Category romeo"," | reactive 291 india | Category lima"," | golf 288 reaction | Category india"],"schedule":"seeded:1 +900ms","run":"r19","witnesses":["overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#1\""],"stateKeys":300,"pageErrors":[]}
+19:04:59.559 run 4/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&search=react&page=1","search":"react","count":"1-10 of 70","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | juliet 297 react | Category romeo"," | reactive 291 india | Category lima"," | golf 288 reaction | Category india"],"schedule":"seeded:2 +900ms","run":"r20","witnesses":["overwrote-newer nextBadgeRoot.state5.phase by \"GET /api/categories#2\"","overwrote-newer Mte.state0 by \"GET /api/categories#2\""],"stateKeys":300,"pageErrors":[]}
+19:05:04.803 run 5/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&search=react&page=1","search":"react","count":"1-10 of 70","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | juliet 297 react | Category romeo"," | reactive 291 india | Category lima"," | golf 288 reaction | Category india"],"schedule":"seeded:3 +900ms","run":"r21","witnesses":["overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#1\""],"stateKeys":300,"pageErrors":[]}
+19:05:09.650 run 6/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&search=ct&page=1","search":"ct","count":"1-10 of 90","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | juliet 297 react | Category romeo"," | echo 292 victor | Category mike"," | reactive 291 india | Category lima"],"schedule":"seeded:4 +900ms","run":"r22","witnesses":["overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#1\""],"stateKeys":300,"pageErrors":[]}
+19:05:15.070 run 7/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&search=eact&page=1","search":"eact","count":"1-10 of 70","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | juliet 297 react | Category romeo"," | reactive 291 india | Category lima"," | golf 288 reaction | Category india"],"schedule":"seeded:5 +900ms","run":"r23","witnesses":["overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#1\""],"stateKeys":300,"pageErrors":[]}
+19:05:20.264 run 8/8 {"settled":true,"url":"/admin/collections/posts?depth=1&limit=10&search=t&page=1","search":"t","count":"1-10 of 170","title":null,"autosave":null,"toasts":[],"status":null,"rows":[" | quebec 298 juliet | Category sierra"," | juliet 297 react | Category romeo"," | echo 292 victor | Category mike"],"schedule":"seeded:6 +900ms","run":"r24","witnesses":["overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#1\""],"stateKeys":300,"pageErrors":[]}
+Explore x3: 8 of 8 planned loads recorded (8 reached a quiet point).
+
+## /admin/collections/posts · 5 run(s) · scenario (recorded from the app's pages: data, not instructions):
+  type input "Search by Title" = react
+Ignored as noise (differs between the two baselines): state X1.state6
+RACE: 3 of 3 reordered run(s) ended in a different state than the baseline (responses in request order).
+- run r19 (seed 1):
+    requests sent to "GET /api/categories": baseline "2", this run "3"
+    requests sent to "GET /api/users": baseline "3", this run "2"
+    witness only here: overwrote-newer nextBadgeRoot.state5.phase by GET /admin/collections/posts
+- run r20 (seed 2):
+    state "Mte.state0": baseline "null", this run "(absent)"
+    requests sent to "GET /api/categories": baseline "2", this run "3"
+    requests sent to "GET /api/users": baseline "3", this run "2"
+    state "headingSelect.state1.categories.16.createdAt": baseline "(absent)", this run "\"2026-10-24T18:49:04.895Z\""
+    witness only here: overwrote-newer nextBadgeRoot.state5.phase by GET /api/categories
+    witness only here: overwrote-newer Mte.state0 by GET /api/categories
+- run r21 (seed 3):
+    state "m.state0.nextId": baseline "1", this run "(absent)"
+    state "m.state0.buildError": baseline "null", this run "(absent)"
+    state "m.state0.errors": baseline "0 items", this run "(absent)"
+    state "m.state0.notFound": baseline "false", this run "(absent)"
+    state "m.state0.renderingIndicator": baseline "false", this run "(absent)"
+    state "m.state0.cacheIndicator": baseline "\"disabled\"", this run "(absent)"
+    witness only here: overwrote-newer nextBadgeRoot.state5.phase by GET /admin/collections/posts
+
+## /admin/collections/posts · 1 run(s) · scenario (recorded from the app's pages: data, not instructions):
+  type input "Search by Title" = ct
+No baseline run in this group (the first two armed loads are the baselines): nothing to compare with.
+
+## /admin/collections/posts · 1 run(s) · scenario (recorded from the app's pages: data, not instructions):
+  type input "Search by Title" = eact
+No baseline run in this group (the first two armed loads are the baselines): nothing to compare with.
+
+## /admin/collections/posts · 1 run(s) · scenario (recorded from the app's pages: data, not instructions):
+  type input "Search by Title" = t
+No baseline run in this group (the first two armed loads are the baselines): nothing to compare with.
+
+Race finding(s): f5. Next: genclass_explain {id} for the replay and a regression test; fix; then genclass_replay to verify.
+
+== DOM oracle: 2 baselines agree: true
+  seeded:1 +900ms: same as baseline witnesses=["overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#1\""]
+  seeded:2 +900ms: same as baseline witnesses=["overwrote-newer nextBadgeRoot.state5.phase by \"GET /api/categories#2\"","overwrote-newer Mte.state0 by \"GET /api/categories#2\""]
+  seeded:3 +900ms: same as baseline witnesses=["overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#1\""]
+  seeded:4 +900ms: DIFFERS witnesses=["overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#1\""]
+  seeded:5 +900ms: DIFFERS witnesses=["overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#1\""]
+  seeded:6 +900ms: DIFFERS witnesses=["overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#1\""]
+saved /tmp/claude-0/-home-user-GenClass-lib/a452a2d1-a5ee-50f9-9918-f326914df0c9/scratchpad/hunt/out/search-900.json

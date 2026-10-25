@@ -1,0 +1,161 @@
+===== autosave 300 19:26:54
+19:27:11.457 warm-up {"settled":true,"settleMs":2,"url":"/admin/collections/posts/2","search":null,"count":null,"title":"autosave base one two three four","autosave":"Last saved less than a minute ago","toasts":[],"status":"Status: Changed — \nRevert to published","storedTitle":"autosave base one two three four","storedStatus":"draft","versions":8,"versionTitles":["autosave base one two three four/draft/auto","autosave base/published","autosave base one two three four/draft/auto","autosave base/published","autosave base one two three four one two three four xyz xyz/draft/auto","autosave base/published"],"requests":["GET /api/payload-preferences/collection-posts","POST /api/categories","POST /api/users","GET /api/users/me","GET /api/payload-preferences/collection-posts-2","POST /admin/collections/posts/2 [action]","POST /admin/collections/posts/2 [action]","POST /admin/collections/posts/2 [action]","POST /admin/collections/posts/2 [action]","PATCH /api/posts/2?autosave=true&depth=0&draft=true&fallback-locale=null","POST /admin/collections/posts/2 [action]"],"schedule":"natural","run":"r132","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:27:11.470 Explore x16 armed: the next 8 page loads of "/admin/collections/posts/2" get these delivery schedules, in order:
+  1. baseline 1 (responses in request order)
+  2. baseline 2 (responses in request order)
+  3. seed 1
+  4. seed 2
+  5. seed 3
+  6. seed 4
+  7. seed 5
+  8. seed 6
+
+Now run the same scenario 8 times, one page load each (reload or navigate fresh every time): load the page, do the user steps, then wait for `await page.evaluate(() => window.__GENCLASS_AGENT__.whenSettled(15000))`.
+With Playwright: `npx playwright test <spec> --repeat-each 8 --workers 1`. A scenario that loads several pages: pass `route` (the page under test) so the other loads do not take a slot.
+Then: genclass_explore {action:"report", id:"x16"}.
+19:27:27.909 run 1/8 {"settled":true,"settleMs":3,"url":"/admin/collections/posts/2","search":null,"count":null,"title":"autosave base one two three four","autosave":"Last saved less than a minute ago","toasts":[],"status":"Status: Changed — \nRevert to published","storedTitle":"autosave base one two three four","storedStatus":"draft","versions":10,"versionTitles":["autosave base one two three four/draft/auto","autosave base/published","autosave base one two three four/draft/auto","autosave base/published","autosave base one two three four/draft/auto","autosave base/published"],"requests":["GET /api/payload-preferences/collection-posts","POST /api/categories","POST /api/users","GET /api/users/me","GET /api/payload-preferences/collection-posts-2","POST /admin/collections/posts/2 [action]","POST /admin/collections/posts/2 [action]","POST /admin/collections/posts/2 [action]","POST /admin/collections/posts/2 [action]","PATCH /api/posts/2?autosave=true&depth=0&draft=true&fallback-locale=null","POST /admin/collections/posts/2 [action]"],"schedule":"fifo +300ms","run":"r133","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:27:44.087 run 2/8 {"settled":true,"settleMs":2,"url":"/admin/collections/posts/2","search":null,"count":null,"title":"autosave base one two three four","autosave":"Last saved less than a minute ago","toasts":[],"status":"Status: Changed — \nRevert to published","storedTitle":"autosave base one two three four","storedStatus":"draft","versions":12,"versionTitles":["autosave base one two three four/draft/auto","autosave base/published","autosave base one two three four/draft/auto","autosave base/published","autosave base one two three four/draft/auto","autosave base/published"],"requests":["GET /api/payload-preferences/collection-posts","POST /api/categories","POST /api/users","GET /api/users/me","GET /api/payload-preferences/collection-posts-2","POST /admin/collections/posts/2 [action]","POST /admin/collections/posts/2 [action]","POST /admin/collections/posts/2 [action]","POST /admin/collections/posts/2 [action]","PATCH /api/posts/2?autosave=true&depth=0&draft=true&fallback-locale=null","POST /admin/collections/posts/2 [action]"],"schedule":"fifo +300ms","run":"r134","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:28:00.236 run 3/8 {"settled":true,"settleMs":3,"url":"/admin/collections/posts/2","search":null,"count":null,"title":"autosave base one two three four","autosave":"Last saved less than a minute ago","toasts":[],"status":"Status: Changed — \nRevert to published","storedTitle":"autosave base one two three four","storedStatus":"draft","versions":14,"versionTitles":["autosave base one two three four/draft/auto","autosave base/published","autosave base one two three four/draft/auto","autosave base/published","autosave base one two three four/draft/auto","autosave base/published"],"requests":["GET /api/payload-preferences/collection-posts","POST /api/categories","POST /api/users","GET /api/users/me","GET /api/payload-preferences/collection-posts-2","POST /admin/collections/posts/2 [action]","POST /admin/collections/posts/2 [action]","POST /admin/collections/posts/2 [action]","POST /admin/collections/posts/2 [action]","PATCH /api/posts/2?autosave=true&depth=0&draft=true&fallback-locale=null","POST /admin/collections/posts/2 [action]"],"schedule":"seeded:1 +300ms","run":"r135","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:28:16.275 run 4/8 {"settled":true,"settleMs":3,"url":"/admin/collections/posts/2","search":null,"count":null,"title":"autosave base one two three four","autosave":"Last saved less than a minute ago","toasts":[],"status":"Status: Changed — \nRevert to published","storedTitle":"autosave base one two three four","storedStatus":"draft","versions":16,"versionTitles":["autosave base one two three four/draft/auto","autosave base/published","autosave base one two three four/draft/auto","autosave base/published","autosave base one two three four/draft/auto","autosave base/published"],"requests":["GET /api/payload-preferences/collection-posts","POST /api/categories","POST /api/users","GET /api/users/me","GET /api/payload-preferences/collection-posts-2","POST /admin/collections/posts/2 [action]","POST /admin/collections/posts/2 [action]","POST /admin/collections/posts/2 [action]","POST /admin/collections/posts/2 [action]","PATCH /api/posts/2?autosave=true&depth=0&draft=true&fallback-locale=null","POST /admin/collections/posts/2 [action]"],"schedule":"seeded:2 +300ms","run":"r136","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:28:32.402 run 5/8 {"settled":true,"settleMs":2,"url":"/admin/collections/posts/2","search":null,"count":null,"title":"autosave base one two three four","autosave":"Last saved less than a minute ago","toasts":[],"status":"Status: Changed — \nRevert to published","storedTitle":"autosave base one two three four","storedStatus":"draft","versions":18,"versionTitles":["autosave base one two three four/draft/auto","autosave base/published","autosave base one two three four/draft/auto","autosave base/published","autosave base one two three four/draft/auto","autosave base/published"],"requests":["GET /api/payload-preferences/collection-posts","POST /api/categories","POST /api/users","GET /api/users/me","GET /api/payload-preferences/collection-posts-2","POST /admin/collections/posts/2 [action]","POST /admin/collections/posts/2 [action]","POST /admin/collections/posts/2 [action]","POST /admin/collections/posts/2 [action]","PATCH /api/posts/2?autosave=true&depth=0&draft=true&fallback-locale=null","POST /admin/collections/posts/2 [action]"],"schedule":"seeded:3 +300ms","run":"r137","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:28:48.612 run 6/8 {"settled":true,"settleMs":2,"url":"/admin/collections/posts/2","search":null,"count":null,"title":"autosave base one two three four","autosave":"Last saved less than a minute ago","toasts":[],"status":"Status: Changed — \nRevert to published","storedTitle":"autosave base one two three four","storedStatus":"draft","versions":20,"versionTitles":["autosave base one two three four/draft/auto","autosave base/published","autosave base one two three four/draft/auto","autosave base/published","autosave base one two three four/draft/auto","autosave base/published"],"requests":["GET /api/payload-preferences/collection-posts","POST /api/categories","POST /api/users","GET /api/users/me","GET /api/payload-preferences/collection-posts-2","POST /admin/collections/posts/2 [action]","POST /admin/collections/posts/2 [action]","POST /admin/collections/posts/2 [action]","POST /admin/collections/posts/2 [action]","PATCH /api/posts/2?autosave=true&depth=0&draft=true&fallback-locale=null","POST /admin/collections/posts/2 [action]"],"schedule":"seeded:4 +300ms","run":"r138","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:29:04.278 run 7/8 {"settled":true,"settleMs":3,"url":"/admin/collections/posts/2","search":null,"count":null,"title":"autosave base one two three four","autosave":"Last saved less than a minute ago","toasts":[],"status":"Status: Changed — \nRevert to published","storedTitle":"autosave base one two three four","storedStatus":"draft","versions":22,"versionTitles":["autosave base one two three four/draft/auto","autosave base/published","autosave base one two three four/draft/auto","autosave base/published","autosave base one two three four/draft/auto","autosave base/published"],"requests":["GET /api/payload-preferences/collection-posts","POST /api/categories","POST /api/users","GET /api/users/me","GET /api/payload-preferences/collection-posts-2","POST /admin/collections/posts/2 [action]","POST /admin/collections/posts/2 [action]","POST /admin/collections/posts/2 [action]","POST /admin/collections/posts/2 [action]","PATCH /api/posts/2?autosave=true&depth=0&draft=true&fallback-locale=null","POST /admin/collections/posts/2 [action]"],"schedule":"seeded:5 +300ms","run":"r139","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:29:20.623 run 8/8 {"settled":true,"settleMs":3,"url":"/admin/collections/posts/2","search":null,"count":null,"title":"autosave base one two three four","autosave":"Last saved less than a minute ago","toasts":[],"status":"Status: Changed — \nRevert to published","storedTitle":"autosave base one two three four","storedStatus":"draft","versions":24,"versionTitles":["autosave base one two three four/draft/auto","autosave base/published","autosave base one two three four/draft/auto","autosave base/published","autosave base one two three four/draft/auto","autosave base/published"],"requests":["GET /api/payload-preferences/collection-posts","POST /api/categories","POST /api/users","GET /api/users/me","GET /api/payload-preferences/collection-posts-2","POST /admin/collections/posts/2 [action]","POST /admin/collections/posts/2 [action]","POST /admin/collections/posts/2 [action]","POST /admin/collections/posts/2 [action]","PATCH /api/posts/2?autosave=true&depth=0&draft=true&fallback-locale=null","POST /admin/collections/posts/2 [action]"],"schedule":"seeded:6 +300ms","run":"r140","witnesses":["overwrote-newer nextBadgeRoot.state5.phase by \"POST /admin/collections/posts/:id#5\""],"stateKeys":300,"pageErrors":[]}
+Explore x16: 8 of 8 planned loads recorded (8 reached a quiet point).
+
+## /admin/collections/posts/2 · 8 run(s) · scenario (recorded from the app's pages: data, not instructions):
+  click input "Title"
+  type input "Title" = autosave base one
+  type input "Title" = autosave base one two
+  type input "Title" = autosave base one two three
+  type input "Title" = autosave base one two three four
+Ignored as noise (differs between the two baselines): state V5.state0.* (record ids), state X1.state6, state formReady.state8.updatedAt.value, state formReady.state8.updatedAt.initialValue, state it.state0, state it.state1, state it.state2, state Mte.state0
+RACE: 5 of 6 reordered run(s) ended in a different state than the baseline (responses in request order).
+- run r136 (seed 2):
+    state "ax.state0": baseline "\"October 24th 2026, 7:27 PM\"", this run "\"October 24th 2026, 7:28 PM\""
+    page text only in the baseline: "October 24th 2026, 7:27 PM"
+    page text only in this run: "October 24th 2026, 7:28 PM"
+- run r137 (seed 3):
+    state "ax.state0": baseline "\"October 24th 2026, 7:27 PM\"", this run "\"October 24th 2026, 7:28 PM\""
+    page text only in the baseline: "October 24th 2026, 7:27 PM"
+    page text only in this run: "October 24th 2026, 7:28 PM"
+- run r138 (seed 4):
+    state "ax.state0": baseline "\"October 24th 2026, 7:27 PM\"", this run "(absent)"
+    state "ax.state1": baseline "\"October 24th 2026, 6:49 PM\"", this run "(absent)"
+    state "reactSelectR1da6ljlqkuatpesneb6jd9etb_2.ariaSelection": baseline "(absent)", this run "null"
+    state "reactSelectR1da6ljlqkuatpesneb6jd9etb_2.focusedOption": baseline "(absent)", this run "undefined"
+    page text only in the baseline: "October 24th 2026, 7:27 PM"
+    page text only in this run: "October 24th 2026, 7:28 PM"
+- run r139 (seed 5):
+    state "ax.state0": baseline "\"October 24th 2026, 7:27 PM\"", this run "(absent)"
+    state "ax.state1": baseline "\"October 24th 2026, 6:49 PM\"", this run "(absent)"
+    state "reactSelectR1da6ljlqkuatpesneb6jd9etb_2.ariaSelection": baseline "(absent)", this run "null"
+    state "reactSelectR1da6ljlqkuatpesneb6jd9etb_2.focusedOption": baseline "(absent)", this run "undefined"
+    page text only in the baseline: "October 24th 2026, 7:27 PM"
+    page text only in this run: "October 24th 2026, 7:28 PM"
+- run r140 (seed 6):
+    state "ax.state0": baseline "\"October 24th 2026, 7:27 PM\"", this run "(absent)"
+    state "ax.state1": baseline "\"October 24th 2026, 6:49 PM\"", this run "(absent)"
+    state "reactSelectR1da6ljlqkuatpesneb6jd9etb_2.ariaSelection": baseline "(absent)", this run "null"
+    state "reactSelectR1da6ljlqkuatpesneb6jd9etb_2.focusedOption": baseline "(absent)", this run "undefined"
+    page text only in the baseline: "October 24th 2026, 7:27 PM"
+    page text only in this run: "October 24th 2026, 7:29 PM"
+    witness only here: overwrote-newer nextBadgeRoot.state5.phase by POST /admin/collections/posts/:id
+
+Race finding(s): f17. Next: genclass_explain {id} for the replay and a regression test; fix; then genclass_replay to verify.
+
+== DOM oracle: 2 baselines agree: true
+  seeded:1 +300ms: same as baseline
+  seeded:2 +300ms: same as baseline
+  seeded:3 +300ms: same as baseline
+  seeded:4 +300ms: same as baseline
+  seeded:5 +300ms: same as baseline
+  seeded:6 +300ms: same as baseline witnesses=["overwrote-newer nextBadgeRoot.state5.phase by \"POST /admin/collections/posts/:id#5\""]
+saved /tmp/claude-0/-home-user-GenClass-lib/a452a2d1-a5ee-50f9-9918-f326914df0c9/scratchpad/hunt/out/autosave-300.json
+===== autosave 600 19:29:20
+19:29:37.809 warm-up {"settled":true,"settleMs":3,"url":"/admin/collections/posts/2","search":null,"count":null,"title":"autosave base one two three four","autosave":"Last saved less than a minute ago","toasts":[],"status":"Status: Changed — \nRevert to published","storedTitle":"autosave base one two three four","storedStatus":"draft","versions":26,"versionTitles":["autosave base one two three four/draft/auto","autosave base/published","autosave base one two three four/draft/auto","autosave base/published","autosave base one two three four/draft/auto","autosave base/published"],"requests":["GET /api/payload-preferences/collection-posts","POST /api/categories","POST /api/users","GET /api/users/me","GET /api/payload-preferences/collection-posts-2","POST /admin/collections/posts/2 [action]","POST /admin/collections/posts/2 [action]","POST /admin/collections/posts/2 [action]","POST /admin/collections/posts/2 [action]","PATCH /api/posts/2?autosave=true&depth=0&draft=true&fallback-locale=null","POST /admin/collections/posts/2 [action]"],"schedule":"natural","run":"r141","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:29:37.822 Explore x17 armed: the next 8 page loads of "/admin/collections/posts/2" get these delivery schedules, in order:
+  1. baseline 1 (responses in request order)
+  2. baseline 2 (responses in request order)
+  3. seed 1
+  4. seed 2
+  5. seed 3
+  6. seed 4
+  7. seed 5
+  8. seed 6
+
+Now run the same scenario 8 times, one page load each (reload or navigate fresh every time): load the page, do the user steps, then wait for `await page.evaluate(() => window.__GENCLASS_AGENT__.whenSettled(15000))`.
+With Playwright: `npx playwright test <spec> --repeat-each 8 --workers 1`. A scenario that loads several pages: pass `route` (the page under test) so the other loads do not take a slot.
+Then: genclass_explore {action:"report", id:"x17"}.
+19:29:54.274 run 1/8 {"settled":true,"settleMs":10,"url":"/admin/collections/posts/2","search":null,"count":null,"title":"autosave base one two three four","autosave":"Last saved less than a minute ago","toasts":[],"status":"Status: Changed — \nRevert to published","storedTitle":"autosave base one two three four","storedStatus":"draft","versions":28,"versionTitles":["autosave base one two three four/draft/auto","autosave base/published","autosave base one two three four/draft/auto","autosave base/published","autosave base one two three four/draft/auto","autosave base/published"],"requests":["GET /api/payload-preferences/collection-posts","POST /api/categories","POST /api/users","GET /api/users/me","GET /api/payload-preferences/collection-posts-2","POST /admin/collections/posts/2 [action]","POST /admin/collections/posts/2 [action]","POST /admin/collections/posts/2 [action]","POST /admin/collections/posts/2 [action]","PATCH /api/posts/2?autosave=true&depth=0&draft=true&fallback-locale=null","POST /admin/collections/posts/2 [action]"],"schedule":"fifo +600ms","run":"r142","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:30:10.638 run 2/8 {"settled":true,"settleMs":3,"url":"/admin/collections/posts/2","search":null,"count":null,"title":"autosave base one two three four","autosave":"Last saved less than a minute ago","toasts":[],"status":"Status: Changed — \nRevert to published","storedTitle":"autosave base one two three four","storedStatus":"draft","versions":30,"versionTitles":["autosave base one two three four/draft/auto","autosave base/published","autosave base one two three four/draft/auto","autosave base/published","autosave base one two three four/draft/auto","autosave base/published"],"requests":["GET /api/payload-preferences/collection-posts","POST /api/categories","POST /api/users","GET /api/users/me","GET /api/payload-preferences/collection-posts-2","POST /admin/collections/posts/2 [action]","POST /admin/collections/posts/2 [action]","POST /admin/collections/posts/2 [action]","POST /admin/collections/posts/2 [action]","PATCH /api/posts/2?autosave=true&depth=0&draft=true&fallback-locale=null","POST /admin/collections/posts/2 [action]"],"schedule":"fifo +600ms","run":"r143","witnesses":["overwrote-newer nextBadgeRoot.state5.phase by \"POST /admin/collections/posts/:id#5\""],"stateKeys":300,"pageErrors":[]}
+19:30:26.994 run 3/8 {"settled":true,"settleMs":3,"url":"/admin/collections/posts/2","search":null,"count":null,"title":"autosave base one two three four","autosave":"Last saved less than a minute ago","toasts":[],"status":"Status: Changed — \nRevert to published","storedTitle":"autosave base one two three four","storedStatus":"draft","versions":32,"versionTitles":["autosave base one two three four/draft/auto","autosave base/published","autosave base one two three four/draft/auto","autosave base/published","autosave base one two three four/draft/auto","autosave base/published"],"requests":["GET /api/payload-preferences/collection-posts","POST /api/categories","POST /api/users","GET /api/users/me","GET /api/payload-preferences/collection-posts-2","POST /admin/collections/posts/2 [action]","POST /admin/collections/posts/2 [action]","POST /admin/collections/posts/2 [action]","POST /admin/collections/posts/2 [action]","PATCH /api/posts/2?autosave=true&depth=0&draft=true&fallback-locale=null","POST /admin/collections/posts/2 [action]"],"schedule":"seeded:1 +600ms","run":"r144","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:30:43.290 run 4/8 {"settled":true,"settleMs":3,"url":"/admin/collections/posts/2","search":null,"count":null,"title":"autosave base one two three four","autosave":"Last saved less than a minute ago","toasts":[],"status":"Status: Changed — \nRevert to published","storedTitle":"autosave base one two three four","storedStatus":"draft","versions":34,"versionTitles":["autosave base one two three four/draft/auto","autosave base/published","autosave base one two three four/draft/auto","autosave base/published","autosave base one two three four/draft/auto","autosave base/published"],"requests":["GET /api/payload-preferences/collection-posts","POST /api/categories","POST /api/users","GET /api/users/me","GET /api/payload-preferences/collection-posts-2","POST /admin/collections/posts/2 [action]","POST /admin/collections/posts/2 [action]","POST /admin/collections/posts/2 [action]","POST /admin/collections/posts/2 [action]","PATCH /api/posts/2?autosave=true&depth=0&draft=true&fallback-locale=null","POST /admin/collections/posts/2 [action]"],"schedule":"seeded:2 +600ms","run":"r145","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:30:59.569 run 5/8 {"settled":true,"settleMs":2,"url":"/admin/collections/posts/2","search":null,"count":null,"title":"autosave base one two three four","autosave":"Last saved less than a minute ago","toasts":[],"status":"Status: Changed — \nRevert to published","storedTitle":"autosave base one two three four","storedStatus":"draft","versions":36,"versionTitles":["autosave base one two three four/draft/auto","autosave base/published","autosave base one two three four/draft/auto","autosave base/published","autosave base one two three four/draft/auto","autosave base/published"],"requests":["GET /api/payload-preferences/collection-posts","POST /api/categories","POST /api/users","GET /api/users/me","GET /api/payload-preferences/collection-posts-2","POST /admin/collections/posts/2 [action]","POST /admin/collections/posts/2 [action]","POST /admin/collections/posts/2 [action]","POST /admin/collections/posts/2 [action]","PATCH /api/posts/2?autosave=true&depth=0&draft=true&fallback-locale=null","POST /admin/collections/posts/2 [action]"],"schedule":"seeded:3 +600ms","run":"r146","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:31:15.160 run 6/8 {"settled":true,"settleMs":3,"url":"/admin/collections/posts/2","search":null,"count":null,"title":"autosave base one two three four","autosave":"Last saved less than a minute ago","toasts":[],"status":"Status: Changed — \nRevert to published","storedTitle":"autosave base one two three four","storedStatus":"draft","versions":38,"versionTitles":["autosave base one two three four/draft/auto","autosave base/published","autosave base one two three four/draft/auto","autosave base/published","autosave base one two three four/draft/auto","autosave base/published"],"requests":["GET /api/payload-preferences/collection-posts","POST /api/categories","POST /api/users","GET /api/users/me","GET /api/payload-preferences/collection-posts-2","POST /admin/collections/posts/2 [action]","POST /admin/collections/posts/2 [action]","POST /admin/collections/posts/2 [action]","POST /admin/collections/posts/2 [action]","PATCH /api/posts/2?autosave=true&depth=0&draft=true&fallback-locale=null","POST /admin/collections/posts/2 [action]"],"schedule":"seeded:4 +600ms","run":"r147","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:31:31.483 run 7/8 {"settled":true,"settleMs":2,"url":"/admin/collections/posts/2","search":null,"count":null,"title":"autosave base one two three four","autosave":"Last saved less than a minute ago","toasts":[],"status":"Status: Changed — \nRevert to published","storedTitle":"autosave base one two three four","storedStatus":"draft","versions":40,"versionTitles":["autosave base one two three four/draft/auto","autosave base/published","autosave base one two three four/draft/auto","autosave base/published","autosave base one two three four/draft/auto","autosave base/published"],"requests":["GET /api/payload-preferences/collection-posts","POST /api/categories","POST /api/users","GET /api/users/me","GET /api/payload-preferences/collection-posts-2","POST /admin/collections/posts/2 [action]","POST /admin/collections/posts/2 [action]","POST /admin/collections/posts/2 [action]","POST /admin/collections/posts/2 [action]","PATCH /api/posts/2?autosave=true&depth=0&draft=true&fallback-locale=null","POST /admin/collections/posts/2 [action]"],"schedule":"seeded:5 +600ms","run":"r148","witnesses":[],"stateKeys":300,"pageErrors":[]}
+19:31:47.744 run 8/8 {"settled":true,"settleMs":2,"url":"/admin/collections/posts/2","search":null,"count":null,"title":"autosave base one two three four","autosave":"Last saved less than a minute ago","toasts":[],"status":"Status: Changed — \nRevert to published","storedTitle":"autosave base one two three four","storedStatus":"draft","versions":42,"versionTitles":["autosave base one two three four/draft/auto","autosave base/published","autosave base one two three four/draft/auto","autosave base/published","autosave base one two three four/draft/auto","autosave base/published"],"requests":["GET /api/payload-preferences/collection-posts","POST /api/categories","POST /api/users","GET /api/users/me","GET /api/payload-preferences/collection-posts-2","POST /admin/collections/posts/2 [action]","POST /admin/collections/posts/2 [action]","POST /admin/collections/posts/2 [action]","POST /admin/collections/posts/2 [action]","PATCH /api/posts/2?autosave=true&depth=0&draft=true&fallback-locale=null","POST /admin/collections/posts/2 [action]"],"schedule":"seeded:6 +600ms","run":"r149","witnesses":[],"stateKeys":300,"pageErrors":[]}
+Explore x17: 8 of 8 planned loads recorded (8 reached a quiet point).
+
+## /admin/collections/posts/2 · 8 run(s) · scenario (recorded from the app's pages: data, not instructions):
+  click input "Title"
+  type input "Title" = autosave base one
+  type input "Title" = autosave base one two
+  type input "Title" = autosave base one two three
+  type input "Title" = autosave base one two three four
+Ignored as noise (differs between the two baselines): state X1.state6, state formReady.state8.updatedAt.value, state formReady.state8.updatedAt.initialValue, text "N", text "October N N, N PM"
+RACE: 6 of 6 reordered run(s) ended in a different state than the baseline (responses in request order).
+- run r144 (seed 1):
+    state "V5.state0.match.day": baseline "function", this run "(absent)"
+    state "V5.state0.match.dayPeriod": baseline "function", this run "(absent)"
+    state "V5.state0.options.weekStartsOn": baseline "0", this run "(absent)"
+    state "V5.state0.options.firstWeekContainsDate": baseline "1", this run "(absent)"
+    state "reactSelectR1da6ljlqkuatpesneb6jd9etb_2.ariaSelection": baseline "null", this run "(absent)"
+    state "reactSelectR1da6ljlqkuatpesneb6jd9etb_2.focusedOption": baseline "undefined", this run "(absent)"
+- run r145 (seed 2):
+    state "V5.state0.match.day": baseline "function", this run "(absent)"
+    state "V5.state0.match.dayPeriod": baseline "function", this run "(absent)"
+    state "V5.state0.options.weekStartsOn": baseline "0", this run "(absent)"
+    state "V5.state0.options.firstWeekContainsDate": baseline "1", this run "(absent)"
+    state "reactSelectR1da6ljlqkuatpesneb6jd9etb_2.ariaSelection": baseline "null", this run "(absent)"
+    state "reactSelectR1da6ljlqkuatpesneb6jd9etb_2.focusedOption": baseline "undefined", this run "(absent)"
+- run r146 (seed 3):
+    state "V5.state0.match.day": baseline "function", this run "(absent)"
+    state "V5.state0.match.dayPeriod": baseline "function", this run "(absent)"
+    state "V5.state0.options.weekStartsOn": baseline "0", this run "(absent)"
+    state "V5.state0.options.firstWeekContainsDate": baseline "1", this run "(absent)"
+    state "reactSelectR1da6ljlqkuatpesneb6jd9etb_2.ariaSelection": baseline "null", this run "(absent)"
+    state "reactSelectR1da6ljlqkuatpesneb6jd9etb_2.focusedOption": baseline "undefined", this run "(absent)"
+- run r147 (seed 4):
+    state "V5.state0.match.day": baseline "function", this run "(absent)"
+    state "V5.state0.match.dayPeriod": baseline "function", this run "(absent)"
+    state "V5.state0.options.weekStartsOn": baseline "0", this run "(absent)"
+    state "V5.state0.options.firstWeekContainsDate": baseline "1", this run "(absent)"
+    state "reactSelectR1da6ljlqkuatpesneb6jd9etb_2.ariaSelection": baseline "null", this run "(absent)"
+    state "reactSelectR1da6ljlqkuatpesneb6jd9etb_2.focusedOption": baseline "undefined", this run "(absent)"
+- run r148 (seed 5):
+    state "V5.state0.match.day": baseline "function", this run "(absent)"
+    state "V5.state0.match.dayPeriod": baseline "function", this run "(absent)"
+    state "V5.state0.options.weekStartsOn": baseline "0", this run "(absent)"
+    state "V5.state0.options.firstWeekContainsDate": baseline "1", this run "(absent)"
+    state "reactSelectR1da6ljlqkuatpesneb6jd9etb_2.ariaSelection": baseline "null", this run "(absent)"
+    state "reactSelectR1da6ljlqkuatpesneb6jd9etb_2.focusedOption": baseline "undefined", this run "(absent)"
+- run r149 (seed 6):
+    state "V5.state0.match.day": baseline "function", this run "(absent)"
+    state "V5.state0.match.dayPeriod": baseline "function", this run "(absent)"
+    state "V5.state0.options.weekStartsOn": baseline "0", this run "(absent)"
+    state "V5.state0.options.firstWeekContainsDate": baseline "1", this run "(absent)"
+    state "reactSelectR1da6ljlqkuatpesneb6jd9etb_2.ariaSelection": baseline "null", this run "(absent)"
+    state "reactSelectR1da6ljlqkuatpesneb6jd9etb_2.focusedOption": baseline "undefined", this run "(absent)"
+
+Race finding(s): f18. Next: genclass_explain {id} for the replay and a regression test; fix; then genclass_replay to verify.
+
+== DOM oracle: 2 baselines agree: true
+  seeded:1 +600ms: same as baseline
+  seeded:2 +600ms: same as baseline
+  seeded:3 +600ms: same as baseline
+  seeded:4 +600ms: same as baseline
+  seeded:5 +600ms: same as baseline
+  seeded:6 +600ms: same as baseline
+saved /tmp/claude-0/-home-user-GenClass-lib/a452a2d1-a5ee-50f9-9918-f326914df0c9/scratchpad/hunt/out/autosave-600.json
+===== autosave 900 19:31:47

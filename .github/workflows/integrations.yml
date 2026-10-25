@@ -1,0 +1,72 @@
+name: Framework integrations
+
+# @genclass/nuxt (packages/nuxt) and @genclass/astro (packages/astro): typecheck, build and the tests of each. The tests
+# include one production build of a fixture app (packages/nuxt/test/fixtures/basic through @nuxt/test-utils, with its
+# server started; packages/astro/test/fixtures/basic through `astro build`), so the runtime is built first: the fixtures
+# import it. A separate workflow from ci.yml so it never blocks the main CI job. No browser, nothing sent anywhere. The
+# starter templates that use these packages (templates/nuxt, templates/astro) are checked by compat/templates-check.mjs
+# on the VM, not here.
+
+on:
+  push:
+    paths:
+      - "packages/nuxt/**"
+      - "packages/astro/**"
+      - "package-lock.json"
+      - ".github/workflows/integrations.yml"
+  pull_request:
+    paths:
+      - "packages/nuxt/**"
+      - "packages/astro/**"
+      - "package-lock.json"
+      - ".github/workflows/integrations.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: integrations-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  packages:
+    name: "@genclass/nuxt and @genclass/astro: typecheck, build, tests"
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      ONNXRUNTIME_NODE_INSTALL: skip
+      NUXT_TELEMETRY_DISABLED: "1"
+      ASTRO_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      # Nuxt 4.6 and Astro 7 declare Node 22.23 / 24.15 or later; ci.yml's Node 22 line may be older than that.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - name: Build the runtime (the fixtures import it)
+        run: npm run build -w @genclass/runtime
+
+      - name: "@genclass/nuxt: typecheck, build"
+        run: |
+          npm run typecheck -w @genclass/nuxt
+          npm run build -w @genclass/nuxt
+
+      - name: "@genclass/nuxt: tests (generated code, one nuxt build of the fixture)"
+        working-directory: packages/nuxt
+        run: npx vitest run
+
+      - name: "@genclass/astro: typecheck, build"
+        run: |
+          npm run typecheck -w @genclass/astro
+          npm run build -w @genclass/astro
+
+      - name: "@genclass/astro: tests (generated script, the hook, one astro build of the fixture)"
+        working-directory: packages/astro
+        run: npx vitest run

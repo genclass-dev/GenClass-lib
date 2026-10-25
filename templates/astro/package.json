@@ -1,0 +1,18 @@
+{
+  "name": "genclass-astro-starter",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "start": "node ./dist/server/entry.mjs"
+  },
+  "dependencies": {
+    "@astrojs/node": "^11.1.9",
+    "@genclass/astro": "^0.1.0",
+    "@genclass/runtime": "^0.2.0",
+    "astro": "^7.4.2"
+  }
+}

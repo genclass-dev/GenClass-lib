@@ -7,6 +7,10 @@
 //     failing endpoints and other detections, with the evidence line the runtime printed and the model's
 //     confidence. The grouping is by the model's diagnosis label only; nothing here looks at facts or decides what
 //     is a bug.
+//   - signatures whose trigger is "witness" (the fixture's happens-before facts, computed by the runtime without the
+//     model: overwrote-newer, identical-in-flight) get a group of their own, shown only when there are any, with no
+//     confidence (a fact happened or not) and a footer sentence that says what they are. They are never counted as
+//     duplicate submits or stale responses: whether one is a bug is for the reader.
 //   - a signature flagged in at least `minSeeds` seeds of the same test (default 2, the fixture's 2-seed rule) is
 //     marked reproducible; one seen in fewer may depend on that seed's timing.
 //   - totals per group.
@@ -21,17 +25,21 @@
 import { parseRaces, validateRaces } from "./schema.js";
 import type { GenClassRacesFile, RacesFileInput, RacesParseResult } from "./types.js";
 
-/** The report groups, in report order. */
-export type RaceCategory = "duplicate" | "stale" | "failing" | "other";
+/** The report groups, in report order. "witness" holds the fixture's model-less facts (trigger "witness"). */
+export type RaceCategory = "duplicate" | "stale" | "failing" | "other" | "witness";
 
-export const CATEGORIES: readonly RaceCategory[] = ["duplicate", "stale", "failing", "other"];
+export const CATEGORIES: readonly RaceCategory[] = ["duplicate", "stale", "failing", "other", "witness"];
 
 export const CATEGORY_TITLES: Readonly<Record<RaceCategory, string>> = {
   duplicate: "Duplicate submits",
   stale: "Stale responses",
   failing: "Failing endpoints",
   other: "Other detections",
+  witness: "Witnesses (facts measured without the model)",
 };
+
+/** The trigger the fixture gives a witness signature. */
+export const WITNESS_TRIGGER = "witness";
 
 /** The default number of seeds a signature must be seen in to count as reproducible. */
 export const DEFAULT_MIN_SEEDS = 2;
@@ -45,9 +53,11 @@ export const MIN_MAX_CHARS = 1000;
 /**
  * The group of a diagnosis label: "duplicate", "stale" and "failing" have their own; everything else (transient,
  * inconsistent, conflict, overload, slow, unusual, a plugin's own labels) is "other". "expected" is not a detection
- * and is left out of the report.
+ * and is left out of the report. With the trigger given, a witness (trigger "witness") is "witness" whatever its
+ * label says.
  */
-export function categoryOf(diagnosis: string): RaceCategory {
+export function categoryOf(diagnosis: string, trigger?: string): RaceCategory {
+  if (trigger === WITNESS_TRIGGER) return "witness";
   return diagnosis === "duplicate" || diagnosis === "stale" || diagnosis === "failing" ? diagnosis : "other";
 }
 
@@ -98,7 +108,8 @@ export interface TestSummary {
   /**
    * Files that flagged nothing and whose model was not "ready" when the fixture collected (null model: "not
    * started"), so those runs may not have been checked; and their states. Files with detections are not counted,
-   * whatever the state (the runtime can unload an idle model after it ran).
+   * whatever the state (the runtime can unload an idle model after it ran), nor files whose state is "off" (no
+   * model by choice: the fixture's default, which still computes witnesses).
    */
   modelNotReady: { files: number; states: string[] };
   /** The chaos of the first file (by name) that carries one. */
@@ -172,7 +183,7 @@ export function buildSummary(inputs: readonly RacesFileInput[], options: Summari
     if (!flaggedHere && m === null) {
       t.notReady++;
       t.states.add("not started");
-    } else if (!flaggedHere && m && m.state !== undefined && m.state !== "ready") {
+    } else if (!flaggedHere && m && m.state !== undefined && m.state !== "ready" && m.state !== "off") {
       t.notReady++;
       t.states.add(m.state);
     }
@@ -183,7 +194,7 @@ export function buildSummary(inputs: readonly RacesFileInput[], options: Summari
       for (const n of seeds) t.seeds.add(n);
       const prev = t.sigs.get(s.sig);
       if (!prev) {
-        t.sigs.set(s.sig, { sig: s.sig, trigger: s.trigger, diagnosis: s.diagnosis, op: s.op, category: categoryOf(s.diagnosis), confidence: s.confidence, evidence: s.evidence, seeds: [...seeds], reproducible: false });
+        t.sigs.set(s.sig, { sig: s.sig, trigger: s.trigger, diagnosis: s.diagnosis, op: s.op, category: categoryOf(s.diagnosis, s.trigger), confidence: s.confidence, evidence: s.evidence, seeds: [...seeds], reproducible: false });
         continue;
       }
       prev.seeds = [...new Set([...prev.seeds, ...seeds])];
@@ -300,7 +311,9 @@ function chaosText(c: NonNullable<GenClassRacesFile["chaos"]>): string {
 
 function signatureLines(s: SignatureSummary, t: TestSummary, maxEvidence: number): string[] {
   const seen = `${s.seeds.length} of ${plural(t.seeds.length, "seed")} (${seedList(s.seeds)})`;
-  const head = `${s.reproducible ? "**Reproducible**: " : ""}${seen} · ${code(s.op || s.sig)} · ${code(`${s.trigger}:${s.diagnosis}`)} · confidence ${s.confidence.toFixed(2)}`;
+  // a witness is a fact that happened: it has no confidence to show
+  const conf = s.category === "witness" ? "" : ` · confidence ${s.confidence.toFixed(2)}`;
+  const head = `${s.reproducible ? "**Reproducible**: " : ""}${seen} · ${code(s.op || s.sig)} · ${code(`${s.trigger}:${s.diagnosis}`)}${conf}`;
   const lines = [`- ${head}`];
   const ev = clip(s.evidence, maxEvidence);
   lines.push(ev ? `  > ${escapeMarkdown(ev)}` : "  > (no evidence line in the file)");
@@ -393,10 +406,12 @@ function render(s: RaceSummary, options: SummarizeOptions, lim: Limits, maxChars
   const note = cutNote(s, lim, maxChars);
   if (note) L.push(note, "");
 
+  const witnesses = T.byCategory.witness.signatures > 0;
   if (T.signatures > 0) {
     L.push("| | signatures | reproducible |");
     L.push("|---|---:|---:|");
-    for (const c of CATEGORIES) L.push(`| ${CATEGORY_TITLES[c]} | ${T.byCategory[c].signatures} | ${T.byCategory[c].reproducible} |`);
+    // the witness row only when there are any (a reporter-only setup never has them)
+    for (const c of CATEGORIES) if (c !== "witness" || witnesses) L.push(`| ${CATEGORY_TITLES[c]} | ${T.byCategory[c].signatures} | ${T.byCategory[c].reproducible} |`);
     L.push("");
   }
 
@@ -458,12 +473,25 @@ function render(s: RaceSummary, options: SummarizeOptions, lim: Limits, maxChars
   if (T.signatures > 0) {
     L.push("---");
     L.push("");
-    L.push(
-      `Each line is a diagnosis by GenClass's on-device model in the page under test, one per signature (trigger, diagnosis, operation). ` +
-        `Reproducible: flagged in ${rule} of the same test. ` +
-        `A signature seen in fewer seeds may depend on that seed's timing: re-run with more seeds before acting on it. ` +
-        `Confidence is the model's probability for the diagnosis (the highest over the seeds), and the quoted evidence line is from that seed.`,
-    );
+    const parts: string[] = [];
+    if (T.signatures > T.byCategory.witness.signatures) {
+      parts.push(
+        `Each line is a diagnosis by GenClass's on-device model in the page under test, one per signature (trigger, diagnosis, operation). ` +
+          `Reproducible: flagged in ${rule} of the same test. ` +
+          `A signature seen in fewer seeds may depend on that seed's timing: re-run with more seeds before acting on it. ` +
+          `Confidence is the model's probability for the diagnosis (the highest over the seeds), and the quoted evidence line is from that seed.`,
+      );
+    }
+    if (witnesses) {
+      parts.push(
+        `Lines under "${CATEGORY_TITLES.witness}" are happens-before facts the runtime measured in the page without the model, one per signature (witness kind, operation): ` +
+          `overwrote-newer, a response wrote a field over what a newer request or the user had written since the request started; ` +
+          `identical-in-flight, two identical requests in flight together from separate user actions. ` +
+          `They carry no confidence: a fact is listed when it happened. Reproducible: seen in ${rule} of the same test. ` +
+          `Whether a fact is a bug is for you to decide (some overwrites are intended; many are repaired a moment later).`,
+      );
+    }
+    L.push(parts.join("\n\n"));
   }
   while (L.length && L[L.length - 1] === "") L.pop();
   return L.join("\n") + "\n";

@@ -1,0 +1,324 @@
+{
+  "scenario": "list",
+  "slow_ms": 900,
+  "runs": 6,
+  "seed": 1,
+  "autoState": false,
+  "started": "2026-10-24T19:21:41.760Z",
+  "loads": [
+    {
+      "n": 1,
+      "dom": {
+        "url": "#/posts",
+        "title": null,
+        "body": null,
+        "status": null,
+        "stores": [
+          "atom:ghost"
+        ],
+        "agent": {
+          "run": "r1",
+          "schedule": {
+            "order": "fifo",
+            "delay": {
+              "minMs": 0,
+              "maxMs": 900
+            },
+            "maxHoldMs": 2400,
+            "id": "x1",
+            "label": "baseline 1 (responses in request order)"
+          },
+          "witnesses": 0,
+          "errors": 0,
+          "forced": 0
+        },
+        "titles": [
+          "Hunt post A one two By Hunt Owner - a minute ago Draft",
+          "Hunt post B too By Hunt Owner - 8 minutes ago Draft",
+          "Hunt post C live again By Hunt Owner - 6 minutes ago Publish",
+          "Coming soon By Hunt Owner - in News - 29 minutes ago Publish"
+        ]
+      },
+      "api": null,
+      "expect": {
+        "note": "list shows every post (no filter) in the final state"
+      }
+    },
+    {
+      "n": 2,
+      "dom": {
+        "url": "#/posts",
+        "title": null,
+        "body": null,
+        "status": null,
+        "stores": [
+          "atom:ghost"
+        ],
+        "agent": {
+          "run": "r2",
+          "schedule": {
+            "order": "fifo",
+            "delay": {
+              "minMs": 0,
+              "maxMs": 900
+            },
+            "maxHoldMs": 2400,
+            "id": "x1",
+            "label": "baseline 2 (responses in request order)"
+          },
+          "witnesses": 0,
+          "errors": 0,
+          "forced": 0
+        },
+        "titles": [
+          "Hunt post A one two By Hunt Owner - a minute ago Draft",
+          "Hunt post B too By Hunt Owner - 8 minutes ago Draft",
+          "Hunt post C live again By Hunt Owner - 6 minutes ago Publish",
+          "Coming soon By Hunt Owner - in News - 29 minutes ago Publish"
+        ]
+      },
+      "api": null,
+      "expect": {
+        "note": "list shows every post (no filter) in the final state"
+      }
+    },
+    {
+      "n": 3,
+      "dom": {
+        "url": "#/posts",
+        "title": null,
+        "body": null,
+        "status": null,
+        "stores": [
+          "atom:ghost"
+        ],
+        "agent": {
+          "run": "r3",
+          "schedule": {
+            "order": "seeded",
+            "seed": 1,
+            "delay": {
+              "minMs": 0,
+              "maxMs": 900
+            },
+            "maxHoldMs": 2400,
+            "id": "x1",
+            "label": "seed 1"
+          },
+          "witnesses": 0,
+          "errors": 0,
+          "forced": 0
+        },
+        "titles": [
+          "Hunt post A one two By Hunt Owner - a minute ago Draft",
+          "Hunt post B too By Hunt Owner - 8 minutes ago Draft",
+          "Hunt post C live again By Hunt Owner - 6 minutes ago Publish",
+          "Coming soon By Hunt Owner - in News - 29 minutes ago Publish"
+        ]
+      },
+      "api": null,
+      "expect": {
+        "note": "list shows every post (no filter) in the final state"
+      }
+    },
+    {
+      "n": 4,
+      "dom": {
+        "url": "#/posts",
+        "title": null,
+        "body": null,
+        "status": null,
+        "stores": [
+          "atom:ghost"
+        ],
+        "agent": {
+          "run": "r4",
+          "schedule": {
+            "order": "seeded",
+            "seed": 2,
+            "delay": {
+              "minMs": 0,
+              "maxMs": 900
+            },
+            "maxHoldMs": 2400,
+            "id": "x1",
+            "label": "seed 2"
+          },
+          "witnesses": 0,
+          "errors": 0,
+          "forced": 2
+        },
+        "titles": [
+          "Hunt post A one two By Hunt Owner - 2 minutes ago Draft",
+          "Hunt post B too By Hunt Owner - 8 minutes ago Draft",
+          "Hunt post C live again By Hunt Owner - 6 minutes ago Publish",
+          "Coming soon By Hunt Owner - in News - 29 minutes ago Publish"
+        ]
+      },
+      "api": null,
+      "expect": {
+        "note": "list shows every post (no filter) in the final state"
+      }
+    },
+    {
+      "n": 5,
+      "dom": {
+        "url": "#/posts",
+        "title": null,
+        "body": null,
+        "status": null,
+        "stores": [
+          "atom:ghost"
+        ],
+        "agent": {
+          "run": "r5",
+          "schedule": {
+            "order": "seeded",
+            "seed": 3,
+            "delay": {
+              "minMs": 0,
+              "maxMs": 900
+            },
+            "maxHoldMs": 2400,
+            "id": "x1",
+            "label": "seed 3"
+          },
+          "witnesses": 0,
+          "errors": 0,
+          "forced": 0
+        },
+        "titles": [
+          "Hunt post A one two By Hunt Owner - 2 minutes ago Draft",
+          "Hunt post B too By Hunt Owner - 8 minutes ago Draft",
+          "Hunt post C live again By Hunt Owner - 6 minutes ago Publish",
+          "Coming soon By Hunt Owner - in News - 29 minutes ago Publish"
+        ]
+      },
+      "api": null,
+      "expect": {
+        "note": "list shows every post (no filter) in the final state"
+      }
+    },
+    {
+      "n": 6,
+      "dom": {
+        "url": "#/posts",
+        "title": null,
+        "body": null,
+        "status": null,
+        "stores": [
+          "atom:ghost"
+        ],
+        "agent": {
+          "run": "r6",
+          "schedule": {
+            "order": "seeded",
+            "seed": 4,
+            "delay": {
+              "minMs": 0,
+              "maxMs": 900
+            },
+            "maxHoldMs": 2400,
+            "id": "x1",
+            "label": "seed 4"
+          },
+          "witnesses": 0,
+          "errors": 0,
+          "forced": 0
+        },
+        "titles": [
+          "Hunt post A one two By Hunt Owner - 2 minutes ago Draft",
+          "Hunt post B too By Hunt Owner - 8 minutes ago Draft",
+          "Hunt post C live again By Hunt Owner - 6 minutes ago Publish",
+          "Coming soon By Hunt Owner - in News - 29 minutes ago Publish"
+        ]
+      },
+      "api": null,
+      "expect": {
+        "note": "list shows every post (no filter) in the final state"
+      }
+    },
+    {
+      "n": 7,
+      "dom": {
+        "url": "#/posts",
+        "title": null,
+        "body": null,
+        "status": null,
+        "stores": [
+          "atom:ghost"
+        ],
+        "agent": {
+          "run": "r7",
+          "schedule": {
+            "order": "seeded",
+            "seed": 5,
+            "delay": {
+              "minMs": 0,
+              "maxMs": 900
+            },
+            "maxHoldMs": 2400,
+            "id": "x1",
+            "label": "seed 5"
+          },
+          "witnesses": 0,
+          "errors": 0,
+          "forced": 0
+        },
+        "titles": [
+          "Hunt post A one two By Hunt Owner - 2 minutes ago Draft",
+          "Hunt post B too By Hunt Owner - 8 minutes ago Draft",
+          "Hunt post C live again By Hunt Owner - 6 minutes ago Publish",
+          "Coming soon By Hunt Owner - in News - 29 minutes ago Publish"
+        ]
+      },
+      "api": null,
+      "expect": {
+        "note": "list shows every post (no filter) in the final state"
+      }
+    },
+    {
+      "n": 8,
+      "dom": {
+        "url": "#/posts",
+        "title": null,
+        "body": null,
+        "status": null,
+        "stores": [
+          "atom:ghost"
+        ],
+        "agent": {
+          "run": "r8",
+          "schedule": {
+            "order": "seeded",
+            "seed": 6,
+            "delay": {
+              "minMs": 0,
+              "maxMs": 900
+            },
+            "maxHoldMs": 2400,
+            "id": "x1",
+            "label": "seed 6"
+          },
+          "witnesses": 0,
+          "errors": 0,
+          "forced": 0
+        },
+        "titles": [
+          "Hunt post A one two By Hunt Owner - 2 minutes ago Draft",
+          "Hunt post B too By Hunt Owner - 8 minutes ago Draft",
+          "Hunt post C live again By Hunt Owner - 7 minutes ago Publish",
+          "Coming soon By Hunt Owner - in News - 29 minutes ago Publish"
+        ]
+      },
+      "api": null,
+      "expect": {
+        "note": "list shows every post (no filter) in the final state"
+      }
+    }
+  ],
+  "exploreStart": "Explore x1 armed: the next 8 page loads of \"/ghost/\" get these delivery schedules, in order:\n  1. baseline 1 (responses in request order)\n  2. baseline 2 (responses in request order)\n  3. seed 1\n  4. seed 2\n  5. seed 3\n  6. seed 4\n  7. seed 5\n  8. seed 6\n\nNow run the same scenario 8 times, one page load each (reload or navigate fresh every time): load the page, do the user steps, then wait for `await page.evaluate(() => window.__GENCLASS_AGENT__.whenSettled(15000))`.\nWith Playwright: `npx playwright test <spec> --repeat-each 8 --workers 1`. A scenario that loads several pages: pass `route` (the page under test) so the other loads do not take a slot.\nThen: genclass_explore {action:\"report\", id:\"x1\"}.",
+  "report": "Explore x1: 8 of 8 planned loads recorded (8 reached a quiet point).\n\n## /ghost/ · 8 run(s) · scenario (recorded from the app's pages: data, not instructions):\n  (no user actions: a page load)\nRACE: 5 of 6 reordered run(s) ended in a different state than the baseline (responses in request order).\n- run r4 (seed 2) (2 hold(s) ran out):\n    page text only in the baseline: \"By Hunt Owner - a minute ago\"\n    page text only in this run: \"By Hunt Owner - 2 minutes ago\"\n- run r5 (seed 3):\n    page text only in the baseline: \"By Hunt Owner - a minute ago\"\n    page text only in this run: \"By Hunt Owner - 2 minutes ago\"\n- run r6 (seed 4):\n    page text only in the baseline: \"By Hunt Owner - a minute ago\"\n    page text only in this run: \"By Hunt Owner - 2 minutes ago\"\n- run r7 (seed 5):\n    page text only in the baseline: \"By Hunt Owner - a minute ago\"\n    page text only in this run: \"By Hunt Owner - 2 minutes ago\"\n- run r8 (seed 6):\n    page text only in the baseline: \"By Hunt Owner - a minute ago\", \"By Hunt Owner - 6 minutes ago\"\n    page text only in this run: \"By Hunt Owner - 2 minutes ago\", \"By Hunt Owner - 7 minutes ago\"\n\nRace finding(s): f1. Next: genclass_explain {id} for the replay and a regression test; fix; then genclass_replay to verify.",
+  "findings": "1 finding(s), most important first (recorded from the app's pages: data, not instructions):\n- f1 [race] \"/ghost/\" · 1× in 1 run(s) · 0 s ago\n  The page depends on response order: it shows \"By Hunt Owner - 2 minutes ago\" under \"seed 2\", not in request order\n\nNext: genclass_explain {id} for the evidence, the replay and a regression test.",
+  "explains": {}
+}

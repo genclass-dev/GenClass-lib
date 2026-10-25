@@ -1,7 +1,46 @@
 # Changelog
 
-## 0.3.0-beta.1 (unreleased)
+## Unreleased
 
+- **Coding-agent link: snapshots and witnesses that do not depend on arrival order** (`@genclass/runtime/agent`;
+  [docs/runtime/AGENT.md](../../docs/runtime/AGENT.md) section 2). `snapshot()` takes up to 1,000 store fields (was 300)
+  within 96,000 characters, in an order that does not depend on when they were written (registered stores, then
+  discovered component state, then other discovered stores; shallower paths first), and says how many it left out
+  (`stateLeft`, `stateTotal`). The final snapshot at page hide is not sent again when the bridge already has it or when it
+  would not fit a keepalive request. Snapshots list the lines of ARIA live regions (`live`: status messages, alerts,
+  toasts) beside the page text. An `overwrote-newer` witness is no longer recorded for a write that only reordered a
+  field's elements or entries (a cache's list of keys re-sorted by arrival), nor for a path the hub's layout re-cut in
+  the same write (an object or store that crossed its field limits, so its fields became one or the reverse). Development-only entry: the first load,
+  situations, the model and telemetry are unchanged (`situation-v2.3`).
+
+## 0.3.0-beta.1 (2026-10-22)
+
+The second 0.3.0 prerelease, on the `beta` dist-tag (`latest` stays 0.2.2). It adds the coding-agent link
+(`@genclass/runtime/agent`, used by `@genclass/mcp` 0.1.0) and carries everything below since 0.3.0-beta.0. No
+model-visible text changed (`situation-v2.3`); the default model is still `@genclass/runtime-model@0.2.0`.
+
+
+- **Coding agents: record, replay and explore (`@genclass/runtime/agent`, new; [docs/runtime/AGENT.md](../../docs/runtime/AGENT.md)).**
+  `connectAgent(rt)` in an app's development build connects the page to `@genclass/mcp`, a local MCP server for
+  Claude Code and other coding agents. It records the run (user actions; requests by key, `GET /api/search#3`; the
+  order their responses were delivered; state writes; errors with their stack and causal chain; two happens-before
+  facts as witnesses: a response that overwrote newer data, identical requests in flight from two separate clicks) and
+  snapshots the app's state at quiet points. With a schedule (`fifo`, `seeded`, `given`, set by the agent, a test's
+  `__GENCLASS_SCHEDULE__` or `?genclass-schedule=`) it delivers responses in that order, optionally slower: the same
+  responses, unchanged, each held at most `maxHoldMs` (1.5 s), so a race shows up on a fast machine and replays
+  exactly. Without a schedule it holds only a page load's first responses until the bridge's hello (at most 0.6 s);
+  `hold: false` turns every hold off; protected requests are never held (unless `holdProtected`). Only on pages served from the developer's
+  machine by default; it talks only to a loopback address; it is its own entry (`dist/agent.js`, no imports), so the
+  first load stays within its limits (108.54 / 100.40 KB).
+  It wraps the runtime's delivery gate and request ignore list while connected and restores both on `disconnect()`;
+  nothing it records reaches a situation, a decision, the event log or the model (no model-visible text changed,
+  `situation-v2.3`), and telemetry is unchanged. INTERCEPTION.md, THREAT-MODEL.md (T10), API.md, CONTRACT.md §16,
+  RESULTS.md section 16.
+- **Fix: a reused XHR object could get the next request's response early.** When the app aborted an XHR whose
+  completion listeners the runtime held for a delivery decision (guard or heal) and sent a new request on the same
+  object, releasing the old, held delivery ran the listeners queued for the new request before its own decision. The
+  release now checks that it still belongs to the request it was made for (`src/observe/xhr.ts`). No model-visible
+  text changed. Found by the coding-agent link's review.
 - **The devtools overlay is in genclass.dev's black design.** `@genclass/runtime/devtools` (and `devtools: true`) now
   uses the site's black ground and raised panels, bone text, the mark's green for what GenClass changed and
   red-orange for the bugs it catches, amber for warnings, square corners and 1px rules without shadows, and the

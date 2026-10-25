@@ -1,0 +1,3 @@
+dist/
+# the end-to-end test scaffolds its SvelteKit projects here (sv/testing)
+.test-output/

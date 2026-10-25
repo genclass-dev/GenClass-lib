@@ -1,0 +1,26 @@
+
+== run 1 (reference, no delay): 
+[
+  "David Doe",
+  "Create a relation"
+]
+
+== run 2 (reference, no delay): 
+[
+  "David Doe",
+  "Create a relation"
+]
+
+== run 3 (delayed: GET /content-manager/relations/api::article.article/author?id=s709zfagowrr9dqn13s9ez14&pageSize=10&_q=da&page=1 +2000 ms): SAME end state as the reference
+[
+  "David Doe",
+  "Create a relation"
+]
+
+== run 4 (delayed: GET /content-manager/relations/api::article.article/author?id=s709zfagowrr9dqn13s9ez14&pageSize=10&_q=da&page=1 +2000 ms): SAME end state as the reference
+[
+  "David Doe",
+  "Create a relation"
+]
+
+0 of 2 delayed run(s) ended differently from the two reference runs (which agree), with no GenClass on the page.

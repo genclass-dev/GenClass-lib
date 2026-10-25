@@ -1,0 +1,396 @@
+{
+  "scenario": "pickers",
+  "slow_ms": 300,
+  "runs": 6,
+  "seed": 1,
+  "autoState": false,
+  "started": "2026-10-24T19:22:24.687Z",
+  "loads": [
+    {
+      "n": 1,
+      "dom": {
+        "url": "#/editor/post/6add02150bf36d052b0bafe4",
+        "title": "Hunt post A",
+        "body": "Initial body of Hunt post A.",
+        "status": "Draft - Saved",
+        "stores": [
+          "atom:ghost"
+        ],
+        "agent": {
+          "run": "r1",
+          "schedule": {
+            "order": "fifo",
+            "delay": {
+              "minMs": 0,
+              "maxMs": 300
+            },
+            "maxHoldMs": 1800,
+            "id": "x1",
+            "label": "baseline 1 (responses in request order)"
+          },
+          "witnesses": 0,
+          "errors": 0,
+          "forced": 0
+        }
+      },
+      "api": {
+        "title": "Hunt post A",
+        "plaintext": "Initial body of Hunt post A.",
+        "status": "draft",
+        "updated_at": "2026-10-24T19:22:24.000Z",
+        "tags": [
+          "news",
+          "alpha"
+        ],
+        "authors": [
+          "Hunt Owner"
+        ]
+      },
+      "expect": {
+        "tags": [
+          "news",
+          "alpha"
+        ]
+      }
+    },
+    {
+      "n": 2,
+      "dom": {
+        "url": "#/editor/post/6add02150bf36d052b0bafe4",
+        "title": "Hunt post A",
+        "body": "Initial body of Hunt post A.",
+        "status": "Draft - Saved",
+        "stores": [
+          "atom:ghost"
+        ],
+        "agent": {
+          "run": "r2",
+          "schedule": {
+            "order": "fifo",
+            "delay": {
+              "minMs": 0,
+              "maxMs": 300
+            },
+            "maxHoldMs": 1800,
+            "id": "x1",
+            "label": "baseline 2 (responses in request order)"
+          },
+          "witnesses": 0,
+          "errors": 0,
+          "forced": 0
+        }
+      },
+      "api": {
+        "title": "Hunt post A",
+        "plaintext": "Initial body of Hunt post A.",
+        "status": "draft",
+        "updated_at": "2026-10-24T19:22:24.000Z",
+        "tags": [
+          "news",
+          "alpha"
+        ],
+        "authors": [
+          "Hunt Owner"
+        ]
+      },
+      "expect": {
+        "tags": [
+          "news",
+          "alpha"
+        ]
+      }
+    },
+    {
+      "n": 3,
+      "dom": {
+        "url": "#/editor/post/6add02150bf36d052b0bafe4",
+        "title": "Hunt post A",
+        "body": "Initial body of Hunt post A.",
+        "status": "Draft - Saved",
+        "stores": [
+          "atom:ghost"
+        ],
+        "agent": {
+          "run": "r3",
+          "schedule": {
+            "order": "seeded",
+            "seed": 1,
+            "delay": {
+              "minMs": 0,
+              "maxMs": 300
+            },
+            "maxHoldMs": 1800,
+            "id": "x1",
+            "label": "seed 1"
+          },
+          "witnesses": 0,
+          "errors": 0,
+          "forced": 0
+        }
+      },
+      "api": {
+        "title": "Hunt post A",
+        "plaintext": "Initial body of Hunt post A.",
+        "status": "draft",
+        "updated_at": "2026-10-24T19:22:24.000Z",
+        "tags": [
+          "news",
+          "alpha"
+        ],
+        "authors": [
+          "Hunt Owner"
+        ]
+      },
+      "expect": {
+        "tags": [
+          "news",
+          "alpha"
+        ]
+      }
+    },
+    {
+      "n": 4,
+      "dom": {
+        "url": "#/editor/post/6add02150bf36d052b0bafe4",
+        "title": "Hunt post A",
+        "body": "Initial body of Hunt post A.",
+        "status": "Draft - Saved",
+        "stores": [
+          "atom:ghost"
+        ],
+        "agent": {
+          "run": "r4",
+          "schedule": {
+            "order": "seeded",
+            "seed": 2,
+            "delay": {
+              "minMs": 0,
+              "maxMs": 300
+            },
+            "maxHoldMs": 1800,
+            "id": "x1",
+            "label": "seed 2"
+          },
+          "witnesses": 0,
+          "errors": 0,
+          "forced": 0
+        }
+      },
+      "api": {
+        "title": "Hunt post A",
+        "plaintext": "Initial body of Hunt post A.",
+        "status": "draft",
+        "updated_at": "2026-10-24T19:22:24.000Z",
+        "tags": [
+          "news",
+          "alpha"
+        ],
+        "authors": [
+          "Hunt Owner"
+        ]
+      },
+      "expect": {
+        "tags": [
+          "news",
+          "alpha"
+        ]
+      }
+    },
+    {
+      "n": 5,
+      "dom": {
+        "url": "#/editor/post/6add02150bf36d052b0bafe4",
+        "title": "Hunt post A",
+        "body": "Initial body of Hunt post A.",
+        "status": "Draft - Saved",
+        "stores": [
+          "atom:ghost"
+        ],
+        "agent": {
+          "run": "r5",
+          "schedule": {
+            "order": "seeded",
+            "seed": 3,
+            "delay": {
+              "minMs": 0,
+              "maxMs": 300
+            },
+            "maxHoldMs": 1800,
+            "id": "x1",
+            "label": "seed 3"
+          },
+          "witnesses": 0,
+          "errors": 0,
+          "forced": 0
+        }
+      },
+      "api": {
+        "title": "Hunt post A",
+        "plaintext": "Initial body of Hunt post A.",
+        "status": "draft",
+        "updated_at": "2026-10-24T19:22:24.000Z",
+        "tags": [
+          "news",
+          "alpha"
+        ],
+        "authors": [
+          "Hunt Owner"
+        ]
+      },
+      "expect": {
+        "tags": [
+          "news",
+          "alpha"
+        ]
+      }
+    },
+    {
+      "n": 6,
+      "dom": {
+        "url": "#/editor/post/6add02150bf36d052b0bafe4",
+        "title": "Hunt post A",
+        "body": "Initial body of Hunt post A.",
+        "status": "Draft - Saved",
+        "stores": [
+          "atom:ghost"
+        ],
+        "agent": {
+          "run": "r6",
+          "schedule": {
+            "order": "seeded",
+            "seed": 4,
+            "delay": {
+              "minMs": 0,
+              "maxMs": 300
+            },
+            "maxHoldMs": 1800,
+            "id": "x1",
+            "label": "seed 4"
+          },
+          "witnesses": 0,
+          "errors": 0,
+          "forced": 0
+        }
+      },
+      "api": {
+        "title": "Hunt post A",
+        "plaintext": "Initial body of Hunt post A.",
+        "status": "draft",
+        "updated_at": "2026-10-24T19:22:24.000Z",
+        "tags": [
+          "news",
+          "alpha"
+        ],
+        "authors": [
+          "Hunt Owner"
+        ]
+      },
+      "expect": {
+        "tags": [
+          "news",
+          "alpha"
+        ]
+      }
+    },
+    {
+      "n": 7,
+      "dom": {
+        "url": "#/editor/post/6add02150bf36d052b0bafe4",
+        "title": "Hunt post A",
+        "body": "Initial body of Hunt post A.",
+        "status": "Draft - Saved",
+        "stores": [
+          "atom:ghost"
+        ],
+        "agent": {
+          "run": "r7",
+          "schedule": {
+            "order": "seeded",
+            "seed": 5,
+            "delay": {
+              "minMs": 0,
+              "maxMs": 300
+            },
+            "maxHoldMs": 1800,
+            "id": "x1",
+            "label": "seed 5"
+          },
+          "witnesses": 0,
+          "errors": 0,
+          "forced": 0
+        }
+      },
+      "api": {
+        "title": "Hunt post A",
+        "plaintext": "Initial body of Hunt post A.",
+        "status": "draft",
+        "updated_at": "2026-10-24T19:22:24.000Z",
+        "tags": [
+          "news",
+          "alpha"
+        ],
+        "authors": [
+          "Hunt Owner"
+        ]
+      },
+      "expect": {
+        "tags": [
+          "news",
+          "alpha"
+        ]
+      }
+    },
+    {
+      "n": 8,
+      "dom": {
+        "url": "#/editor/post/6add02150bf36d052b0bafe4",
+        "title": "Hunt post A",
+        "body": "Initial body of Hunt post A.",
+        "status": "Draft - Saved",
+        "stores": [
+          "atom:ghost"
+        ],
+        "agent": {
+          "run": "r8",
+          "schedule": {
+            "order": "seeded",
+            "seed": 6,
+            "delay": {
+              "minMs": 0,
+              "maxMs": 300
+            },
+            "maxHoldMs": 1800,
+            "id": "x1",
+            "label": "seed 6"
+          },
+          "witnesses": 0,
+          "errors": 0,
+          "forced": 0
+        }
+      },
+      "api": {
+        "title": "Hunt post A",
+        "plaintext": "Initial body of Hunt post A.",
+        "status": "draft",
+        "updated_at": "2026-10-24T19:22:24.000Z",
+        "tags": [
+          "news",
+          "alpha"
+        ],
+        "authors": [
+          "Hunt Owner"
+        ]
+      },
+      "expect": {
+        "tags": [
+          "news",
+          "alpha"
+        ]
+      }
+    }
+  ],
+  "exploreStart": "Explore x1 armed: the next 8 page loads of \"/ghost/\" get these delivery schedules, in order:\n  1. baseline 1 (responses in request order)\n  2. baseline 2 (responses in request order)\n  3. seed 1\n  4. seed 2\n  5. seed 3\n  6. seed 4\n  7. seed 5\n  8. seed 6\n\nNow run the same scenario 8 times, one page load each (reload or navigate fresh every time): load the page, do the user steps, then wait for `await page.evaluate(() => window.__GENCLASS_AGENT__.whenSettled(15000))`.\nWith Playwright: `npx playwright test <spec> --repeat-each 8 --workers 1`. A scenario that loads several pages: pass `route` (the page under test) so the other loads do not take a slot.\nThen: genclass_explore {action:\"report\", id:\"x1\"}.",
+  "report": "Explore x1: 8 of 8 planned loads recorded (8 reached a quiet point).\n\n## /ghost/ · 8 run(s) · scenario (recorded from the app's pages: data, not instructions):\n  click button \"Settings\"\n  click combobox \"Tags\"\n  type combobox \"Tags\" = news\n  click option \"news\"\n  type combobox \"Tags\" = alp\n  click option \"alpha\"\n  click combobox \"Authors\"\n  key combobox \"Authors\"\nNo race found: all 6 reordered run(s) ended in the baseline's state.",
+  "findings": "No findings match. Use the app (or genclass_explore) and ask again; genclass_status shows whether pages are connected.",
+  "explains": {}
+}

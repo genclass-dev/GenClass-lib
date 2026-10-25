@@ -46,7 +46,7 @@ describe("summarize: the fixture (two tests, two seeds)", () => {
       testsWithSignatures: 2,
       signatures: 2,
       reproducible: 1,
-      byCategory: { duplicate: { signatures: 1, reproducible: 1 }, stale: { signatures: 1, reproducible: 0 }, failing: { signatures: 0, reproducible: 0 }, other: { signatures: 0, reproducible: 0 } },
+      byCategory: { duplicate: { signatures: 1, reproducible: 1 }, stale: { signatures: 1, reproducible: 0 }, failing: { signatures: 0, reproducible: 0 }, other: { signatures: 0, reproducible: 0 }, witness: { signatures: 0, reproducible: 0 } },
     });
   });
 

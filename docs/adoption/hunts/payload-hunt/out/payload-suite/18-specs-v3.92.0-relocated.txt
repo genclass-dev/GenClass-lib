@@ -1,0 +1,57 @@
+  ✓   1 [chromium] › test/fields/collections/Relationship/e2e.spec.ts:83:3 › relationship › should create inline relationship within field with many relations (10.9s)
+  ✓   2 [chromium] › test/fields/collections/Relationship/e2e.spec.ts:103:3 › relationship › should save correct relationTo when creating doc in second collection (bug #14728) (9.7s)
+  ✓   3 [chromium] › test/fields/collections/Relationship/e2e.spec.ts:129:3 › relationship › should create nested inline relationships (15.7s)
+  ✓   4 [chromium] › test/fields/collections/Relationship/e2e.spec.ts:188:3 › relationship › should hide relationship add new button (4.9s)
+  ✓   5 [chromium] › test/fields/collections/Relationship/e2e.spec.ts:205:3 › relationship › should hide relationship edit button (4.0s)
+  ✓   6 [chromium] › test/fields/collections/Relationship/e2e.spec.ts:225:3 › relationship › should hide edit button in main doc when relationship deleted (4.2s)
+  -   7 [chromium] › test/fields/collections/Relationship/e2e.spec.ts:255:8 › relationship › should clear relationship values
+  -   8 [chromium] › test/fields/collections/Relationship/e2e.spec.ts:273:8 › relationship › should display `hasMany` polymorphic relationships
+  ✓   9 [chromium] › test/fields/collections/Relationship/e2e.spec.ts:309:3 › relationship › should populate relationship dynamic default value (4.8s)
+  ✓  10 [chromium] › test/fields/collections/Relationship/e2e.spec.ts:320:3 › relationship › should filter relationship options (7.9s)
+  ✘  11 [chromium] › test/fields/collections/Relationship/e2e.spec.ts:330:3 › relationship › should edit document in relationship drawer (20.0s)
+  ✓  12 [chromium] › test/fields/collections/Relationship/e2e.spec.ts:395:3 › relationship › should open related document in a new tab when meta key is applied (7.0s)
+  ✓  13 [chromium] › test/fields/collections/Relationship/e2e.spec.ts:412:3 › relationship › multi value relationship should open document in a new tab (7.1s)
+  ✓  14 [chromium] › test/fields/collections/Relationship/e2e.spec.ts:438:3 › relationship › should save using hotkey in document drawer (10.7s)
+  ✓  15 [chromium] › test/fields/collections/Relationship/e2e.spec.ts:483:5 › relationship › should create document within document drawer › has one (13.2s)
+  ✓  16 [chromium] › test/fields/collections/Relationship/e2e.spec.ts:530:5 › relationship › should duplicate document within document drawer › has one (12.9s)
+  ✓  17 [chromium] › test/fields/collections/Relationship/e2e.spec.ts:589:5 › relationship › should delete document within document drawer › has one (10.3s)
+  -  18 [chromium] › test/fields/collections/Relationship/e2e.spec.ts:647:8 › relationship › should bypass min rows validation when no rows present and field is not required
+  ✓  19 [chromium] › test/fields/collections/Relationship/e2e.spec.ts:659:3 › relationship › should fail min rows validation when rows are present (7.6s)
+  ✓  20 [chromium] › test/fields/collections/Relationship/e2e.spec.ts:683:3 › relationship › should sort relationship options by sortOptions property (ID in ascending order) (5.0s)
+  ✓  21 [chromium] › test/fields/collections/Relationship/e2e.spec.ts:696:3 › relationship › should sort relationHasManyPolymorphic options by sortOptions property: text-fields collection (ite
+  ✘  22 [chromium] › test/fields/collections/Relationship/e2e.spec.ts:714:3 › relationship › should not request related documents again while their batch is pending (7.8s)
+  ✓  23 [chromium] › test/fields/collections/Relationship/e2e.spec.ts:788:3 › relationship › should allow filtering by relationship field / equals (10.4s)
+  ✓  24 [chromium] › test/fields/collections/Relationship/e2e.spec.ts:805:3 › relationship › should allow filtering by non-polymorphic hasMany relationship field / equals (10.1s)
+  ✓  25 [chromium] › test/fields/collections/Relationship/e2e.spec.ts:838:3 › relationship › should allow filtering by polymorphic hasMany relationship field / equals (10.5s)
+  ✓  26 [chromium] › test/fields/collections/Relationship/e2e.spec.ts:873:3 › relationship › should not duplicate relationship filter options when switching operators (6.4s)
+  ✓  27 [chromium] › test/fields/collections/Relationship/e2e.spec.ts:925:3 › relationship › should be able to select relationship with drawer appearance (8.6s)
+  ✓  28 [chromium] › test/fields/collections/Relationship/e2e.spec.ts:948:3 › relationship › should be able to search within relationship list drawer (7.0s)
+  ✓  29 [chromium] › test/fields/collections/Relationship/e2e.spec.ts:967:3 › relationship › should handle read-only relationship field when `appearance: "drawer"` (3.9s)
+  ✓  30 [chromium] › test/fields/collections/Relationship/e2e.spec.ts:976:3 › relationship › should handle polymorphic relationship when `appearance: "drawer"` (10.0s)
+  ✓  31 [chromium] › test/fields/collections/Relationship/e2e.spec.ts:1005:3 › relationship › should handle `hasMany` relationship when `appearance: "drawer"` (7.2s)
+  ✓  32 [chromium] › test/fields/collections/Relationship/e2e.spec.ts:1030:3 › relationship › should handle `hasMany` polymorphic relationship when `appearance: "drawer"` (5.8s)
+  ✓  33 [chromium] › test/fields/collections/Relationship/e2e.spec.ts:1047:3 › relationship › should not be allowed to create in relationship list drawer when `allowCreate` is `false` (4.5s)
+  ✓  34 [chromium] › test/fields/collections/Relationship/e2e.spec.ts:1059:3 › relationship › should respect `filterOptions` in the relationship list drawer for filtered relationship (7.5s)
+  ✓  35 [chromium] › test/fields/collections/Relationship/e2e.spec.ts:1074:3 › relationship › should filter out existing values from relationship list drawer (6.6s)
+  ✓  36 [chromium] › test/fields/collections/Relationship/e2e.spec.ts:1095:3 › relationship › should filter out existing values from polymorphic relationship list drawer (16.0s)
+  ✓  37 [chromium] › test/fields/collections/Relationship/e2e.spec.ts:1140:3 › relationship › should update label for *all* relationship fields pointing to the same document, if the useAsTitle
+  -  38 [chromium] › test/fields/collections/Relationship/e2e.spec.ts:1189:10 › relationship › A11y › Create view should have no accessibility violations
+  -  39 [chromium] › test/fields/collections/Relationship/e2e.spec.ts:1203:10 › relationship › A11y › Edit view should have no accessibility violations
+  -  40 [chromium] › test/fields/collections/Relationship/e2e.spec.ts:1220:10 › relationship › A11y › Relationship fields have focus indicators
+  ✓  41 [chromium] › test/fields/collections/Upload/e2e.spec.ts:74:3 › Upload › should upload files (6.7s)
+  ✓  42 [chromium] › test/fields/collections/Upload/e2e.spec.ts:78:3 › Upload › should upload files from remote URL (6.2s)
+  ✓  43 [chromium] › test/fields/collections/Upload/e2e.spec.ts:105:3 › Upload › should disable save button during upload progress from remote URL (5.8s)
+  ✓  44 [chromium] › test/fields/collections/Upload/e2e.spec.ts:141:3 › Upload › should render uploaded image (6.2s)
+  ✓  45 [chromium] › test/fields/collections/Upload/e2e.spec.ts:149:3 › Upload › should upload using the document drawer (18.0s)
+  ✓  46 [chromium] › test/fields/collections/Upload/e2e.spec.ts:182:3 › Upload › should upload after editing image inside a document drawer (13.9s)
+  ✓  47 [chromium] › test/fields/collections/Upload/e2e.spec.ts:221:3 › Upload › should clear selected upload (9.7s)
+  ✓  48 [chromium] › test/fields/collections/Upload/e2e.spec.ts:240:3 › Upload › should select using the list drawer and restrict mimetype based on filterOptions (7.1s)
+  -  49 [chromium] › test/fields/collections/Upload/e2e.spec.ts:251:8 › Upload › should show drawer for input field when enableRichText is false
+  -  50 [chromium] › test/fields/collections/Upload/e2e.spec.ts:271:10 › Upload › A11y › Create view should have no accessibility violations
+  -  51 [chromium] › test/fields/collections/Upload/e2e.spec.ts:285:10 › Upload › A11y › Edit view should have no accessibility violations
+  ✓  52 [chromium] › test/fields/collections/Upload/e2e.spec.ts:302:5 › Upload › A11y › Upload fields have focus indicators (6.3s)
+    Expected length: 3
+    Received length: 4
+  2 failed
+  9 skipped
+  41 passed (6.6m)

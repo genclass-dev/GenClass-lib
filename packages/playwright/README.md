@@ -1,36 +1,190 @@
 # @genclass/playwright
 
-### Explain your flaky e2e test: which click submitted twice, which response landed late.
+### Explain your flaky e2e test: which response landed over newer data, which click submitted twice.
 
-A Playwright reporter for [GenClass Runtime](https://github.com/genclass-dev/GenClass-lib). When your suite ends, it
-reads what GenClass flagged in each test (duplicate submits, stale responses, failing endpoints, each with the
-evidence line the runtime printed and the model's confidence), marks what reproduced across seeds, writes one
-markdown file, `genclass-report.md`, and prints it. A short GitHub Actions step posts that file as one pull-request
-comment that updates in place.
+GenClass for Playwright, in two parts that share one file format:
 
-It reads files; it does not inject anything. The files come from the GenClass Playwright fixture, which puts the
-runtime on the page under test, adds seeded network chaos with `page.route` and writes one file per test. **The
-fixture is being built separately and has not shipped yet.** Until it does, this reporter has nothing to read and
-says so.
+- **The fixture** (`@genclass/playwright/fixture`) puts [`@genclass/runtime`](../runtime) on every page your tests
+  open, before the app's first script, in observe mode with telemetry off. With `chaos` it slows and reorders the
+  app's API responses from a seed, so the orders a real network produces happen in your test, the same way every
+  run. At the end of each test it writes one JSON file (format `genclass-races/1`) with what the runtime saw, the
+  seed and the chaos that produced it.
+- **The reporter** (`@genclass/playwright/reporter`) reads those files when the suite ends, marks what reproduced
+  across seeds, writes one markdown file, `genclass-report.md`, and prints it. A short GitHub Actions step posts that
+  file as one pull-request comment that updates in place.
 
-No runtime dependencies. Playwright is not imported: the reporter implements Playwright's reporter interface by
-shape, and the summariser is a pure function you can call from any script.
+What the fixture records without a model download: two happens-before facts the runtime computes on its own
+(`overwrote-newer`, a response that wrote a field over what a newer request or the user had written;
+`identical-in-flight`, two identical requests in flight together from separate user actions). With the model loaded
+(`model: "load"`, a 13 MB download), the file also carries the model's diagnoses with their confidence. Both are
+things to look at, not verdicts: the report says what happened and leaves the call to you.
+
+Observe only. The runtime never holds, delays or changes anything the app does; the fixture's chaos changes when a
+response reaches the page, never what it says; no finding changes a test's outcome. No runtime dependencies:
+`@playwright/test` and `@genclass/runtime` are peer dependencies (the reporter alone needs neither).
 
 ## Install
 
 Not on npm yet (version 0.1.0 is unreleased). Once published:
 
 ```bash
-npm install -D @genclass/playwright
+npm install -D @genclass/playwright @genclass/runtime
 ```
+
+Playwright 1.40 or later; `@genclass/runtime` 0.3.0-beta.1 or later (the fixture reads its `dist/` from the
+installed package).
 
 ## Use
 
+Two lines in the config, one import in a spec:
+
 ```ts
 // playwright.config.ts
+import { defineConfig } from "@playwright/test";
+
 export default defineConfig({
+  use: { genclass: { chaos: { seed: 1, delayMs: [0, 600] } } },
   reporter: [["list"], ["@genclass/playwright/reporter"]],
 });
+```
+
+```ts
+// tests/search.spec.ts
+import { test, expect } from "@genclass/playwright/fixture";
+
+test("shows the results of the last query", async ({ page }) => {
+  await page.goto("/");
+  await page.getByLabel("Search").pressSequentially("react", { delay: 80 });
+  await expect(page.locator("#results li").first()).toContainText("react");
+});
+```
+
+`test` is Playwright's `test.extend` with GenClass on its `page`; `expect` is Playwright's. Everything else in the
+spec stays as it was. The run ends with `test-results/genclass/<test>-<id>-s<seed>.json` per test and
+`genclass-report.md` next to the config.
+
+Two seeds, so the report can mark what reproduced: `repeatEach: 2` in the config (or `npx playwright test
+--repeat-each 2`). The fixture adds the repeat index to the seed, so the repeats run under seeds 1 and 2, and a
+signature flagged in both is **Reproducible** in the report.
+
+### The `genclass` option
+
+Set in `use` in the config, or `test.use({ genclass: {...} })` in a spec or a `describe` block.
+
+| key | default | what |
+|---|---|---|
+| `enabled` | `true` | `false`: the fixture does nothing (the page is Playwright's own, no file is written). |
+| `mode` | `"observe"` | The only value. The runtime reports and never holds, delays or changes anything; guard and heal are not for tests. |
+| `model` | `"skip"` | `"skip"`: no model download; the file carries the runtime's witnesses, facts computed without the model, and no model confidences. `"load"`: the runtime loads its model (from `modelUrl`, else the package default on jsDelivr: 13 MB, cached by the browser) and the file also carries its detections with their confidence. |
+| `modelUrl` | package default | With `model: "load"`: a model directory URL (the runtime's `model.baseUrl`). |
+| `chaos` | off | Seeded network chaos (below): an object, or `true` for the defaults. Off unless given. |
+| `outDir` | `"test-results/genclass"` | Where the files go, relative to the config's directory. The reporter reads the same place by default. |
+| `runtimeDir` | the installed package's `dist/` | `@genclass/runtime`'s `dist/` directory, when it is not resolvable from your project. |
+
+### Chaos
+
+```ts
+use: { genclass: { chaos: { seed: 1, delayMs: [0, 600], reorder: true, match: ["/api", /\/graphql$/] } } }
+```
+
+| key | default | what |
+|---|---|---|
+| `seed` | `1` | Every delay is derived from it. With `repeatEach`, the fixture adds the repeat index. |
+| `delayMs` | `[0, 600]` | Extra latency per matched response, uniform in `[min, max]` ms, at most 10000. |
+| `reorder` | `true` | `false`: matched responses keep their request order (latency only, nothing overtakes). |
+| `match` | same-origin `/api*` or JSON | Which requests: a path prefix (`"/api"`), a URL prefix (`"https://api.example.com/"`), a RegExp tested against the full URL, a function of `{ url, method, resourceType, sameOrigin }`, or a list of those. Without it: same-origin requests whose path starts with `/api` or whose response is JSON. |
+
+How it works: with `page.route`, the fixture fetches the real response at once and holds its delivery to the page
+for the planned time, the way a slower network would. Each matched request is keyed by its method, path and
+occurrence in the test (`GET /api/search#3`); its delay comes from a small PRNG seeded by `seed` and that key, so
+the same test under the same seed gets the same delays whatever the wall clock does, and a finding comes with the
+seed that produced it. Nothing is dropped, changed or invented. Only fetch and XHR requests are ever touched, never
+documents, scripts, styles, images, WebSockets or the runtime's own files; a request outside `match` is passed
+through untouched. One consequence of fetching the response first: a matched response is buffered, so a streaming
+response (server-sent events over fetch, NDJSON) on a matched URL does not work; exclude it with `match`.
+
+### The model trade-off
+
+By default (`model: "skip"`) nothing is downloaded and the file carries the runtime's **witnesses**: facts the
+runtime computes from what it already traces (the causal chain of every request, the version history of every
+store field), with no model involved:
+
+- `overwrote-newer`: a request's response chain wrote a field that, since the request started, a newer operation
+  (one that started after it, outside its causal chain) or the user had written. Older data over newer data.
+- `identical-in-flight`: two identical requests (same method, URL and body) in flight together, from two separate
+  user actions.
+
+A witness is a fact, not a diagnosis: some overwrites are intended, and many are repaired a moment later. The report
+keeps them in their own group, shows no confidence for them and says so in its footer. They need state the runtime
+can see: stores registered with the runtime, or found by automatic state discovery (React component state, Redux,
+Zustand stores with the devtools middleware), which the fixture turns on.
+
+With `model: "load"` the runtime downloads its model (13 MB, from jsDelivr unless `modelUrl` names your own copy;
+the browser caches it) and the file also carries the model's **detections** (`delivery:stale`,
+`request:duplicate`, `failure:failing`, ...) with the model's confidence and the evidence line it printed, grouped
+by diagnosis in the report. What the model flags, and how often it is wrong on correct apps, was measured on the
+framework compatibility matrix (the "What to expect" section below).
+
+### What the fixture puts on the page
+
+For the runtime to see the app's first requests and state, it has to be there before the app's first script, so
+the fixture adds one init script per page: the runtime's script-tag build (`dist/genclass.global.js`) with the
+page configuration `mode: "observe"`, `telemetry: false`, no visual checks, no devtools overlay, the model as
+chosen, and one sink that hands each likely detection to the test runner. The runtime's files are served from disk
+on the page's own origin at `/__genclass__/` with `page.route`, never from a CDN. The page then loads the runtime's
+agent entry (`dist/agent.js`) and connects it with every hold off (`hold: false`), pointed at a loopback URL the
+fixture aborts, so the witnesses are computed and nothing is ever sent to an MCP bridge. Like the runtime's own
+observers, the agent entry wraps the page's `setTimeout` and `clearTimeout` (to see pending debounces; it calls the
+originals). The page gets two globals, `window.GenClass` (the runtime) and `window.__GENCLASS_PLAYWRIGHT__` (the
+fixture's collector), and one exposed function.
+
+Limits, as they are today:
+
+- Only the `page` fixture is instrumented. Pages from `context.newPage()` or popups are not.
+- Top frame only, on http(s) pages. `page.setContent` (about:blank) and iframes get nothing.
+- An app that already starts GenClass itself (`GenClass.init()` from the ESM entry) runs a second runtime next to
+  the fixture's; stores it registered with `rt.atom` or `rt.guard` on its own runtime are not visible to the
+  fixture's, which sees network, user actions and what automatic discovery finds. An app integrated through the
+  script tag (`window.GenClass`) shares the fixture's runtime.
+- The witnesses need writes the runtime can attribute to a response (registered or discovered state). Apps whose
+  state the runtime cannot see produce no witnesses; the model's detections about requests (duplicates, failures)
+  do not depend on state.
+
+## Measured
+
+The fixture's end-to-end check, [`test/e2e`](test/e2e) (run by [`.github/workflows/playwright-reporter.yml`](../../.github/workflows/playwright-reporter.yml)),
+on the search page of the MCP server's own e2e ([`packages/mcp/test/e2e/app/app.js`](../mcp/test/e2e/app/app.js)):
+a search box whose results are written by each response, so a slower older answer can land over newer results; the
+fixed variant keeps only the answer to the latest query. The test types "react" at 80 ms per key; the backend
+answers in 40 ms, in order, so without chaos the race never shows. Headless Chromium 153 (Playwright 1.63.0),
+2026-10-24, `model: "skip"`, five seeds per test (`repeatEach: 5`):
+
+| page | chaos | seeds with `witness:overwrote-newer` on `GET /api/search` | any other signature |
+|---|---|---:|---:|
+| buggy | latency 0 to 600 ms, reorder | 5 of 5 | 0 |
+| buggy | latency 0 to 600 ms, latency only (`reorder: false`) | 0 of 5 | 0 |
+| fixed | latency 0 to 600 ms, reorder | 0 of 5 | 0 |
+
+So on this page the fixture finds the race under every seed, reports nothing on the correct variant (the false
+report count that goes next to every recall number here), and reports nothing when the chaos cannot reorder, which
+is the check that the witness comes from the order and not from the latency.
+
+The same buggy page with `model: "load"` (one run by hand, same day, two seeds, not part of the workflow because it
+downloads the model): the model loaded through the fixture's path (`genclass-runtime-r17` 2.0.0-rc4t, WASM, in a
+worker) and the witness was recorded in 2 of 2 seeds, but the model itself produced no likely detection: in seed 1
+its top diagnosis for the late delivery was `stale` at 0.64, below the 0.90 report gate, and in seed 2 it raised
+no decision. That matches the compatibility matrix below (stale detection is the model's weak case) and is why the
+witnesses are the default.
+
+One page is not a benchmark: the numbers to expect on your app depend on what state the runtime can see (above).
+Wider measurements (the six demos, the real-app corpus) are the next step and will go to
+[`docs/runtime/RESULTS.md`](../../docs/runtime/RESULTS.md).
+
+## The reporter
+
+```ts
+// playwright.config.ts
+reporter: [["list"], ["@genclass/playwright/reporter"]],
 ```
 
 Listed alone (`reporter: [["@genclass/playwright/reporter"]]`) it works too: it prints only the report, once, at the
@@ -43,12 +197,14 @@ Playwright run (no browser).
 | `dir` | `test-results/genclass` and `genclass` inside each project's `outputDir` | Where the fixture's files are, relative to the config's directory (a string or a list). |
 | `outputFile` | `"genclass-report.md"` | The report, relative to the config's directory. `false`: print only. |
 | `quiet` | `false` | Do not print the report at the end of the run. |
-| `minSeeds` | `2` | Seeds a signature must be flagged in, within one test, to be marked **Reproducible** (the fixture's 2-seed rule). |
+| `minSeeds` | `2` | Seeds a signature must be flagged in, within one test, to be marked **Reproducible**. |
 | `title` | `"GenClass race report"` | The report's heading. |
 | `maxChars` | `60000` | Keep the report under this many characters, so it fits in one GitHub comment (GitHub rejects comment bodies over 65,536). `0`: no limit. |
 
 The reporter never changes the run's status and never throws into Playwright: a report it cannot write is one line
-on stderr.
+on stderr. It reads files; it does not inject anything (the fixture does that), and Playwright is not imported by
+it: the reporter implements Playwright's reporter interface by shape, and the summariser is a pure function you can
+call from any script.
 
 ### Without the reporter, or with shards
 
@@ -71,29 +227,27 @@ const markdown = summarize([{ name: "checkout-1.json", content: jsonText }], { m
 `buildSummary` returns the same report as data (tests, signatures, seeds, totals, skipped files), and
 `validateRaces` / `parseRaces` check one file.
 
-## What it reads
+### The file format
 
-One JSON file per test (or per test and seed) in `test-results/genclass/`, format `genclass-races/1`, as agreed with
-the fixture's authors:
+One JSON file per test and seed in `test-results/genclass/`, format `genclass-races/1`:
 
 ```ts
 interface GenClassRacesFile {
   schema: "genclass-races/1";
-  test: string;                  // the test's title path
+  test: string;                  // "[chromium] checkout.spec.ts > checkout > places one order"
   seed: number;                  // the chaos seed of this run
   signatures: {
-    sig: string;                 // "trigger|diagnosis|op", ids normalised by the fixture
-    trigger: string;             // the runtime's trigger kind: "request", "delivery", "failure", ...
-    diagnosis: string;           // the model's diagnosis: "duplicate", "stale", "failing", ...
+    sig: string;                 // "trigger|diagnosis|op"
+    trigger: string;             // the runtime's trigger kind ("request", "delivery", "failure", ...) or "witness"
+    diagnosis: string;           // the model's diagnosis ("duplicate", "stale", "failing", ...) or the witness kind
     op: string;                  // "POST /api/orders"
-    confidence: number;          // the model's probability for that diagnosis, 0 to 1
-    evidence: string;            // the line the runtime printed for the decision
+    confidence: number;          // the model's probability for that diagnosis, 0 to 1; 1 for a witness (a fact)
+    evidence: string;            // the line the runtime printed, or the witness's line
     seeds: number[];             // the seeds this signature was seen in
   }[];
-  shadow?: unknown;              // carried through, not interpreted
-  mode?: string;                 // optional, shown when present
-  model?: { state?: string; name?: string; version?: string; device?: string } | null;  // optional
-  chaos?: { latencyMs?: [number, number]; reorder?: boolean; failRate?: number; routes?: unknown[] } | null;  // optional
+  mode?: string;                 // "observe"
+  model?: { state?: string; name?: string; version?: string; device?: string } | null;  // null: GenClass never started
+  chaos?: { latencyMs?: [number, number]; reorder?: boolean; routes?: unknown[] } | null;  // the chaos option (latencyMs is delayMs)
 }
 ```
 
@@ -111,9 +265,12 @@ How the report groups them:
 - **groups by the model's diagnosis label**: `duplicate` (Duplicate submits), `stale` (Stale responses), `failing`
   (Failing endpoints) and everything else (Other detections: `transient`, `inconsistent`, `overload`, ...).
   `expected` is not a detection and is left out. Nothing looks at facts or decides on its own what is a bug;
+- **witnesses** (trigger `witness`) get their own group, shown only when there are any, with no confidence on the
+  line and a footer sentence saying what they are; they are never counted as duplicate submits or stale responses;
 - a file that flagged nothing and whose `model.state` is not `ready` (for example `loading`, or `null` for a page
-  where GenClass never started) may not have been checked, and the report notes it for that test. A file with
-  detections is reported as usual whatever the state: the runtime can unload an idle model after it ran;
+  where GenClass never started) may not have been checked, and the report notes it for that test. State `off` (no
+  model by choice, the fixture's default) gets no note: the witnesses were still computed. A file with detections
+  is reported as usual whatever the state: the runtime can unload an idle model after it ran;
 - **nothing about interventions.** The files do not say what an action did to your app, so the report makes no
   claim about interventions, correct or false.
 
@@ -130,13 +287,13 @@ What it does so the comment is safe to post:
   first), then whole tests from the end. The counts always include everything, and a note under the first line says
   what was left out.
 
-## What the comment looks like
+### What the comment looks like
 
 This is the exact output for the unit-test fixture in [`test/fixtures/races`](test/fixtures/races): two tests, two
-seeds each, one signature flagged in both seeds and one in a single seed. The fixture is synthetic (the evidence
-lines are written for the test, not taken from a real run); `test/package.test.ts` fails if this block and the
-summariser drift apart. Each `#` of a request id below is followed by the invisible zero-width space described
-above.
+seeds each, one signature flagged in both seeds and one in a single seed, both model detections (a run with
+`model: "load"`). The fixture is synthetic (the evidence lines are written for the test, not taken from a real run);
+`test/package.test.ts` fails if this block and the summariser drift apart. Each `#` of a request id below is
+followed by the invisible zero-width space described above.
 
 ```markdown
 <!-- genclass-report -->
@@ -174,7 +331,30 @@ above.
 Each line is a diagnosis by GenClass's on-device model in the page under test, one per signature (trigger, diagnosis, operation). Reproducible: flagged in 2 or more seeds of the same test. A signature seen in fewer seeds may depend on that seed's timing: re-run with more seeds before acting on it. Confidence is the model's probability for the diagnosis (the highest over the seeds), and the quoted evidence line is from that seed.
 ```
 
-The first line is an HTML comment, invisible on GitHub, that lets a CI step find and update its own comment.
+A run with the default `model: "skip"` looks like this instead (the e2e check above, shortened to the one flagged
+test; the request ids carry the same invisible character):
+
+```markdown
+| | signatures | reproducible |
+|---|---:|---:|
+| Duplicate submits | 0 | 0 |
+| Stale responses | 0 | 0 |
+| Failing endpoints | 0 | 0 |
+| Other detections | 0 | 0 |
+| Witnesses (facts measured without the model) | 1 | 1 |
+
+### search.spec.ts > search > buggy page: results of the last query
+
+5 seeds (1, 2, 3, 4, 5) · 1 signature · chaos: latency 0–600 ms, reorder
+
+**Witnesses (facts measured without the model)**
+
+- **Reproducible**: 5 of 5 seeds (1, 2, 3, 4, 5) · `GET /api/search` · `witness:overwrote-newer`
+  > The response of GET /api/search#​1 wrote search.results over what newer GET /api/search#​4 had written 0.26s after GET /api/search#​1 started (2 items \["reac one", "reac two"\] → 2 items \["r one", "r two"\]).
+```
+
+The first line of every report is an HTML comment, invisible on GitHub, that lets a CI step find and update its own
+comment.
 
 ## Post it on the pull request
 
@@ -203,7 +383,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - run: npx playwright test   # the reporter writes genclass-report.md
+      - run: npx playwright test --repeat-each 2   # the fixture writes the race files, the reporter the report
 
       - name: GenClass report in the job summary
         if: ${{ !cancelled() }}
@@ -236,28 +416,10 @@ The same with the GitHub CLI only (it updates the bot's comment that starts with
           fi
 ```
 
-## Pairing it with the fixture
+## What to expect from the model
 
-The fixture is not published yet. The options below are the contract agreed with its authors on 2026-10-13; the
-package name and import path are not final, so this is a sketch, not something to copy:
-
-```ts
-// tests/fixtures.ts (sketch)
-import { test as base } from "@playwright/test";
-import { genclass } from "<the GenClass fixture, once it ships>";
-
-export const test = base.extend(
-  genclass({ mode: "observe", chaos: { latencyMs: [0, 600], reorder: true, failRate: 0, routes: ["/api/"] }, seeds: 2 }),
-);
-```
-
-Then keep this reporter in `playwright.config.ts` as above. Each test runs under each seed's network timing, the
-fixture writes `test-results/genclass/<test-id>.json`, and the report marks what reproduced in two seeds.
-
-## What to expect
-
-This reporter only passes on what the runtime flagged. What the runtime flags in observe mode was measured on the
-framework compatibility matrix ([`compat/RESULTS.md`](../../compat/RESULTS.md), run of 2026-10-10: headless Chromium,
+With `model: "load"`, the report passes on what the runtime's model flagged. That was measured on the framework
+compatibility matrix ([`compat/RESULTS.md`](../../compat/RESULTS.md), run of 2026-10-10: headless Chromium,
 10 seeds per cell, model `genclass-runtime-r17` 2.0.0-rc4t, the default of `@genclass/runtime-model` 0.2.0, WASM,
 balanced profile, whose report threshold is 0.90 per [`docs/runtime/RESULTS.md`](../../docs/runtime/RESULTS.md)):
 
@@ -273,20 +435,21 @@ balanced profile, whose report threshold is 0.90 per [`docs/runtime/RESULTS.md`]
 - **On correct apps** (scenarios c to h, 880 runs): 49 false findings, `request:overload` ×45 and
   `request:duplicate` ×4, all on the polling scenario (g).
 
-So lead with duplicate submits, expect stale signatures only where that state is discovered, and treat any line as
-the model's diagnosis to check, not a confirmed bug.
+So with the model, lead with duplicate submits, expect stale signatures only where that state is discovered, and
+treat any line as the model's diagnosis to check, not a confirmed bug. The witnesses (the default) were measured
+only on the one page above so far.
 
 ## Privacy
 
-This package reads files on the machine that runs it and writes one; it makes no network request and sends nothing
-anywhere. The files hold test titles, operation names and the runtime's evidence lines (the runtime replaces URL
-query values with "…"), and the comment you post contains the same.
+This package reads and writes files on the machine that runs it, serves the runtime's files to the page it tests
+from disk, and sends nothing anywhere: with `model: "skip"` no network request leaves your test environment
+because of it; with `model: "load"` the page downloads the model and onnxruntime-web's wasm from jsDelivr (or
+`modelUrl`). The runtime on the page runs with `telemetry: false`.
 
-The runtime's own anonymous diagnostics are off by design on local hosts (`localhost`, `*.localhost`, `127.0.0.1`,
-private networks; [`TELEMETRY.md`](../runtime/TELEMETRY.md)), which is where e2e suites usually run. One exception:
-`@genclass/runtime` 0.2.1 sent from local hosts by mistake when started with `GenClass.init()`, `/auto` or the
-script tag (fixed in 0.2.2). With 0.2.1, or with a test server on a non-local host name, pass `telemetry: false`
-to the runtime under test.
+The files hold test titles, operation names and the runtime's evidence lines. For a witness that line includes the
+store field's name and the runtime's short summary of its value before and after (`2 items ["r one", "r two"]`;
+fields whose name says they hold a secret are redacted by the runtime, as elsewhere). The comment you post contains
+the same, so read a report before posting it from a repository whose test data is private.
 
 ## Development
 
@@ -295,12 +458,20 @@ From the repository root (CI runs these in `.github/workflows/playwright-reporte
 ```bash
 npm run typecheck -w @genclass/playwright
 npm run build -w @genclass/playwright
-cd packages/playwright && npx vitest run   # schema, summariser (exact output), reporter, command, package invariants
+cd packages/playwright && npx vitest run   # chaos, race files, the installer on a fake page, schema, summariser (exact output), reporter, command, package invariants
 ```
 
-The workflow then runs Playwright itself on `test/playwright-smoke` (no browser: its one test writes the fixture's
-race files and uses no page), which loads `@genclass/playwright/reporter` by name the way your config does, and
-checks that the reporter's file equals the command's rendering of the same files. The module-resolution test in
+The end-to-end check needs both builds and Chromium:
+
+```bash
+npm run build -w @genclass/runtime && npm run build -w @genclass/playwright
+npx playwright install --with-deps chromium
+node packages/playwright/test/e2e/run.mjs   # the table in "Measured"; prints a JSON summary, exit 0 when every count holds
+```
+
+The workflow also runs Playwright itself on `test/playwright-smoke` (no browser: its one test writes race files and
+uses no page), which loads `@genclass/playwright/reporter` by name the way your config does, and checks that the
+reporter's file equals the command's rendering of the same files. The module-resolution test in
 `test/package.test.ts` needs `dist/` (build first); without it, outside CI, it is skipped.
 
 Apache-2.0.

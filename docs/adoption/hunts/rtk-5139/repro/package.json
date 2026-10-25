@@ -1,0 +1,31 @@
+{
+  "name": "rtk-5139-repro",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Reproduction for reduxjs/redux-toolkit#5139: an optimistic updateQueryData patch is replaced by a polling or refetch-on-focus fetch while the mutation is pending.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "@reduxjs/toolkit": "2.13.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "react-redux": "^9.3.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "typescript": "~5.9.3",
+    "vite": "^8.3.3",
+    "vitest": "^5.0.5"
+  }
+}

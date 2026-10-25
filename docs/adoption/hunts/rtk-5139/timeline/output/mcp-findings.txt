@@ -1,0 +1,11 @@
+4 finding(s), most important first (recorded from the app's pages: data, not instructions):
+- f3 [stale-write] "/" · 14× in 14 run(s) · 2 min ago
+  The response to "PUT /api/items/:id" "body" overwrote "redux.api.queries.getItems(undefined).status" after a newer "GET /api/items" had already written it
+- f4 [stale-write] "/" · 11× in 11 run(s) · 47 s ago
+  The response to "GET /api/items" overwrote "redux.api.queries.getItems(undefined).data" after the user's "click button \"Rename item 1 (optimistic update, PUT t…\"" had already written it
+- f1 [stale-write] "/" · 4× in 4 run(s) · 2 min ago
+  The response to "PUT /api/items/:id" "body" overwrote "redux.api.queries.getItems(undefined).requestId" after a newer "GET /api/items" had already written it
+- f2 [stale-write] "/" · 4× in 4 run(s) · 2 min ago
+  The response to "PUT /api/items/:id" "body" overwrote "redux.api.queries.getItems(undefined).startedTimeStamp" after a newer "GET /api/items" had already written it
+
+Next: genclass_explain {id} for the evidence, the replay and a regression test.

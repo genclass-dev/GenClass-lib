@@ -1,0 +1,80 @@
+
+== run 1 (reference, no delay): 
+[
+  "David Doe",
+  "Create a relation"
+]
+
+== run 2 (reference, no delay): 
+[
+  "David Doe",
+  "Create a relation"
+]
+
+== run 3 (delayed: GET /admin/users/me/permissions +2500 ms): DIFFERENT end state from the reference
+the steps could not be done: locator.waitFor: Timeout 30000ms exceeded.
+page text at the end:
+[
+  "Skip to content",
+  "Strapi DashboardWorkplace",
+  "Home",
+  "Content Manager",
+  "Media Library",
+  "Content-Type Builder",
+  "Deploy",
+  "Marketplace",
+  "Settings",
+  "HH",
+  "Hunt Harness",
+  "Content Manager",
+  "COLLECTION TYPES",
+  "4",
+  "Article",
+  "Author",
+  "Category",
+  "User",
+  "SINGLE TYPES",
+  "2",
+  "About",
+  "Global",
+  "Content Manager",
+  "Learn more on our documentation",
+  "You don't have the permissions to access that content",
+  "The schemas have been successfully loaded"
+]
+[]
+
+== run 4 (delayed: GET /admin/users/me/permissions +2500 ms): DIFFERENT end state from the reference
+the steps could not be done: locator.waitFor: Timeout 30000ms exceeded.
+page text at the end:
+[
+  "Skip to content",
+  "Strapi DashboardWorkplace",
+  "Home",
+  "Content Manager",
+  "Media Library",
+  "Content-Type Builder",
+  "Deploy",
+  "Marketplace",
+  "Settings",
+  "HH",
+  "Hunt Harness",
+  "Content Manager",
+  "COLLECTION TYPES",
+  "4",
+  "Article",
+  "Author",
+  "Category",
+  "User",
+  "SINGLE TYPES",
+  "2",
+  "About",
+  "Global",
+  "Content Manager",
+  "Learn more on our documentation",
+  "You don't have the permissions to access that content",
+  "The schemas have been successfully loaded"
+]
+[]
+
+2 of 2 delayed run(s) ended differently from the two reference runs (which agree), with no GenClass on the page.

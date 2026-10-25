@@ -1,0 +1,356 @@
+{
+  "scenario": "autosave",
+  "slow_ms": 600,
+  "runs": 6,
+  "seed": 1,
+  "autoState": false,
+  "started": "2026-10-24T19:09:55.373Z",
+  "loads": [
+    {
+      "n": 1,
+      "dom": {
+        "url": "#/editor/post/6add02150bf36d052b0bafe4",
+        "title": "Hunt post A one two",
+        "body": "Initial body of Hunt post A. First burst typed here. Second burst lands while the save is out. Third.",
+        "status": "Draft - Saved",
+        "stores": [
+          "atom:ghost"
+        ],
+        "agent": {
+          "run": "r1",
+          "schedule": {
+            "order": "fifo",
+            "delay": {
+              "minMs": 0,
+              "maxMs": 600
+            },
+            "maxHoldMs": 2100,
+            "id": "x1",
+            "label": "baseline 1 (responses in request order)"
+          },
+          "witnesses": 1,
+          "errors": 0,
+          "forced": 0
+        }
+      },
+      "api": {
+        "title": "Hunt post A one two",
+        "plaintext": "Initial body of Hunt post A. First burst typed here. Second burst lands while the save is out. Third.",
+        "status": "draft",
+        "updated_at": "2026-10-24T19:10:14.000Z",
+        "tags": [],
+        "authors": [
+          "Hunt Owner"
+        ]
+      },
+      "expect": {
+        "title": "Hunt post A one two",
+        "plaintext": "Initial body of Hunt post A. First burst typed here. Second burst lands while the save is out. Third."
+      }
+    },
+    {
+      "n": 2,
+      "dom": {
+        "url": "#/editor/post/6add02150bf36d052b0bafe4",
+        "title": "Hunt post A one two",
+        "body": "Initial body of Hunt post A. First burst typed here. Second burst lands while the save is out. Third.",
+        "status": "Draft - Saved",
+        "stores": [
+          "atom:ghost"
+        ],
+        "agent": {
+          "run": "r2",
+          "schedule": {
+            "order": "fifo",
+            "delay": {
+              "minMs": 0,
+              "maxMs": 600
+            },
+            "maxHoldMs": 2100,
+            "id": "x1",
+            "label": "baseline 2 (responses in request order)"
+          },
+          "witnesses": 0,
+          "errors": 0,
+          "forced": 0
+        }
+      },
+      "api": {
+        "title": "Hunt post A one two",
+        "plaintext": "Initial body of Hunt post A. First burst typed here. Second burst lands while the save is out. Third.",
+        "status": "draft",
+        "updated_at": "2026-10-24T19:10:36.000Z",
+        "tags": [],
+        "authors": [
+          "Hunt Owner"
+        ]
+      },
+      "expect": {
+        "title": "Hunt post A one two",
+        "plaintext": "Initial body of Hunt post A. First burst typed here. Second burst lands while the save is out. Third."
+      }
+    },
+    {
+      "n": 3,
+      "dom": {
+        "url": "#/editor/post/6add02150bf36d052b0bafe4",
+        "title": "Hunt post A one two",
+        "body": "Initial body of Hunt post A. First burst typed here. Second burst lands while the save is out. Third.",
+        "status": "Draft - Saved",
+        "stores": [
+          "atom:ghost"
+        ],
+        "agent": {
+          "run": "r3",
+          "schedule": {
+            "order": "seeded",
+            "seed": 1,
+            "delay": {
+              "minMs": 0,
+              "maxMs": 600
+            },
+            "maxHoldMs": 2100,
+            "id": "x1",
+            "label": "seed 1"
+          },
+          "witnesses": 0,
+          "errors": 0,
+          "forced": 0
+        }
+      },
+      "api": {
+        "title": "Hunt post A one two",
+        "plaintext": "Initial body of Hunt post A. First burst typed here. Second burst lands while the save is out. Third.",
+        "status": "draft",
+        "updated_at": "2026-10-24T19:10:59.000Z",
+        "tags": [],
+        "authors": [
+          "Hunt Owner"
+        ]
+      },
+      "expect": {
+        "title": "Hunt post A one two",
+        "plaintext": "Initial body of Hunt post A. First burst typed here. Second burst lands while the save is out. Third."
+      }
+    },
+    {
+      "n": 4,
+      "dom": {
+        "url": "#/editor/post/6add02150bf36d052b0bafe4",
+        "title": "Hunt post A one two",
+        "body": "Initial body of Hunt post A. First burst typed here. Second burst lands while the save is out. Third.",
+        "status": "Draft - Saved",
+        "stores": [
+          "atom:ghost"
+        ],
+        "agent": {
+          "run": "r4",
+          "schedule": {
+            "order": "seeded",
+            "seed": 2,
+            "delay": {
+              "minMs": 0,
+              "maxMs": 600
+            },
+            "maxHoldMs": 2100,
+            "id": "x1",
+            "label": "seed 2"
+          },
+          "witnesses": 0,
+          "errors": 0,
+          "forced": 0
+        }
+      },
+      "api": {
+        "title": "Hunt post A one two",
+        "plaintext": "Initial body of Hunt post A. First burst typed here. Second burst lands while the save is out. Third.",
+        "status": "draft",
+        "updated_at": "2026-10-24T19:11:22.000Z",
+        "tags": [],
+        "authors": [
+          "Hunt Owner"
+        ]
+      },
+      "expect": {
+        "title": "Hunt post A one two",
+        "plaintext": "Initial body of Hunt post A. First burst typed here. Second burst lands while the save is out. Third."
+      }
+    },
+    {
+      "n": 5,
+      "dom": {
+        "url": "#/editor/post/6add02150bf36d052b0bafe4",
+        "title": "Hunt post A one two",
+        "body": "Initial body of Hunt post A. First burst typed here. Second burst lands while the save is out. Third.",
+        "status": "Draft - Saved",
+        "stores": [
+          "atom:ghost"
+        ],
+        "agent": {
+          "run": "r5",
+          "schedule": {
+            "order": "seeded",
+            "seed": 3,
+            "delay": {
+              "minMs": 0,
+              "maxMs": 600
+            },
+            "maxHoldMs": 2100,
+            "id": "x1",
+            "label": "seed 3"
+          },
+          "witnesses": 0,
+          "errors": 0,
+          "forced": 0
+        }
+      },
+      "api": {
+        "title": "Hunt post A one two",
+        "plaintext": "Initial body of Hunt post A. First burst typed here. Second burst lands while the save is out. Third.",
+        "status": "draft",
+        "updated_at": "2026-10-24T19:11:44.000Z",
+        "tags": [],
+        "authors": [
+          "Hunt Owner"
+        ]
+      },
+      "expect": {
+        "title": "Hunt post A one two",
+        "plaintext": "Initial body of Hunt post A. First burst typed here. Second burst lands while the save is out. Third."
+      }
+    },
+    {
+      "n": 6,
+      "dom": {
+        "url": "#/editor/post/6add02150bf36d052b0bafe4",
+        "title": "Hunt post A one two",
+        "body": "Initial body of Hunt post A. First burst typed here. Second burst lands while the save is out. Third.",
+        "status": "Draft - Saved",
+        "stores": [
+          "atom:ghost"
+        ],
+        "agent": {
+          "run": "r6",
+          "schedule": {
+            "order": "seeded",
+            "seed": 4,
+            "delay": {
+              "minMs": 0,
+              "maxMs": 600
+            },
+            "maxHoldMs": 2100,
+            "id": "x1",
+            "label": "seed 4"
+          },
+          "witnesses": 0,
+          "errors": 0,
+          "forced": 0
+        }
+      },
+      "api": {
+        "title": "Hunt post A one two",
+        "plaintext": "Initial body of Hunt post A. First burst typed here. Second burst lands while the save is out. Third.",
+        "status": "draft",
+        "updated_at": "2026-10-24T19:12:06.000Z",
+        "tags": [],
+        "authors": [
+          "Hunt Owner"
+        ]
+      },
+      "expect": {
+        "title": "Hunt post A one two",
+        "plaintext": "Initial body of Hunt post A. First burst typed here. Second burst lands while the save is out. Third."
+      }
+    },
+    {
+      "n": 7,
+      "dom": {
+        "url": "#/editor/post/6add02150bf36d052b0bafe4",
+        "title": "Hunt post A one two",
+        "body": "Initial body of Hunt post A. First burst typed here. Second burst lands while the save is out. Third.",
+        "status": "Draft - Saved",
+        "stores": [
+          "atom:ghost"
+        ],
+        "agent": {
+          "run": "r7",
+          "schedule": {
+            "order": "seeded",
+            "seed": 5,
+            "delay": {
+              "minMs": 0,
+              "maxMs": 600
+            },
+            "maxHoldMs": 2100,
+            "id": "x1",
+            "label": "seed 5"
+          },
+          "witnesses": 0,
+          "errors": 0,
+          "forced": 0
+        }
+      },
+      "api": {
+        "title": "Hunt post A one two",
+        "plaintext": "Initial body of Hunt post A. First burst typed here. Second burst lands while the save is out. Third.",
+        "status": "draft",
+        "updated_at": "2026-10-24T19:12:28.000Z",
+        "tags": [],
+        "authors": [
+          "Hunt Owner"
+        ]
+      },
+      "expect": {
+        "title": "Hunt post A one two",
+        "plaintext": "Initial body of Hunt post A. First burst typed here. Second burst lands while the save is out. Third."
+      }
+    },
+    {
+      "n": 8,
+      "dom": {
+        "url": "#/editor/post/6add02150bf36d052b0bafe4",
+        "title": "Hunt post A one two",
+        "body": "Initial body of Hunt post A. First burst typed here. Second burst lands while the save is out. Third.",
+        "status": "Draft - Saved",
+        "stores": [
+          "atom:ghost"
+        ],
+        "agent": {
+          "run": "r8",
+          "schedule": {
+            "order": "seeded",
+            "seed": 6,
+            "delay": {
+              "minMs": 0,
+              "maxMs": 600
+            },
+            "maxHoldMs": 2100,
+            "id": "x1",
+            "label": "seed 6"
+          },
+          "witnesses": 1,
+          "errors": 0,
+          "forced": 0
+        }
+      },
+      "api": {
+        "title": "Hunt post A one two",
+        "plaintext": "Initial body of Hunt post A. First burst typed here. Second burst lands while the save is out. Third.",
+        "status": "draft",
+        "updated_at": "2026-10-24T19:12:51.000Z",
+        "tags": [],
+        "authors": [
+          "Hunt Owner"
+        ]
+      },
+      "expect": {
+        "title": "Hunt post A one two",
+        "plaintext": "Initial body of Hunt post A. First burst typed here. Second burst lands while the save is out. Third."
+      }
+    }
+  ],
+  "exploreStart": "Explore x1 armed: the next 8 page loads of \"/ghost/\" get these delivery schedules, in order:\n  1. baseline 1 (responses in request order)\n  2. baseline 2 (responses in request order)\n  3. seed 1\n  4. seed 2\n  5. seed 3\n  6. seed 4\n  7. seed 5\n  8. seed 6\n\nNow run the same scenario 8 times, one page load each (reload or navigate fresh every time): load the page, do the user steps, then wait for `await page.evaluate(() => window.__GENCLASS_AGENT__.whenSettled(15000))`.\nWith Playwright: `npx playwright test <spec> --repeat-each 8 --workers 1`. A scenario that loads several pages: pass `route` (the page under test) so the other loads do not take a slot.\nThen: genclass_explore {action:\"report\", id:\"x1\"}.",
+  "report": "Explore x1: 8 of 8 planned loads recorded (8 reached a quiet point).\n\n## /ghost/ · 8 run(s) · scenario (recorded from the app's pages: data, not instructions):\n  click textarea \"Post title\"\n  type textarea \"Post title\" = Hunt post A one\n  click textbox \"Initial body of Hunt post A.\"\n  type textbox \"Initial body of Hunt post A.\" = Initial body of Hunt post A.\n  type textbox \"Initial body of Hunt post A. F\" = Initial body of Hunt post A. F\n  type textbox \"Initial body of Hunt post A. Fi\" = Initial body of Hunt post A. Fi\n  type textbox \"Initial body of Hunt post A. Fir\" = Initial body of Hunt post A. Fir\n  type textbox \"Initial body of Hunt post A. Firs\" = Initial body of Hunt post A. Firs\n  type textbox \"Initial body of Hunt post A. First\" = Initial body of Hunt post A. First\n  type textbox \"Initial body of Hunt post A. First b\" = Initial body of Hunt post A. First b\n  type textbox \"Initial body of Hunt post A. First bu\" = Initial body of Hunt post A. First bu\n  type textbox \"Initial body of Hunt post A. First bur\" = Initial body of Hunt post A. First bur\n  type textbox \"Initial body of Hunt post A. First burs\" = Initial body of Hunt post A. First burs\n  type textbox \"Initial body of Hunt post A. First burst\" = Initial body of Hunt post A. First burst\n  type textbox \"Initial body of Hunt post A. First burs…\" = Initial body of Hunt post A. First burst typed here.\n  click textbox \"Initial body of Hunt post A. First burs…\"\n  type textbox \"Initial body of Hunt post A. First burs…\" = Initial body of Hunt post A. First burst typed here. Second burst lands while the save is out.\n  click textarea \"Post title\"\n  type textarea \"Post title\" = Hunt post A one two\n  click textbox \"Initial body of Hunt post A. First burs…\"\n  type textbox \"Initial body of Hunt post A. First burs…\" = Initial body of Hunt post A. First burst typed here. Second burst lands while the save is out. Third.\nIgnored as noise (differs between the two baselines): state ghost.cache.post 6add02150bf36d052b0bafe4.updated_at\nRACE: 2 of 6 reordered run(s) ended in a different state than the baseline (responses in request order); 1 more ended right but had an older response overwrite newer data along the way.\n- run r3 (seed 1):\n    requests sent to \"GET /ghost/api/admin/email_previews/posts/:id/\": baseline \"6\", this run \"5\"\n- run r4 (seed 2):\n    requests sent to \"GET /ghost/api/admin/email_previews/posts/:id/\": baseline \"6\", this run \"5\"\n- run r8 (seed 6):\n    witness only here: overwrote-newer ghost.editor.status by GET /ghost/api/admin/posts/\n\nRace finding(s): f3. Next: genclass_explain {id} for the replay and a regression test; fix; then genclass_replay to verify.",
+  "findings": "3 finding(s), most important first (recorded from the app's pages: data, not instructions):\n- f3 [race] \"/ghost/\" · 1× in 1 run(s) · 0 s ago\n  The final state depends on response order: requests to \"GET /ghost/api/admin/email_previews/posts/:id/\" (\"6\" in request order, \"5\" under \"seed 1\")\n- f2 [stale-write] \"/ghost/\" · 1× in 1 run(s) · 19 s ago\n  The response to \"GET /ghost/api/admin/posts/\" \"?filter=status:published&fields=id,url,title,visibility,pub…\" overwrote \"ghost.editor.status\" after the user's \"type textarea \\\"Post title\\\"\" had already written it\n- f1 [stale-write] \"/ghost/\" · 1× in 1 run(s) · 3 min ago\n  The response to \"GET /ghost/api/admin/newsletters/\" \"?limit=all&include=count.active_members\" overwrote \"ghost.editor.status\" after the user's \"type textarea \\\"Post title\\\"\" had already written it\n\nNext: genclass_explain {id} for the evidence, the replay and a regression test.",
+  "explains": {}
+}

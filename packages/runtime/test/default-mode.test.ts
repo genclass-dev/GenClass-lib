@@ -50,11 +50,12 @@ describe("default mode is observe (MVP)", () => {
     g.location = { search: "?genclass=observe", href: "https://shop.example/?genclass=observe", hostname: "shop.example", pathname: "/" };
     expect(GenClass.init({ ...opts, mode: "guard" }).mode).toBe("observe");
     GenClass.destroy();
-    // debug: true, or a development host, may raise (a developer trying guard)
+    // debug: true is console logging only: it does not let a link raise (test/mode-switch.test.ts)
     g.location = { search: "?genclass=guard", href: "https://shop.example/?genclass=guard", hostname: "shop.example", pathname: "/" };
-    expect(GenClass.init({ ...opts, debug: true }).mode).toBe("guard");
+    expect(GenClass.init({ ...opts, debug: true }).mode).toBe("observe");
     GenClass.destroy();
-    g.location = { search: "?genclass=guard", href: "http://localhost:5173/?genclass=guard", hostname: "localhost", pathname: "/" };
+    // a development host (a dev server's port on localhost, or *.test) may raise (a developer trying guard)
+    g.location = { search: "?genclass=guard", href: "http://localhost:5173/?genclass=guard", protocol: "http:", hostname: "localhost", port: "5173", pathname: "/" };
     expect(GenClass.init(opts).mode).toBe("guard");
   });
 

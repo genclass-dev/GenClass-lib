@@ -1,0 +1,265 @@
+{
+  "runsPerVariant": 10,
+  "runtime": "packages/runtime/dist (workspace build)",
+  "mcp": "packages/mcp/dist (workspace build)",
+  "variants": {
+    "polling": {
+      "runs": 10,
+      "patchLost": 10,
+      "overwriteMs": [
+        76,
+        30,
+        22,
+        92,
+        32,
+        68,
+        90,
+        89,
+        86,
+        96
+      ],
+      "runsWithDataWitness": 1,
+      "otherWitnesses": {
+        "overwrote-newer getItems.requestId": 4,
+        "overwrote-newer getItems.startedTimeStamp": 4,
+        "overwrote-newer getItems.status": 4
+      },
+      "consoleErrors": 0,
+      "overwritingRequest": [
+        {
+          "key": "GET /api/items#6",
+          "via": "timer 100ms",
+          "sentMs": 69,
+          "wroteMs": 76
+        },
+        {
+          "key": "GET /api/items#5",
+          "via": "timer 100ms",
+          "sentMs": 22,
+          "wroteMs": 30
+        },
+        {
+          "key": "GET /api/items#5",
+          "via": "timer 100ms",
+          "sentMs": -13,
+          "wroteMs": 21
+        },
+        {
+          "key": "GET /api/items#6",
+          "via": "timer 100ms",
+          "sentMs": 85,
+          "wroteMs": 92
+        },
+        {
+          "key": "GET /api/items#6",
+          "via": "timer 100ms",
+          "sentMs": 27,
+          "wroteMs": 33
+        },
+        {
+          "key": "GET /api/items#6",
+          "via": "timer 100ms",
+          "sentMs": 62,
+          "wroteMs": 68
+        },
+        {
+          "key": "GET /api/items#6",
+          "via": "timer 100ms",
+          "sentMs": 83,
+          "wroteMs": 90
+        },
+        {
+          "key": "GET /api/items#6",
+          "via": "timer 100ms",
+          "sentMs": 83,
+          "wroteMs": 89
+        },
+        {
+          "key": "GET /api/items#6",
+          "via": "timer 100ms",
+          "sentMs": 79,
+          "wroteMs": 87
+        },
+        {
+          "key": "GET /api/items#6",
+          "via": "timer 100ms",
+          "sentMs": 88,
+          "wroteMs": 95
+        }
+      ]
+    },
+    "focus": {
+      "runs": 10,
+      "patchLost": 10,
+      "overwriteMs": [
+        347,
+        524,
+        359,
+        348,
+        343,
+        346,
+        350,
+        353,
+        354,
+        354
+      ],
+      "runsWithDataWitness": 0,
+      "otherWitnesses": {
+        "overwrote-newer getItems.status": 10
+      },
+      "consoleErrors": 0,
+      "overwritingRequest": [
+        {
+          "key": "GET /api/items#2",
+          "via": null,
+          "sentMs": 338,
+          "wroteMs": 348
+        },
+        {
+          "key": "GET /api/items#2",
+          "via": null,
+          "sentMs": 482,
+          "wroteMs": 524
+        },
+        {
+          "key": "GET /api/items#2",
+          "via": null,
+          "sentMs": 351,
+          "wroteMs": 360
+        },
+        {
+          "key": "GET /api/items#2",
+          "via": null,
+          "sentMs": 337,
+          "wroteMs": 348
+        },
+        {
+          "key": "GET /api/items#2",
+          "via": null,
+          "sentMs": 335,
+          "wroteMs": 344
+        },
+        {
+          "key": "GET /api/items#2",
+          "via": null,
+          "sentMs": 338,
+          "wroteMs": 346
+        },
+        {
+          "key": "GET /api/items#2",
+          "via": null,
+          "sentMs": 342,
+          "wroteMs": 350
+        },
+        {
+          "key": "GET /api/items#2",
+          "via": null,
+          "sentMs": 345,
+          "wroteMs": 353
+        },
+        {
+          "key": "GET /api/items#2",
+          "via": null,
+          "sentMs": 343,
+          "wroteMs": 354
+        },
+        {
+          "key": "GET /api/items#2",
+          "via": null,
+          "sentMs": 347,
+          "wroteMs": 354
+        }
+      ]
+    },
+    "polling-inflight": {
+      "runs": 10,
+      "patchLost": 10,
+      "overwriteMs": [
+        118,
+        110,
+        119,
+        128,
+        116,
+        117,
+        116,
+        121,
+        125,
+        101
+      ],
+      "runsWithDataWitness": 10,
+      "otherWitnesses": {},
+      "consoleErrors": 0,
+      "overwritingRequest": [
+        {
+          "key": "GET /api/items#5",
+          "via": "timer 100ms",
+          "sentMs": -47,
+          "wroteMs": 118
+        },
+        {
+          "key": "GET /api/items#5",
+          "via": "timer 100ms",
+          "sentMs": -52,
+          "wroteMs": 109
+        },
+        {
+          "key": "GET /api/items#5",
+          "via": "timer 100ms",
+          "sentMs": -46,
+          "wroteMs": 119
+        },
+        {
+          "key": "GET /api/items#5",
+          "via": "timer 100ms",
+          "sentMs": -38,
+          "wroteMs": 127
+        },
+        {
+          "key": "GET /api/items#5",
+          "via": "timer 100ms",
+          "sentMs": -49,
+          "wroteMs": 116
+        },
+        {
+          "key": "GET /api/items#5",
+          "via": "timer 100ms",
+          "sentMs": -50,
+          "wroteMs": 117
+        },
+        {
+          "key": "GET /api/items#5",
+          "via": "timer 100ms",
+          "sentMs": -47,
+          "wroteMs": 116
+        },
+        {
+          "key": "GET /api/items#5",
+          "via": "timer 100ms",
+          "sentMs": -43,
+          "wroteMs": 121
+        },
+        {
+          "key": "GET /api/items#5",
+          "via": "timer 100ms",
+          "sentMs": -41,
+          "wroteMs": 125
+        },
+        {
+          "key": "GET /api/items#5",
+          "via": "timer 100ms",
+          "sentMs": -66,
+          "wroteMs": 101
+        }
+      ]
+    },
+    "none": {
+      "runs": 10,
+      "patchLost": 0,
+      "overwriteMs": [],
+      "runsWithDataWitness": 0,
+      "otherWitnesses": {},
+      "consoleErrors": 0,
+      "overwritingRequest": []
+    }
+  }
+}
