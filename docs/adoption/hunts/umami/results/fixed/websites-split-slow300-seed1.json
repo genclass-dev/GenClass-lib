@@ -1,0 +1,1820 @@
+{
+  "page": "/websites",
+  "pattern": "split",
+  "parts": [
+    "sho",
+    650,
+    "p st"
+  ],
+  "typed": "shop st",
+  "keyMs": 90,
+  "slow_ms": 300,
+  "runs": 6,
+  "seed": 1,
+  "started": "2026-10-25T00:07:45.120Z",
+  "loads": [
+    {
+      "n": 1,
+      "typed": "shop st",
+      "value": "shop st",
+      "urlSearch": "shop st",
+      "oracle": {
+        "input": "pass",
+        "list": "pass",
+        "listMatchesInput": true
+      },
+      "rows": [
+        "shop stats 1",
+        "shop stats 2",
+        "shop store 1",
+        "shop store 2",
+        "shop studio 1",
+        "shop studio 2"
+      ],
+      "expectedRows": [
+        "shop stats 1",
+        "shop stats 2",
+        "shop store 1",
+        "shop store 2",
+        "shop studio 1",
+        "shop studio 2"
+      ],
+      "rsc": [
+        {
+          "url": "/websites?search=sho&page=1",
+          "status": 200
+        },
+        {
+          "url": "/websites?search=shop+st&page=1",
+          "status": 200
+        }
+      ],
+      "timeline": [
+        {
+          "t": 338,
+          "k": "replace",
+          "url": "/websites"
+        },
+        {
+          "t": 1036,
+          "k": "value",
+          "v": ""
+        },
+        {
+          "t": 1537,
+          "k": "key",
+          "v": "s"
+        },
+        {
+          "t": 1567,
+          "k": "value",
+          "v": "s"
+        },
+        {
+          "t": 1660,
+          "k": "key",
+          "v": "h"
+        },
+        {
+          "t": 1680,
+          "k": "value",
+          "v": "sh"
+        },
+        {
+          "t": 1785,
+          "k": "key",
+          "v": "o"
+        },
+        {
+          "t": 1812,
+          "k": "value",
+          "v": "sho"
+        },
+        {
+          "t": 2414,
+          "k": "rsc-start",
+          "url": "/websites?search=sho&page=1"
+        },
+        {
+          "t": 2447,
+          "k": "rsc-net",
+          "url": "/websites?search=sho&page=1"
+        },
+        {
+          "t": 2569,
+          "k": "key",
+          "v": "p"
+        },
+        {
+          "t": 2589,
+          "k": "value",
+          "v": "shop"
+        },
+        {
+          "t": 2683,
+          "k": "key",
+          "v": " "
+        },
+        {
+          "t": 2701,
+          "k": "value",
+          "v": "shop "
+        },
+        {
+          "t": 2750,
+          "k": "push",
+          "url": "/websites?search=sho&page=1"
+        },
+        {
+          "t": 2800,
+          "k": "key",
+          "v": "s"
+        },
+        {
+          "t": 2805,
+          "k": "value",
+          "v": "shop s"
+        },
+        {
+          "t": 2898,
+          "k": "key",
+          "v": "t"
+        },
+        {
+          "t": 2904,
+          "k": "value",
+          "v": "shop st"
+        },
+        {
+          "t": 3508,
+          "k": "rsc-start",
+          "url": "/websites?search=shop+st&page=1"
+        },
+        {
+          "t": 3525,
+          "k": "rsc-net",
+          "url": "/websites?search=shop+st&page=1"
+        },
+        {
+          "t": 3807,
+          "k": "push",
+          "url": "/websites?search=shop+st&page=1"
+        }
+      ],
+      "stores": [
+        "observed:react:baseUiRH",
+        "observed:react:baseUiR8",
+        "observed:react:search",
+        "observed:react:eiY",
+        "observed:react:baseUiR3",
+        "observed:react:A_2",
+        "observed:react:A_3"
+      ],
+      "genclass": {
+        "fields": {
+          "Search": "shop st"
+        },
+        "storeFields": 192,
+        "stringState": {
+          "baseUiRH.state0": "\"xl\"",
+          "baseUiR8.external2.id": "\"41e2b680-648e-4b09-bcd7-3e2b10c06264\"",
+          "baseUiR8.external2.username": "\"admin\"",
+          "baseUiR8.external2.role": "\"admin\"",
+          "baseUiR8.external2.createdAt": "\"2026-10-24T23:27:21.386Z\"",
+          "baseUiR8.external3.status": "\"success\"",
+          "baseUiR8.external3.fetchStatus": "\"idle\"",
+          "baseUiR8.external3.data.id": "\"41e2b680-648e-4b09-bcd7-3e2b10c06264\"",
+          "baseUiR8.external3.data.username": "\"admin\"",
+          "baseUiR8.external3.data.role": "\"admin\"",
+          "baseUiR8.external3.data.createdAt": "\"2026-10-24T23:27:21.386Z\"",
+          "baseUiR8.external4": "\"en-US\"",
+          "baseUiR8.external5": "\"auto\"",
+          "baseUiR8.external6.theme": "\"light\"",
+          "baseUiR8.external6.palette": "\"neutral\"",
+          "baseUiR8.state2": "\"xl\"",
+          "search.external2.id": "\"41e2b680-648e-4b09-bcd7-3e2b10c06264\"",
+          "search.external2.username": "\"admin\"",
+          "search.external2.role": "\"admin\"",
+          "search.external2.createdAt": "\"2026-10-24T23:27:21.386Z\"",
+          "search.external3.status": "\"success\"",
+          "search.external3.fetchStatus": "\"idle\"",
+          "search.external3.data.id": "\"41e2b680-648e-4b09-bcd7-3e2b10c06264\"",
+          "search.external3.data.username": "\"admin\"",
+          "search.external3.data.role": "\"admin\"",
+          "search.external3.data.createdAt": "\"2026-10-24T23:27:21.386Z\"",
+          "search.external9.status": "\"success\"",
+          "search.external9.fetchStatus": "\"idle\"",
+          "search.external9.data.orderBy": "\"name\"",
+          "search.external9.data.search": "\"shop st\"",
+          "baseUiR3.state0.renderTree.requestKey": "\"/!KG1haW4p\"",
+          "baseUiR3.state0.renderTree.segment": "\"(main)\"",
+          "baseUiR3.state0.renderTree.shellVaryPath.value": "\"/!KG1haW4p\"",
+          "baseUiR3.state0.renderTree.varyPath.value": "\"/!KG1haW4p\"",
+          "baseUiR3.state0.stateKey": "\"(main)\"",
+          "A_2.state0.renderTree.requestKey": "\"/!KG1haW4p/websites\"",
+          "A_2.state0.renderTree.segment": "\"websites\"",
+          "A_2.state0.renderTree.shellVaryPath.value": "\"/!KG1haW4p/websites\"",
+          "A_2.state0.renderTree.varyPath.value": "\"/!KG1haW4p/websites\"",
+          "A_2.state0.stateKey": "\"websites\"",
+          "A_3.state0.renderTree.requestKey": "\"/!KG1haW4p/websites/__PAGE__\"",
+          "A_3.state0.renderTree.segment": "\"__PAGE__\"",
+          "A_3.state0.renderTree.shellVaryPath.value": "\"/!KG1haW4p/websites/__PAGE__\"",
+          "A_3.state0.renderTree.varyPath.value": "\"/!KG1haW4p/websites/__PAGE__\"",
+          "A_3.state0.stateKey": "\"__PAGE__\""
+        }
+      },
+      "agent": {
+        "run": "r1",
+        "schedule": {
+          "order": "fifo",
+          "delay": {
+            "minMs": 0,
+            "maxMs": 300
+          },
+          "maxHoldMs": 1800,
+          "id": "x1",
+          "label": "baseline 1 (responses in request order)"
+        },
+        "witnesses": [],
+        "forced": 0
+      }
+    },
+    {
+      "n": 2,
+      "typed": "shop st",
+      "value": "shop st",
+      "urlSearch": "shop st",
+      "oracle": {
+        "input": "pass",
+        "list": "pass",
+        "listMatchesInput": true
+      },
+      "rows": [
+        "shop stats 1",
+        "shop stats 2",
+        "shop store 1",
+        "shop store 2",
+        "shop studio 1",
+        "shop studio 2"
+      ],
+      "expectedRows": [
+        "shop stats 1",
+        "shop stats 2",
+        "shop store 1",
+        "shop store 2",
+        "shop studio 1",
+        "shop studio 2"
+      ],
+      "rsc": [
+        {
+          "url": "/websites?search=sho&page=1",
+          "status": 200
+        },
+        {
+          "url": "/websites?search=shop+st&page=1",
+          "status": 200
+        }
+      ],
+      "timeline": [
+        {
+          "t": 297,
+          "k": "replace",
+          "url": "/websites"
+        },
+        {
+          "t": 1089,
+          "k": "value",
+          "v": ""
+        },
+        {
+          "t": 1615,
+          "k": "key",
+          "v": "s"
+        },
+        {
+          "t": 1662,
+          "k": "value",
+          "v": "s"
+        },
+        {
+          "t": 1755,
+          "k": "key",
+          "v": "h"
+        },
+        {
+          "t": 1788,
+          "k": "value",
+          "v": "sh"
+        },
+        {
+          "t": 1880,
+          "k": "key",
+          "v": "o"
+        },
+        {
+          "t": 1901,
+          "k": "value",
+          "v": "sho"
+        },
+        {
+          "t": 2505,
+          "k": "rsc-start",
+          "url": "/websites?search=sho&page=1"
+        },
+        {
+          "t": 2527,
+          "k": "rsc-net",
+          "url": "/websites?search=sho&page=1"
+        },
+        {
+          "t": 2669,
+          "k": "key",
+          "v": "p"
+        },
+        {
+          "t": 2697,
+          "k": "value",
+          "v": "shop"
+        },
+        {
+          "t": 2794,
+          "k": "key",
+          "v": " "
+        },
+        {
+          "t": 2819,
+          "k": "value",
+          "v": "shop "
+        },
+        {
+          "t": 2831,
+          "k": "push",
+          "url": "/websites?search=sho&page=1"
+        },
+        {
+          "t": 2912,
+          "k": "key",
+          "v": "s"
+        },
+        {
+          "t": 2919,
+          "k": "value",
+          "v": "shop s"
+        },
+        {
+          "t": 3007,
+          "k": "key",
+          "v": "t"
+        },
+        {
+          "t": 3020,
+          "k": "value",
+          "v": "shop st"
+        },
+        {
+          "t": 3612,
+          "k": "rsc-start",
+          "url": "/websites?search=shop+st&page=1"
+        },
+        {
+          "t": 3635,
+          "k": "rsc-net",
+          "url": "/websites?search=shop+st&page=1"
+        },
+        {
+          "t": 3925,
+          "k": "push",
+          "url": "/websites?search=shop+st&page=1"
+        }
+      ],
+      "stores": [
+        "observed:react:search",
+        "observed:react:eiY",
+        "observed:react:baseUiR3",
+        "observed:react:A_2",
+        "observed:react:A_3"
+      ],
+      "genclass": {
+        "fields": {
+          "Search": "shop st"
+        },
+        "storeFields": 140,
+        "stringState": {
+          "search.external2.id": "\"41e2b680-648e-4b09-bcd7-3e2b10c06264\"",
+          "search.external2.username": "\"admin\"",
+          "search.external2.role": "\"admin\"",
+          "search.external2.createdAt": "\"2026-10-24T23:27:21.386Z\"",
+          "search.external3.status": "\"success\"",
+          "search.external3.fetchStatus": "\"idle\"",
+          "search.external3.data.id": "\"41e2b680-648e-4b09-bcd7-3e2b10c06264\"",
+          "search.external3.data.username": "\"admin\"",
+          "search.external3.data.role": "\"admin\"",
+          "search.external3.data.createdAt": "\"2026-10-24T23:27:21.386Z\"",
+          "search.external9.status": "\"success\"",
+          "search.external9.fetchStatus": "\"idle\"",
+          "search.external9.data.orderBy": "\"name\"",
+          "search.external9.data.search": "\"shop st\"",
+          "baseUiR3.state0.renderTree.requestKey": "\"/!KG1haW4p\"",
+          "baseUiR3.state0.renderTree.segment": "\"(main)\"",
+          "baseUiR3.state0.renderTree.shellVaryPath.value": "\"/!KG1haW4p\"",
+          "baseUiR3.state0.renderTree.varyPath.value": "\"/!KG1haW4p\"",
+          "baseUiR3.state0.stateKey": "\"(main)\"",
+          "A_2.state0.renderTree.requestKey": "\"/!KG1haW4p/websites\"",
+          "A_2.state0.renderTree.segment": "\"websites\"",
+          "A_2.state0.renderTree.shellVaryPath.value": "\"/!KG1haW4p/websites\"",
+          "A_2.state0.renderTree.varyPath.value": "\"/!KG1haW4p/websites\"",
+          "A_2.state0.stateKey": "\"websites\"",
+          "A_3.state0.renderTree.requestKey": "\"/!KG1haW4p/websites/__PAGE__\"",
+          "A_3.state0.renderTree.segment": "\"__PAGE__\"",
+          "A_3.state0.renderTree.shellVaryPath.value": "\"/!KG1haW4p/websites/__PAGE__\"",
+          "A_3.state0.renderTree.varyPath.value": "\"/!KG1haW4p/websites/__PAGE__\"",
+          "A_3.state0.stateKey": "\"__PAGE__\""
+        }
+      },
+      "agent": {
+        "run": "r2",
+        "schedule": {
+          "order": "fifo",
+          "delay": {
+            "minMs": 0,
+            "maxMs": 300
+          },
+          "maxHoldMs": 1800,
+          "id": "x1",
+          "label": "baseline 2 (responses in request order)"
+        },
+        "witnesses": [],
+        "forced": 0
+      }
+    },
+    {
+      "n": 3,
+      "typed": "shop st",
+      "value": "shop st",
+      "urlSearch": "shop st",
+      "oracle": {
+        "input": "pass",
+        "list": "pass",
+        "listMatchesInput": true
+      },
+      "rows": [
+        "shop stats 1",
+        "shop stats 2",
+        "shop store 1",
+        "shop store 2",
+        "shop studio 1",
+        "shop studio 2"
+      ],
+      "expectedRows": [
+        "shop stats 1",
+        "shop stats 2",
+        "shop store 1",
+        "shop store 2",
+        "shop studio 1",
+        "shop studio 2"
+      ],
+      "rsc": [
+        {
+          "url": "/websites?search=sho&page=1",
+          "status": 200
+        },
+        {
+          "url": "/websites?search=shop+st&page=1",
+          "status": 200
+        }
+      ],
+      "timeline": [
+        {
+          "t": 410,
+          "k": "replace",
+          "url": "/websites"
+        },
+        {
+          "t": 1107,
+          "k": "value",
+          "v": ""
+        },
+        {
+          "t": 1915,
+          "k": "key",
+          "v": "s"
+        },
+        {
+          "t": 1954,
+          "k": "value",
+          "v": "s"
+        },
+        {
+          "t": 2051,
+          "k": "key",
+          "v": "h"
+        },
+        {
+          "t": 2077,
+          "k": "value",
+          "v": "sh"
+        },
+        {
+          "t": 2171,
+          "k": "key",
+          "v": "o"
+        },
+        {
+          "t": 2194,
+          "k": "value",
+          "v": "sho"
+        },
+        {
+          "t": 2799,
+          "k": "rsc-start",
+          "url": "/websites?search=sho&page=1"
+        },
+        {
+          "t": 2815,
+          "k": "rsc-net",
+          "url": "/websites?search=sho&page=1"
+        },
+        {
+          "t": 2953,
+          "k": "key",
+          "v": "p"
+        },
+        {
+          "t": 2997,
+          "k": "value",
+          "v": "shop"
+        },
+        {
+          "t": 3048,
+          "k": "push",
+          "url": "/websites?search=sho&page=1"
+        },
+        {
+          "t": 3097,
+          "k": "key",
+          "v": " "
+        },
+        {
+          "t": 3101,
+          "k": "value",
+          "v": "shop "
+        },
+        {
+          "t": 3193,
+          "k": "key",
+          "v": "s"
+        },
+        {
+          "t": 3208,
+          "k": "value",
+          "v": "shop s"
+        },
+        {
+          "t": 3301,
+          "k": "key",
+          "v": "t"
+        },
+        {
+          "t": 3324,
+          "k": "value",
+          "v": "shop st"
+        },
+        {
+          "t": 3906,
+          "k": "rsc-start",
+          "url": "/websites?search=shop+st&page=1"
+        },
+        {
+          "t": 3928,
+          "k": "rsc-net",
+          "url": "/websites?search=shop+st&page=1"
+        },
+        {
+          "t": 4617,
+          "k": "push",
+          "url": "/websites?search=shop+st&page=1"
+        }
+      ],
+      "stores": [
+        "observed:react:baseUiRH",
+        "observed:react:baseUiR8",
+        "observed:react:search",
+        "observed:react:eiY",
+        "observed:react:baseUiR3",
+        "observed:react:A_2",
+        "observed:react:A_3"
+      ],
+      "genclass": {
+        "fields": {
+          "Search": "shop st"
+        },
+        "storeFields": 192,
+        "stringState": {
+          "baseUiRH.state0": "\"xl\"",
+          "baseUiR8.external2.id": "\"41e2b680-648e-4b09-bcd7-3e2b10c06264\"",
+          "baseUiR8.external2.username": "\"admin\"",
+          "baseUiR8.external2.role": "\"admin\"",
+          "baseUiR8.external2.createdAt": "\"2026-10-24T23:27:21.386Z\"",
+          "baseUiR8.external3.status": "\"success\"",
+          "baseUiR8.external3.fetchStatus": "\"idle\"",
+          "baseUiR8.external3.data.id": "\"41e2b680-648e-4b09-bcd7-3e2b10c06264\"",
+          "baseUiR8.external3.data.username": "\"admin\"",
+          "baseUiR8.external3.data.role": "\"admin\"",
+          "baseUiR8.external3.data.createdAt": "\"2026-10-24T23:27:21.386Z\"",
+          "baseUiR8.external4": "\"en-US\"",
+          "baseUiR8.external5": "\"auto\"",
+          "baseUiR8.external6.theme": "\"light\"",
+          "baseUiR8.external6.palette": "\"neutral\"",
+          "baseUiR8.state2": "\"xl\"",
+          "search.external2.id": "\"41e2b680-648e-4b09-bcd7-3e2b10c06264\"",
+          "search.external2.username": "\"admin\"",
+          "search.external2.role": "\"admin\"",
+          "search.external2.createdAt": "\"2026-10-24T23:27:21.386Z\"",
+          "search.external3.status": "\"success\"",
+          "search.external3.fetchStatus": "\"idle\"",
+          "search.external3.data.id": "\"41e2b680-648e-4b09-bcd7-3e2b10c06264\"",
+          "search.external3.data.username": "\"admin\"",
+          "search.external3.data.role": "\"admin\"",
+          "search.external3.data.createdAt": "\"2026-10-24T23:27:21.386Z\"",
+          "search.external9.status": "\"success\"",
+          "search.external9.fetchStatus": "\"idle\"",
+          "search.external9.data.orderBy": "\"name\"",
+          "search.external9.data.search": "\"shop st\"",
+          "baseUiR3.state0.renderTree.requestKey": "\"/!KG1haW4p\"",
+          "baseUiR3.state0.renderTree.segment": "\"(main)\"",
+          "baseUiR3.state0.renderTree.shellVaryPath.value": "\"/!KG1haW4p\"",
+          "baseUiR3.state0.renderTree.varyPath.value": "\"/!KG1haW4p\"",
+          "baseUiR3.state0.stateKey": "\"(main)\"",
+          "A_2.state0.renderTree.requestKey": "\"/!KG1haW4p/websites\"",
+          "A_2.state0.renderTree.segment": "\"websites\"",
+          "A_2.state0.renderTree.shellVaryPath.value": "\"/!KG1haW4p/websites\"",
+          "A_2.state0.renderTree.varyPath.value": "\"/!KG1haW4p/websites\"",
+          "A_2.state0.stateKey": "\"websites\"",
+          "A_3.state0.renderTree.requestKey": "\"/!KG1haW4p/websites/__PAGE__\"",
+          "A_3.state0.renderTree.segment": "\"__PAGE__\"",
+          "A_3.state0.renderTree.shellVaryPath.value": "\"/!KG1haW4p/websites/__PAGE__\"",
+          "A_3.state0.renderTree.varyPath.value": "\"/!KG1haW4p/websites/__PAGE__\"",
+          "A_3.state0.stateKey": "\"__PAGE__\""
+        }
+      },
+      "agent": {
+        "run": "r3",
+        "schedule": {
+          "order": "seeded",
+          "seed": 1,
+          "delay": {
+            "minMs": 0,
+            "maxMs": 300
+          },
+          "maxHoldMs": 1800,
+          "id": "x1",
+          "label": "seed 1"
+        },
+        "witnesses": [],
+        "forced": 6
+      }
+    },
+    {
+      "n": 4,
+      "typed": "shop st",
+      "value": "shop st",
+      "urlSearch": "shop st",
+      "oracle": {
+        "input": "pass",
+        "list": "pass",
+        "listMatchesInput": true
+      },
+      "rows": [
+        "shop stats 1",
+        "shop stats 2",
+        "shop store 1",
+        "shop store 2",
+        "shop studio 1",
+        "shop studio 2"
+      ],
+      "expectedRows": [
+        "shop stats 1",
+        "shop stats 2",
+        "shop store 1",
+        "shop store 2",
+        "shop studio 1",
+        "shop studio 2"
+      ],
+      "rsc": [
+        {
+          "url": "/websites?search=sho&page=1",
+          "status": 200
+        },
+        {
+          "url": "/websites?search=shop+st&page=1",
+          "status": 200
+        }
+      ],
+      "timeline": [
+        {
+          "t": 278,
+          "k": "replace",
+          "url": "/websites"
+        },
+        {
+          "t": 943,
+          "k": "value",
+          "v": ""
+        },
+        {
+          "t": 1519,
+          "k": "key",
+          "v": "s"
+        },
+        {
+          "t": 1559,
+          "k": "value",
+          "v": "s"
+        },
+        {
+          "t": 1650,
+          "k": "key",
+          "v": "h"
+        },
+        {
+          "t": 1683,
+          "k": "value",
+          "v": "sh"
+        },
+        {
+          "t": 1776,
+          "k": "key",
+          "v": "o"
+        },
+        {
+          "t": 1804,
+          "k": "value",
+          "v": "sho"
+        },
+        {
+          "t": 2409,
+          "k": "rsc-start",
+          "url": "/websites?search=sho&page=1"
+        },
+        {
+          "t": 2434,
+          "k": "rsc-net",
+          "url": "/websites?search=sho&page=1"
+        },
+        {
+          "t": 2482,
+          "k": "push",
+          "url": "/websites?search=sho&page=1"
+        },
+        {
+          "t": 2559,
+          "k": "key",
+          "v": "p"
+        },
+        {
+          "t": 2571,
+          "k": "value",
+          "v": "shop"
+        },
+        {
+          "t": 2656,
+          "k": "key",
+          "v": " "
+        },
+        {
+          "t": 2671,
+          "k": "value",
+          "v": "shop "
+        },
+        {
+          "t": 2765,
+          "k": "key",
+          "v": "s"
+        },
+        {
+          "t": 2778,
+          "k": "value",
+          "v": "shop s"
+        },
+        {
+          "t": 2877,
+          "k": "key",
+          "v": "t"
+        },
+        {
+          "t": 2896,
+          "k": "value",
+          "v": "shop st"
+        },
+        {
+          "t": 3496,
+          "k": "rsc-start",
+          "url": "/websites?search=shop+st&page=1"
+        },
+        {
+          "t": 3516,
+          "k": "rsc-net",
+          "url": "/websites?search=shop+st&page=1"
+        },
+        {
+          "t": 3780,
+          "k": "push",
+          "url": "/websites?search=shop+st&page=1"
+        }
+      ],
+      "stores": [
+        "observed:react:baseUiRH",
+        "observed:react:baseUiR8",
+        "observed:react:search",
+        "observed:react:eiY",
+        "observed:react:baseUiR3",
+        "observed:react:A_2",
+        "observed:react:A_3"
+      ],
+      "genclass": {
+        "fields": {
+          "Search": "shop st"
+        },
+        "storeFields": 192,
+        "stringState": {
+          "baseUiRH.state0": "\"xl\"",
+          "baseUiR8.external2.id": "\"41e2b680-648e-4b09-bcd7-3e2b10c06264\"",
+          "baseUiR8.external2.username": "\"admin\"",
+          "baseUiR8.external2.role": "\"admin\"",
+          "baseUiR8.external2.createdAt": "\"2026-10-24T23:27:21.386Z\"",
+          "baseUiR8.external3.status": "\"success\"",
+          "baseUiR8.external3.fetchStatus": "\"idle\"",
+          "baseUiR8.external3.data.id": "\"41e2b680-648e-4b09-bcd7-3e2b10c06264\"",
+          "baseUiR8.external3.data.username": "\"admin\"",
+          "baseUiR8.external3.data.role": "\"admin\"",
+          "baseUiR8.external3.data.createdAt": "\"2026-10-24T23:27:21.386Z\"",
+          "baseUiR8.external4": "\"en-US\"",
+          "baseUiR8.external5": "\"auto\"",
+          "baseUiR8.external6.theme": "\"light\"",
+          "baseUiR8.external6.palette": "\"neutral\"",
+          "baseUiR8.state2": "\"xl\"",
+          "search.external2.id": "\"41e2b680-648e-4b09-bcd7-3e2b10c06264\"",
+          "search.external2.username": "\"admin\"",
+          "search.external2.role": "\"admin\"",
+          "search.external2.createdAt": "\"2026-10-24T23:27:21.386Z\"",
+          "search.external3.status": "\"success\"",
+          "search.external3.fetchStatus": "\"idle\"",
+          "search.external3.data.id": "\"41e2b680-648e-4b09-bcd7-3e2b10c06264\"",
+          "search.external3.data.username": "\"admin\"",
+          "search.external3.data.role": "\"admin\"",
+          "search.external3.data.createdAt": "\"2026-10-24T23:27:21.386Z\"",
+          "search.external9.status": "\"success\"",
+          "search.external9.fetchStatus": "\"idle\"",
+          "search.external9.data.orderBy": "\"name\"",
+          "search.external9.data.search": "\"shop st\"",
+          "baseUiR3.state0.renderTree.requestKey": "\"/!KG1haW4p\"",
+          "baseUiR3.state0.renderTree.segment": "\"(main)\"",
+          "baseUiR3.state0.renderTree.shellVaryPath.value": "\"/!KG1haW4p\"",
+          "baseUiR3.state0.renderTree.varyPath.value": "\"/!KG1haW4p\"",
+          "baseUiR3.state0.stateKey": "\"(main)\"",
+          "A_2.state0.renderTree.requestKey": "\"/!KG1haW4p/websites\"",
+          "A_2.state0.renderTree.segment": "\"websites\"",
+          "A_2.state0.renderTree.shellVaryPath.value": "\"/!KG1haW4p/websites\"",
+          "A_2.state0.renderTree.varyPath.value": "\"/!KG1haW4p/websites\"",
+          "A_2.state0.stateKey": "\"websites\"",
+          "A_3.state0.renderTree.requestKey": "\"/!KG1haW4p/websites/__PAGE__\"",
+          "A_3.state0.renderTree.segment": "\"__PAGE__\"",
+          "A_3.state0.renderTree.shellVaryPath.value": "\"/!KG1haW4p/websites/__PAGE__\"",
+          "A_3.state0.renderTree.varyPath.value": "\"/!KG1haW4p/websites/__PAGE__\"",
+          "A_3.state0.stateKey": "\"__PAGE__\""
+        }
+      },
+      "agent": {
+        "run": "r4",
+        "schedule": {
+          "order": "seeded",
+          "seed": 2,
+          "delay": {
+            "minMs": 0,
+            "maxMs": 300
+          },
+          "maxHoldMs": 1800,
+          "id": "x1",
+          "label": "seed 2"
+        },
+        "witnesses": [],
+        "forced": 6
+      }
+    },
+    {
+      "n": 5,
+      "typed": "shop st",
+      "value": "shop st",
+      "urlSearch": "shop st",
+      "oracle": {
+        "input": "pass",
+        "list": "pass",
+        "listMatchesInput": true
+      },
+      "rows": [
+        "shop stats 1",
+        "shop stats 2",
+        "shop store 1",
+        "shop store 2",
+        "shop studio 1",
+        "shop studio 2"
+      ],
+      "expectedRows": [
+        "shop stats 1",
+        "shop stats 2",
+        "shop store 1",
+        "shop store 2",
+        "shop studio 1",
+        "shop studio 2"
+      ],
+      "rsc": [
+        {
+          "url": "/websites?search=sho&page=1",
+          "status": 200
+        },
+        {
+          "url": "/websites?search=shop+st&page=1",
+          "status": 200
+        }
+      ],
+      "timeline": [
+        {
+          "t": 291,
+          "k": "replace",
+          "url": "/websites"
+        },
+        {
+          "t": 701,
+          "k": "value",
+          "v": ""
+        },
+        {
+          "t": 2005,
+          "k": "key",
+          "v": "s"
+        },
+        {
+          "t": 2044,
+          "k": "value",
+          "v": "s"
+        },
+        {
+          "t": 2138,
+          "k": "key",
+          "v": "h"
+        },
+        {
+          "t": 2160,
+          "k": "value",
+          "v": "sh"
+        },
+        {
+          "t": 2255,
+          "k": "key",
+          "v": "o"
+        },
+        {
+          "t": 2280,
+          "k": "value",
+          "v": "sho"
+        },
+        {
+          "t": 2885,
+          "k": "rsc-start",
+          "url": "/websites?search=sho&page=1"
+        },
+        {
+          "t": 2916,
+          "k": "rsc-net",
+          "url": "/websites?search=sho&page=1"
+        },
+        {
+          "t": 3042,
+          "k": "key",
+          "v": "p"
+        },
+        {
+          "t": 3069,
+          "k": "value",
+          "v": "shop"
+        },
+        {
+          "t": 3082,
+          "k": "push",
+          "url": "/websites?search=sho&page=1"
+        },
+        {
+          "t": 3164,
+          "k": "key",
+          "v": " "
+        },
+        {
+          "t": 3168,
+          "k": "value",
+          "v": "shop "
+        },
+        {
+          "t": 3261,
+          "k": "key",
+          "v": "s"
+        },
+        {
+          "t": 3266,
+          "k": "value",
+          "v": "shop s"
+        },
+        {
+          "t": 3361,
+          "k": "key",
+          "v": "t"
+        },
+        {
+          "t": 3381,
+          "k": "value",
+          "v": "shop st"
+        },
+        {
+          "t": 3983,
+          "k": "rsc-start",
+          "url": "/websites?search=shop+st&page=1"
+        },
+        {
+          "t": 4010,
+          "k": "rsc-net",
+          "url": "/websites?search=shop+st&page=1"
+        },
+        {
+          "t": 4293,
+          "k": "push",
+          "url": "/websites?search=shop+st&page=1"
+        }
+      ],
+      "stores": [
+        "observed:react:baseUiRH",
+        "observed:react:baseUiR8",
+        "observed:react:search",
+        "observed:react:eiY",
+        "observed:react:baseUiR3",
+        "observed:react:A_2",
+        "observed:react:A_3"
+      ],
+      "genclass": {
+        "fields": {
+          "Search": "shop st"
+        },
+        "storeFields": 192,
+        "stringState": {
+          "baseUiRH.state0": "\"xl\"",
+          "baseUiR8.external2.id": "\"41e2b680-648e-4b09-bcd7-3e2b10c06264\"",
+          "baseUiR8.external2.username": "\"admin\"",
+          "baseUiR8.external2.role": "\"admin\"",
+          "baseUiR8.external2.createdAt": "\"2026-10-24T23:27:21.386Z\"",
+          "baseUiR8.external3.status": "\"success\"",
+          "baseUiR8.external3.fetchStatus": "\"idle\"",
+          "baseUiR8.external3.data.id": "\"41e2b680-648e-4b09-bcd7-3e2b10c06264\"",
+          "baseUiR8.external3.data.username": "\"admin\"",
+          "baseUiR8.external3.data.role": "\"admin\"",
+          "baseUiR8.external3.data.createdAt": "\"2026-10-24T23:27:21.386Z\"",
+          "baseUiR8.external4": "\"en-US\"",
+          "baseUiR8.external5": "\"auto\"",
+          "baseUiR8.external6.theme": "\"light\"",
+          "baseUiR8.external6.palette": "\"neutral\"",
+          "baseUiR8.state2": "\"xl\"",
+          "search.external2.id": "\"41e2b680-648e-4b09-bcd7-3e2b10c06264\"",
+          "search.external2.username": "\"admin\"",
+          "search.external2.role": "\"admin\"",
+          "search.external2.createdAt": "\"2026-10-24T23:27:21.386Z\"",
+          "search.external3.status": "\"success\"",
+          "search.external3.fetchStatus": "\"idle\"",
+          "search.external3.data.id": "\"41e2b680-648e-4b09-bcd7-3e2b10c06264\"",
+          "search.external3.data.username": "\"admin\"",
+          "search.external3.data.role": "\"admin\"",
+          "search.external3.data.createdAt": "\"2026-10-24T23:27:21.386Z\"",
+          "search.external9.status": "\"success\"",
+          "search.external9.fetchStatus": "\"idle\"",
+          "search.external9.data.orderBy": "\"name\"",
+          "search.external9.data.search": "\"shop st\"",
+          "baseUiR3.state0.renderTree.requestKey": "\"/!KG1haW4p\"",
+          "baseUiR3.state0.renderTree.segment": "\"(main)\"",
+          "baseUiR3.state0.renderTree.shellVaryPath.value": "\"/!KG1haW4p\"",
+          "baseUiR3.state0.renderTree.varyPath.value": "\"/!KG1haW4p\"",
+          "baseUiR3.state0.stateKey": "\"(main)\"",
+          "A_2.state0.renderTree.requestKey": "\"/!KG1haW4p/websites\"",
+          "A_2.state0.renderTree.segment": "\"websites\"",
+          "A_2.state0.renderTree.shellVaryPath.value": "\"/!KG1haW4p/websites\"",
+          "A_2.state0.renderTree.varyPath.value": "\"/!KG1haW4p/websites\"",
+          "A_2.state0.stateKey": "\"websites\"",
+          "A_3.state0.renderTree.requestKey": "\"/!KG1haW4p/websites/__PAGE__\"",
+          "A_3.state0.renderTree.segment": "\"__PAGE__\"",
+          "A_3.state0.renderTree.shellVaryPath.value": "\"/!KG1haW4p/websites/__PAGE__\"",
+          "A_3.state0.renderTree.varyPath.value": "\"/!KG1haW4p/websites/__PAGE__\"",
+          "A_3.state0.stateKey": "\"__PAGE__\""
+        }
+      },
+      "agent": {
+        "run": "r5",
+        "schedule": {
+          "order": "seeded",
+          "seed": 3,
+          "delay": {
+            "minMs": 0,
+            "maxMs": 300
+          },
+          "maxHoldMs": 1800,
+          "id": "x1",
+          "label": "seed 3"
+        },
+        "witnesses": [],
+        "forced": 6
+      }
+    },
+    {
+      "n": 6,
+      "typed": "shop st",
+      "value": "shop st",
+      "urlSearch": "shop st",
+      "oracle": {
+        "input": "pass",
+        "list": "pass",
+        "listMatchesInput": true
+      },
+      "rows": [
+        "shop stats 1",
+        "shop stats 2",
+        "shop store 1",
+        "shop store 2",
+        "shop studio 1",
+        "shop studio 2"
+      ],
+      "expectedRows": [
+        "shop stats 1",
+        "shop stats 2",
+        "shop store 1",
+        "shop store 2",
+        "shop studio 1",
+        "shop studio 2"
+      ],
+      "rsc": [
+        {
+          "url": "/websites?search=sho&page=1",
+          "status": 200
+        },
+        {
+          "url": "/websites?search=shop+st&page=1",
+          "status": 200
+        }
+      ],
+      "timeline": [
+        {
+          "t": 353,
+          "k": "replace",
+          "url": "/websites"
+        },
+        {
+          "t": 914,
+          "k": "value",
+          "v": ""
+        },
+        {
+          "t": 2135,
+          "k": "key",
+          "v": "s"
+        },
+        {
+          "t": 2171,
+          "k": "value",
+          "v": "s"
+        },
+        {
+          "t": 2265,
+          "k": "key",
+          "v": "h"
+        },
+        {
+          "t": 2283,
+          "k": "value",
+          "v": "sh"
+        },
+        {
+          "t": 2375,
+          "k": "key",
+          "v": "o"
+        },
+        {
+          "t": 2399,
+          "k": "value",
+          "v": "sho"
+        },
+        {
+          "t": 3013,
+          "k": "rsc-start",
+          "url": "/websites?search=sho&page=1"
+        },
+        {
+          "t": 3034,
+          "k": "rsc-net",
+          "url": "/websites?search=sho&page=1"
+        },
+        {
+          "t": 3151,
+          "k": "key",
+          "v": "p"
+        },
+        {
+          "t": 3182,
+          "k": "value",
+          "v": "shop"
+        },
+        {
+          "t": 3277,
+          "k": "key",
+          "v": " "
+        },
+        {
+          "t": 3297,
+          "k": "value",
+          "v": "shop "
+        },
+        {
+          "t": 3394,
+          "k": "key",
+          "v": "s"
+        },
+        {
+          "t": 3427,
+          "k": "value",
+          "v": "shop s"
+        },
+        {
+          "t": 3523,
+          "k": "key",
+          "v": "t"
+        },
+        {
+          "t": 3555,
+          "k": "value",
+          "v": "shop st"
+        },
+        {
+          "t": 4156,
+          "k": "rsc-start",
+          "url": "/websites?search=shop+st&page=1"
+        },
+        {
+          "t": 4180,
+          "k": "rsc-net",
+          "url": "/websites?search=shop+st&page=1"
+        },
+        {
+          "t": 4399,
+          "k": "push",
+          "url": "/websites?search=shop+st&page=1"
+        }
+      ],
+      "stores": [
+        "observed:react:baseUiRH",
+        "observed:react:baseUiR8",
+        "observed:react:search",
+        "observed:react:eiY",
+        "observed:react:baseUiR3",
+        "observed:react:A_2",
+        "observed:react:A_3"
+      ],
+      "genclass": {
+        "fields": {
+          "Search": "shop st"
+        },
+        "storeFields": 192,
+        "stringState": {
+          "baseUiRH.state0": "\"xl\"",
+          "baseUiR8.external2.id": "\"41e2b680-648e-4b09-bcd7-3e2b10c06264\"",
+          "baseUiR8.external2.username": "\"admin\"",
+          "baseUiR8.external2.role": "\"admin\"",
+          "baseUiR8.external2.createdAt": "\"2026-10-24T23:27:21.386Z\"",
+          "baseUiR8.external3.status": "\"success\"",
+          "baseUiR8.external3.fetchStatus": "\"idle\"",
+          "baseUiR8.external3.data.id": "\"41e2b680-648e-4b09-bcd7-3e2b10c06264\"",
+          "baseUiR8.external3.data.username": "\"admin\"",
+          "baseUiR8.external3.data.role": "\"admin\"",
+          "baseUiR8.external3.data.createdAt": "\"2026-10-24T23:27:21.386Z\"",
+          "baseUiR8.external4": "\"en-US\"",
+          "baseUiR8.external5": "\"auto\"",
+          "baseUiR8.external6.theme": "\"light\"",
+          "baseUiR8.external6.palette": "\"neutral\"",
+          "baseUiR8.state2": "\"xl\"",
+          "search.external2.id": "\"41e2b680-648e-4b09-bcd7-3e2b10c06264\"",
+          "search.external2.username": "\"admin\"",
+          "search.external2.role": "\"admin\"",
+          "search.external2.createdAt": "\"2026-10-24T23:27:21.386Z\"",
+          "search.external3.status": "\"success\"",
+          "search.external3.fetchStatus": "\"idle\"",
+          "search.external3.data.id": "\"41e2b680-648e-4b09-bcd7-3e2b10c06264\"",
+          "search.external3.data.username": "\"admin\"",
+          "search.external3.data.role": "\"admin\"",
+          "search.external3.data.createdAt": "\"2026-10-24T23:27:21.386Z\"",
+          "search.external9.status": "\"success\"",
+          "search.external9.fetchStatus": "\"idle\"",
+          "search.external9.data.orderBy": "\"name\"",
+          "search.external9.data.search": "\"shop st\"",
+          "baseUiR3.state0.renderTree.requestKey": "\"/!KG1haW4p\"",
+          "baseUiR3.state0.renderTree.segment": "\"(main)\"",
+          "baseUiR3.state0.renderTree.shellVaryPath.value": "\"/!KG1haW4p\"",
+          "baseUiR3.state0.renderTree.varyPath.value": "\"/!KG1haW4p\"",
+          "baseUiR3.state0.stateKey": "\"(main)\"",
+          "A_2.state0.renderTree.requestKey": "\"/!KG1haW4p/websites\"",
+          "A_2.state0.renderTree.segment": "\"websites\"",
+          "A_2.state0.renderTree.shellVaryPath.value": "\"/!KG1haW4p/websites\"",
+          "A_2.state0.renderTree.varyPath.value": "\"/!KG1haW4p/websites\"",
+          "A_2.state0.stateKey": "\"websites\"",
+          "A_3.state0.renderTree.requestKey": "\"/!KG1haW4p/websites/__PAGE__\"",
+          "A_3.state0.renderTree.segment": "\"__PAGE__\"",
+          "A_3.state0.renderTree.shellVaryPath.value": "\"/!KG1haW4p/websites/__PAGE__\"",
+          "A_3.state0.renderTree.varyPath.value": "\"/!KG1haW4p/websites/__PAGE__\"",
+          "A_3.state0.stateKey": "\"__PAGE__\""
+        }
+      },
+      "agent": {
+        "run": "r6",
+        "schedule": {
+          "order": "seeded",
+          "seed": 4,
+          "delay": {
+            "minMs": 0,
+            "maxMs": 300
+          },
+          "maxHoldMs": 1800,
+          "id": "x1",
+          "label": "seed 4"
+        },
+        "witnesses": [],
+        "forced": 6
+      }
+    },
+    {
+      "n": 7,
+      "typed": "shop st",
+      "value": "shop st",
+      "urlSearch": "shop st",
+      "oracle": {
+        "input": "pass",
+        "list": "pass",
+        "listMatchesInput": true
+      },
+      "rows": [
+        "shop stats 1",
+        "shop stats 2",
+        "shop store 1",
+        "shop store 2",
+        "shop studio 1",
+        "shop studio 2"
+      ],
+      "expectedRows": [
+        "shop stats 1",
+        "shop stats 2",
+        "shop store 1",
+        "shop store 2",
+        "shop studio 1",
+        "shop studio 2"
+      ],
+      "rsc": [
+        {
+          "url": "/websites?search=sho&page=1",
+          "status": 200
+        },
+        {
+          "url": "/websites?search=shop+st&page=1",
+          "status": 200
+        }
+      ],
+      "timeline": [
+        {
+          "t": 255,
+          "k": "replace",
+          "url": "/websites"
+        },
+        {
+          "t": 723,
+          "k": "value",
+          "v": ""
+        },
+        {
+          "t": 1543,
+          "k": "key",
+          "v": "s"
+        },
+        {
+          "t": 1565,
+          "k": "value",
+          "v": "s"
+        },
+        {
+          "t": 1659,
+          "k": "key",
+          "v": "h"
+        },
+        {
+          "t": 1679,
+          "k": "value",
+          "v": "sh"
+        },
+        {
+          "t": 1772,
+          "k": "key",
+          "v": "o"
+        },
+        {
+          "t": 1792,
+          "k": "value",
+          "v": "sho"
+        },
+        {
+          "t": 2395,
+          "k": "rsc-start",
+          "url": "/websites?search=sho&page=1"
+        },
+        {
+          "t": 2411,
+          "k": "rsc-net",
+          "url": "/websites?search=sho&page=1"
+        },
+        {
+          "t": 2550,
+          "k": "key",
+          "v": "p"
+        },
+        {
+          "t": 2571,
+          "k": "value",
+          "v": "shop"
+        },
+        {
+          "t": 2581,
+          "k": "push",
+          "url": "/websites?search=sho&page=1"
+        },
+        {
+          "t": 2664,
+          "k": "key",
+          "v": " "
+        },
+        {
+          "t": 2672,
+          "k": "value",
+          "v": "shop "
+        },
+        {
+          "t": 2761,
+          "k": "key",
+          "v": "s"
+        },
+        {
+          "t": 2772,
+          "k": "value",
+          "v": "shop s"
+        },
+        {
+          "t": 2857,
+          "k": "key",
+          "v": "t"
+        },
+        {
+          "t": 2872,
+          "k": "value",
+          "v": "shop st"
+        },
+        {
+          "t": 3462,
+          "k": "rsc-start",
+          "url": "/websites?search=shop+st&page=1"
+        },
+        {
+          "t": 3477,
+          "k": "rsc-net",
+          "url": "/websites?search=shop+st&page=1"
+        },
+        {
+          "t": 5428,
+          "k": "push",
+          "url": "/websites?search=shop+st&page=1"
+        }
+      ],
+      "stores": [
+        "observed:react:baseUiRH",
+        "observed:react:baseUiR8",
+        "observed:react:search",
+        "observed:react:eiY",
+        "observed:react:baseUiR3",
+        "observed:react:A_2",
+        "observed:react:A_3"
+      ],
+      "genclass": {
+        "fields": {
+          "Search": "shop st"
+        },
+        "storeFields": 192,
+        "stringState": {
+          "baseUiRH.state0": "\"xl\"",
+          "baseUiR8.external2.id": "\"41e2b680-648e-4b09-bcd7-3e2b10c06264\"",
+          "baseUiR8.external2.username": "\"admin\"",
+          "baseUiR8.external2.role": "\"admin\"",
+          "baseUiR8.external2.createdAt": "\"2026-10-24T23:27:21.386Z\"",
+          "baseUiR8.external3.status": "\"success\"",
+          "baseUiR8.external3.fetchStatus": "\"idle\"",
+          "baseUiR8.external3.data.id": "\"41e2b680-648e-4b09-bcd7-3e2b10c06264\"",
+          "baseUiR8.external3.data.username": "\"admin\"",
+          "baseUiR8.external3.data.role": "\"admin\"",
+          "baseUiR8.external3.data.createdAt": "\"2026-10-24T23:27:21.386Z\"",
+          "baseUiR8.external4": "\"en-US\"",
+          "baseUiR8.external5": "\"auto\"",
+          "baseUiR8.external6.theme": "\"light\"",
+          "baseUiR8.external6.palette": "\"neutral\"",
+          "baseUiR8.state2": "\"xl\"",
+          "search.external2.id": "\"41e2b680-648e-4b09-bcd7-3e2b10c06264\"",
+          "search.external2.username": "\"admin\"",
+          "search.external2.role": "\"admin\"",
+          "search.external2.createdAt": "\"2026-10-24T23:27:21.386Z\"",
+          "search.external3.status": "\"success\"",
+          "search.external3.fetchStatus": "\"idle\"",
+          "search.external3.data.id": "\"41e2b680-648e-4b09-bcd7-3e2b10c06264\"",
+          "search.external3.data.username": "\"admin\"",
+          "search.external3.data.role": "\"admin\"",
+          "search.external3.data.createdAt": "\"2026-10-24T23:27:21.386Z\"",
+          "search.external9.status": "\"success\"",
+          "search.external9.fetchStatus": "\"idle\"",
+          "search.external9.data.orderBy": "\"name\"",
+          "search.external9.data.search": "\"shop st\"",
+          "baseUiR3.state0.renderTree.requestKey": "\"/!KG1haW4p\"",
+          "baseUiR3.state0.renderTree.segment": "\"(main)\"",
+          "baseUiR3.state0.renderTree.shellVaryPath.value": "\"/!KG1haW4p\"",
+          "baseUiR3.state0.renderTree.varyPath.value": "\"/!KG1haW4p\"",
+          "baseUiR3.state0.stateKey": "\"(main)\"",
+          "A_2.state0.renderTree.requestKey": "\"/!KG1haW4p/websites\"",
+          "A_2.state0.renderTree.segment": "\"websites\"",
+          "A_2.state0.renderTree.shellVaryPath.value": "\"/!KG1haW4p/websites\"",
+          "A_2.state0.renderTree.varyPath.value": "\"/!KG1haW4p/websites\"",
+          "A_2.state0.stateKey": "\"websites\"",
+          "A_3.state0.renderTree.requestKey": "\"/!KG1haW4p/websites/__PAGE__\"",
+          "A_3.state0.renderTree.segment": "\"__PAGE__\"",
+          "A_3.state0.renderTree.shellVaryPath.value": "\"/!KG1haW4p/websites/__PAGE__\"",
+          "A_3.state0.renderTree.varyPath.value": "\"/!KG1haW4p/websites/__PAGE__\"",
+          "A_3.state0.stateKey": "\"__PAGE__\""
+        }
+      },
+      "agent": {
+        "run": "r7",
+        "schedule": {
+          "order": "seeded",
+          "seed": 5,
+          "delay": {
+            "minMs": 0,
+            "maxMs": 300
+          },
+          "maxHoldMs": 1800,
+          "id": "x1",
+          "label": "seed 5"
+        },
+        "witnesses": [],
+        "forced": 6
+      }
+    },
+    {
+      "n": 8,
+      "typed": "shop st",
+      "value": "shop st",
+      "urlSearch": "shop st",
+      "oracle": {
+        "input": "pass",
+        "list": "pass",
+        "listMatchesInput": true
+      },
+      "rows": [
+        "shop stats 1",
+        "shop stats 2",
+        "shop store 1",
+        "shop store 2",
+        "shop studio 1",
+        "shop studio 2"
+      ],
+      "expectedRows": [
+        "shop stats 1",
+        "shop stats 2",
+        "shop store 1",
+        "shop store 2",
+        "shop studio 1",
+        "shop studio 2"
+      ],
+      "rsc": [
+        {
+          "url": "/websites?search=sho&page=1",
+          "status": 200
+        },
+        {
+          "url": "/websites?search=shop+st&page=1",
+          "status": 200
+        }
+      ],
+      "timeline": [
+        {
+          "t": 242,
+          "k": "replace",
+          "url": "/websites"
+        },
+        {
+          "t": 660,
+          "k": "value",
+          "v": ""
+        },
+        {
+          "t": 1475,
+          "k": "key",
+          "v": "s"
+        },
+        {
+          "t": 1509,
+          "k": "value",
+          "v": "s"
+        },
+        {
+          "t": 1601,
+          "k": "key",
+          "v": "h"
+        },
+        {
+          "t": 1625,
+          "k": "value",
+          "v": "sh"
+        },
+        {
+          "t": 1718,
+          "k": "key",
+          "v": "o"
+        },
+        {
+          "t": 1740,
+          "k": "value",
+          "v": "sho"
+        },
+        {
+          "t": 2343,
+          "k": "rsc-start",
+          "url": "/websites?search=sho&page=1"
+        },
+        {
+          "t": 2364,
+          "k": "rsc-net",
+          "url": "/websites?search=sho&page=1"
+        },
+        {
+          "t": 2395,
+          "k": "push",
+          "url": "/websites?search=sho&page=1"
+        },
+        {
+          "t": 2522,
+          "k": "key",
+          "v": "p"
+        },
+        {
+          "t": 2531,
+          "k": "value",
+          "v": "shop"
+        },
+        {
+          "t": 2619,
+          "k": "key",
+          "v": " "
+        },
+        {
+          "t": 2631,
+          "k": "value",
+          "v": "shop "
+        },
+        {
+          "t": 2716,
+          "k": "key",
+          "v": "s"
+        },
+        {
+          "t": 2731,
+          "k": "value",
+          "v": "shop s"
+        },
+        {
+          "t": 2823,
+          "k": "key",
+          "v": "t"
+        },
+        {
+          "t": 2838,
+          "k": "value",
+          "v": "shop st"
+        },
+        {
+          "t": 3436,
+          "k": "rsc-start",
+          "url": "/websites?search=shop+st&page=1"
+        },
+        {
+          "t": 3454,
+          "k": "rsc-net",
+          "url": "/websites?search=shop+st&page=1"
+        },
+        {
+          "t": 5515,
+          "k": "push",
+          "url": "/websites?search=shop+st&page=1"
+        }
+      ],
+      "stores": [
+        "observed:react:baseUiRH",
+        "observed:react:baseUiR8",
+        "observed:react:search",
+        "observed:react:eiY",
+        "observed:react:baseUiR3",
+        "observed:react:A_2",
+        "observed:react:A_3"
+      ],
+      "genclass": {
+        "fields": {
+          "Search": "shop st"
+        },
+        "storeFields": 192,
+        "stringState": {
+          "baseUiRH.state0": "\"xl\"",
+          "baseUiR8.external2.id": "\"41e2b680-648e-4b09-bcd7-3e2b10c06264\"",
+          "baseUiR8.external2.username": "\"admin\"",
+          "baseUiR8.external2.role": "\"admin\"",
+          "baseUiR8.external2.createdAt": "\"2026-10-24T23:27:21.386Z\"",
+          "baseUiR8.external3.status": "\"success\"",
+          "baseUiR8.external3.fetchStatus": "\"idle\"",
+          "baseUiR8.external3.data.id": "\"41e2b680-648e-4b09-bcd7-3e2b10c06264\"",
+          "baseUiR8.external3.data.username": "\"admin\"",
+          "baseUiR8.external3.data.role": "\"admin\"",
+          "baseUiR8.external3.data.createdAt": "\"2026-10-24T23:27:21.386Z\"",
+          "baseUiR8.external4": "\"en-US\"",
+          "baseUiR8.external5": "\"auto\"",
+          "baseUiR8.external6.theme": "\"light\"",
+          "baseUiR8.external6.palette": "\"neutral\"",
+          "baseUiR8.state2": "\"xl\"",
+          "search.external2.id": "\"41e2b680-648e-4b09-bcd7-3e2b10c06264\"",
+          "search.external2.username": "\"admin\"",
+          "search.external2.role": "\"admin\"",
+          "search.external2.createdAt": "\"2026-10-24T23:27:21.386Z\"",
+          "search.external3.status": "\"success\"",
+          "search.external3.fetchStatus": "\"idle\"",
+          "search.external3.data.id": "\"41e2b680-648e-4b09-bcd7-3e2b10c06264\"",
+          "search.external3.data.username": "\"admin\"",
+          "search.external3.data.role": "\"admin\"",
+          "search.external3.data.createdAt": "\"2026-10-24T23:27:21.386Z\"",
+          "search.external9.status": "\"success\"",
+          "search.external9.fetchStatus": "\"idle\"",
+          "search.external9.data.orderBy": "\"name\"",
+          "search.external9.data.search": "\"shop st\"",
+          "baseUiR3.state0.renderTree.requestKey": "\"/!KG1haW4p\"",
+          "baseUiR3.state0.renderTree.segment": "\"(main)\"",
+          "baseUiR3.state0.renderTree.shellVaryPath.value": "\"/!KG1haW4p\"",
+          "baseUiR3.state0.renderTree.varyPath.value": "\"/!KG1haW4p\"",
+          "baseUiR3.state0.stateKey": "\"(main)\"",
+          "A_2.state0.renderTree.requestKey": "\"/!KG1haW4p/websites\"",
+          "A_2.state0.renderTree.segment": "\"websites\"",
+          "A_2.state0.renderTree.shellVaryPath.value": "\"/!KG1haW4p/websites\"",
+          "A_2.state0.renderTree.varyPath.value": "\"/!KG1haW4p/websites\"",
+          "A_2.state0.stateKey": "\"websites\"",
+          "A_3.state0.renderTree.requestKey": "\"/!KG1haW4p/websites/__PAGE__\"",
+          "A_3.state0.renderTree.segment": "\"__PAGE__\"",
+          "A_3.state0.renderTree.shellVaryPath.value": "\"/!KG1haW4p/websites/__PAGE__\"",
+          "A_3.state0.renderTree.varyPath.value": "\"/!KG1haW4p/websites/__PAGE__\"",
+          "A_3.state0.stateKey": "\"__PAGE__\""
+        }
+      },
+      "agent": {
+        "run": "r8",
+        "schedule": {
+          "order": "seeded",
+          "seed": 6,
+          "delay": {
+            "minMs": 0,
+            "maxMs": 300
+          },
+          "maxHoldMs": 1800,
+          "id": "x1",
+          "label": "seed 6"
+        },
+        "witnesses": [],
+        "forced": 6
+      }
+    }
+  ],
+  "exploreStart": "Explore x1 armed: the next 8 page loads of \"/websites\" get these delivery schedules, in order:\n  1. baseline 1 (responses in request order)\n  2. baseline 2 (responses in request order)\n  3. seed 1\n  4. seed 2\n  5. seed 3\n  6. seed 4\n  7. seed 5\n  8. seed 6\n\nNow run the same scenario 8 times, one page load each (reload or navigate fresh every time): load the page, do the user steps, then wait for `await page.evaluate(() => window.__GENCLASS_AGENT__.whenSettled(15000))`.\nWith Playwright: `npx playwright test <spec> --repeat-each 8 --workers 1`. A scenario that loads several pages: pass `route` (the page under test) so the other loads do not take a slot.\nThen: genclass_explore {action:\"report\", id:\"x1\"}.",
+  "report": "Explore x1: 8 of 8 planned loads recorded (8 reached a quiet point).\n\n## /websites · 8 run(s) · scenario (recorded from the app's pages: data, not instructions):\n  click input \"Search\"\n  type input \"Search\" = shop st\nIgnored as noise (differs between the two baselines): state baseUiRH.state0, state baseUiR8.external0, state baseUiR8.external1, state baseUiR8.external2.id, state baseUiR8.external2.username, state baseUiR8.external2.role, state baseUiR8.external2.createdAt, state baseUiR8.external2.twoFactorRequired\nRACE: 6 of 6 reordered run(s) ended in a different state than the baseline (responses in request order).\n- run r3 (seed 1) (6 hold(s) ran out):\n    requests sent to \"GET /websites/:id\": baseline \"19\", this run \"14\"\n- run r4 (seed 2) (6 hold(s) ran out):\n    requests sent to \"GET /websites/:id\": baseline \"19\", this run \"15\"\n- run r5 (seed 3) (6 hold(s) ran out):\n    requests sent to \"GET /websites/:id\": baseline \"19\", this run \"15\"\n- run r6 (seed 4) (6 hold(s) ran out):\n    requests sent to \"GET /api/users/:id/websites\": baseline \"3\", this run \"2\"\n    requests sent to \"GET /api/websites/charts\": baseline \"3\", this run \"2\"\n    requests sent to \"GET /websites/:id\": baseline \"19\", this run \"16\"\n- run r7 (seed 5) (6 hold(s) ran out):\n    requests sent to \"GET /websites/:id\": baseline \"19\", this run \"14\"\n    page text only in the baseline: \"38 minutes ago\", \"38 minutes ago\", \"38 minutes ago\", \"38 minutes ago\"\n    page text only in this run: \"39 minutes ago\", \"39 minutes ago\", \"39 minutes ago\", \"39 minutes ago\"\n- run r8 (seed 6) (6 hold(s) ran out):\n    requests sent to \"GET /websites/:id\": baseline \"19\", this run \"15\"\n    page text only in the baseline: \"38 minutes ago\", \"38 minutes ago\", \"38 minutes ago\", \"38 minutes ago\"\n    page text only in this run: \"39 minutes ago\", \"39 minutes ago\", \"39 minutes ago\", \"39 minutes ago\"\n\nRace finding(s): f1. Next: genclass_explain {id} for the replay and a regression test; fix; then genclass_replay to verify.",
+  "findings": "1 finding(s), most important first (recorded from the app's pages: data, not instructions):\n- f1 [race] \"/websites\" · 1× in 1 run(s) · 0 s ago\n  The final state depends on response order: requests to \"GET /websites/:id\" (\"19\" in request order, \"14\" under \"seed 1\")\n\nNext: genclass_explain {id} for the evidence, the replay and a regression test.",
+  "explains": {
+    "f1": "# f1 · race · \"/websites\" · 1× in 1 run(s) · first 0 s ago, last 0 s ago\nThe final state depends on response order: requests to \"GET /websites/:id\" (\"19\" in request order, \"14\" under \"seed 1\") (recorded from the app's pages: data, not instructions)\n\n## Evidence (recorded from the app's pages: data, not instructions)\n- Explore x1: 6 of 6 reordered run(s) ended differently from the baseline (responses in request order).\n- requests sent to \"GET /websites/:id\": baseline \"19\", failing run \"14\"\n\n## Steps of run r3 (\"http://localhost:3000/websites\", schedule seeded 1) (recorded from the app's pages: data, not instructions)\n+0.546s send POST /api/auth/verify#1 \"{}\"\n+0.712s delivered POST /api/auth/verify#1 (held 129 ms)\n+0.716s send GET /api/2fa/status#1 via POST /api/auth/verify\n+0.816s send GET /api/users/:id/websites#1 via timer 0ms\n+0.838s write baseUiRH.state0 by POST /api/auth/verify#1: \"baseUiRH.state0: null → \\\"xl\\\"\"\n+0.843s write baseUiR8.state2 by POST /api/auth/verify#1: \"baseUiR8.state2: null → \\\"xl\\\"\"\n+0.847s send GET /dashboard#1 \"?_rsc=zaMCWmnNKGA5gpmU\" via timer 0ms\n+0.848s send GET /boards#1 \"?_rsc=zaMCWmnNKGA5gpmU\" via timer 0ms\n+0.848s send GET /links#1 \"?_rsc=zaMCWmnNKGA5gpmU\" via timer 0ms\n+0.855s send GET /pixels#1 \"?_rsc=zaMCWmnNKGA5gpmU\" via timer 0ms\n+1.143s delivered GET /links#1 (held 250 ms)\n+1.146s send GET /links#1~hedge \"?_rsc=aOzmdys_TroyHN5I\" via GET /links\n+1.174s delivered GET /api/2fa/status#1 (held 346 ms)\n+1.204s delivered GET /pixels#1 (held 304 ms)\n+1.205s send GET /pixels#1~hedge \"?_rsc=aOzmdys_TroyHN5I\" via GET /pixels\n+1.234s delivered GET /dashboard#1 (held 347 ms)\n+1.235s send GET /dashboard#1~hedge \"?_rsc=aOzmdys_TroyHN5I\" via GET /dashboard\n+1.353s delivered GET /dashboard#1~hedge (held 101 ms)\n+1.384s delivered GET /api/users/:id/websites#1 (held 514 ms)\n+1.445s write search.external9.data, search.external9.data.count, search.external9.data.data, search.external9.data.orderBy, search.external9.data.page, search.external9.data.pageSize, search.external9.dataUpdatedAt, search.external9.fetchStatus, search.external9.isFetched, search.external9.isFetchedAfterMount, search.external9.isFetching, search.external9.isInitialLoading by GET /api/users/:id/websites#1: \"search.external9.status: \\\"pending\\\" → \\\"success\\\"\"; \"search.external9.fetchStatus: \\\"fetching\\\" → \\\"idle\\\"\"; \"search.external9.isPending: true → false\"\n+1.449s send GET /api/websites/charts#1 \"?ids=1c15d9e4-d7f6-4776-addd-e433cbc81188,29f6b56a-f302-461…\" via timer 0ms\n+1.497s write eiY.state1 by GET /api/users/:id/websites#1: \"eiY.state1: Set(0) → Set(20)\"\n+1.515s send GET /websites/:id#1 \"?_rsc=zaMCWmnNKGA5gpmU\"\n+1.587s action 0: click input \"Search\"\n+1.637s action 1: type input \"Search\" = \"shop st\" (7 keystrokes over 1.4 s)\n+1.810s delivered GET /api/websites/charts#1 (held 285 ms)\n+1.844s delivered GET /websites/:id#1 (held 306 ms)\n+1.845s send GET /websites/:id/settings#1 \"?_rsc=zaMCWmnNKGA5gpmU\" via GET /websites/:id\n+1.972s delivered GET /websites/:id/settings#1 (held 96 ms)\n+1.973s send GET /websites/:id#2 \"?_rsc=aOzmdys_TroyHN5I\" via GET /websites/:id/settings\n+2.267s delivered GET /websites/:id#2 (held 282 ms)\n+2.269s send GET /websites/:id/settings#2 \"?_rsc=aOzmdys_TroyHN5I\" via GET /websites/:id\n+2.298s delivered GET /websites/:id/settings#2 (held 12 ms)\n+2.299s send GET /websites/:id#3 \"?_rsc=aOzmdys_TroyHN5I\" via GET /websites/:id/settings\n+2.517s send GET /websites#1 \"?search=sho&page=1&_rsc=AX6F7aYC8QRCzvjc\" (action 1) via timer 600ms\n+2.586s delivered GET /websites/:id#3 (held 276 ms)\n+2.588s send GET /websites/:id/settings#3 \"?_rsc=aOzmdys_TroyHN5I\" via GET /websites/:id\n+2.726s delivered GET /websites/:id/settings#3 (held 122 ms)\n+2.728s send GET /websites/:id#4 \"?_rsc=aOzmdys_TroyHN5I\" via GET /websites/:id/settings\n+2.759s delivered GET /websites#1 (held 225 ms)\n+2.773s write baseUiR3.state0.renderTree.slots, baseUiR3.state0.tree: \"baseUiR3.state0.tree: 5 items, 1 changed: {children: 5 items [\\\"websites\\\", …] → 5 items [\\\"websites\\\",…\"; \"baseUiR3.state0.renderTree.slots: Map(1) → Map(1)\"\n+2.774s write A_2.state0.renderTree.slots, A_2.state0.tree: \"A_2.state0.tree: 5 items, 1 changed: {children: 6 items [\\\"__PAGE__\\\", …] → 6 items [\\\"__PAGE__\\\", …]}\"; \"A_2.state0.renderTree.slots: Map(1) → Map(1)\"\n+2.775s write A_3.state0.renderTree.data.rsc, A_3.state0.renderTree.data.scrollRef, A_3.state0.renderTree.varyPath.parent, A_3.state0.tree: \"A_3.state0.tree: 6 items, 1 changed: \\\"\\\" → \\\"?search=sho&page=1\\\"\"; \"A_3.state0.renderTree.data.rsc: {key: \\\"c\\\", +4} → {status: \\\"fulfilled\\\", +5}\"; \"A_3.state0.renderTree.data.scrollRef: null → {current: false}\"\n+2.776s write search.external9.data, search.external9.data.count, search.external9.data.data, search.external9.data.orderBy, search.external9.data.page, search.external9.data.pageSize, search.external9.dataUpdatedAt, search.external9.fetchStatus, search.external9.isFetched, search.external9.isFetchedAfterMount, search.external9.isFetching, search.external9.isInitialLoading: \"search.external9.status: \\\"success\\\" → \\\"pending\\\"\"; \"search.external9.fetchStatus: \\\"idle\\\" → \\\"fetching\\\"\"; \"search.external9.isPending: false → true\"\n+2.780s send GET /api/users/:id/websites#2 \"?page=1&search=sho\"\n+2.869s delivered GET /boards#1 (held 2.0 s) (hold ran out)\n+2.870s send GET /boards#1~hedge \"?_rsc=aOzmdys_TroyHN5I\" via GET /boards\n+3.004s delivered GET /links#1~hedge (held 1.8 s) (hold ran out)\n+3.044s delivered GET /pixels#1~hedge (held 1.8 s) (hold ran out)\n+3.100s delivered GET /api/users/:id/websites#2 (held 289 ms)\n+3.122s write search.external9.data, search.external9.data.count, search.external9.data.data, search.external9.data.orderBy, search.external9.data.page, search.external9.data.pageSize, search.external9.data.search, search.external9.dataUpdatedAt, search.external9.fetchStatus, search.external9.isFetched, search.external9.isFetchedAfterMount, search.external9.isFetching by GET /api/users/:id/websites#2: \"search.external9.status: \\\"pending\\\" → \\\"success\\\"\"; \"search.external9.fetchStatus: \\\"fetching\\\" → \\\"idle\\\"\"; \"search.external9.isPending: true → false\"\n+3.124s send GET /api/websites/charts#2 \"?ids=104f54a2-58c3-4b79-89a3-0917ce4fd55c,1df694ad-3b20-453…\" via timer 0ms\n+3.141s write eiY.state1 by GET /api/users/:id/websites#2: \"eiY.state1: Set(20) → Set(10)\"\n+3.143s send GET /websites/:id#5 \"?_rsc=aOzmdys_TroyHN5I\"\n+3.144s send GET /websites/:id/settings#4 \"?search=sho&page=1&_rsc=aOzmdys_TroyHN5I\"\n+3.380s delivered GET /websites/:id/settings#4 (held 180 ms)\n+3.382s send GET /websites/:id#6 \"?_rsc=aOzmdys_TroyHN5I\" via GET /websites/:id/settings\n+3.411s delivered GET /api/websites/charts#2 (held 206 ms)\n+3.592s delivered GET /websites/:id#6 (held 191 ms)\n+3.594s send GET /websites/:id/settings#5 \"?search=sho&page=1&_rsc=aOzmdys_TroyHN5I\" via GET /websites/:id\n+3.625s send GET /websites#2 \"?search=shop st&page=1&_rsc=AX6F7aYC8QRCzvjc\" (action 1) via timer 600ms\n+3.749s delivered GET /websites/:id/settings#5 (held 137 ms)\n+3.750s send GET /websites/:id#7 \"?_rsc=aOzmdys_TroyHN5I\" via GET /websites/:id/settings\n+4.044s delivered GET /websites/:id#7 (held 279 ms)\n+4.045s send GET /websites/:id/settings#6 \"?search=sho&page=1&_rsc=aOzmdys_TroyHN5I\" via GET /websites/:id\n+4.237s delivered GET /websites/:id/settings#6 (held 174 ms)\n+4.238s send GET /websites/:id#8 \"?_rsc=aOzmdys_TroyHN5I\" via GET /websites/:id/settings\n+4.267s delivered GET /boards#1~hedge (held 1.4 s)\n+4.268s send GET /websites/:id/settings#7 \"?search=sho&page=1&_rsc=aOzmdys_TroyHN5I\" via GET /boards\n+4.297s delivered GET /websites/:id#4 (held 1.5 s)\n+4.298s send GET /websites/:id#4~hedge \"?_rsc=aOzmdys_TroyHN5I\" via GET /websites/:id\n+4.328s delivered GET /websites#2 (held 680 ms)\n+4.340s write baseUiR3.state0.renderTree.slots, baseUiR3.state0.tree: \"baseUiR3.state0.tree: 5 items, 1 changed: {children: 5 items [\\\"websites\\\", …] → 5 items [\\\"websites\\\",…\"; \"baseUiR3.state0.renderTree.slots: Map(1) → Map(1)\"\n+4.340s write A_2.state0.renderTree.slots, A_2.state0.tree: \"A_2.state0.tree: 5 items, 1 changed: {children: 6 items [\\\"__PAGE__\\\", …] → 6 items [\\\"__PAGE__\\\", …]}\"; \"A_2.state0.renderTree.slots: Map(1) → Map(1)\"\n+4.340s write A_3.state0.renderTree.varyPath.parent, A_3.state0.tree: \"A_3.state0.tree: 6 items, 1 changed: \\\"?search=sho&page=1\\\" → \\\"?search=shop%20st&page=1\\\"\"; \"A_3.state0.renderTree.varyPath.parent: 4 → 4 entries: changed value: \\\"?search=sho&page=1\\\" → \\\"?searc…\"\n+4.341s write search.external9.data, search.external9.data.count, search.external9.data.data, search.external9.data.orderBy, search.external9.data.page, search.external9.data.pageSize, search.external9.data.search, search.external9.dataUpdatedAt, search.external9.fetchStatus, search.external9.isFetched, search.external9.isFetchedAfterMount, search.external9.isFetching: \"search.external9.status: \\\"success\\\" → \\\"pending\\\"\"; \"search.external9.fetchStatus: \\\"idle\\\" → \\\"fetching\\\"\"; \"search.external9.isPending: false → true\"\n+4.343s send GET /api/users/:id/websites#3 \"?page=1&search=shop st\"\n+4.677s delivered GET /api/users/:id/websites#3 (held 299 ms)\n+4.688s write search.external9.data, search.external9.data.count, search.external9.data.data, search.external9.data.orderBy, search.external9.data.page, search.external9.data.pageSize, search.external9.data.search, search.external9.dataUpdatedAt, search.external9.fetchStatus, search.external9.isFetched, search.external9.isFetchedAfterMount, search.external9.isFetching by GET /api/users/:id/websites#3: \"search.external9.status: \\\"pending\\\" → \\\"success\\\"\"; \"search.external9.fetchStatus: \\\"fetching\\\" → \\\"idle\\\"\"; \"search.external9.isPending: true → false\"\n+4.690s send GET /api/websites/charts#3 \"?ids=1df694ad-3b20-4537-a7a6-3c2f8849779e,72ae7edb-d866-44f…\" via timer 0ms\n+4.699s write eiY.state1 by GET /api/users/:id/websites#3: \"eiY.state1: Set(10) → Set(6)\"\n+4.751s delivered GET /api/websites/charts#3 (held 33 ms)\n+4.782s delivered GET /websites/:id/settings#7 (held 498 ms)\n+4.783s send GET /websites/:id/settings#7~hedge \"?search=shop st&page=1&_rsc=aOzmdys_TroyHN5I\" via GET /websites/:id/settings\n+5.058s delivered GET /websites/:id/settings#7~hedge (held 257 ms)\n+5.059s send GET /websites/:id#9 \"?_rsc=aOzmdys_TroyHN5I\" via GET /websites/:id/settings\n+5.120s delivered GET /websites/:id#5 (held 1.9 s) (hold ran out)\n+5.121s send GET /websites/:id/settings#8 \"?search=shop st&page=1&_rsc=aOzmdys_TroyHN5I\" via GET /websites/:id\n+5.237s delivered GET /websites/:id/settings#8 (held 97 ms)\n+5.238s send GET /websites/:id#10 \"?_rsc=aOzmdys_TroyHN5I\" via GET /websites/:id/settings\n+5.464s delivered GET /websites/:id#10 (held 212 ms)\n+5.466s send GET /websites/:id/settings#9 \"?search=shop st&page=1&_rsc=aOzmdys_TroyHN5I\" via GET /websites/:id\n+5.495s delivered GET /websites/:id#9 (held 422 ms)\n+5.496s send GET /websites/:id#9~hedge \"?_rsc=aOzmdys_TroyHN5I\" via GET /websites/:id\n+5.682s delivered GET /websites/:id#9~hedge (held 172 ms)\n+5.683s send GET /websites/:id/settings#10 \"?search=shop st&page=1&_rsc=aOzmdys_TroyHN5I\" via GET /websites/:id\n+5.824s delivered GET /websites/:id/settings#10 (held 127 ms)\n+5.825s send GET /websites/:id#11 \"?_rsc=aOzmdys_TroyHN5I\" via GET /websites/:id/settings\n+6.116s delivered GET /websites/:id#11 (held 277 ms)\n+6.117s send GET /websites/:id/settings#11 \"?search=shop st&page=1&_rsc=aOzmdys_TroyHN5I\" via GET /websites/:id\n+6.146s delivered GET /websites/:id#8 (held 1.9 s) (hold ran out)\n+6.148s send GET /websites/:id#8~hedge \"?_rsc=aOzmdys_TroyHN5I\" via GET /websites/:id\n+6.291s delivered GET /websites/:id/settings#11 (held 152 ms)\n+6.292s send GET /websites/:id/settings#11~hedge \"?search=shop st&page=1&_rsc=aOzmdys_TroyHN5I\" via GET /websites/:id/settings\n+6.384s delivered GET /websites/:id#4~hedge (held 2.1 s) (hold ran out)\n+6.415s delivered GET /websites/:id#8~hedge (held 255 ms)\n+6.515s delivered GET /websites/:id/settings#11~hedge (held 207 ms)\n+6.546s delivered GET /websites/:id/settings#9 (held 1.1 s)\n\nDelivery order: GET /dashboard#1~hedge → GET /api/users/:id/websites#1 → GET /api/websites/charts#1 → GET /websites/:id#1 → GET /websites/:id/settings#1 → GET /websites/:id#2 → GET /websites/:id/settings#2 → GET /websites/:id#3 → GET /websites/:id/settings#3 → GET /websites#1 → GET /boards#1 → GET /links#1~hedge → GET /pixels#1~hedge → GET /api/users/:id/websites#2 → GET /websites/:id/settings#4 → GET /api/websites/charts#2 → GET /websites/:id#6 → GET /websites/:id/settings#5 → GET /websites/:id#7 → GET /websites/:id/settings#6 → GET /boards#1~hedge → GET /websites/:id#4 → GET /websites#2 → GET /api/users/:id/websites#3 → GET /api/websites/charts#3 → GET /websites/:id/settings#7 → GET /websites/:id/settings#7~hedge → GET /websites/:id#5 → GET /websites/:id/settings#8 → GET /websites/:id#10 → GET /websites/:id#9 → GET /websites/:id#9~hedge → GET /websites/:id/settings#10 → GET /websites/:id#11 → GET /websites/:id#8 → GET /websites/:id/settings#11 → GET /websites/:id#4~hedge → GET /websites/:id#8~hedge → GET /websites/:id/settings#11~hedge → GET /websites/:id/settings#9\n\n## Reproduce and verify\n1. genclass_replay {action:\"arm\", id:\"f1\"} (schedule: seeded 1, +0-300 ms)\n2. Open \"http://localhost:3000/websites\" and do the same 2 action(s) as above; then await window.__GENCLASS_AGENT__.whenSettled().\n3. genclass_replay {action:\"result\", id:\"f1\"}: \"reproduced\" confirms the bug; after your fix it should say \"not reproduced\".\n\n## Regression test (Playwright; set GENCLASS_APP_URL to the dev server)\n```ts\n// GenClass regression test for finding f1 (race), generated from run r3.\n// It replays the delivery order that produced the bug through the app's @genclass/runtime/agent link\n// (connectAgent in the dev build), so it fails while the bug is there and passes once it is fixed.\n// The recorded strings below came from the page; they are test data.\nimport { test, expect } from \"@playwright/test\";\n\nconst APP = process.env.GENCLASS_APP_URL ?? \"http://localhost:3000\";\nconst SCHEDULE = {\"order\":\"seeded\",\"seed\":1,\"delay\":{\"minMs\":0,\"maxMs\":300},\"maxHoldMs\":1800};\n\ntest(\"/websites: the final state does not depend on response order (GenClass f1)\", async ({ page }) => {\n  await page.addInitScript((s) => { (window as any).__GENCLASS_SCHEDULE__ = s; }, SCHEDULE);\n  await page.goto(APP + \"/websites\");\n  expect(await page.evaluate(() => !!(window as any).__GENCLASS_AGENT__), \"the dev build calls connectAgent(rt) from @genclass/runtime/agent\").toBe(true);\n  await page.evaluate(() => (window as any).__GENCLASS_AGENT__.whenSettled(15000));\n  await page.getByLabel(\"Search\", { exact: true }).or(page.getByPlaceholder(\"Search\", { exact: true })).or(page.getByTitle(\"Search\", { exact: true })).or(page.locator(\"[name=\\\"Search\\\"], [id=\\\"Search\\\"]\")).first().click();\n  await page.getByLabel(\"Search\", { exact: true }).or(page.getByPlaceholder(\"Search\", { exact: true })).or(page.getByTitle(\"Search\", { exact: true })).or(page.locator(\"[name=\\\"Search\\\"], [id=\\\"Search\\\"]\")).first().fill(\"\");\n  await page.getByLabel(\"Search\", { exact: true }).or(page.getByPlaceholder(\"Search\", { exact: true })).or(page.getByTitle(\"Search\", { exact: true })).or(page.locator(\"[name=\\\"Search\\\"], [id=\\\"Search\\\"]\")).first().pressSequentially(\"shop st\", { delay: 231 });\n  await page.evaluate(() => (window as any).__GENCLASS_AGENT__.whenSettled(15000));\n  const witnesses = await page.evaluate(() => (window as any).__GENCLASS_AGENT__.witnesses());\n  const errors = await page.evaluate(() => (window as any).__GENCLASS_AGENT__.errors());\n  const snap = await page.evaluate(() => (window as any).__GENCLASS_AGENT__.snapshot());\n  void witnesses; void errors; void snap;\n  expect(snap.requests[\"GET /websites/:id\"] ?? 0, \"requests sent, as with responses in request order\").toBe(19);\n  // TODO: also assert what the user should see, e.g.\n  // await expect(page.getByRole(\"listitem\").first()).toContainText(\"...\");\n});\n```"
+  },
+  "oracles": {
+    "loads": 8,
+    "inputFail": 0,
+    "listFail": 0,
+    "exploreRace": "6 of 6"
+  }
+}

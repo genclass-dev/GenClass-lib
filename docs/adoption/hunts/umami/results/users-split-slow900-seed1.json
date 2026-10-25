@@ -1,0 +1,1359 @@
+{
+  "page": "/admin/users",
+  "pattern": "split",
+  "parts": [
+    "an",
+    650,
+    "na_st"
+  ],
+  "typed": "anna_st",
+  "keyMs": 90,
+  "slow_ms": 900,
+  "runs": 6,
+  "seed": 1,
+  "started": "2026-10-24T23:44:45.120Z",
+  "loads": [
+    {
+      "n": 1,
+      "typed": "anna_st",
+      "value": "ant",
+      "urlSearch": "ant",
+      "oracle": {
+        "input": "FAIL",
+        "list": "FAIL",
+        "listMatchesInput": true
+      },
+      "rows": [],
+      "expectedRows": [
+        "anna_stark_2",
+        "anna_stark_1",
+        "anna_stone_2",
+        "anna_stone_1"
+      ],
+      "rsc": [
+        {
+          "url": "/admin/users?search=an&page=1",
+          "status": 200
+        },
+        {
+          "url": "/admin/users?search=ant&page=1",
+          "status": 200
+        }
+      ],
+      "timeline": [
+        {
+          "t": 257,
+          "k": "replace",
+          "url": "/admin/users"
+        },
+        {
+          "t": 1215,
+          "k": "value",
+          "v": ""
+        },
+        {
+          "t": 2412,
+          "k": "key",
+          "v": "a"
+        },
+        {
+          "t": 2433,
+          "k": "value",
+          "v": "a"
+        },
+        {
+          "t": 2527,
+          "k": "key",
+          "v": "n"
+        },
+        {
+          "t": 2543,
+          "k": "value",
+          "v": "an"
+        },
+        {
+          "t": 3146,
+          "k": "rsc-start",
+          "url": "/admin/users?search=an&page=1"
+        },
+        {
+          "t": 3163,
+          "k": "rsc-net",
+          "url": "/admin/users?search=an&page=1"
+        },
+        {
+          "t": 3297,
+          "k": "key",
+          "v": "n"
+        },
+        {
+          "t": 3322,
+          "k": "value",
+          "v": "ann"
+        },
+        {
+          "t": 3415,
+          "k": "key",
+          "v": "a"
+        },
+        {
+          "t": 3431,
+          "k": "value",
+          "v": "anna"
+        },
+        {
+          "t": 3524,
+          "k": "key",
+          "v": "_"
+        },
+        {
+          "t": 3546,
+          "k": "value",
+          "v": "anna_"
+        },
+        {
+          "t": 3640,
+          "k": "key",
+          "v": "s"
+        },
+        {
+          "t": 3660,
+          "k": "value",
+          "v": "anna_s"
+        },
+        {
+          "t": 3714,
+          "k": "push",
+          "url": "/admin/users?search=an&page=1"
+        },
+        {
+          "t": 3736,
+          "k": "value",
+          "v": "an"
+        },
+        {
+          "t": 3753,
+          "k": "key",
+          "v": "t"
+        },
+        {
+          "t": 3769,
+          "k": "value",
+          "v": "ant"
+        },
+        {
+          "t": 4356,
+          "k": "rsc-start",
+          "url": "/admin/users?search=ant&page=1"
+        },
+        {
+          "t": 4367,
+          "k": "rsc-net",
+          "url": "/admin/users?search=ant&page=1"
+        },
+        {
+          "t": 5216,
+          "k": "push",
+          "url": "/admin/users?search=ant&page=1"
+        }
+      ],
+      "stores": [
+        "observed:react:baseUiRA",
+        "observed:react:search",
+        "observed:react:eiY",
+        "observed:react:baseUiR3",
+        "observed:react:A_2",
+        "observed:react:baseUiRJ_3"
+      ],
+      "agent": {
+        "run": "r1",
+        "schedule": {
+          "order": "fifo",
+          "delay": {
+            "minMs": 0,
+            "maxMs": 900
+          },
+          "maxHoldMs": 2400,
+          "id": "x1",
+          "label": "baseline 1 (responses in request order)"
+        },
+        "witnesses": [],
+        "forced": 0
+      }
+    },
+    {
+      "n": 2,
+      "typed": "anna_st",
+      "value": "ant",
+      "urlSearch": "ant",
+      "oracle": {
+        "input": "FAIL",
+        "list": "FAIL",
+        "listMatchesInput": true
+      },
+      "rows": [],
+      "expectedRows": [
+        "anna_stark_2",
+        "anna_stark_1",
+        "anna_stone_2",
+        "anna_stone_1"
+      ],
+      "rsc": [
+        {
+          "url": "/admin/users?search=an&page=1",
+          "status": 200
+        },
+        {
+          "url": "/admin/users?search=ant&page=1",
+          "status": 200
+        }
+      ],
+      "timeline": [
+        {
+          "t": 217,
+          "k": "replace",
+          "url": "/admin/users"
+        },
+        {
+          "t": 1113,
+          "k": "value",
+          "v": ""
+        },
+        {
+          "t": 2343,
+          "k": "key",
+          "v": "a"
+        },
+        {
+          "t": 2367,
+          "k": "value",
+          "v": "a"
+        },
+        {
+          "t": 2460,
+          "k": "key",
+          "v": "n"
+        },
+        {
+          "t": 2478,
+          "k": "value",
+          "v": "an"
+        },
+        {
+          "t": 3082,
+          "k": "rsc-start",
+          "url": "/admin/users?search=an&page=1"
+        },
+        {
+          "t": 3094,
+          "k": "rsc-net",
+          "url": "/admin/users?search=an&page=1"
+        },
+        {
+          "t": 3231,
+          "k": "key",
+          "v": "n"
+        },
+        {
+          "t": 3253,
+          "k": "value",
+          "v": "ann"
+        },
+        {
+          "t": 3346,
+          "k": "key",
+          "v": "a"
+        },
+        {
+          "t": 3365,
+          "k": "value",
+          "v": "anna"
+        },
+        {
+          "t": 3459,
+          "k": "key",
+          "v": "_"
+        },
+        {
+          "t": 3476,
+          "k": "value",
+          "v": "anna_"
+        },
+        {
+          "t": 3569,
+          "k": "key",
+          "v": "s"
+        },
+        {
+          "t": 3585,
+          "k": "value",
+          "v": "anna_s"
+        },
+        {
+          "t": 3630,
+          "k": "push",
+          "url": "/admin/users?search=an&page=1"
+        },
+        {
+          "t": 3653,
+          "k": "value",
+          "v": "an"
+        },
+        {
+          "t": 3676,
+          "k": "key",
+          "v": "t"
+        },
+        {
+          "t": 3686,
+          "k": "value",
+          "v": "ant"
+        },
+        {
+          "t": 4280,
+          "k": "rsc-start",
+          "url": "/admin/users?search=ant&page=1"
+        },
+        {
+          "t": 4290,
+          "k": "rsc-net",
+          "url": "/admin/users?search=ant&page=1"
+        },
+        {
+          "t": 5146,
+          "k": "push",
+          "url": "/admin/users?search=ant&page=1"
+        }
+      ],
+      "stores": [
+        "observed:react:baseUiRA",
+        "observed:react:search",
+        "observed:react:eiY",
+        "observed:react:baseUiR3",
+        "observed:react:A_2",
+        "observed:react:baseUiRJ_3"
+      ],
+      "agent": {
+        "run": "r2",
+        "schedule": {
+          "order": "fifo",
+          "delay": {
+            "minMs": 0,
+            "maxMs": 900
+          },
+          "maxHoldMs": 2400,
+          "id": "x1",
+          "label": "baseline 2 (responses in request order)"
+        },
+        "witnesses": [],
+        "forced": 0
+      }
+    },
+    {
+      "n": 3,
+      "typed": "anna_st",
+      "value": "anna_st",
+      "urlSearch": "anna_st",
+      "oracle": {
+        "input": "pass",
+        "list": "pass",
+        "listMatchesInput": true
+      },
+      "rows": [
+        "anna_stark_2",
+        "anna_stark_1",
+        "anna_stone_2",
+        "anna_stone_1"
+      ],
+      "expectedRows": [
+        "anna_stark_2",
+        "anna_stark_1",
+        "anna_stone_2",
+        "anna_stone_1"
+      ],
+      "rsc": [
+        {
+          "url": "/admin/users?search=an&page=1",
+          "status": 200
+        },
+        {
+          "url": "/admin/users?search=anna_st&page=1",
+          "status": 200
+        }
+      ],
+      "timeline": [
+        {
+          "t": 223,
+          "k": "replace",
+          "url": "/admin/users"
+        },
+        {
+          "t": 1451,
+          "k": "value",
+          "v": ""
+        },
+        {
+          "t": 2906,
+          "k": "key",
+          "v": "a"
+        },
+        {
+          "t": 2929,
+          "k": "value",
+          "v": "a"
+        },
+        {
+          "t": 3021,
+          "k": "key",
+          "v": "n"
+        },
+        {
+          "t": 3040,
+          "k": "value",
+          "v": "an"
+        },
+        {
+          "t": 3643,
+          "k": "rsc-start",
+          "url": "/admin/users?search=an&page=1"
+        },
+        {
+          "t": 3659,
+          "k": "rsc-net",
+          "url": "/admin/users?search=an&page=1"
+        },
+        {
+          "t": 3794,
+          "k": "key",
+          "v": "n"
+        },
+        {
+          "t": 3824,
+          "k": "value",
+          "v": "ann"
+        },
+        {
+          "t": 3917,
+          "k": "key",
+          "v": "a"
+        },
+        {
+          "t": 3933,
+          "k": "value",
+          "v": "anna"
+        },
+        {
+          "t": 4027,
+          "k": "key",
+          "v": "_"
+        },
+        {
+          "t": 4046,
+          "k": "value",
+          "v": "anna_"
+        },
+        {
+          "t": 4140,
+          "k": "key",
+          "v": "s"
+        },
+        {
+          "t": 4161,
+          "k": "value",
+          "v": "anna_s"
+        },
+        {
+          "t": 4254,
+          "k": "key",
+          "v": "t"
+        },
+        {
+          "t": 4271,
+          "k": "value",
+          "v": "anna_st"
+        },
+        {
+          "t": 4872,
+          "k": "rsc-start",
+          "url": "/admin/users?search=anna_st&page=1"
+        },
+        {
+          "t": 4882,
+          "k": "rsc-net",
+          "url": "/admin/users?search=anna_st&page=1"
+        },
+        {
+          "t": 5278,
+          "k": "push",
+          "url": "/admin/users?search=anna_st&page=1"
+        }
+      ],
+      "stores": [
+        "observed:react:baseUiRA",
+        "observed:react:search",
+        "observed:react:eiY",
+        "observed:react:baseUiR3",
+        "observed:react:A_2",
+        "observed:react:baseUiRJ_3"
+      ],
+      "agent": {
+        "run": "r3",
+        "schedule": {
+          "order": "seeded",
+          "seed": 1,
+          "delay": {
+            "minMs": 0,
+            "maxMs": 900
+          },
+          "maxHoldMs": 2400,
+          "id": "x1",
+          "label": "seed 1"
+        },
+        "witnesses": [],
+        "forced": 4
+      }
+    },
+    {
+      "n": 4,
+      "typed": "anna_st",
+      "value": "an_st",
+      "urlSearch": "an_st",
+      "oracle": {
+        "input": "FAIL",
+        "list": "FAIL",
+        "listMatchesInput": true
+      },
+      "rows": [],
+      "expectedRows": [
+        "anna_stark_2",
+        "anna_stark_1",
+        "anna_stone_2",
+        "anna_stone_1"
+      ],
+      "rsc": [
+        {
+          "url": "/admin/users?search=an&page=1",
+          "status": 200
+        },
+        {
+          "url": "/admin/users?search=an_st&page=1",
+          "status": 200
+        }
+      ],
+      "timeline": [
+        {
+          "t": 215,
+          "k": "replace",
+          "url": "/admin/users"
+        },
+        {
+          "t": 840,
+          "k": "value",
+          "v": ""
+        },
+        {
+          "t": 1416,
+          "k": "key",
+          "v": "a"
+        },
+        {
+          "t": 1442,
+          "k": "value",
+          "v": "a"
+        },
+        {
+          "t": 1536,
+          "k": "key",
+          "v": "n"
+        },
+        {
+          "t": 1559,
+          "k": "value",
+          "v": "an"
+        },
+        {
+          "t": 2162,
+          "k": "rsc-start",
+          "url": "/admin/users?search=an&page=1"
+        },
+        {
+          "t": 2172,
+          "k": "rsc-net",
+          "url": "/admin/users?search=an&page=1"
+        },
+        {
+          "t": 2324,
+          "k": "key",
+          "v": "n"
+        },
+        {
+          "t": 2346,
+          "k": "value",
+          "v": "ann"
+        },
+        {
+          "t": 2445,
+          "k": "key",
+          "v": "a"
+        },
+        {
+          "t": 2463,
+          "k": "value",
+          "v": "anna"
+        },
+        {
+          "t": 2470,
+          "k": "push",
+          "url": "/admin/users?search=an&page=1"
+        },
+        {
+          "t": 2491,
+          "k": "value",
+          "v": "an"
+        },
+        {
+          "t": 2557,
+          "k": "key",
+          "v": "_"
+        },
+        {
+          "t": 2573,
+          "k": "value",
+          "v": "an_"
+        },
+        {
+          "t": 2653,
+          "k": "key",
+          "v": "s"
+        },
+        {
+          "t": 2657,
+          "k": "value",
+          "v": "an_s"
+        },
+        {
+          "t": 2754,
+          "k": "key",
+          "v": "t"
+        },
+        {
+          "t": 2758,
+          "k": "value",
+          "v": "an_st"
+        },
+        {
+          "t": 3388,
+          "k": "rsc-start",
+          "url": "/admin/users?search=an_st&page=1"
+        },
+        {
+          "t": 3405,
+          "k": "rsc-net",
+          "url": "/admin/users?search=an_st&page=1"
+        },
+        {
+          "t": 3964,
+          "k": "push",
+          "url": "/admin/users?search=an_st&page=1"
+        }
+      ],
+      "stores": [
+        "observed:react:baseUiRA",
+        "observed:react:search",
+        "observed:react:eiY",
+        "observed:react:baseUiR3",
+        "observed:react:A_2",
+        "observed:react:baseUiRJ_3"
+      ],
+      "agent": {
+        "run": "r4",
+        "schedule": {
+          "order": "seeded",
+          "seed": 2,
+          "delay": {
+            "minMs": 0,
+            "maxMs": 900
+          },
+          "maxHoldMs": 2400,
+          "id": "x1",
+          "label": "seed 2"
+        },
+        "witnesses": [],
+        "forced": 5
+      }
+    },
+    {
+      "n": 5,
+      "typed": "anna_st",
+      "value": "anna_st",
+      "urlSearch": "anna_st",
+      "oracle": {
+        "input": "pass",
+        "list": "pass",
+        "listMatchesInput": true
+      },
+      "rows": [
+        "anna_stark_2",
+        "anna_stark_1",
+        "anna_stone_2",
+        "anna_stone_1"
+      ],
+      "expectedRows": [
+        "anna_stark_2",
+        "anna_stark_1",
+        "anna_stone_2",
+        "anna_stone_1"
+      ],
+      "rsc": [
+        {
+          "url": "/admin/users?search=an&page=1",
+          "status": 200
+        },
+        {
+          "url": "/admin/users?search=anna_st&page=1",
+          "status": 200
+        }
+      ],
+      "timeline": [
+        {
+          "t": 218,
+          "k": "replace",
+          "url": "/admin/users"
+        },
+        {
+          "t": 849,
+          "k": "value",
+          "v": ""
+        },
+        {
+          "t": 1926,
+          "k": "key",
+          "v": "a"
+        },
+        {
+          "t": 1965,
+          "k": "value",
+          "v": "a"
+        },
+        {
+          "t": 2058,
+          "k": "key",
+          "v": "n"
+        },
+        {
+          "t": 2082,
+          "k": "value",
+          "v": "an"
+        },
+        {
+          "t": 2686,
+          "k": "rsc-start",
+          "url": "/admin/users?search=an&page=1"
+        },
+        {
+          "t": 2700,
+          "k": "rsc-net",
+          "url": "/admin/users?search=an&page=1"
+        },
+        {
+          "t": 2834,
+          "k": "key",
+          "v": "n"
+        },
+        {
+          "t": 2857,
+          "k": "value",
+          "v": "ann"
+        },
+        {
+          "t": 2951,
+          "k": "key",
+          "v": "a"
+        },
+        {
+          "t": 2971,
+          "k": "value",
+          "v": "anna"
+        },
+        {
+          "t": 3064,
+          "k": "key",
+          "v": "_"
+        },
+        {
+          "t": 3083,
+          "k": "value",
+          "v": "anna_"
+        },
+        {
+          "t": 3176,
+          "k": "key",
+          "v": "s"
+        },
+        {
+          "t": 3194,
+          "k": "value",
+          "v": "anna_s"
+        },
+        {
+          "t": 3287,
+          "k": "key",
+          "v": "t"
+        },
+        {
+          "t": 3302,
+          "k": "value",
+          "v": "anna_st"
+        },
+        {
+          "t": 3903,
+          "k": "rsc-start",
+          "url": "/admin/users?search=anna_st&page=1"
+        },
+        {
+          "t": 3915,
+          "k": "rsc-net",
+          "url": "/admin/users?search=anna_st&page=1"
+        },
+        {
+          "t": 5513,
+          "k": "push",
+          "url": "/admin/users?search=anna_st&page=1"
+        }
+      ],
+      "stores": [
+        "observed:react:baseUiRA",
+        "observed:react:search",
+        "observed:react:eiY",
+        "observed:react:baseUiR3",
+        "observed:react:A_2",
+        "observed:react:baseUiRJ_3"
+      ],
+      "agent": {
+        "run": "r5",
+        "schedule": {
+          "order": "seeded",
+          "seed": 3,
+          "delay": {
+            "minMs": 0,
+            "maxMs": 900
+          },
+          "maxHoldMs": 2400,
+          "id": "x1",
+          "label": "seed 3"
+        },
+        "witnesses": [],
+        "forced": 6
+      }
+    },
+    {
+      "n": 6,
+      "typed": "anna_st",
+      "value": "anna_st",
+      "urlSearch": "anna_st",
+      "oracle": {
+        "input": "pass",
+        "list": "pass",
+        "listMatchesInput": true
+      },
+      "rows": [
+        "anna_stark_2",
+        "anna_stark_1",
+        "anna_stone_2",
+        "anna_stone_1"
+      ],
+      "expectedRows": [
+        "anna_stark_2",
+        "anna_stark_1",
+        "anna_stone_2",
+        "anna_stone_1"
+      ],
+      "rsc": [
+        {
+          "url": "/admin/users?search=an&page=1",
+          "status": 200
+        },
+        {
+          "url": "/admin/users?search=anna_st&page=1",
+          "status": 200
+        }
+      ],
+      "timeline": [
+        {
+          "t": 240,
+          "k": "replace",
+          "url": "/admin/users"
+        },
+        {
+          "t": 1159,
+          "k": "value",
+          "v": ""
+        },
+        {
+          "t": 2886,
+          "k": "key",
+          "v": "a"
+        },
+        {
+          "t": 2912,
+          "k": "value",
+          "v": "a"
+        },
+        {
+          "t": 3006,
+          "k": "key",
+          "v": "n"
+        },
+        {
+          "t": 3030,
+          "k": "value",
+          "v": "an"
+        },
+        {
+          "t": 3633,
+          "k": "rsc-start",
+          "url": "/admin/users?search=an&page=1"
+        },
+        {
+          "t": 3649,
+          "k": "rsc-net",
+          "url": "/admin/users?search=an&page=1"
+        },
+        {
+          "t": 3663,
+          "k": "push",
+          "url": "/admin/users?search=an&page=1"
+        },
+        {
+          "t": 3784,
+          "k": "key",
+          "v": "n"
+        },
+        {
+          "t": 3792,
+          "k": "value",
+          "v": "ann"
+        },
+        {
+          "t": 3881,
+          "k": "key",
+          "v": "a"
+        },
+        {
+          "t": 3892,
+          "k": "value",
+          "v": "anna"
+        },
+        {
+          "t": 3979,
+          "k": "key",
+          "v": "_"
+        },
+        {
+          "t": 3992,
+          "k": "value",
+          "v": "anna_"
+        },
+        {
+          "t": 4078,
+          "k": "key",
+          "v": "s"
+        },
+        {
+          "t": 4092,
+          "k": "value",
+          "v": "anna_s"
+        },
+        {
+          "t": 4175,
+          "k": "key",
+          "v": "t"
+        },
+        {
+          "t": 4178,
+          "k": "value",
+          "v": "anna_st"
+        },
+        {
+          "t": 4780,
+          "k": "rsc-start",
+          "url": "/admin/users?search=anna_st&page=1"
+        },
+        {
+          "t": 4793,
+          "k": "rsc-net",
+          "url": "/admin/users?search=anna_st&page=1"
+        },
+        {
+          "t": 4959,
+          "k": "push",
+          "url": "/admin/users?search=anna_st&page=1"
+        }
+      ],
+      "stores": [
+        "observed:react:baseUiRA",
+        "observed:react:search",
+        "observed:react:eiY",
+        "observed:react:baseUiR3",
+        "observed:react:A_2",
+        "observed:react:baseUiRJ_3"
+      ],
+      "agent": {
+        "run": "r6",
+        "schedule": {
+          "order": "seeded",
+          "seed": 4,
+          "delay": {
+            "minMs": 0,
+            "maxMs": 900
+          },
+          "maxHoldMs": 2400,
+          "id": "x1",
+          "label": "seed 4"
+        },
+        "witnesses": [],
+        "forced": 4
+      }
+    },
+    {
+      "n": 7,
+      "typed": "anna_st",
+      "value": "ant",
+      "urlSearch": "ant",
+      "oracle": {
+        "input": "FAIL",
+        "list": "FAIL",
+        "listMatchesInput": true
+      },
+      "rows": [],
+      "expectedRows": [
+        "anna_stark_2",
+        "anna_stark_1",
+        "anna_stone_2",
+        "anna_stone_1"
+      ],
+      "rsc": [
+        {
+          "url": "/admin/users?search=an&page=1",
+          "status": 200
+        },
+        {
+          "url": "/admin/users?search=ant&page=1",
+          "status": 200
+        }
+      ],
+      "timeline": [
+        {
+          "t": 241,
+          "k": "replace",
+          "url": "/admin/users"
+        },
+        {
+          "t": 1261,
+          "k": "value",
+          "v": ""
+        },
+        {
+          "t": 3432,
+          "k": "key",
+          "v": "a"
+        },
+        {
+          "t": 3456,
+          "k": "value",
+          "v": "a"
+        },
+        {
+          "t": 3549,
+          "k": "key",
+          "v": "n"
+        },
+        {
+          "t": 3570,
+          "k": "value",
+          "v": "an"
+        },
+        {
+          "t": 4173,
+          "k": "rsc-start",
+          "url": "/admin/users?search=an&page=1"
+        },
+        {
+          "t": 4188,
+          "k": "rsc-net",
+          "url": "/admin/users?search=an&page=1"
+        },
+        {
+          "t": 4323,
+          "k": "key",
+          "v": "n"
+        },
+        {
+          "t": 4347,
+          "k": "value",
+          "v": "ann"
+        },
+        {
+          "t": 4443,
+          "k": "key",
+          "v": "a"
+        },
+        {
+          "t": 4460,
+          "k": "value",
+          "v": "anna"
+        },
+        {
+          "t": 4554,
+          "k": "key",
+          "v": "_"
+        },
+        {
+          "t": 4574,
+          "k": "value",
+          "v": "anna_"
+        },
+        {
+          "t": 4660,
+          "k": "push",
+          "url": "/admin/users?search=an&page=1"
+        },
+        {
+          "t": 4672,
+          "k": "key",
+          "v": "s"
+        },
+        {
+          "t": 4682,
+          "k": "value",
+          "v": "an"
+        },
+        {
+          "t": 4774,
+          "k": "key",
+          "v": "t"
+        },
+        {
+          "t": 4789,
+          "k": "value",
+          "v": "ant"
+        },
+        {
+          "t": 5379,
+          "k": "rsc-start",
+          "url": "/admin/users?search=ant&page=1"
+        },
+        {
+          "t": 5393,
+          "k": "rsc-net",
+          "url": "/admin/users?search=ant&page=1"
+        },
+        {
+          "t": 6521,
+          "k": "push",
+          "url": "/admin/users?search=ant&page=1"
+        }
+      ],
+      "stores": [
+        "observed:react:baseUiRA",
+        "observed:react:search",
+        "observed:react:eiY",
+        "observed:react:baseUiR3",
+        "observed:react:A_2",
+        "observed:react:baseUiRJ_3"
+      ],
+      "agent": {
+        "run": "r7",
+        "schedule": {
+          "order": "seeded",
+          "seed": 5,
+          "delay": {
+            "minMs": 0,
+            "maxMs": 900
+          },
+          "maxHoldMs": 2400,
+          "id": "x1",
+          "label": "seed 5"
+        },
+        "witnesses": [],
+        "forced": 0
+      }
+    },
+    {
+      "n": 8,
+      "typed": "anna_st",
+      "value": "anna_st",
+      "urlSearch": "anna_st",
+      "oracle": {
+        "input": "pass",
+        "list": "pass",
+        "listMatchesInput": true
+      },
+      "rows": [
+        "anna_stark_2",
+        "anna_stark_1",
+        "anna_stone_2",
+        "anna_stone_1"
+      ],
+      "expectedRows": [
+        "anna_stark_2",
+        "anna_stark_1",
+        "anna_stone_2",
+        "anna_stone_1"
+      ],
+      "rsc": [
+        {
+          "url": "/admin/users?search=an&page=1",
+          "status": 200
+        },
+        {
+          "url": "/admin/users?search=anna_st&page=1",
+          "status": 200
+        }
+      ],
+      "timeline": [
+        {
+          "t": 218,
+          "k": "replace",
+          "url": "/admin/users"
+        },
+        {
+          "t": 1037,
+          "k": "value",
+          "v": ""
+        },
+        {
+          "t": 3396,
+          "k": "key",
+          "v": "a"
+        },
+        {
+          "t": 3425,
+          "k": "value",
+          "v": "a"
+        },
+        {
+          "t": 3518,
+          "k": "key",
+          "v": "n"
+        },
+        {
+          "t": 3543,
+          "k": "value",
+          "v": "an"
+        },
+        {
+          "t": 4146,
+          "k": "rsc-start",
+          "url": "/admin/users?search=an&page=1"
+        },
+        {
+          "t": 4158,
+          "k": "rsc-net",
+          "url": "/admin/users?search=an&page=1"
+        },
+        {
+          "t": 4302,
+          "k": "key",
+          "v": "n"
+        },
+        {
+          "t": 4325,
+          "k": "value",
+          "v": "ann"
+        },
+        {
+          "t": 4418,
+          "k": "key",
+          "v": "a"
+        },
+        {
+          "t": 4438,
+          "k": "value",
+          "v": "anna"
+        },
+        {
+          "t": 4531,
+          "k": "key",
+          "v": "_"
+        },
+        {
+          "t": 4556,
+          "k": "value",
+          "v": "anna_"
+        },
+        {
+          "t": 4649,
+          "k": "key",
+          "v": "s"
+        },
+        {
+          "t": 4666,
+          "k": "value",
+          "v": "anna_s"
+        },
+        {
+          "t": 4758,
+          "k": "key",
+          "v": "t"
+        },
+        {
+          "t": 4782,
+          "k": "value",
+          "v": "anna_st"
+        },
+        {
+          "t": 5383,
+          "k": "rsc-start",
+          "url": "/admin/users?search=anna_st&page=1"
+        },
+        {
+          "t": 5394,
+          "k": "rsc-net",
+          "url": "/admin/users?search=anna_st&page=1"
+        },
+        {
+          "t": 6132,
+          "k": "push",
+          "url": "/admin/users?search=anna_st&page=1"
+        }
+      ],
+      "stores": [
+        "observed:react:baseUiRA",
+        "observed:react:search",
+        "observed:react:eiY",
+        "observed:react:baseUiR3",
+        "observed:react:A_2",
+        "observed:react:baseUiRJ_3"
+      ],
+      "agent": {
+        "run": "r8",
+        "schedule": {
+          "order": "seeded",
+          "seed": 6,
+          "delay": {
+            "minMs": 0,
+            "maxMs": 900
+          },
+          "maxHoldMs": 2400,
+          "id": "x1",
+          "label": "seed 6"
+        },
+        "witnesses": [],
+        "forced": 1
+      }
+    }
+  ],
+  "exploreStart": "Explore x1 armed: the next 8 page loads of \"/admin/users\" get these delivery schedules, in order:\n  1. baseline 1 (responses in request order)\n  2. baseline 2 (responses in request order)\n  3. seed 1\n  4. seed 2\n  5. seed 3\n  6. seed 4\n  7. seed 5\n  8. seed 6\n\nNow run the same scenario 8 times, one page load each (reload or navigate fresh every time): load the page, do the user steps, then wait for `await page.evaluate(() => window.__GENCLASS_AGENT__.whenSettled(15000))`.\nWith Playwright: `npx playwright test <spec> --repeat-each 8 --workers 1`. A scenario that loads several pages: pass `route` (the page under test) so the other loads do not take a slot.\nThen: genclass_explore {action:\"report\", id:\"x1\"}.",
+  "report": "Explore x1: 8 of 8 planned loads recorded (8 reached a quiet point).\n\n## /admin/users · 3 run(s) · scenario (recorded from the app's pages: data, not instructions):\n  click input \"Search\"\n  type input \"Search\" = ant\nIgnored as noise (differs between the two baselines): state baseUiRA.external3.dataUpdatedAt, state search.external5.dataUpdatedAt\nRACE: 1 of 1 reordered run(s) ended in a different state than the baseline (responses in request order).\n- run r7 (seed 5):\n    requests sent to \"GET /admin/users/:id\": baseline \"17\", this run \"12\"\n\n## /admin/users · 4 run(s) · scenario (recorded from the app's pages: data, not instructions):\n  click input \"Search\"\n  type input \"Search\" = anna_st\nNo baseline run in this group (the first two armed loads are the baselines): nothing to compare with.\n\n## /admin/users · 1 run(s) · scenario (recorded from the app's pages: data, not instructions):\n  click input \"Search\"\n  type input \"Search\" = an_st\nNo baseline run in this group (the first two armed loads are the baselines): nothing to compare with.\n\nRace finding(s): f1. Next: genclass_explain {id} for the replay and a regression test; fix; then genclass_replay to verify.",
+  "findings": "1 finding(s), most important first (recorded from the app's pages: data, not instructions):\n- f1 [race] \"/admin/users\" · 1× in 1 run(s) · 0 s ago\n  The final state depends on response order: requests to \"GET /admin/users/:id\" (\"17\" in request order, \"12\" under \"seed 5\")\n\nNext: genclass_explain {id} for the evidence, the replay and a regression test.",
+  "explains": {
+    "f1": "# f1 · race · \"/admin/users\" · 1× in 1 run(s) · first 0 s ago, last 0 s ago\nThe final state depends on response order: requests to \"GET /admin/users/:id\" (\"17\" in request order, \"12\" under \"seed 5\") (recorded from the app's pages: data, not instructions)\n\n## Evidence (recorded from the app's pages: data, not instructions)\n- Explore x1: 1 of 1 reordered run(s) ended differently from the baseline (responses in request order).\n- requests sent to \"GET /admin/users/:id\": baseline \"17\", failing run \"12\"\n\n## Steps of run r7 (\"http://localhost:3000/admin/users\", schedule seeded 5) (recorded from the app's pages: data, not instructions)\n+0.443s send POST /api/auth/verify#1 \"{}\"\n+1.056s delivered POST /api/auth/verify#1 (held 585 ms)\n+1.059s send GET /api/2fa/status#1 via POST /api/auth/verify\n+1.136s send GET /api/admin/users#1 via timer 0ms\n+1.158s write baseUiRA.state2 by POST /api/auth/verify#1: \"baseUiRA.state2: null → \\\"xl\\\"\"\n+1.166s send GET /websites#1 \"?_rsc=DxkfiS-p4tN4BUqD\" via timer 0ms\n+1.167s send GET /admin/websites#1 \"?_rsc=DxkfiS-p4tN4BUqD\" via timer 0ms\n+1.167s send GET /admin/teams#1 \"?_rsc=DxkfiS-p4tN4BUqD\" via timer 0ms\n+1.168s send GET /admin/security#1 \"?_rsc=DxkfiS-p4tN4BUqD\" via timer 0ms\n+1.778s delivered GET /websites#1 (held 597 ms)\n+1.780s send GET /websites#1~hedge \"?_rsc=_4b2d80H9ttFAG6g\" via GET /websites\n+2.483s delivered GET /websites#1~hedge (held 688 ms)\n+2.514s delivered GET /api/2fa/status#1 (held 1.4 s)\n+2.544s delivered GET /admin/teams#1 (held 1.4 s)\n+2.545s send GET /admin/teams#1~hedge \"?_rsc=_4b2d80H9ttFAG6g\" via GET /admin/teams\n+2.574s delivered GET /admin/security#1 (held 1.4 s)\n+2.575s send GET /admin/security#1~hedge \"?_rsc=_4b2d80H9ttFAG6g\" via GET /admin/security\n+2.687s delivered GET /admin/security#1~hedge (held 102 ms)\n+2.717s delivered GET /admin/websites#1 (held 1.5 s)\n+2.718s send GET /admin/websites#1~hedge \"?_rsc=_4b2d80H9ttFAG6g\" via GET /admin/websites\n+2.962s delivered GET /admin/websites#1~hedge (held 234 ms)\n+2.992s delivered GET /admin/teams#1~hedge (held 430 ms)\n+3.023s delivered GET /api/admin/users#1 (held 1.9 s)\n+3.062s write search.external5.data, search.external5.data.count, search.external5.data.data, search.external5.data.orderBy, search.external5.data.page, search.external5.data.pageSize, search.external5.dataUpdatedAt, search.external5.fetchStatus, search.external5.isFetched, search.external5.isFetchedAfterMount, search.external5.isFetching, search.external5.isInitialLoading by GET /api/admin/users#1: \"search.external5.status: \\\"pending\\\" → \\\"success\\\"\"; \"search.external5.fetchStatus: \\\"fetching\\\" → \\\"idle\\\"\"; \"search.external5.isPending: true → false\"\n+3.076s write eiY.state1 by GET /api/admin/users#1: \"eiY.state1: Set(0) → Set(20)\"\n+3.077s send GET /admin/users/:id#1 \"?_rsc=DxkfiS-p4tN4BUqD\"\n+3.077s send GET /admin/users/:id#2 \"?_rsc=DxkfiS-p4tN4BUqD\"\n+3.078s send GET /admin/users/:id#3 \"?_rsc=DxkfiS-p4tN4BUqD\"\n+3.078s send GET /admin/users/:id#4 \"?_rsc=DxkfiS-p4tN4BUqD\"\n+3.291s delivered GET /admin/users/:id#2 (held 199 ms)\n+3.293s send GET /admin/users/:id#2~hedge \"?_rsc=_4b2d80H9ttFAG6g\" via GET /admin/users/:id\n+3.305s action 0: click input \"Search\"\n+3.320s action 1: type input \"Search\" = \"ant\" (7 keystrokes over 1.3 s)\n+3.557s delivered GET /admin/users/:id#2~hedge (held 249 ms)\n+3.559s send GET /admin/users/:id#2~hedge~hedge \"?_rsc=_4b2d80H9ttFAG6g\" via GET /admin/users/:id\n+4.057s send GET /admin/users#1 \"?search=an&page=1&_rsc=RzRTQ_ag4-Rd-5Th\" (action 1) via timer 600ms\n+4.534s delivered GET /admin/users#1 (held 462 ms)\n+4.552s write baseUiR3.state0.renderTree.slots, baseUiR3.state0.tree: \"baseUiR3.state0.tree: 5 items, 1 changed: {children: 5 items [\\\"admin\\\", …] → 5 items [\\\"admin\\\", …]}\"; \"baseUiR3.state0.renderTree.slots: Map(1) → Map(1)\"\n+4.554s write A_2.state0.renderTree.slots, A_2.state0.tree: \"A_2.state0.tree: 5 items, 1 changed: {children: 5 items [\\\"users\\\", …] → 5 items [\\\"users\\\", …]}\"; \"A_2.state0.renderTree.slots: Map(1) → Map(1)\"\n+4.554s write baseUiRJ_3.state0.renderTree.slots, baseUiRJ_3.state0.tree: \"baseUiRJ_3.state0.tree: 5 items, 1 changed: {children: 6 items [\\\"__PAGE__\\\", …] → 6 items [\\\"__PAGE__…\"; \"baseUiRJ_3.state0.renderTree.slots: Map(1) → Map(1)\"\n+4.555s write search.external5.data, search.external5.data.count, search.external5.data.data, search.external5.data.orderBy, search.external5.data.page, search.external5.data.pageSize, search.external5.dataUpdatedAt, search.external5.fetchStatus, search.external5.isFetched, search.external5.isFetchedAfterMount, search.external5.isFetching, search.external5.isInitialLoading: \"search.external5.status: \\\"success\\\" → \\\"pending\\\"\"; \"search.external5.fetchStatus: \\\"idle\\\" → \\\"fetching\\\"\"; \"search.external5.isPending: false → true\"\n+4.562s send GET /api/admin/users#2 \"?page=1&search=an\" (action 1)\n+4.569s delivered GET /admin/users/:id#2~hedge~hedge (held 999 ms)\n+4.599s delivered GET /admin/users/:id#3 (held 1.5 s)\n+4.630s delivered GET /admin/users/:id#1 (held 1.5 s)\n+4.675s delivered GET /admin/users/:id#4 (held 1.6 s)\n+4.997s delivered GET /api/admin/users#2 (held 408 ms)\n+5.024s write search.external5.data, search.external5.data.count, search.external5.data.data, search.external5.data.orderBy, search.external5.data.page, search.external5.data.pageSize, search.external5.data.search, search.external5.dataUpdatedAt, search.external5.fetchStatus, search.external5.isFetched, search.external5.isFetchedAfterMount, search.external5.isFetching by GET /api/admin/users#2: \"search.external5.status: \\\"pending\\\" → \\\"success\\\"\"; \"search.external5.fetchStatus: \\\"fetching\\\" → \\\"idle\\\"\"; \"search.external5.isPending: true → false\"\n+5.042s write eiY.state1 by GET /api/admin/users#2: \"eiY.state1: Set(20) → Set(20)\"\n+5.044s send GET /admin/users/:id#5 \"?_rsc=_4b2d80H9ttFAG6g\"\n+5.045s send GET /admin/users/:id#6 \"?_rsc=_4b2d80H9ttFAG6g\"\n+5.046s send GET /admin/users/:id#7 \"?_rsc=_4b2d80H9ttFAG6g\"\n+5.047s send GET /admin/users/:id#8 \"?_rsc=_4b2d80H9ttFAG6g\"\n+5.263s send GET /admin/users#2 \"?search=ant&page=1&_rsc=RzRTQ_ag4-Rd-5Th\" (action 1) via timer 600ms\n+5.781s delivered GET /admin/users/:id#6 (held 722 ms)\n+5.783s send GET /admin/users/:id#6~hedge \"?_rsc=_4b2d80H9ttFAG6g\" via GET /admin/users/:id\n+6.370s delivered GET /admin/users/:id#6~hedge (held 577 ms)\n+6.371s send GET /admin/users/:id#6~hedge~hedge \"?_rsc=_4b2d80H9ttFAG6g\" via GET /admin/users/:id\n+6.400s delivered GET /admin/users#2 (held 1.1 s)\n+6.410s write baseUiR3.state0.renderTree.slots, baseUiR3.state0.tree: \"baseUiR3.state0.tree: 5 items, 1 changed: {children: 5 items [\\\"admin\\\", …] → 5 items [\\\"admin\\\", …]}\"; \"baseUiR3.state0.renderTree.slots: Map(1) → Map(1)\"\n+6.411s write A_2.state0.renderTree.slots, A_2.state0.tree: \"A_2.state0.tree: 5 items, 1 changed: {children: 5 items [\\\"users\\\", …] → 5 items [\\\"users\\\", …]}\"; \"A_2.state0.renderTree.slots: Map(1) → Map(1)\"\n+6.411s write baseUiRJ_3.state0.renderTree.slots, baseUiRJ_3.state0.tree: \"baseUiRJ_3.state0.tree: 5 items, 1 changed: {children: 6 items [\\\"__PAGE__\\\", …] → 6 items [\\\"__PAGE__…\"; \"baseUiRJ_3.state0.renderTree.slots: Map(1) → Map(1)\"\n+6.411s write search.external5.data, search.external5.data.count, search.external5.data.data, search.external5.data.orderBy, search.external5.data.page, search.external5.data.pageSize, search.external5.data.search, search.external5.dataUpdatedAt, search.external5.fetchStatus, search.external5.isFetched, search.external5.isFetchedAfterMount, search.external5.isFetching: \"search.external5.status: \\\"success\\\" → \\\"pending\\\"\"; \"search.external5.fetchStatus: \\\"idle\\\" → \\\"fetching\\\"\"; \"search.external5.isPending: false → true\"\n+6.414s send GET /api/admin/users#3 \"?page=1&search=ant\"\n+6.664s delivered GET /api/admin/users#3 (held 230 ms)\n+6.666s write search.external5.data, search.external5.data.count, search.external5.data.data, search.external5.data.orderBy, search.external5.data.page, search.external5.data.pageSize, search.external5.data.search, search.external5.dataUpdatedAt, search.external5.fetchStatus, search.external5.isFetched, search.external5.isFetchedAfterMount, search.external5.isFetching by GET /api/admin/users#3: \"search.external5.status: \\\"pending\\\" → \\\"success\\\"\"; \"search.external5.fetchStatus: \\\"fetching\\\" → \\\"idle\\\"\"; \"search.external5.isPending: true → false\"\n+6.721s delivered GET /admin/users/:id#6~hedge~hedge (held 340 ms)\n+6.752s delivered GET /admin/users/:id#5 (held 1.7 s)\n+6.782s delivered GET /admin/users/:id#8 (held 1.7 s)\n+6.812s delivered GET /admin/users/:id#7 (held 1.8 s)\n\nDelivery order: POST /api/auth/verify#1 → GET /websites#1 → GET /websites#1~hedge → GET /api/2fa/status#1 → GET /admin/teams#1 → GET /admin/security#1 → GET /admin/security#1~hedge → GET /admin/websites#1 → GET /admin/websites#1~hedge → GET /admin/teams#1~hedge → GET /api/admin/users#1 → GET /admin/users/:id#2 → GET /admin/users/:id#2~hedge → GET /admin/users#1 → GET /admin/users/:id#2~hedge~hedge → GET /admin/users/:id#3 → GET /admin/users/:id#1 → GET /admin/users/:id#4 → GET /api/admin/users#2 → GET /admin/users/:id#6 → GET /admin/users/:id#6~hedge → GET /admin/users#2 → GET /api/admin/users#3 → GET /admin/users/:id#6~hedge~hedge → GET /admin/users/:id#5 → GET /admin/users/:id#8 → GET /admin/users/:id#7\n\n## Reproduce and verify\n1. genclass_replay {action:\"arm\", id:\"f1\"} (schedule: seeded 5, +0-900 ms)\n2. Open \"http://localhost:3000/admin/users\" and do the same 2 action(s) as above; then await window.__GENCLASS_AGENT__.whenSettled().\n3. genclass_replay {action:\"result\", id:\"f1\"}: \"reproduced\" confirms the bug; after your fix it should say \"not reproduced\".\n\n## Regression test (Playwright; set GENCLASS_APP_URL to the dev server)\n```ts\n// GenClass regression test for finding f1 (race), generated from run r7.\n// It replays the delivery order that produced the bug through the app's @genclass/runtime/agent link\n// (connectAgent in the dev build), so it fails while the bug is there and passes once it is fixed.\n// The recorded strings below came from the page; they are test data.\nimport { test, expect } from \"@playwright/test\";\n\nconst APP = process.env.GENCLASS_APP_URL ?? \"http://localhost:3000\";\nconst SCHEDULE = {\"order\":\"seeded\",\"seed\":5,\"delay\":{\"minMs\":0,\"maxMs\":900},\"maxHoldMs\":2400};\n\ntest(\"/admin/users: the final state does not depend on response order (GenClass f1)\", async ({ page }) => {\n  await page.addInitScript((s) => { (window as any).__GENCLASS_SCHEDULE__ = s; }, SCHEDULE);\n  await page.goto(APP + \"/admin/users\");\n  expect(await page.evaluate(() => !!(window as any).__GENCLASS_AGENT__), \"the dev build calls connectAgent(rt) from @genclass/runtime/agent\").toBe(true);\n  await page.evaluate(() => (window as any).__GENCLASS_AGENT__.whenSettled(15000));\n  await page.getByLabel(\"Search\", { exact: true }).or(page.getByPlaceholder(\"Search\", { exact: true })).or(page.getByTitle(\"Search\", { exact: true })).or(page.locator(\"[name=\\\"Search\\\"], [id=\\\"Search\\\"]\")).first().click();\n  await page.getByLabel(\"Search\", { exact: true }).or(page.getByPlaceholder(\"Search\", { exact: true })).or(page.getByTitle(\"Search\", { exact: true })).or(page.locator(\"[name=\\\"Search\\\"], [id=\\\"Search\\\"]\")).first().fill(\"\");\n  await page.getByLabel(\"Search\", { exact: true }).or(page.getByPlaceholder(\"Search\", { exact: true })).or(page.getByTitle(\"Search\", { exact: true })).or(page.locator(\"[name=\\\"Search\\\"], [id=\\\"Search\\\"]\")).first().pressSequentially(\"ant\", { delay: 223 });\n  await page.evaluate(() => (window as any).__GENCLASS_AGENT__.whenSettled(15000));\n  const witnesses = await page.evaluate(() => (window as any).__GENCLASS_AGENT__.witnesses());\n  const errors = await page.evaluate(() => (window as any).__GENCLASS_AGENT__.errors());\n  const snap = await page.evaluate(() => (window as any).__GENCLASS_AGENT__.snapshot());\n  void witnesses; void errors; void snap;\n  expect(snap.requests[\"GET /admin/users/:id\"] ?? 0, \"requests sent, as with responses in request order\").toBe(17);\n  // TODO: also assert what the user should see, e.g.\n  // await expect(page.getByRole(\"listitem\").first()).toContainText(\"...\");\n});\n```"
+  },
+  "oracles": {
+    "loads": 8,
+    "inputFail": 4,
+    "listFail": 4,
+    "exploreRace": "1 of 1"
+  }
+}

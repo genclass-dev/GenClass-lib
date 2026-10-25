@@ -1,0 +1,4 @@
+  ✓  1 [chromium] › test/fields/collections/Relationship/e2e.spec.ts:976:3 › relationship › should handle polymorphic relationship when `appearance: "drawer"` (13.6s)
+  ✓  2 [chromium] › test/fields/collections/Relationship/e2e.spec.ts:976:3 › relationship › should handle polymorphic relationship when `appearance: "drawer"` (15.3s)
+  ✓  3 [chromium] › test/fields/collections/Relationship/e2e.spec.ts:976:3 › relationship › should handle polymorphic relationship when `appearance: "drawer"` (14.2s)
+  3 passed (1.1m)

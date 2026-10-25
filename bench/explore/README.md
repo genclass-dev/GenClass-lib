@@ -2,7 +2,7 @@
 
 Measures `genclass_explore` (docs/runtime/AGENT.md section 5) the way an agent uses it: two fifo baselines and
 seeded reorderings of the same user steps, compared by the MCP server. Every number goes to
-[RESULTS.md](../../docs/runtime/RESULTS.md) section 17 with its false-report rate next to it.
+[RESULTS.md](../../docs/runtime/RESULTS.md) section 20 with its false-report rate next to it.
 
 ## What is here
 

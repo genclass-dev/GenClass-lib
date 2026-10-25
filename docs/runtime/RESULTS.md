@@ -833,8 +833,104 @@ gzip; limits 108.6 / 100.48 KB): the agent link is its own entry (`dist/agent.js
 load; the XHR fix adds about 10 bytes. Tests: 36 in `test/agent.test.ts`, 57 in `packages/mcp`; the runtime suite
 passes (1,101 tests, 14 model-parity skips); `review-perf` 4 of 4.
 
+## 17. Coding agents on a real library issue: redux-toolkit#5139 (local, 2026-10-25, Chromium through Playwright 1.63.0)
 
-## 17. Coding agents: explore's false reports before and after (cloud session, 2026-10-25, branch `claude/great-dijkstra-oa9emj`)
+[docs/adoption/hunts/rtk-5139.md](../adoption/hunts/rtk-5139.md). The agent link and `@genclass/mcp` (both built from
+the repository) recording a standalone Redux Toolkit 2.13.0 reproduction: an optimistic `updateQueryData` patch
+replaced by a polling or refetch-on-focus fetch while the mutation is pending. `mode: "observe"`, `model: false`,
+`telemetry: false`, Redux discovery only, `connectAgent(rt, { hold: false })`. 10 natural runs per variant.
+
+| variant | bug visible in the UI | runs with the `overwrote-newer` witness on the overwritten data | other witnesses |
+|---|---|---|---|
+| polling, the fetch starts after the patch (the issue) | 10/10 | 1/10 (the one run whose poll was already in flight at the click) | RTK bookkeeping fields (`status`, `requestId`, `startedTimeStamp`) in 4 runs |
+| refetch on focus | 10/10 | 0/10 | `status` in 10 runs |
+| polling, a fetch in flight at the click (#5103's shape) | 10/10 | 10/10 | none |
+| control (no polling, no focus refetch) | 0/10 | 0/10 | none (0 findings) |
+
+The witness fires only when the overwriting request started before the patch (by its definition, AGENT.md section 2);
+in the issue's own shape the fetch is newer on the page and stale only against the server, so it is not witnessed.
+MCP findings over the 40 runs: 4 `stale-write`, 1 the bug and 3 bookkeeping (true happens-before facts, not bugs);
+none from the control. The Playwright test `genclass_explain` generated for the bug passed 5 of 5 on the buggy app
+(the witness depends on the click's timing, which a delivery-order replay does not recreate). One case, not a recall
+figure.
+
+## 18. The hunt harness: explore and replay against apps it does not own (cloud session, 2026-10-25, branch `claude/optimistic-feynman-8lbnyg`)
+
+[bench/hunt](../../bench/hunt/README.md) runs the same loop against an app it does not own: an init script runs the
+runtime's script-tag build inline before the page's first script (and removes the element), imports the agent link
+from a blob URL and connects it to an in-process bridge; no request of the app is routed or rewritten. The MCP tools
+are driven over `tools/call`. Headless Chromium 153 through Playwright 1.63.0, runtime 0.3.0-beta.1 and mcp 0.1.0,
+harness commit `bd943285`, 6 seeded orders, `slow 600`. Reports: `bench/hunt/results/`.
+
+The e2e pages, served by `bench/hunt/scenarios/e2e-search-server.mjs` with **no GenClass in the page** (state in a
+closure, so no store is discovered: the verdicts rest on page text and request counts). "Reordered" counts the compared
+orders that delivered at least one response after the answer to a later request.
+
+| measurement | buggy search page (`/`) | fixed (`/fixed`) | double submit (`/form`) | fixed (`/form-fixed`) | double submit, then a navigation (`/form-nav`) |
+|---|---|---|---|---|---|
+| `genclass_explore`, 6 seeded orders | **5 of 6** ended with an older query's results ("reac", "rea", "r"); 6 reordered | **0 of 6** differ; 6 reordered (no false report) | 0 of 6 differ; 1 reordered | no verdict: nothing reordered (one request per load) | no verdict: the form page leaves before its quiet point |
+| other findings on the loads | none | none | one `duplicate-request` (`POST /api/items` twice in flight from two clicks) | none | the same `duplicate-request` |
+| `genclass_replay` of the race finding | reproduced | | | | |
+| the generated regression test | fails on the buggy page; passes 10 of 10 against the fix at the same path | | | | |
+| `plain.mjs`, no GenClass, the "reac" request answered 1.5 s late | 2 of 2 end on "reac" | 0 of 2 differ | | | |
+| the harness's own DOM oracle | differs in 5 of 6 | same in 6 of 6 | same | same | same |
+| wall time (8 or 9 page loads, the test run included) | 22 s | 17 s | 15 s | 15 s | 17 s |
+
+The same counts as section 16, through the harness. One page and three planted bugs: a check that the harness and the
+injection do not change what GenClass finds, not a recall figure. False reports on the fixed variants: 0 of 6
+(search); the fixed form gives no verdict rather than a false "no race".
+
+One real app through the same command: Strapi 5.59.0 from `npx create-strapi@latest --example` (sqlite), logged in,
+about 3 minutes per scenario; React and Redux state discovered (300 fields, the snapshot cap). Details in the README's
+section "A real app".
+
+| measurement | the author picker, generic `typeahead.mjs` (`results/sample/`) | two searches on the article list (`results/strapi-search/`) |
+|---|---|---|
+| compared orders (reordered) | 4 (4) | 4 (4) |
+| seeded loads not compared | 2: seeds 2 and 3 stayed on Strapi's 403 page ("You don't have the permissions to access that content") | 2: the same seeds, the same page |
+| GenClass's verdict | along the way only: 4 of 4 overwrote newer page-load state, all ended right | along the way only: 2 of 4 overwrote RTK Query's cache tags, all ended right |
+| what the user sees | no race: in seed 1 "da" was delivered after "dav" and the picker still showed "David Doe" | no race in the table |
+| replay of the race finding | reproduced | reproduced |
+| the generated test on the app | passed in the hunt's run; failed on its witness 10 of 10 when repeated | fails on its witness |
+| `plain.mjs`, no GenClass | "da" answered 2 s late: 0 of 2 differ; permissions answered 2.5 s late: the 403 page in 2 of 2 | |
+| other findings | 101 `stale-write` witnesses | 4 `stale-write` witnesses |
+
+The 403 page is an order dependency of the admin's load that the harness surfaced and plain Playwright reproduces; it
+is not reported upstream, and the mechanism was not traced. An earlier run of the sample showed a GenClass false
+report: under an auth-like store name the runtime redacts a random id only when it contains a digit (`util.ts`
+`OPAQUE`), so a 21-character id is raw in about 3% of runs and the compare reads that as a race; its replay said "not
+reproduced". `util.ts` is frozen (AGENTS.md rule 3), so the fix belongs in `packages/mcp/src/compare.ts`.
+
+Review: before these runs, six independent reviewers read the harness (55 raw findings, merged and checked against the
+code); the confirmed ones were fixed in `bd943285`, among them a "no race" verdict printed when nothing was compared
+or nothing was reordered, the document rewrite (redirect targets never rewritten, streamed HTML buffered, non-UTF-8
+mangled), a generated-test precondition that failed on about 7 of 30 loads, findings lost on steps that navigate,
+and session files outside `.gitignore`.
+
+## 19. Coding agents on a real app: Gitea's markdown preview (cloud container, 2026-10-25, adoption hunt)
+
+[adoption/hunts/gitea.md](../adoption/hunts/gitea.md). Gitea `main` at `ff68b39` (same code as v28.2.0), built from
+source with SQLite; GenClass from `main` at `d77ffd8` (runtime 0.3.0-beta.1, mcp 0.1.0), injected from outside through
+Playwright 1.63.0 / Chromium 1243 (the script-tag build plus `connectAgent`, `model: false`, telemetry off, one `rt.atom`
+per watched pane because GenClass discovers no store on Gitea's stack). Each explore session: 2 fifo baselines + N
+seeded loads of the same steps, at `slow_ms` 300, 600 and 900. "Fixed" is Gitea with the prepared patch (a request
+counter in each preview handler).
+
+| surface | seeded loads ending stale, unfixed | seeded loads differing from the baseline, fixed (false reports) |
+|---|---|---|
+| comment box Preview (N = 6) | 6 of 18 | 0 of 18 |
+| file editor Preview (N = 6) | 5 of 18 | 0 of 18 |
+| file editor Preview Changes (N = 12) | 12 of 36 (0 of 18 with N = 6) | 0 of 36 |
+
+Every load where the newer response was delivered first ended stale on the unfixed build (23 of 23) and right on the
+fixed one (0 of 23); baselines were right on both. Confirmed without GenClass: a Gitea e2e test fails 20 of 20 before
+the fix and passes 20 of 20 after, and a person-paced run on a throttled network (no reordering) ends stale 5 of 5
+before and right 5 of 5 after. Misses: with N = 6 the Preview Changes race was never tried in the harmful order (the
+seeded priorities of its two request keys favour the older one for seeds 1 to 8); and the Actions "Run workflow" branch
+change, a dropped update rather than a reordering, was reported as a race in 5 of 6 at 300 ms but not at 600 or 900 ms,
+where the baselines lost the update too. One app, three surfaces of one bug class: not a recall figure.
+
+## 20. Coding agents: explore's false reports before and after (cloud session, 2026-10-25, branch `claude/great-dijkstra-oa9emj`)
 
 [AGENT.md](AGENT.md) sections 2 and 5.1. The Strapi race hunt (`docs/adoption/hunts/strapi.md` on the
 `claude/dazzling-cray-8tqzkn` branch) found a real race on the Strapi admin and also showed `genclass_explore`

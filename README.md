@@ -80,7 +80,7 @@ steps again with the network answering in different orders (and slower) to find 
 exact order that broke, and write a Playwright test that fails until the fix is in. Everything stays on your machine.
 
 ```bash
-claude mcp add genclass -- npx -y @genclass/mcp
+claude mcp add genclass -- npx -y @genclass/mcp@0.1.0
 ```
 
 ```ts
@@ -254,13 +254,14 @@ All numbers are on held-out data, with each recall reported next to its false-in
 |---|---|
 | [`packages/runtime`](packages/runtime) | `@genclass/runtime`, the library. Observers, causality, stores and adapters, learned baselines/relations/profiles, facts, triage, policy gate, actions, model host (Web Worker, ONNX Runtime Web on WebGPU/WASM), devtools overlay. [README](packages/runtime/README.md) · [CHANGELOG](packages/runtime/CHANGELOG.md) |
 | [`packages/mcp`](packages/mcp) | `@genclass/mcp` (unreleased), the MCP server for coding agents: pages connect through `@genclass/runtime/agent`; the agent gets findings in causal order, replays, explore verdicts and generated regression tests ([AGENT.md](docs/runtime/AGENT.md)). [README](packages/mcp/README.md) |
-| [`packages/playwright`](packages/playwright) | `@genclass/playwright` (unreleased), a Playwright reporter: reads what the GenClass fixture flagged per test (`test-results/genclass/*.json`) and writes one markdown report for the pull request, with the evidence line and what reproduced across seeds. [README](packages/playwright/README.md) |
+| [`packages/playwright`](packages/playwright) | `@genclass/playwright` (unreleased), GenClass for Playwright: a fixture that puts the runtime on every page under test (observe mode, seeded network chaos with `page.route`, the model skipped by default) and writes one race file per test, and a reporter that turns those files into one markdown report for the pull request, with the evidence line and what reproduced across seeds. [README](packages/playwright/README.md) |
+| [`packages/nuxt`](packages/nuxt), [`packages/astro`](packages/astro) | `@genclass/nuxt` and `@genclass/astro` (unreleased): the runtime as a Nuxt module and as an Astro integration, one line in the framework's config, with options for the mode, the token, telemetry and the devtools overlay; browser only. [Nuxt README](packages/nuxt/README.md) · [Astro README](packages/astro/README.md) |
 | [`packages/runtime-model`](packages/runtime-model) | `@genclass/runtime-model`, the default model package (data only; `files/` is gitignored and filled at release time) and its [model card](packages/runtime-model/MODEL_CARD.md) |
 | [`sim`](sim) | Training-data simulator: random apps run on the real runtime in a deterministic virtual world, labelled by counterfactual outcomes |
 | [`realapps`](realapps) | 128 real apps (written for the corpus, plus open-source ones) run with the real runtime in headless Chromium, labelled the same way; the never-worse sweep covered the first 66. [README](realapps/README.md) |
 | [`training`](training) | Vocabulary pruning, curriculum (`curriculum/rt.py` mirrors the runtime's renderer), multi-node CPU training on Azure, int8 ONNX export, evaluation ([EVAL.md](training/EVAL.md)) |
 | [`demos`](demos) | Six demo apps (typeahead, autosave, checkout, flaky dashboard, live kanban, real-time decisions) with a Service Worker chaos backend and Playwright trials; [`bench/heal`](bench/heal) runs them per mode, [`bench/visual`](bench/visual) measures the visual checks on them |
-| [`compat`](compat), [`templates`](templates) | Framework compatibility matrix (7 apps, 15 data layers, every mode; [RESULTS.md](compat/RESULTS.md)) and starter templates with the one line |
+| [`compat`](compat), [`templates`](templates) | Framework compatibility matrix (7 apps, 15 data layers, every mode; [RESULTS.md](compat/RESULTS.md)) and eight starter templates with the one line (React + Vite, Next.js, Vue + Vite, SvelteKit, Astro, Nuxt, React Router, Angular; [templates/README.md](templates/README.md)) |
 | [`docs/runtime`](docs/runtime) | [Results](docs/runtime/RESULTS.md) · [Coding agents](docs/runtime/AGENT.md) · [Architecture](docs/runtime/ARCHITECTURE.md) · [Build contract](docs/runtime/CONTRACT.md) · [API](docs/runtime/API.md) · [Threat model](docs/runtime/THREAT-MODEL.md) |
 | [`telemetry-worker`](telemetry-worker), [`site`](site) | The diagnostics collector (Cloudflare Worker) and the genclass.dev site |
 | [`research`](research) | Earlier GenClass/Jev research (voice-control Chrome extension, the `jev_local` encoder and server, classifier benchmarks); the training scripts still use `jev_local` ([README](research/README.md)) |
@@ -290,9 +291,9 @@ provenance.
 Not covered by CI:
 
 - Playwright browser tests: `npm run test:browser` in `packages/runtime`.
-- `@genclass/playwright`: its typecheck, build and unit tests run in their own workflow,
-  [.github/workflows/playwright-reporter.yml](.github/workflows/playwright-reporter.yml), on pushes and pull
-  requests that touch the package; it never blocks `ci.yml`.
+- `@genclass/playwright`: its typecheck, build, unit tests and the fixture's end-to-end check in Chromium run in
+  their own workflow, [.github/workflows/playwright-reporter.yml](.github/workflows/playwright-reporter.yml), on
+  pushes and pull requests that touch the package; it never blocks `ci.yml`.
 - The npm tarball smoke test: `test/smoke/smoke.sh`.
 - The sim, the real-app corpus, the demos' evaluation, and training.
 

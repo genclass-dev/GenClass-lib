@@ -3,6 +3,7 @@ import { PassThrough } from "node:stream";
 import { afterEach, describe, expect, it } from "vitest";
 import { McpServer, PROTOCOL_VERSIONS } from "../src/mcp.js";
 import { serve, channelEvent, type Served } from "../src/server.js";
+import { VERSION } from "../src/http.js";
 import { INSTRUCTIONS, TOOLS } from "../src/tools.js";
 import { act, page, snap, tokenDir } from "./helpers.js";
 
@@ -47,10 +48,10 @@ afterEach(async () => {
   served = null;
 });
 
-async function start(env: Record<string, string | undefined> = {}) {
+async function start(env: Record<string, string | undefined> = {}, clientName = "test") {
   const c = client();
   served = await serve({ cwd: process.cwd(), env: { GENCLASS_TOKEN_DIR: tokenDir(), ...env }, stdin: c.input, stdout: c.output, stderr: c.stderr, port: 0, stateDir: null });
-  const init = await c.request("initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "test", version: "1" } });
+  const init = await c.request("initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: clientName, version: "1" } });
   c.notify("notifications/initialized");
   return { c, init, port: served.port };
 }
@@ -59,6 +60,25 @@ const call = async (c: ReturnType<typeof client>, name: string, args: Record<str
   const r = await c.request("tools/call", { name, arguments: args });
   return { text: r.result.content[0].text as string, isError: !!r.result.isError };
 };
+
+describe("mcp: genclass_setup and the client named at initialize (README Install)", () => {
+  it("adds the config block for a known client", async () => {
+    const { c } = await start({}, "claude-code");
+    const r = await call(c, "genclass_setup");
+    expect(r.isError).toBe(false);
+    expect(r.text).toContain("connectAgent(rt)");
+    expect(r.text).toContain("in Claude Code (");
+    expect(r.text).toContain("/plugin install genclass@genclass");
+    expect(r.text).toContain(`npx -y @genclass/mcp@${VERSION}`);
+  });
+
+  it("points an unknown client to the config command", async () => {
+    const { c } = await start({}, "some-new-agent");
+    const r = await call(c, "genclass_setup");
+    expect(r.text).toContain(`npx -y @genclass/mcp@${VERSION} config <client>`);
+    expect(r.text).not.toContain("/plugin install");
+  });
+});
 
 describe("mcp: protocol", () => {
   it("initialize: version negotiation, instructions, tools and the channel capability", async () => {
@@ -73,6 +93,8 @@ describe("mcp: protocol", () => {
     for (const t of list.result.tools) {
       expect(t.inputSchema.type).toBe("object");
       expect(t.description.length).toBeGreaterThan(40);
+      // directories review these (Anthropic's software directory policy 5.E: readOnlyHint, destructiveHint, title)
+      expect(t.annotations).toMatchObject({ title: t.title, readOnlyHint: expect.any(Boolean), destructiveHint: expect.any(Boolean), openWorldHint: expect.any(Boolean) });
     }
     expect((await c.request("ping")).result).toEqual({});
     expect((await c.request("nope/nope")).error.code).toBe(-32601);

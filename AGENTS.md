@@ -20,12 +20,16 @@ Default mode is `observe` (report only); `guard` is opt-in; `heal` is experiment
 | `realapps/` | 128 real apps run in headless Chromium with the real runtime: training rows and the never-worse sweep |
 | `training/` | vocabulary pruning, curriculum (`curriculum/rt.py` mirrors the runtime's situation renderer), Azure training, ONNX export, `EVAL.md` |
 | `demos/` | six demo apps with a chaos backend and Playwright trials; `bench/heal/` runs them per mode |
-| `packages/mcp/` | `@genclass/mcp`: the MCP server for coding agents (bridge on 127.0.0.1:47357, store, explore verdicts, replays, regression-test generation, 8 tools); no runtime deps; `test/e2e/race.e2e.mjs` is the real-browser check (not in CI's main job) |
-| `packages/playwright/` | `@genclass/playwright`: Playwright reporter + pure summariser that read the GenClass fixture's `test-results/genclass/*.json` (`genclass-races/1`) and write `genclass-report.md` for the PR; injects nothing, no runtime deps |
+| `packages/mcp/` | `@genclass/mcp`: the MCP server for coding agents (bridge on 127.0.0.1:47357, store, explore verdicts, replays, regression-test generation, 8 tools); no runtime deps; `test/e2e/race.e2e.mjs` is the real-browser check (not in CI's main job). `plugin/` is the Claude Code plugin (also an Agent Plugins package); `server.json`, the plugin, `.claude-plugin/`, `.cursor-plugin/`, `gemini-extension.json`, `llms-install.md` and the READMEs pin its version (`npm run sync -w @genclass/mcp` after a version bump; `test/manifests.test.ts` fails otherwise) |
+| `packages/sv/` | `@genclass/sv`: the Svelte CLI community add-on (`npx sv add @genclass`): adds the runtime, the `/auto` import first in `src/hooks.client`, the dev-only overlay and (default) the telemetry opt-out meta in `src/app.html`, all with the `genclass:init` marker so `remove` undoes it; bundles `@sveltejs/sv-utils`, `sv` is a peer; `test/e2e/` runs sv's add-on harness (pnpm, Chromium) |
+| `packages/playwright/` | `@genclass/playwright`: the fixture (`src/fixture.ts`, `install.ts`, `page.ts`, `chaos.ts`, `races.ts`: puts the runtime's script-tag build on every `page` in observe mode with telemetry off, seeded chaos on fetch/XHR responses with `page.route`, witnesses through the agent entry with every hold off, one `genclass-races/1` file per test in `test-results/genclass/`) and the reporter + pure summariser that read those files and write `genclass-report.md` for the PR; peer deps only (`@playwright/test`, `@genclass/runtime`); `test/e2e/run.mjs` is the real-browser check (its own workflow) |
+| `packages/nuxt/`, `packages/astro/` | `@genclass/nuxt` (a Nuxt module, `@nuxt/kit`, built with `@nuxt/module-builder`) and `@genclass/astro` (an Astro integration, `injectScript("page", ...)`): from options `{ mode, token?, telemetry?, devtools? }` they generate the runtime's own one line (`/auto` or `/auto/guard`) plus a `window.GENCLASS_CONFIG` module imported before it; browser only, nothing on the server; `@genclass/runtime` is a peer dependency. The generated code is pure (`src/source.ts`, `src/index.ts`) and the tests check it exactly, then build one fixture app. Workflow: `integrations.yml` (Node 24) |
+| `docs/adoption/listings/` | how the framework packages and templates get listed (nuxt.com/modules entry and steps, astro.build/integrations, sveltesociety.dev, awesome-vue and Angular lists): research and draft entries; nothing is submitted from the repo |
 | `bench/visual/` | the visual checks' bench (GitHub Actions only, `.github/workflows/visual-measure.yml`): false reports on the demos, templates, compat apps and about 40 public sites, recall on faults planted from the harness, cost; public sites are counted per check kind only, never named in the repo, its run logs or plain artifacts (per-site results only encrypted with the `VISUAL_BENCH_KEY` secret) |
-| `compat/`, `templates/` | framework compatibility matrix (`RESULTS.md`) and starter templates; evaluation only |
+| `compat/`, `templates/` | framework compatibility matrix (`RESULTS.md`) and starter templates (react-vite, nextjs, vue-vite, sveltekit, astro, nuxt, react-router, angular; `compat/templates-check.mjs` builds and boots them in Chromium against the packed runtime, module and integration); evaluation only |
 | `telemetry-worker/` | the diagnostics collector with the dashboards and accounts (Cloudflare Worker). genclass.dev itself (the site, its admin and the pitch deck) and the page check (`scan-worker/`) live in the private repo genclass-dev/genclass-site, which has this repo as its `lib/` submodule |
 | `research/` | earlier Jev research: extension, `jev_local` (Python encoder the training scripts import), benchmarks |
+| `docs/adoption/` | listing drafts for directories and registries (`listings/mcp.md`): steps, fields and entries, nothing submitted |
 | `docs/runtime/` | `CONTRACT.md` (binding), `API.md`, `ARCHITECTURE.md`, `OPTIONS-SPEC.md`, `THREAT-MODEL.md`, `VISUAL.md` (measured visual checks: design), `ANALYTICS.md` (interaction analytics: design), **`RESULTS.md`** (every measured number) |
 | `scripts/` | Azure VM helpers (`vm.sh`, `azvm.sh`, `launch_run.sh`); `internal/` is gitignored working notes |
 
@@ -46,9 +50,19 @@ NODE_OPTIONS=--expose-gc npx vitest run test/review-perf.test.ts --retry=2   # t
 `npm run typecheck -w @genclass/mcp && npm run build -w @genclass/mcp && (cd packages/mcp && npx vitest run)`; the e2e
 needs both packages built: `node packages/mcp/test/e2e/race.e2e.mjs`.
 
-`packages/playwright/` (`@genclass/playwright`, the race-file reporter) has its own workflow,
-`playwright-reporter.yml` (typecheck, build, vitest; no browser; never blocks `ci.yml`):
-`npm run typecheck -w @genclass/playwright && npm run build -w @genclass/playwright && (cd packages/playwright && npx vitest run)`.
+`packages/playwright/` (`@genclass/playwright`, the fixture and the race-file reporter) has its own workflow,
+`playwright-reporter.yml` (typecheck, build, vitest; then the fixture's e2e in Chromium; never blocks `ci.yml`):
+`npm run typecheck -w @genclass/playwright && npm run build -w @genclass/playwright && (cd packages/playwright && npx vitest run)`;
+the e2e needs the runtime built too: `node packages/playwright/test/e2e/run.mjs`.
+
+`packages/sv/` (`@genclass/sv`, the Svelte CLI add-on) has its own workflow, `sv-addon.yml` (never blocks `ci.yml`):
+`npm run typecheck -w @genclass/sv && npm run build -w @genclass/sv && (cd packages/sv && npx vitest run --project unit)`;
+the e2e (`npx vitest run --project e2e`) needs the runtime built, pnpm, Chromium and the network (npm, jsDelivr).
+
+`packages/nuxt/` and `packages/astro/` share `integrations.yml` (Node 24: Nuxt 4.6 and Astro 7 want Node 22.23 or
+24.15 and later; typecheck, build, vitest; the tests build one fixture app each, so build the runtime first):
+`npm run build -w @genclass/runtime && npm run typecheck -w @genclass/nuxt && npm run build -w @genclass/nuxt && (cd packages/nuxt && npx vitest run)`,
+the same for `@genclass/astro`. The templates that use them are checked by `compat/templates-check.mjs`, not in CI.
 
 One test: `npx vitest run test/delivery.test.ts -t "<name>"`. The 14 skipped tests are model-parity tests that need
 `GENCLASS_MODEL_DIR`. CI also runs the `visual-browser` job: the first-load size against the release line (`FIRST_LOAD_BASE`, release/0.3.0 until 0.3.0 is on main; `test/first-load-size.mjs`, fails at 0.6 KB

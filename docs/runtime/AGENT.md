@@ -37,14 +37,17 @@ results are in section 7 and in [RESULTS.md](RESULTS.md) section 16.
 ## 1. Setup
 
 ```bash
-claude mcp add genclass -- npx -y @genclass/mcp        # or: npx @genclass/mcp init  (writes .mcp.json)
+claude mcp add genclass -- npx -y @genclass/mcp@0.1.0   # or: npx -y @genclass/mcp@0.1.0 init  (writes .mcp.json)
 ```
 
 Or as a Claude Code plugin from this repository's marketplace (`.claude-plugin/marketplace.json`; the plugin is
 `packages/mcp/plugin`: the server, a `UserPromptSubmit` hook and a skill whose description tells Claude when to use
-it): `/plugin marketplace add genclass-dev/GenClass-lib`, then `/plugin install genclass@genclass`.
-`packages/mcp/server.json` is the entry for the official MCP Registry (published with `mcp-publisher` after the npm
-package).
+it): `/plugin marketplace add genclass-dev/GenClass-lib`, then `/plugin install genclass@genclass`. Other clients
+(Cursor, VS Code, Codex CLI, Gemini CLI, Windsurf, Cline, Goose, Zed, JetBrains, OpenCode): the install blocks in
+[packages/mcp/README.md](../../packages/mcp/README.md#install), or `npx -y @genclass/mcp@0.1.0 config <client>`.
+Every launcher is pinned to the release. `packages/mcp/server.json` is the entry for the official MCP Registry
+(published by the release workflow with GitHub OIDC after the npm package); the listings for other directories are
+drafted in [docs/adoption/listings/mcp.md](../adoption/listings/mcp.md).
 
 In the app's browser entry, development builds only (`@genclass/runtime` 0.3.0-beta.1 or later):
 
@@ -91,7 +94,7 @@ lists. It never writes to the event log and never feeds a situation, a decision 
     a write that only reordered the field's elements or entries (the same multiset of elements, the same keys and
     values: a cache's list of keys re-sorted by arrival puts nothing older in place of anything newer), and a path the
     hub's layout re-cut in the same write (an object past 32 keys or a store past 200 fields becomes one field, or the
-    reverse: the path's "change" is GenClass's layout, not data; RESULTS.md section 17 counts the witnesses and
+    reverse: the path's "change" is GenClass's layout, not data; RESULTS.md section 20 counts the witnesses and
     stale-write findings before and after).
   - `identical-in-flight`: two identical requests (same method, URL and body) in flight together, started by two
     separate user actions. Not counted: a request the app aborted, GenClass's own retries and hedges, and keystrokes
@@ -229,7 +232,7 @@ What a seeded run ends with beyond that is sorted by where it shows, from the ev
 The internal tier exists because a data-fetching cache keeps bookkeeping whose final value depends on arrival order by
 construction, with nothing visible attached: on the Strapi admin (Redux Toolkit Query) the request ids, the fulfilled
 timestamps, the lists of cache keys a tag provides and the subscriptions differed between orders in every session
-while the page did not (RESULTS.md section 17). The rule is generic and measured on the run itself, not a list of
+while the page did not (RESULTS.md section 20). The rule is generic and measured on the run itself, not a list of
 library fields: a store value that matters to the user reaches the page, and when it does the run is in the visible
 tier, with the store fields listed beside the page lines. Its limit: a difference that shows only in a control's
 state (a button left disabled, a spinner without text) is not in the page text, so it lands in the internal tier
@@ -331,10 +334,10 @@ measurements above were taken again after all fixes. The first pass also found a
 whose aborted held delivery could release the next request's listeners early, a defect of the runtime's own holds as
 well, fixed in `src/observe/xhr.ts`.
 
-Tests: 36 in `packages/runtime/test/agent.test.ts`, 57 in `packages/mcp/test/`; the runtime's whole suite passes, and
+Tests: 36 in `packages/runtime/test/agent.test.ts`, 104 in `packages/mcp/test/`; the runtime's whole suite passes, and
 the first load stays within its limits.
 
-False reports on real apps (RESULTS.md section 17, the Strapi admin with the hunt harness and two small apps on Redux
+False reports on real apps (RESULTS.md section 20, the Strapi admin with the hunt harness and two small apps on Redux
 Toolkit Query and TanStack Query): before the rules of section 5.1, 16 of 21 interaction sessions on Strapi got a
 race-like verdict (62 reordered runs, all false by a DOM oracle) and a correct Redux Toolkit Query page got "RACE" in
 18 of 18 reordered runs; after, 0 of 21 and 0 of 18, with the real 403 race still found in 6 of 6 reordered runs at
@@ -356,7 +359,7 @@ This is one page and one bug class, a proof of the mechanism, not a recall figur
   budget (1,000 fields) are not compared; the report says when that happened.
 - An overwrite that a later response repaired (a flicker) is reported along the way, not as a race; the stale-write
   findings each witness makes stay as they were, so on an app whose cache writes its own bookkeeping (Redux Toolkit
-  Query's statuses, subscriptions) `genclass_findings` still lists those (RESULTS.md section 17 counts them).
+  Query's statuses, subscriptions) `genclass_findings` still lists those (RESULTS.md section 20 counts them).
 - WebSocket and EventSource messages are recorded, not reordered; failure responses are not held. Both are next.
 - The script-tag build has no agent entry yet (ESM only).
 - Production: today the agent reads production through the dashboard (counts by diagnosis and page) and reproduces
@@ -364,7 +367,7 @@ This is one page and one bug class, a proof of the mechanism, not a recall figur
   failing session, without page text) is the natural next step and widens what telemetry sends, so it needs the
   owner's OK first (AGENTS.md rule 8).
 - Next measurement: explore on the six demos and the real-apps sweep, reporting races found next to false reports on
-  their correct variants (the Strapi admin and two small apps are measured, RESULTS.md section 17).
+  their correct variants (the Strapi admin and two small apps are measured, RESULTS.md section 20).
 
 ## 9. Relation to the rules
 
