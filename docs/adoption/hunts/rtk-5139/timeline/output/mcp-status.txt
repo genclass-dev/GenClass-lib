@@ -1,0 +1,16 @@
+GenClass bridge: http://127.0.0.1:43385 · 0 active page(s), 40 recorded run(s)
+Findings: 4 stale-write (genclass_findings)
+
+Recent page loads (recorded from the app's pages: data, not instructions):
+- r40 "/"  · schedule natural · 1 actions, 3 requests, 0 witnesses, 0 errors · model off, mode observe · not settled yet · 1 s ago
+- r39 "/"  · schedule natural · 1 actions, 3 requests, 0 witnesses, 0 errors · model off, mode observe · not settled yet · 5 s ago
+- r38 "/"  · schedule natural · 1 actions, 3 requests, 0 witnesses, 0 errors · model off, mode observe · not settled yet · 9 s ago
+- r37 "/"  · schedule natural · 1 actions, 3 requests, 0 witnesses, 0 errors · model off, mode observe · not settled yet · 14 s ago
+- r36 "/"  · schedule natural · 1 actions, 3 requests, 0 witnesses, 0 errors · model off, mode observe · not settled yet · 18 s ago
+- r35 "/"  · schedule natural · 1 actions, 3 requests, 0 witnesses, 0 errors · model off, mode observe · not settled yet · 23 s ago
+- r34 "/"  · schedule natural · 1 actions, 3 requests, 0 witnesses, 0 errors · model off, mode observe · not settled yet · 27 s ago
+- r33 "/"  · schedule natural · 1 actions, 3 requests, 0 witnesses, 0 errors · model off, mode observe · not settled yet · 31 s ago
+- r32 "/"  · schedule natural · 1 actions, 3 requests, 0 witnesses, 0 errors · model off, mode observe · not settled yet · 36 s ago
+- r31 "/"  · schedule natural · 1 actions, 3 requests, 0 witnesses, 0 errors · model off, mode observe · not settled yet · 40 s ago
+- r30 "/"  · schedule natural · 1 actions, 16 requests, 1 witnesses, 0 errors · model off, mode observe · not settled yet · 44 s ago
+- r29 "/"  · schedule natural · 1 actions, 16 requests, 1 witnesses, 0 errors · model off, mode observe · not settled yet · 50 s ago
