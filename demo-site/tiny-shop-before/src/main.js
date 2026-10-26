@@ -1,6 +1,7 @@
 // Tiny Shop's page script, as a small shop might write it: fetch on every keystroke with no cancellation, add-to-cart
-// without an idempotency key, a checkout that does not handle a failure well, and a profile handler that trusts the
-// response's shape. The store is a plain object with get/set so the page has one place its state lives.
+// without an idempotency key, a click block during a slow load that is never released, a scroll lock the cookie notice
+// leaves behind, a checkout that does not handle a failure well, and a profile handler that trusts the response's
+// shape. The store is a plain object with get/set so the page has one place its state lives.
 import { store } from "./store.js";
 
 const $ = (s) => document.querySelector(s);
@@ -41,8 +42,9 @@ $("#checkout").addEventListener("click", async () => {
   $("#checkout-msg").textContent = r.ok ? "Thank you!" : `Could not place the order (${data.error}).`;
 });
 
-// Reviews: a slow endpoint with no loading state.
+// Reviews: a slow endpoint. While it loads, the page blocks clicks "so nobody double-loads", and forgets to unblock.
 $("#reviews").addEventListener("click", async () => {
+  document.body.style.pointerEvents = "none";
   const r = await fetch("/api/reviews");
   const data = await r.json();
   store.set("reviews", data.reviews);
@@ -73,4 +75,7 @@ $("#newsletter").addEventListener("submit", async (e) => {
   $("#newsmsg").textContent = r.ok ? "Subscribed." : `Failed (${r.status}).`;
 });
 
+// Cookie notice: the page locks scrolling while the notice is up, and the OK handler closes the notice without
+// unlocking it.
+document.body.style.overflow = "hidden";
 $("#ok").addEventListener("click", () => $("dialog.cookie").close());

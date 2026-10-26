@@ -1240,8 +1240,10 @@ clear the threshold". The 50 ms check of a colour fix also searches for a painte
 read (2 s), 300 ms after a class or style change anywhere, and when `prefers-color-scheme` changes; when the
 background differs or the colour no longer reaches its target (the item stopped being the active one, a theme
 toggle, a dark-mode switch), it is undone with the reason "the background or colour scheme changed, so the fix no
-longer fits", and a later re-check may apply it again (at most twice per finding and page). Tokens carry a prefix per
-engine (`f<prefix>-3`), so two runtimes on one page never share a rule.
+longer fits", and a later re-check may apply it again (at most twice per finding and page). An element outside the
+viewport is not re-measured (hit testing finds no points there, which would read as a changed background): its fix
+stays as it is until it is back in view. Tokens carry a prefix per engine (`f<prefix>-3`), so two runtimes on one page
+never share a rule.
 
 ### 11.3 Undo
 

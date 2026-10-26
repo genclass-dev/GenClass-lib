@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- **A colour fix stays while its element is out of view** (`src/visual/engine.ts`, VISUAL.md 11.2). The periodic
+  re-measure of a `text-invisible` fix hit-tests the element's points; off the viewport there are none, which read as
+  a changed background and undid the fix (the demo shop's banner lost its fix as soon as the page scrolled, and did not
+  get it back). An element outside the viewport is now left as it is until it is back in view; the 50 ms check after
+  applying is unchanged. Test: `visual-fix.test.ts`. No model-visible text changed (`situation-v2.3`).
+
 ## 0.3.0-beta.2 (2026-10-25)
 
 - **The dashboard is laid out like Supabase Studio** (telemetry-worker, owner request 2026-10-25; `src/studio.ts`).

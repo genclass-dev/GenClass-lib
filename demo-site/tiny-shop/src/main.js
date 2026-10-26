@@ -53,7 +53,9 @@ $("#checkout").addEventListener("click", async () => {
 });
 
 // Reviews: a slow endpoint with no loading state.
+// Reviews: a slow endpoint. While it loads, the page blocks clicks "so nobody double-loads", and forgets to unblock.
 $("#reviews").addEventListener("click", async () => {
+  document.body.style.pointerEvents = "none";
   const r = await fetch("/api/reviews");
   const data = await r.json();
   write("reviews", data.reviews);
@@ -84,6 +86,9 @@ $("#newsletter").addEventListener("submit", async (e) => {
   $("#newsmsg").textContent = r.ok ? "Subscribed." : `Failed (${r.status}).`;
 });
 
+// Cookie notice: the page locks scrolling while the notice is up, and the OK handler closes the notice without
+// unlocking it.
+document.body.style.overflow = "hidden";
 $("#ok").addEventListener("click", () => $("dialog.cookie").close());
 
 // Development builds only: the agent link records what happens on this page for @genclass/mcp (never in production).

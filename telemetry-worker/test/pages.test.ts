@@ -883,6 +883,7 @@ describe("dashboard page: the Supabase Studio frame (src/studio.ts): header, rai
     expect(p).toContain("rt.guard(");
     expect(p).toContain('import { connectAgent } from "@genclass/runtime/agent"; if (import.meta.env.DEV) connectAgent(rt);');
     expect(p).toContain(`npx -y ${MCP_PKG} init`);
+    expect(p).toContain('import("@genclass/runtime/devtools").then((d) => d.mountDevtools(rt))');
     expect(p).toContain("genclass_status should then list the page");
     expect(p).toContain(`npx ${RUNTIME_PKG} init --token gc_TestToken0123456789abc --yes`);
     expect(installPrompt("gc_x", "https://c.example/v1/events")).toContain('GenClass.init({ token: "gc_x", telemetry: { endpoint: "https://c.example/v1/events" } });');

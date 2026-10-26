@@ -967,6 +967,10 @@ export class Visual implements VisualController {
     const r = this.reader();
     if (plan.type === "color") {
       if (!plan.el.isConnected) return false;
+      // out of the viewport there is nothing to measure (hit testing finds no points there): the fix stays as it is
+      // until the element is back in view
+      const b = r.rect(plan.el);
+      if (!deep && (b.bottom <= 0 || b.top >= r.win.innerHeight || b.right <= 0 || b.left >= r.win.innerWidth)) return true;
       // a re-measure, not a pass: its abstentions are not counted again
       const ctx = { ...this.ctx(r), abstain: () => undefined };
       const read = T.readContrast(ctx, r, plan.el, rootInfo(r));
