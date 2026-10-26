@@ -1,2 +1,0 @@
-agent % genclass_replay {"action":"arm","id":"f14"}
-Replay of f14 armed for the next 1 page load(s) of "/" for 30 minutes (schedule: seeded 2). Load the page fresh, do the steps genclass_explain lists, await window.__GENCLASS_AGENT__.whenSettled(), then genclass_replay {action:"result", id:"f14"}.

@@ -1,0 +1,7 @@
+~/tiny-shop % cat src/genclass.config.js
+// genclass:init start: GenClass Runtime, added by `npx @genclass/runtime init` (`npx @genclass/runtime remove` takes it out)
+// Read by @genclass/runtime/auto, imported right after this file: any GenClass.init() option works here (see the README).
+// guard: act when the model is sure (discard a stale response, coalesce a duplicate); visual.fix: apply the measured checks' CSS fixes
+globalThis.GENCLASS_CONFIG = { token: "gc_<redacted>", telemetry: true, mode: "guard", visual: { on: true, fix: true } };
+// genclass:init end
+

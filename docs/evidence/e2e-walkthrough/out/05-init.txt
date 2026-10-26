@@ -45,7 +45,7 @@
 
   → npm install @genclass/runtime@^0.3.0-beta.2 --no-audit --no-fund
 
-added 19 packages in 3s
+added 19 packages in 2s
 
   ✔ GenClass Runtime is set up. (src/main.js, src/genclass.config.js)
 

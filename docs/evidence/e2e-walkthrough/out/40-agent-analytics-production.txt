@@ -1,0 +1,21 @@
+agent % genclass_analytics {"source":"production"}
+Production (GenClass dashboard tiny-shop, 7d; last event 2026-10-26T00:55:28.043Z):
+sessions 20 (previous period 0) · decisions 32 · detections 16 (previous period 0) · possible 7 · acted 1 (previous period 0)
+Detections by diagnosis and page:
+- stale on /: 14
+- duplicate on /: 1
+- transient on /: 1
+detect_trigger: delivery 10, mutation 4, failure 1, request 1
+route: / 26
+Latest decisions:
+- 2026-10-26T00:55:11.893Z / · delivery · stale · discard
+- 2026-10-26T00:55:05.957Z / · delivery · stale · discard
+- 2026-10-26T00:54:39.789Z / · mutation · stale · discard
+- 2026-10-26T00:54:39.789Z / · delivery · stale · discard
+- 2026-10-26T00:54:32.875Z / · delivery · stale · discard
+- 2026-10-26T00:54:32.875Z / · mutation · stale · discard
+- 2026-10-26T00:54:32.875Z / · delivery · stale · discard
+- 2026-10-26T00:54:26.354Z / · delivery · stale · discard
+- 2026-10-26T00:54:26.354Z / · delivery · stale · discard
+- 2026-10-26T00:54:20.396Z / · delivery · stale · discard
+Use a page and signature from here with genclass_explore {route, focus:[signature]} to reproduce it locally.

@@ -1,0 +1,5 @@
+agent % genclass_replay {"action":"result","id":"f10"}
+Replays of f10:
+- r11: REPRODUCED · the same fact was recorded again under the replayed order
+
+The bug is still there under the recorded order.
