@@ -2,8 +2,8 @@
 // integration (the checkout's own build of the runtime, guard with the visual fixes and the eager profile, the board
 // search as one atom, the rest of the store guarded), runs on `wrangler dev` (the Worker, as on snowday-predictor.ca), and a headless Chromium plays the
 // five bugs in observe (they must show) and in guard (they must not):
-//   1 stale board search (the first letter's answer lands last)     2 double Subscribe   3 white text on white
-//   4 click block "Load road conditions" never releases             5 scroll lock the notice leaves behind
+//   1 stale board search (the first letter's answer lands last)     2 double vote   3 white text on white
+//   4 click block Predict leaves after a mistyped postal code         5 scroll lock the notice leaves behind
 // Usage: node demo-site/record/verify-snowday.mjs [--keep] [--src <dir>]  (--src: an already integrated copy, e.g.
 // after the agent's fixes; the bugs are then expected fixed in observe too). Build the runtime first.
 import { spawn, spawnSync } from "node:child_process";
@@ -49,7 +49,7 @@ if (!integrated) {
             const data = await response.json();
             boards.set((s) => ({ ...s, results: data.results, query: data.q }));
         });
-        boards.subscribe(function ({ results }) {`).replace("if (!list.some((x) => x.id === data.id)) store.set('alerts.list', [...list, data]);", "if (!list.some((x) => x.id === data.id)) guarded['alerts.list'].set([...list, data]);");
+        boards.subscribe(function ({ results }) {`).replace("if (!votes.some((v) => v.id === data.id)) store.set('poll.votes', [...votes, data]);", "if (!votes.some((v) => v.id === data.id)) guarded['poll.votes'].set([...votes, data]);");
   if (!html.includes("GenClass.runtime.atom('boards'")) throw new Error("the board search did not match");
 }
 writeFileSync(join(WORK, "index.html"), html);
@@ -66,7 +66,7 @@ const typePostal = async (page, code) => { await page.fill("#postal-code", ""); 
 const run = async (mode) => {
   const page = await browser.newPage({ viewport: { width: 760, height: 900 } });
   const posts = [];
-  page.on("request", (r) => { if (r.url().includes("/api/alerts")) posts.push(r.postData()); });
+  page.on("request", (r) => { if (r.url().includes("/api/vote")) posts.push(r.postData()); });
   await page.goto(`http://localhost:${PORT}/?mode=${mode}`, { waitUntil: "domcontentloaded" });
   await sleep(10000);
   const out = { mode };
@@ -75,16 +75,14 @@ const run = async (mode) => {
   for (const ch of "halton") { await page.type("#board-q", ch); await sleep(60); }
   await sleep(3000);
   out.boardResults = await page.locator("#board-results li").count();
-  // 2 the double Subscribe: two clicks 100 ms apart
-  await page.evaluate(() => document.querySelector("#alert-btn").scrollIntoView({ block: "center" })); // the page is scroll-locked: a programmatic scroll still works
-  await sleep(300);
-  const sub = await page.locator("#alert-btn").boundingBox();
-  await page.mouse.click(sub.x + sub.width / 2, sub.y + sub.height / 2);
+  // 2 the double vote: two clicks 100 ms apart on "Snow day"
+  const yes = await page.locator("#vote-yes").boundingBox();
+  await page.mouse.click(yes.x + yes.width / 2, yes.y + yes.height / 2);
   await sleep(100);
-  await page.mouse.click(sub.x + sub.width / 2, sub.y + sub.height / 2);
+  await page.mouse.click(yes.x + yes.width / 2, yes.y + yes.height / 2);
   await sleep(1500);
   out.alertPosts = posts.length;
-  out.alertCount = (await page.textContent("#alert-count"))?.trim();
+  out.alertCount = (await page.textContent("#yes-count"))?.trim();
   // 3 the alert bar
   out.alertColor = await page.evaluate(() => getComputedStyle(document.querySelector(".alert-bar")).color);
   // 5 the scroll lock after the notice (a JS click: the control is fine, the lock is the bug)
@@ -97,11 +95,11 @@ const run = async (mode) => {
   await sleep(500);
   out.bodyOverflow = await page.evaluate(() => getComputedStyle(document.documentElement).overflowY + "/" + getComputedStyle(document.body).overflowY);
   out.scrollY = await page.evaluate(() => Math.round(window.scrollY));
-  // 4 the click block after "Load road conditions" (last: in observe the page is dead afterwards)
-  await page.evaluate(() => document.querySelector("#roads-btn").scrollIntoView({ block: "center" }));
-  await sleep(300);
-  await page.click("#roads-btn", { timeout: 5000 }).catch(() => page.evaluate(() => document.querySelector("#roads-btn").click()));
-  await sleep(9000);
+  // 4 the click block: a mistyped postal code; Predict blocks clicks and only unblocks on success
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.fill("#postal-code", "L6H");
+  await page.evaluate(() => document.querySelector("#predict-btn").click());
+  await sleep(4000);
   out.bodyPointerEvents = await page.evaluate(() => getComputedStyle(document.body).pointerEvents);
   out.alertColorEnd = await page.evaluate(() => getComputedStyle(document.querySelector(".alert-bar")).color);
   const rec = await page.evaluate(() => {
@@ -124,9 +122,9 @@ if (!args.includes("--keep")) rmSync(WORK, { recursive: true, force: true });
 const white = (c) => /rgb\(255,\s*255,\s*255\)/.test(c);
 const verdict = (o) => ({
   "1 stale board search (2 Halton boards, not 5 for 'h')": o.boardResults === 2,
-  "2 double Subscribe (one request)": o.alertPosts === 1,
+  "2 double vote (one request)": o.alertPosts === 1,
   "3 alert bar readable (and still at the end)": !white(o.alertColor) && !white(o.alertColorEnd),
-  "4 clicks work after Load road conditions": o.bodyPointerEvents !== "none",
+  "4 clicks work after a mistyped postal code": o.bodyPointerEvents !== "none",
   "5 page scrolls after the notice's OK": !/hidden/.test(o.bodyOverflow) && o.scrollY > 0,
 });
 for (const o of results) {
@@ -143,7 +141,7 @@ const brokenInObserve = Object.values(verdict(observe)).filter((x) => !x).length
 const fixedInGuard = Object.values(verdict(guard)).filter((x) => x).length;
 // the double Subscribe: on this page the model's gain for coalescing stays under the eager margin (about 2.3 of 3 at
 // human click gaps), so guard flags the duplicate and sends both; the agent fixes it in code
-const flagged = (guard.decisions ?? []).some((d) => /alerts.*duplicate/.test(d));
-console.log(`\n${integrated ? `observe (fixed code): ${5 - brokenInObserve}/5 fixed; ` : `observe: ${brokenInObserve}/5 bugs show; `}guard: ${fixedInGuard}/5 fixed at the user's end${flagged && !verdict(guard)["2 double Subscribe (one request)"] ? " (the double Subscribe flagged as a duplicate, not merged)" : ""}`);
+const flagged = (guard.decisions ?? []).some((d) => /vote.*duplicate/.test(d));
+console.log(`\n${integrated ? `observe (fixed code): ${5 - brokenInObserve}/5 fixed; ` : `observe: ${brokenInObserve}/5 bugs show; `}guard: ${fixedInGuard}/5 fixed at the user's end${flagged && !verdict(guard)["2 double vote (one request)"] ? " (the double vote flagged as a duplicate, not merged)" : ""}`);
 const runtimeOk = integrated ? brokenInObserve === 0 && fixedInGuard === 5 : brokenInObserve === 5 && fixedInGuard >= 4 && (fixedInGuard === 5 || flagged);
 process.exit(runtimeOk ? 0 : 1);

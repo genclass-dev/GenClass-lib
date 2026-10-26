@@ -4,7 +4,7 @@ The demo runs on the real site, **https://snowday-predictor.ca**: the Snow Day P
 with five bugs planted, is deployed to its Worker (`snowday-predictor`, Dizon's Cloudflare account) right before the
 recording; GenClass fixes them there; afterwards the site goes back to today's version, which already runs GenClass.
 The code is `demo-site/snowday-before`: the real site's pages, `worker.js` and `wrangler.jsonc` (the live Worker's name,
-compatibility date and `ASSETS` binding), and `functions/api/` for the board search, alerts and road conditions.
+compatibility date and `ASSETS` binding), and `functions/api/` for the school board finder and the community poll.
 
 One take, two windows side by side on one screen: **Chrome on the left** (the site, genclass.dev), **VS Code on the
 right** (the site's folder, Claude Code in the integrated terminal). The story: the broken site, live → one prompt
@@ -18,13 +18,13 @@ Chrome app window, which has no address bar.
 | Bug on the site | On the user's screen, guard mode | In the code, the agent loop |
 |---|---|---|
 | Board search shows boards for an older query (type fast) | fixed: the stale write is dropped, with Undo | fixed |
-| Double click on Subscribe subscribes twice | flagged as a duplicate, both sent | fixed |
+| Double click on a poll button votes twice | flagged as a duplicate, both sent | fixed |
 | Alert bar at the top: white text on white | fixed: a readable colour, one CSS rule | fixed |
 | After the notice's OK the page cannot scroll | fixed: the leaked `overflow: hidden` removed | fixed |
-| After "Load road conditions" nothing can be clicked | fixed: the leaked `pointer-events: none` removed | fixed |
+| After a mistyped postal code nothing can be clicked | fixed: the leaked `pointer-events: none` removed | fixed |
 
 Proven before recording (2026-10-26, on the Pages copy and on the Worker locally): all five bugs show; guard fixes four on the user's screen and
-flags the double Subscribe; Claude (Opus) fixes all five in about 40 s from GenClass's findings; the dashboard shows
+flags the double vote; Claude (Opus) fixes all five in about 40 s from GenClass's findings; the dashboard shows
 the page loads, the stale response, the dropped write and the duplicate, and the Loop log gets the agent's steps.
 
 ## 0. Before you record (15 minutes, not recorded)
@@ -54,19 +54,23 @@ the page loads, the stale response, the dropped write and the duplicate, and the
 6. **Rehearse the fast typing once**: in "Find your school board", type `halton` fast (under a second). The list ends
    on five boards (the answer for "h") while the box says halton. That is the first bug.
 
-## 1. The broken site, live (40 s)
+## 1. The broken site, live (60 s)
 
-Chrome: https://snowday-predictor.ca. Five bugs, in this order (the last one kills the page, so it goes last):
+Chrome: https://snowday-predictor.ca. Open DevTools docked at the bottom (⌥⌘I), **Network** tab, filter `boards`.
+Five bugs, in this order (the last one freezes the page, so it goes last):
 
-1. Point at the white strip under the menu. Say: *"There is a snow day alert banner there. White on white."*
-2. Type a postal code, `L6H 3X5`, Predict: the real prediction works.
-3. In "Find your school board", type `halton` fast: the list shows **five boards** while the box says halton. Say:
-   *"The slow answer for the first letter lands last and wins."*
-4. Double-click **Subscribe** at a normal pace: **Subscriptions: 2**. Say: *"Two clicks, two subscriptions."*
+1. Point at the white strip under the menu. Say: *"There is a storm-watch banner there. White on white."*
+2. Type `L6H 3X5`, Predict: the real prediction works.
+3. In "Find your school board", type `halton` fast: the list shows **five boards** while the box says halton. Point at
+   the Network tab: the request for `q=h` is the longest bar and finishes **after** `q=halton`. Say: *"The slow answer
+   for the first letter lands last and wins. A race condition: every autocomplete has one."*
+4. In "Will schools close tomorrow?", double-click **Snow day** at a normal pace: the count goes **124 → 126**. Say:
+   *"One person, two votes."*
 5. Click **OK** on the notice at the bottom left, then scroll with the wheel: **the page does not move**. Say: *"The
    notice locked scrolling and forgot to unlock it."*
-6. Click **Load road conditions**, wait for them, then click anything: **nothing responds**. Say: *"It blocked clicks
-   while loading and never unblocked. Five bugs. This is live."*
+6. Mistype the postal code, `L6H`, and Predict: the error shows, then click anything: **nothing responds**. Say:
+   *"Predict blocks clicks while it works and only unblocks when it succeeds. One typo and the page is dead. Five
+   bugs, live."*
 
 ## 2. Sign in and get the prompt (40 s)
 
@@ -107,17 +111,23 @@ VS Code terminal. Nothing to show in Chrome during this act.
   Deploy this to production with XDG_CONFIG_HOME=~/.config-dizon CLOUDFLARE_ACCOUNT_ID=4daefdf7440d182204be114a9c9f5074 npx --yes wrangler@4 deploy, and tell me when https://snowday-predictor.ca serves it.
   ```
 
-## 4. The same site, fixed on the user's screen (60 s)
+## 4. The same site, fixed on the user's screen (75 s)
 
-Chrome: https://snowday-predictor.ca, reloaded (⌘⇧R). Wait for the GenClass badge at the bottom right to say
-**guard** and the model to be ready (about 5 s). The same things, same order:
+Chrome: https://snowday-predictor.ca, reloaded (⌘⇧R). DevTools stays open, now on the **Console** tab: every line
+GenClass prints starts with `[GenClass]`. Wait for the badge at the bottom right to say **guard** and the model to be
+ready (about 5 s). The same things, same order:
 
-1. The alert banner reads **"Snow day alerts for your board, every evening at 6 pm…"** in grey on white.
-2. Type `halton` fast: **the two Halton boards**.
-3. Double-click Subscribe: **Subscriptions: 2** still. Leave it: GenClass flagged it (badge → Detections, "Duplicate
-   request"), and the agent fixes it in act 6. Say: *"Not everything is safe to fix on the fly. This one it reports."*
-4. Click OK on the notice, scroll: **the page scrolls** (a second after OK).
-5. Load road conditions, wait, click something: **it works** (a second after they arrive).
+1. The banner reads **"Storm watch tonight: predictions refresh every hour…"** in grey on white. Console: *Check
+   (measured): text contrast 1.00:1 on div.alert-bar…*, then *Applied a CSS fix … color: rgb(118, 118, 118)*.
+2. Type `halton` fast: **the two Halton boards**. Console: *Flagged a stale response*, then *Reverted a stale write:
+   boards.query was written 5 times by other operations…*. Switch to Network for a second: `q=h` still finishes last,
+   and the page ignored it.
+3. Double-click **Snow day**: the count still goes up by 2. Console: *Flagged a duplicate request … Not acted on*. Say:
+   *"Not everything is safe to fix on the fly. This one it reports, and the agent fixes it in the code."*
+4. Click OK on the notice, scroll: **the page scrolls** a second later. Console: *the page cannot scroll: html has
+   overflow-y: hidden…*, then *Applied a CSS fix: removed the inline overflow: hidden*.
+5. Mistype `L6H`, Predict: the error shows, and a second later **clicks work**. Console: *pointer-events: none has been
+   left on body…*, then *Applied a CSS fix: removed the inline pointer-events: none on body*.
 
 Badge → **Interventions**: *"Prevented a stale response … discard · guard"* with **Undo**. **Checks**: the banner's
 contrast, the scroll lock and the click block, each with *"Runtime fix: applied"* and its CSS. Say: *"Nothing in the
@@ -153,7 +163,7 @@ Type `halton` fast once. Say: *"The dev build, where the agent can replay the ne
    ```
    Say at **REPRODUCED**: *"Proven, not guessed."* One load with `halton`. Close the window.
 4. ```text
-   Check the replay result with genclass_replay. Then the other four problems GenClass found on this page: the double Subscribe, the alert bar's contrast, the click block after Load road conditions and the scroll lock after the notice. Use genclass_findings and genclass_explain on each, fix the cause in index.html (small, idiomatic fixes), and sum up in five lines what you found, proved and fixed.
+   Check the replay result with genclass_replay. Then the other four problems GenClass found on this page: the double vote in the poll, the alert bar's contrast, the click block after a mistyped postal code and the scroll lock after the notice. Use genclass_findings and genclass_explain on each, fix the cause in index.html (small, idiomatic fixes), and sum up in five lines what you found, proved and fixed.
    ```
    Say at **not reproduced**: *"Same order, no bug."* Then: *"And the other four, from GenClass's own measurements, a
    line each. Deploy, and GenClass keeps watching."*
@@ -171,8 +181,8 @@ Put back today's version of the site (it already runs GenClass, in heal mode, wi
 cd ~/GenClass-lib-main/demo-site/snowday-before && XDG_CONFIG_HOME=~/.config-dizon CLOUDFLARE_ACCOUNT_ID=4daefdf7440d182204be114a9c9f5074 npx --yes wrangler@4 rollback 3b0ff5e1-37cf-412f-8e52-b83c30381647 --name snowday-predictor --message "after the GenClass demo"
 ```
 
-`3b0ff5e1-…` is the version Mehar deployed on 2026-10-25, live when the demo was prepared. The demo's board search,
-alerts and road conditions are demo data and must not stay on the real site; the agent's fixes from act 6 stay in the
+`3b0ff5e1-…` is the version Mehar deployed on 2026-10-25, live when the demo was prepared. The demo's board finder
+and poll are demo data and must not stay on the real site; the agent's fixes from act 6 stay in the
 folder as the record of the demo. Then `git checkout -- . && git clean -fdqx .` resets the folder for the next take.
 
 ## After: the 2–3 minute cut
@@ -185,14 +195,13 @@ waits.
 
 ```bash
 npm run build -w @genclass/runtime
-node demo-site/record/verify-snowday.mjs --keep      # observe: 5/5 bugs show; guard: 4/5 fixed, the double Subscribe flagged
+node demo-site/record/verify-snowday.mjs --keep      # observe: 5/5 bugs show; guard: 4/5 fixed, the double vote flagged
 node demo-site/record/agent-fix-snowday.mjs          # Claude (Opus) fixes all five in index.html from GenClass's findings
 node demo-site/record/dashboard-e2e.mjs              # a real genclass.dev project: events, problems, the Loop log mirrored
 ```
 
-The runtime fixes for the banner need the runtime line in the CHANGELOG's "Unreleased" section (a colour fix kept
-while a click block hides the text from hit testing, and while it is out of view); on the published
-`0.3.0-beta.2` the banner's fix can drop when road conditions block clicks. Release before recording.
+The banner's fix needs `@genclass/runtime` 0.3.0-beta.3 or later (a colour fix kept while a click block hides the text
+from hit testing, and while it is out of view). It is published and the dashboard's Connect dialog pins it.
 
 ## If something does not fire
 
