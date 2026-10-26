@@ -21,6 +21,10 @@ Chrome app window, which has no address bar.
 | After the notice's OK the page cannot scroll | fixed: the leaked `overflow: hidden` removed | fixed |
 | After "Load road conditions" nothing can be clicked | fixed: the leaked `pointer-events: none` removed | fixed |
 
+Proven before recording (2026-10-26): on the live link all five bugs show; guard fixes four on the user's screen and
+flags the double Subscribe; Claude (Opus) fixes all five in about 40 s from GenClass's findings; the dashboard shows
+the page loads, the stale response, the dropped write and the duplicate, and the Loop log gets the agent's steps.
+
 ## 0. Before you record (15 minutes, not recorded)
 
 1. **Quit the other Claude Code session** on this Mac (the desktop app's Code tab): its GenClass MCP server owns the
@@ -28,12 +32,12 @@ Chrome app window, which has no address bar.
 2. **Reset the site** to its broken state and deploy that, so the link shows the five bugs:
 
    ```bash
-   cd ~/GenClass-lib-main/demo-site/snowday-before && git checkout -- . && git clean -fdqx . && XDG_CONFIG_HOME=~/.config-dizon npx --yes wrangler@4 pages deploy . --project-name snowday-demo --branch main --commit-dirty=true
+   cd ~/GenClass-lib-main/demo-site/snowday-before && git checkout -- . && git clean -fdqx . && XDG_CONFIG_HOME=~/.config-dizon CLOUDFLARE_ACCOUNT_ID=4daefdf7440d182204be114a9c9f5074 npx --yes wrangler@4 pages deploy . --project-name snowday-demo --branch main --commit-dirty=true
    ```
 
-   (`XDG_CONFIG_HOME=~/.config-dizon` is the wrangler login for the dizon Cloudflare account; Mehar's login stays as it
-   is.) Open https://snowday-demo.pages.dev once.
-3. **The dev server**, for act 6 only: `XDG_CONFIG_HOME=~/.config-dizon npx --yes wrangler@4 pages dev . --port 8788`
+   (`XDG_CONFIG_HOME=~/.config-dizon` is a separate wrangler login, so Mehar's default login stays as it is; it reaches
+   both the Dizon and Daybot accounts, so `CLOUDFLARE_ACCOUNT_ID` picks Dizon.) Open https://snowday-demo.pages.dev once.
+3. **The dev server**, for act 6 only: `XDG_CONFIG_HOME=~/.config-dizon CLOUDFLARE_ACCOUNT_ID=4daefdf7440d182204be114a9c9f5074 npx --yes wrangler@4 pages dev . --port 8788`
    in the same folder, in a terminal you will not show. Leave it running.
 4. **Chrome**: one window, signed in to Google, no other tabs. Bookmark bar hidden (⌘⇧B). Put it on the left half.
 5. **VS Code**: `code ~/GenClass-lib-main/demo-site/snowday-before`, open `index.html`. Open the integrated terminal (⌃`)
@@ -96,7 +100,7 @@ VS Code terminal. Nothing to show in Chrome during this act.
 - **3d.** Deploy:
 
   ```text
-  Deploy this to Cloudflare Pages: XDG_CONFIG_HOME=~/.config-dizon npx --yes wrangler@4 pages deploy . --project-name snowday-demo --branch main --commit-dirty=true, and tell me the URL.
+  Deploy this to Cloudflare Pages: XDG_CONFIG_HOME=~/.config-dizon CLOUDFLARE_ACCOUNT_ID=4daefdf7440d182204be114a9c9f5074 npx --yes wrangler@4 pages deploy . --project-name snowday-demo --branch main --commit-dirty=true, and tell me the URL.
   ```
 
 ## 4. The same site, fixed on the user's screen (60 s)
