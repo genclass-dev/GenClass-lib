@@ -61,7 +61,7 @@ export const LOGO =
   '<a class="logo" href="https://genclass.dev/"><img src="https://genclass.dev/brand/mark-64.png?v=2" alt="" width="24" height="24">GenClass</a>';
 
 /** The MCP server for coding agents, pinned as its own install blocks pin it (packages/mcp/src/clients.ts). */
-export const MCP_PKG = "@genclass/mcp@0.1.0";
+export const MCP_PKG = "@genclass/mcp@0.2.0";
 
 // The palette, type, buttons, header and focus ring of genclass.dev (site/src/css/base.css and components.css), with
 // the site's values: black ground, bone text, the GenClass mark's green and red-orange, square corners, 1px rules,
@@ -1904,23 +1904,28 @@ export function analyticsPrompt(token: string, where: string, endpoint: string |
 }
 
 /**
- * The prompt the Connect dialog's Framework tab copies: install the runtime and start it with this project's key in
- * observe mode (it only reports), a dev-server check, and where the first events come from.
+ * The prompt the Connect dialog's Framework tab copies, the whole integration from one paste: install the runtime and
+ * start it with this project's key in observe mode (it only reports), connect the state responses write, the agent
+ * link for development builds, the GenClass MCP server in the coding agent, a dev-server check, and where the first
+ * events come from.
  */
 export function installPrompt(token: string, endpoint: string | null = null): string {
   const ep = endpoint ? `, telemetry: { endpoint: "${endpoint}" }` : "";
   return [
-    "Add GenClass to this web app with its project key, so the app's GenClass dashboard shows what breaks for its users in production (double submits, stale responses, failing endpoints, write races).",
+    "Add GenClass to this web app with its project key, so the app's GenClass dashboard shows what breaks for its users in production (double submits, stale responses, failing endpoints, write races), and so you, the coding agent, can see what happens on the dev pages, replay it and prove fixes.",
     "",
     `1. Install the runtime with the project's package manager: npm install ${RUNTIME_PKG} (or pnpm add / yarn add / bun add).`,
     `2. Start it as early as possible in the browser entry (main.ts, the root layout or the root component), with this project's key ${token}:`,
     '   import { GenClass } from "@genclass/runtime";',
-    `   GenClass.init({ token: "${token}"${ep} });`,
+    `   const rt = GenClass.init({ token: "${token}"${ep} });`,
     `   Without a bundler, put this in the HTML head instead: <script src="${CDN_SCRIPT}" data-token="${token}"></script>`,
-    "   The key is public: it can only add telemetry to this app, so it belongs in front-end code.",
+    `   The key is public: it can only add telemetry to this app, so it belongs in front-end code. (npx ${RUNTIME_PKG} init --token ${token} --yes does steps 1 and 2 and shows the diff.)`,
     "3. Keep the default mode, observe: GenClass reports and never changes what the app does.",
-    "4. Run the dev server and load a page to check that the app builds and runs without errors. Local hosts (localhost, private networks) send nothing by default, so the first events come from the deployed site.",
-    "5. Tell me what you changed.",
+    '4. Connect the state that responses write (search results, carts, lists, forms), so GenClass sees each write with the response or click that caused it. React, Redux and Zustand state is found automatically; otherwise create it with rt.atom("name", initial) or wrap the store you have with rt.guard("name", { get, set }), and write through the handle.',
+    '5. Development builds only, add the agent link: import { connectAgent } from "@genclass/runtime/agent"; if (import.meta.env.DEV) connectAgent(rt); (Next.js: process.env.NODE_ENV === "development"). It records what happens on local pages for the GenClass MCP server and is never part of a production build.',
+    `6. Add the GenClass MCP server to yourself: npx -y ${MCP_PKG} init writes .mcp.json for Claude Code (npx -y ${MCP_PKG} config <client> prints the block for Cursor, VS Code, Codex, Gemini CLI and others); then reload your MCP servers. Its tools: genclass_status, genclass_findings, genclass_explain, genclass_replay, genclass_explore, genclass_scan.`,
+    "7. Run the dev server and load a page to check that the app builds and runs without errors; genclass_status should then list the page. Local hosts (localhost, private networks) send nothing to the dashboard by default, so the first production events come from the deployed site.",
+    "8. Tell me what you changed.",
   ].join("\n");
 }
 

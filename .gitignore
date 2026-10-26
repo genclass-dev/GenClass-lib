@@ -53,3 +53,5 @@ templates/react-router/build/
 storage-state*.json
 # bench/hunt and plain.mjs write their output relative to the working directory: from the repo root that is results/
 /results/
+# a node_modules symlink (a worktree's link to another checkout's install) is not a directory, so `node_modules/` misses it
+**/node_modules
