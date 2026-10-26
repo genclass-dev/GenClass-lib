@@ -67,41 +67,29 @@ Open `https://tiny-shop-gray.vercel.app/?genclass=off`. Say what it is: a small 
 Type `react` fast: the list ends on the wrong results. Double-click Add to cart: two. Point at the banner nobody can
 read and the `{{price}}`.
 
-### Act 2. Sign in and prompt Claude to integrate it (90 s)
+### Act 2. The user flow: copy the prompt, paste it, everything happens (90 s)
 
-This is the act that shows how a developer actually adds GenClass: by asking their coding agent.
+This is how a developer adds GenClass: one prompt from the dashboard into their coding agent.
 
 1. **genclass.dev, signed in.** Apps → New app → name it `tiny-shop`. Its page opens on the Connect dialog with the
-   project key and the big button **"Copy the prompt for your coding agent"**. Click it. (The prompt it copies, with
-   the key filled in:)
+   project key and the big button **"Copy the prompt for your coding agent"**. Click it. Say: that's the whole
+   setup. (What it copies, with the key filled in, is the eight-step prompt: install the runtime, start it with the
+   key in observe mode, connect the state responses write, the agent link for dev builds, the GenClass MCP server for
+   the agent itself, a dev-server check, "tell me what you changed".)
 
-   > Add GenClass to this web app with its project key, so the app's GenClass dashboard shows what breaks for its
-   > users in production (double submits, stale responses, failing endpoints, write races).
-   > 1. Install the runtime with the project's package manager: npm install @genclass/runtime@beta …
-   > 2. Start it as early as possible in the browser entry … with this project's key gc_… :
-   >    import { GenClass } from "@genclass/runtime"; GenClass.init({ token: "gc_…" });
-   > 3. Keep the default mode, observe: GenClass reports and never changes what the app does.
-   > 4. Run the dev server and load a page to check that the app builds and runs without errors. …
-   > 5. Tell me what you changed.
+2. **VS Code on `tiny-shop-before`, Claude Code open.** Paste it. Claude installs `@genclass/runtime@beta`, adds
+   the key (two lines, or `npx @genclass/runtime@beta init --token gc_… --yes`), makes the search state a GenClass
+   atom and wraps the shop's store, adds `connectAgent` for development builds, runs `npx -y @genclass/mcp@0.2.0 init`
+   so it has the GenClass tools itself, starts the dev server, loads a page, calls `genclass_status` and reports back.
+   Show the diff: `src/main.js` and the config. Say: no docs read, no integration guide; the dashboard told the agent
+   what to do, and the agent now sees the app.
 
-2. **VS Code on `tiny-shop-before`, Claude Code open.** Paste the prompt. Claude installs `@genclass/runtime@beta`,
-   adds the two lines to `src/main.js` (or runs `npx @genclass/runtime@beta init --token gc_… --yes`, which writes
-   `src/genclass.config.js` and the imports for it), starts the dev server, loads a page, and reports back. Show the
-   diff it made: one import, one config line with the key. Say: that is the integration.
+3. **One sentence more, the beat that sets up act 4**: "Turn on guard mode with the visual fixes." Claude sets
+   `mode: "guard"` and `visual: { on: true, fix: true }` in the config (one line). Load http://localhost:5173: the
+   overlay's badge at the bottom right says guard. (The reference result is `tiny-shop/src`, if it strays.)
 
-3. **One more prompt**, the lines that make the demo's bugs protectable and the agent's loop possible:
-
-   > Make the search state a GenClass atom (genclass.atom("search", { query: "", results: [] })) and write the search
-   > results through it, wrap the store's other keys with genclass.guard, add the agent link for development builds
-   > (import { connectAgent } from "@genclass/runtime/agent"; if (import.meta.env.DEV) connectAgent(genclass)), and keep
-   > the devtools overlay on in production for this demo. Then set mode: "guard" with visual: { on: true, fix: true } in
-   > genclass.config.js. Run the dev server and tell me what changed.
-
-   Claude edits `src/main.js` and `src/genclass.config.js`; the result is what `tiny-shop/src` holds, so you can diff
-   against it if it strays. Load http://localhost:5173: the overlay's badge at the bottom right says guard.
-
-4. **Deploy.** Prompt: "Deploy this to Vercel, production." Claude runs `vercel --prod` (the CLI is signed in). Or
-   skip the wait and switch to the already deployed `tiny-shop-gray.vercel.app`, which is this exact state.
+4. **Deploy.** "Deploy this to Vercel, production." Claude runs `vercel --prod` (the CLI is signed in). Or cut to the
+   already deployed `tiny-shop-gray.vercel.app`, which is this exact state.
 
 ### Act 3. The dashboard (45 s)
 
