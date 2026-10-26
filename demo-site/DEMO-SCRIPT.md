@@ -60,14 +60,18 @@ Chrome, before anything else: **https://genclass.dev/scan**. Type `snowday-predi
 result comes back in a few seconds (a fresh scan takes about 40 s; results are cached for 6 hours, so run it once
 before recording). Show:
 
-- **57/100**, and scroll the categories: Accessibility 53 (low-contrast buttons), Phone 75 (a tap target too small),
-  Security 46 (no CSP, no HSTS, http does not redirect), Search and sharing 82 ("read more" links).
-- Each finding with its element and a one-line fix.
+- **50/100 without GenClass, 56 with GenClass on.** Scroll the categories: Visual bugs 75, Accessibility 56, Phone
+  75, Speed 84, Security 46, Search and sharing 82, **Races 75**.
+- **Text that is almost invisible on its background**: the white banner, measured at 1.00:1, with the CSS fix, and
+  "With GenClass on: fixed".
+- **Search results for an older query stayed on the page**: the page check typed `a`, `ab`, `abc` into the board
+  finder, the answers came back out of order, and the page showed seven boards where the last query alone shows none.
+- The rest, each with its element and a one-line fix: low-contrast buttons, a small tap target, missing security
+  headers, "read more" links.
 
-Say: *"Before touching any code: a free page check on genclass.dev. Ten problems a user hits, each with the element and
-the fix. What a static scan can't see is what happens when people actually use the page. That's next."* (The page
-check runs its own copy of the visual checks, from before the current runtime: it reports Visual bugs 100 and misses
-the white banner that GenClass catches in act 4.)
+Say: *"Before touching any code: a free page check on genclass.dev. It already finds the invisible banner and the
+search race, each with the fix. What a scan can't do is click through the page the way people do: the stuck scroll,
+the frozen page, the double vote. That's what GenClass in the page is for."*
 
 ## 1. The broken site, live (60 s)
 
