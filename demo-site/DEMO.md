@@ -74,8 +74,8 @@ This is how a developer adds GenClass: one prompt from the dashboard into their 
 1. **genclass.dev, signed in.** Apps → New app → name it `tiny-shop`. Its page opens on the Connect dialog with the
    project key and the big button **"Copy the prompt for your coding agent"**. Click it. Say: that's the whole
    setup. (What it copies, with the key filled in, is the eight-step prompt: install the runtime, start it with the
-   key in observe mode, connect the state responses write, the agent link for dev builds, the GenClass MCP server for
-   the agent itself, a dev-server check, "tell me what you changed".)
+   key in observe mode, the devtools overlay in development builds, connect the state responses write, the agent
+   link for dev builds, the GenClass MCP server for the agent itself, a dev-server check, "tell me what you changed".)
 
 2. **VS Code on `tiny-shop-before`, Claude Code open.** Paste it. Claude installs `@genclass/runtime@beta`, adds
    the key (two lines, or `npx @genclass/runtime@beta init --token gc_… --yes`), makes the search state a GenClass
@@ -84,9 +84,12 @@ This is how a developer adds GenClass: one prompt from the dashboard into their 
    Show the diff: `src/main.js` and the config. Say: no docs read, no integration guide; the dashboard told the agent
    what to do, and the agent now sees the app.
 
-3. **One sentence more, the beat that sets up act 4**: "Turn on guard mode with the visual fixes." Claude sets
-   `mode: "guard"` and `visual: { on: true, fix: true }` in the config (one line). Load http://localhost:5173: the
-   overlay's badge at the bottom right says guard. (The reference result is `tiny-shop/src`, if it strays.)
+3. **One prompt more, the beat that sets up act 4**: "Three small changes: guard mode with the visual fixes; the
+   devtools overlay on every build so the audience sees what GenClass does; the search state in one GenClass atom,
+   `rt.atom("search", { query: "", results: [] })`, written once per response." Claude sets `mode: "guard"` and
+   `visual: { on: true, fix: true }` where `GenClass.init` is called, drops the development-only condition on the
+   overlay import, and makes the search an atom (the README's one line; the reference is `tiny-shop/src/main.js`).
+   Load http://localhost:5173: the overlay's badge at the bottom right says guard.
 
 4. **Deploy.** "Deploy this to Vercel, production." Claude runs `vercel --prod` (the CLI is signed in). Or cut to the
    already deployed `tiny-shop-gray.vercel.app`, which is this exact state.
@@ -111,25 +114,28 @@ flagged, not acted on, the gain was under the bar).
 
 Back on the dashboard: "It stepped in N times, and nothing it changed was undone."
 
-### Act 5. The coding agent closes the loop (90 s)
+### Act 5. The coding agent closes the loop (120 s)
 
-VS Code on the integrated shop, the dev server running, the page open at http://localhost:5173, Claude Code with the
-MCP server. Prompt it the way the dashboard's MCP page suggests, or just talk:
+VS Code on the integrated shop, the dev server running, the page open at http://localhost:5173/?genclass=observe,
+Claude Code with the MCP server. The agent's checks are deterministic: an explore reorders the page's own responses,
+a replay delivers one recorded order again. Prompt it the way the dashboard's MCP page suggests, or just talk:
 
-1. "Connect to GenClass and check the page is seen." → `genclass_status`: 1 active page.
-2. Type `react` fast on the local page. "What's wrong with the search?" → `genclass_findings`: the stale-write
-   findings at the top, the TypeError and the duplicate request under them.
-3. "Explain it." → `genclass_explain`: every request, delivery and state write in causal order, the delivery order
-   that produced it, and a Playwright test.
-4. "Prove it." → `genclass_replay arm`; type `react` again; `genclass_replay result`: **REPRODUCED**.
-5. "Fix it." → Claude edits `src/main.js` (a sequence number per search request; the reference fix is
-   `../docs/evidence/e2e-walkthrough/steps/06-main.fixed.js`); replay again: **not reproduced**.
-6. "Any other order?" → `genclass_explore`: five page loads typing `react` (Claude asks you to load the page five
-   times, or drives it with Playwright): **No race found**.
+1. Type `react` fast on the local page. "The search shows results for the wrong query sometimes. Explore it." →
+   `genclass_status`: 1 active page; `genclass_explore start` (3 runs). Load the page five times, typing `react`
+   each time (Claude asks you to, or drives it with Playwright).
+2. "Report." → `genclass_explore report`: **race found**: the reordered runs end on different results than the
+   baselines. "Explain it." → `genclass_explain`: every request, delivery and state write in causal order, the
+   delivery order that produced it, and a Playwright test.
+3. "Prove it." → `genclass_replay arm`; load the page, type `react`; `genclass_replay result`: **REPRODUCED**.
+4. "Fix it." → Claude edits `src/main.js` (a sequence number per search request; the reference fix is
+   `../docs/evidence/e2e-walkthrough/steps/06-main.fixed.js`), saves the regression test under `test/`, arms the
+   replay again; load, type; **not reproduced**.
+5. "Any other order?" → `genclass_explore` once more, five loads: **No race found**.
 
-Switch to the dashboard's **Closed loop** view: found → reproduced → fix proven → closed, and the agent's log under
-it: found, evidence read, test written, replay reproduced, replay not reproduced, explore. Say: everything the agent
-did, mirrored; a person reads the test and ships.
+Leave the page on about:blank while Claude edits: a Vite reload would use up an armed load. Switch to the dashboard's
+**Closed loop** view: found → reproduced → fix proven → closed, and the agent's log under it: explore, evidence read,
+replay reproduced, test written, replay not reproduced, explore clean. Say: everything the agent did, mirrored; a
+person reads the test and ships.
 
 ### Act 6. One command on any page (15 s)
 
@@ -149,6 +155,27 @@ Visual score 8/100, 10 problems, each with its CSS fix. Say: before anything is 
 - The agent act needs `connectAgent` in the page (development builds only) and an MCP server on the default port
   47357; `genclass_status` says whether the page is connected.
 - If Claude's live integration strays, `demo-site/tiny-shop/src` is the finished state to compare with or copy in.
+
+## The recorded take
+
+`demo-site/record/orchestrate.mjs` records the six acts above as one seamless take on this Mac: it resets
+`tiny-shop-before`, starts its dev server and a GenClass bridge of its own on port 47400 (this machine's Claude Code
+session owns 47357), records the display with ffmpeg, drives Chromium on the left half of the screen with Playwright and
+Claude Code in Terminal.app on the right half (`claude -p`, one prompt per beat, the dashboard's copied prompt first),
+and writes `out/demo-raw.mov` with `out/chapters.txt`. `node demo-site/record/postprocess.mjs` then makes
+`out/demo-full.mp4` (real time) and `out/demo-condensed.mp4` (Claude's working stretches at 4x). The take needs the
+Vercel CLI signed in, `claude` on the PATH, and nothing else on the screen; it takes about eleven minutes.
+
+```bash
+node demo-site/record/orchestrate.mjs && node demo-site/record/postprocess.mjs
+```
+
+What the take showed (2026-10-25): the dashboard's one prompt integrated the shop (observe, the state wrapped, the
+agent link, the MCP server); the second prompt turned on guard with the visual fixes, the overlay and the search atom;
+guard prevented the stale search response on the dev page and on the live site, with Undo; the dashboard listed
+"Stale responses" on the live site; the agent's explore found the race, its replay reproduced it, the fix with the
+regression test made the same order not reproduce, a second explore was clean; the Closed loop view showed the issue
+found, reproduced and the fix proven.
 
 ## Redeploy the finished site
 
