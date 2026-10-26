@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.0-beta.3 (2026-10-26)
 
 - **A colour fix stays while its element is out of view** (`src/visual/engine.ts`, VISUAL.md 11.2). The periodic
   re-measure of a `text-invisible` fix hit-tests the element's points; off the viewport there are none, which read as
