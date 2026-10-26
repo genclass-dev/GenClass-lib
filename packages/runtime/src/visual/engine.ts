@@ -973,6 +973,9 @@ export class Visual implements VisualController {
       if (!deep && (b.bottom <= 0 || b.top >= r.win.innerHeight || b.right <= 0 || b.left >= r.win.innerWidth)) return true;
       // a re-measure, not a pass: its abstentions are not counted again
       const ctx = { ...this.ctx(r), abstain: () => undefined };
+      // hit testing skips the text while pointer-events: none reaches it (a click block on body): a re-measure then
+      // finds no points, which is no evidence the background changed, so the fix stays until a measure says so
+      if (!deep && r.cs(plan.el).pointerEvents === "none") return true;
       const read = T.readContrast(ctx, r, plan.el, rootInfo(r));
       if (!read || read.v.verdict === "unknown" || read.v.ratio < plan.target || !nearColor(read.v.bg, plan.bg)) return false;
       return !deep || !T.hiddenLayer(ctx, r, plan.el, read.input);

@@ -6,7 +6,10 @@
   re-measure of a `text-invisible` fix hit-tests the element's points; off the viewport there are none, which read as
   a changed background and undid the fix (the demo shop's banner lost its fix as soon as the page scrolled, and did not
   get it back). An element outside the viewport is now left as it is until it is back in view; the 50 ms check after
-  applying is unchanged. Test: `visual-fix.test.ts`. No model-visible text changed (`situation-v2.3`).
+  applying is unchanged. Likewise while `pointer-events: none` reaches the text (a click block left on `body`): hit
+  testing skips it, so the re-measure finds no points, which used to undo the fix (the snow day demo's banner lost its
+  fix while "Load road conditions" blocked clicks). Tests: `visual-fix.test.ts`. No model-visible text changed
+  (`situation-v2.3`).
 
 ## 0.3.0-beta.2 (2026-10-25)
 
