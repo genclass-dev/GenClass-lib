@@ -1,8 +1,8 @@
 // Tiny Shop's API: a small Node server with the timing and failures a real backend has on a bad day, on purpose.
 // No dependencies. Started by the walkthrough (and by `npm run api`); Vite proxies /api to it.
 //
-//   GET  /api/search?q=   results for q. Shorter queries answer SLOWER (900 ms for 1-2 letters, 200 ms after), so
-//                         typing fast makes an early response arrive after a later one: a stale response.
+//   GET  /api/search?q=   results for q. A one-letter query answers SLOWLY (1200 ms; 200 ms after), so typing fast
+//                         makes the first response arrive after the later ones: a stale response wins.
 //   POST /api/cart        adds a line, 300 ms, no idempotency key: a double click adds twice.
 //   POST /api/checkout    always 500 after 400 ms: a failing endpoint.
 //   GET  /api/reviews     3.5 s: a slow endpoint.
@@ -26,7 +26,7 @@ createServer(async (req, res) => {
   const path = url.pathname;
   if (req.method === "GET" && path === "/api/search") {
     const q = (url.searchParams.get("q") || "").toLowerCase();
-    await wait(q.length <= 2 ? 900 : 200);
+    await wait(q.length <= 1 ? 1200 : 200);
     return json(res, 200, { q, results: PRODUCTS.filter((p) => p.toLowerCase().includes(q)) });
   }
   if (req.method === "POST" && path === "/api/cart") {

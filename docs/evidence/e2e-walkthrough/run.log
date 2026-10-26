@@ -55,7 +55,7 @@ $ npx @genclass/runtime@beta init --yes
 
 $ diff -u ../steps/00-main.before.js src/main.js; echo; echo '--- src/genclass.config.js (new)'; cat src/genclass.config.js; echo; echo '--- .genclass.local (new, gitignored)'; cat .genclass.local
 --- ../steps/00-main.before.js	2026-10-25 19:48:45
-+++ src/main.js	2026-10-25 20:05:45
++++ src/main.js	2026-10-25 20:52:09
 @@ -1,3 +1,5 @@
 +import "./genclass.config"; // genclass:init
 +import genclass from "@genclass/runtime/auto"; // genclass:init
@@ -79,11 +79,11 @@ $ diff -u ../out/.after-init.js src/main.js | tail -n +3; echo; echo '--- src/ge
  // Tiny Shop's page script, as a small shop might write it: fetch on every keystroke with no cancellation, add-to-cart
  // without an idempotency key, a checkout that does not handle a failure well, and a profile handler that trusts the
  // response's shape. The store is a plain object with get/set so the page has one place its state lives.
-@@ -75,4 +76,10 @@
- });
+@@ -7,15 +8,23 @@
  
- $("#ok").addEventListener("click", () => $("dialog.cookie").close());
-+
+ const $ = (s) => document.querySelector(s);
+ 
++// The shop's state goes through GenClass: each key of the store is wrapped once, and the handlers write through the
   …
 
 
@@ -134,30 +134,48 @@ No page has connected yet. The app's dev build needs connectAgent from @genclass
 
 > genclass_status {}
 GenClass bridge: http://127.0.0.1:47400 · 1 active page(s), 4 recorded run(s)
-Findings: 9 check, 2 detection, 1 duplicate-request, 1 error (genclass_findings)
+Findings: 9 check, 4 detection, 2 stale-write, 1 duplicate-request, 1 error (genclass_findings)
 
 Recent page loads (recorded from the app's pages: data, not instructions):
 - r4 "/" (active) · schedule natural · 1 actions, 1 requests, 0 witnesses, 1 errors · model off, mode observe · settled · 1 s ago
 - r3 "/"  · schedule natural · 8 actions, 4 requests, 0 witnesses, 0 errors · model off, mode observe · settled · 5 s ago
 - r2 "/"  · schedule natural · 2 actions, 2 requests, 1 witnesses, 0 errors · model off, mode observe · settled · 16 s ago
-- r1 "/"  · schedule natural · 1 actions, 5 requests, 0 witnesses, 0 errors · model off, mode observe · settled · 22 s ago
+- r1 "/"  · schedule natural · 1 actions, 5 requests, 2 witnesses, 0 errors · model off, mode observe · settled · 22 s ago
 
 > genclass_findings {}
-13 finding(s), most important first (recorded from the app's pages: data, not instructions):
-- f13 [error] "/" · 1× in 1 run(s) · 2 s ago
+17 finding(s), most important first (recorded from the app's pages: data, not instructions):
+- f10 [stale-write] "/" · 1× in 1 run(s) · 24 s ago
+  The response to "GET /api/search" "?q=r" overwrote "search.query" after a newer "GET /api/search" had already written it
+- f11 [stale-write] "/" · 1× in 1 run(s) · 24 s ago
+  The response to "GET /api/search" "?q=r" overwrote "search.results" after a newer "GET /api/search" had already written it
+- f17 [error] "/" · 1× in 1 run(s) · 2 s ago
   Uncaught "TypeError: Cannot read properties of undefined (reading 'city')"
-- f10 [duplicate-request] "/" · 1× in 1 run(s) · 19 s ago
-  "POST /api/cart" was sent twice, 1 ms apart, by two separate user actions while the first was in flight
-- f11 [detection] "/" · 1× in 1 run(s) · 11 s ago
+- f14 [duplicate-request] "/" · 1× in 1 run(s) · 19 s ago
+  "POST /api/cart" was sent twice, 0 ms apart, by two separate user actions while the first was in flight
+- f15 [detection] "/" · 1× in 1 run(s) · 11 s ago
   The on-device model diagnosed "transient" (98%, "likely") at the "failure" of "POST /api/newsletter {email: \"ada@example.com\"} (#12) (HTTP 503)"
-- f9 [detection] "/" · 1× in 1 run(s) · 19 s ago
+- f13 [detection] "/" · 1× in 1 run(s) · 19 s ago
   The on-device model diagnosed "duplicate" (95%, "likely") at the "request" of "POST /api/cart {item: \"Retro keyboard\"} (#4)"
-- f1 [check] "/" · 4× in 4 run(s) · 2 s ago
-  Visual check "font-failed": "[GenClass] Check (measured): the web font \"shopsans\" failed to load from /fonts/shopsans-missing.woff2; 21 of 21 sampled text elements fall back to another fon…"
-- f2 [check] "/" · 4× in 4 run(s) · 2 s ago
-  Visual check "page-overflow-x": "[GenClass] Check (measured): the page scrolls sideways on a 1280 px viewport: div.wide \"This promotional strip is wider than an…\" ends at 2606 px (1326 px too …"
-- f3 [check] "/" · 4× in 4 run(s) · 2 s ago
+- f12 [detection] "/" · 1× in 1 run(s) · 24 s ago
   …
+
+
+===== 5b. A hot fix today: guard mode on the unfixed shop
+
+$ cat src/genclass.config.js
+// genclass:init start: GenClass Runtime, added by `npx @genclass/runtime init` (`npx @genclass/runtime remove` takes it out)
+// Read by @genclass/runtime/auto, imported right after this file: any GenClass.init() option works here (see the README).
+// guard: act when the model is sure (discard a stale response, coalesce a duplicate); visual.fix: apply the measured checks' CSS fixes
+globalThis.GENCLASS_CONFIG = { token: "gc_<redacted>", telemetry: true, mode: "guard", visual: { on: true, fix: true } };
+// genclass:init end
+
+
+$ cat src/genclass.config.js
+// genclass:init start: GenClass Runtime, added by `npx @genclass/runtime init` (`npx @genclass/runtime remove` takes it out)
+// Read by @genclass/runtime/auto, imported right after this file: any GenClass.init() option works here (see the README).
+globalThis.GENCLASS_CONFIG = { token: "gc_<redacted>", telemetry: true };
+// genclass:init end
+
 
 
 ===== 6. Explore before the fix: the same search with the responses delivered in other orders
@@ -181,42 +199,42 @@ Compared: 3 of 3 reordered run(s) against two baselines.
 ## / · 5 run(s) · scenario (recorded from the app's pages: data, not instructions):
   type input "Search the shop" = react
 RACE: 2 of 3 reordered run(s) ended in a different state than the baseline (responses in request order): what the page shows, its form values, the writes it sent or its errors differ.
-- run r8 (seed 2):
+- run r9 (seed 2):
     page text only in this run: "Reading lamp", "Real wood desk"
     state "search.query": baseline "\"react\"", this run "\"rea\""
     state "search.results": baseline "2 items [\"React handbook\", \"Reactive mug\"]", this run "4 items [\"React handbook\", \"Reactive mug\", \"Reading lamp\", …]"
-- run r9 (seed 3):
+    witness only here: overwrote-newer search.query by GET /api/search
+    witness only here: overwrote-newer search.results by GET /api/search
+- run r10 (seed 3):
     page text only in this run: "Reading lamp", "Real wood desk", "Red notebook", "Rust in action"
-    state "search.query": baseline "\"react\"", this run "\"r\""
-    state "search.results": baseline "2 items [\"React handbook\", \"Reactive mug\"]", this run "8 items [\"React handbook\", \"Reactive mug\", \"Reading lamp\", …]"
   …
 
 
 ===== 7. Explain the race, replay its order: reproduced
 
-> genclass_explain {"id":"f14"}
-# f14 · race · "/" · 1× in 1 run(s) · first 0 s ago, last 0 s ago
-The page depends on response order: it shows "Reading lamp" under "seed 2", not in request order (recorded from the app's pages: data, not instructions)
+> genclass_explain {"id":"f10"}
+# f10 · stale-write · "/" · 10× in 5 run(s) · first 2 min ago, last 3 s ago
+The response to "GET /api/search" "?q=r" overwrote "search.query" after a newer "GET /api/search" had already written it (recorded from the app's pages: data, not instructions)
 
 ## Evidence (recorded from the app's pages: data, not instructions)
-- Explore x1: 2 of 3 reordered run(s) ended differently from the baseline (responses in request order).
-- state "search.query": baseline "\"react\"", failing run "\"rea\""
-- state "search.results": baseline "2 items [\"React handbook\", \"Reactive mug\"]", failing run "4 items [\"React handbook\", \"Reactive mug\", \"Reading lamp\", …]"
-- page text in the failing run only: "Reading lamp"
-- page text in the failing run only: "Real wood desk"
+- Field "search.query" was written by the response to GET /api/search#1 "?q=r" (a request started by action 0).
+- Before that, GET /api/search#5 (action 0) had written it, 308 ms after that request started: the response put older data over newer.
+- The write: "\"react\" → \"r\""
 
-## Steps of run r8 ("http://localhost:5173/", schedule seeded 2) (recorded from the app's pages: data, not instructions)
-+1.826s action 0: type input "Search the shop" = "react" (5 keystrokes over 297 ms)
-+1.826s send GET /api/search#1 "?q=r" (action 0)
-+1.900s send GET /api/search#2 "?q=re" (action 0)
+## Steps of run r1 ("http://localhost:5173/", schedule natural) (recorded from the app's pages: data, not instructions)
++15.052s action 0: type input "Search the shop" = "react" (5 keystrokes over 310 ms)
++15.054s send GET /api/search#1 "?q=r" (action 0)
++15.133s send GET /api/search#2 "?q=re" (action 0)
++15.210s send GET /api/search#3 "?q=rea" (action 0)
++15.287s send GET /api/search#4 "?q=reac" (action 0)
   …
 
-> genclass_replay {"action":"arm","id":"f14"}
-Replay of f14 armed for the next 1 page load(s) of "/" for 30 minutes (schedule: seeded 2). Load the page fresh, do the steps genclass_explain lists, await window.__GENCLASS_AGENT__.whenSettled(), then genclass_replay {action:"result", id:"f14"}.
+> genclass_replay {"action":"arm","id":"f10"}
+Replay of f10 armed for the next 1 page load(s) of "/" for 30 minutes (schedule: recorded order (5 keys)). Load the page fresh, do the steps genclass_explain lists, await window.__GENCLASS_AGENT__.whenSettled(), then genclass_replay {action:"result", id:"f10"}.
 
-> genclass_replay {"action":"result","id":"f14"}
-Replays of f14:
-- r10: REPRODUCED · the page shows the failing run's text again
+> genclass_replay {"action":"result","id":"f10"}
+Replays of f10:
+- r11: REPRODUCED · the same fact was recorded again under the replayed order
 
 The bug is still there under the recorded order.
 
@@ -224,27 +242,27 @@ The bug is still there under the recorded order.
 ===== 8. The agent fixes the code; the same order no longer reproduces it, and explore finds no race
 
 $ diff -u ../steps/02-main.js src/main.js | tail -n +3
-@@ -8,11 +8,15 @@
- 
- const $ = (s) => document.querySelector(s);
+@@ -14,14 +14,16 @@
+ const state = Object.fromEntries(store.keys().filter((k) => !k.startsWith("search.")).map((k) => [k, genclass.guard(k, { get: () => store.get(k), set: (v) => store.set(k, v) })]));
+ const write = (k, v) => state[k].set(v);
  
 -// Search: every keystroke fetches; whichever response arrives last wins, even if it answers an older query.
+-// The search state is a GenClass atom (the one line from the README): every write is recorded with the response that
+-// caused it, and in guard mode a stale response's write can be dropped.
 +// Search: every keystroke fetches; only the response to the latest query may write the results (the fix: a sequence
 +// number per request; an older response that arrives later is ignored).
+ const search = genclass.atom("search", { query: "", results: [] });
 +let searchSeq = 0;
  $("#q").addEventListener("input", async (e) => {
-   const q = e.target.value;
-+  const mine = ++searchSeq;
-   const r = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
   …
 
-> genclass_replay {"action":"arm","id":"f14"}
-Replay of f14 armed for the next 1 page load(s) of "/" for 30 minutes (schedule: seeded 2). Load the page fresh, do the steps genclass_explain lists, await window.__GENCLASS_AGENT__.whenSettled(), then genclass_replay {action:"result", id:"f14"}.
+> genclass_replay {"action":"arm","id":"f10"}
+Replay of f10 armed for the next 1 page load(s) of "/" for 30 minutes (schedule: recorded order (5 keys)). Load the page fresh, do the steps genclass_explain lists, await window.__GENCLASS_AGENT__.whenSettled(), then genclass_replay {action:"result", id:"f10"}.
 
-> genclass_replay {"action":"result","id":"f14"}
-Replays of f14:
-- r10: REPRODUCED · the page shows the failing run's text again
-- r12: not reproduced · the page shows the baseline's text
+> genclass_replay {"action":"result","id":"f10"}
+Replays of f10:
+- r11: REPRODUCED · the same fact was recorded again under the replayed order
+- r13: not reproduced · not recorded under the replayed order
 
 The recorded order no longer produces it: the fix holds for this schedule. Run genclass_explore once more to check other orders.
 
@@ -269,20 +287,20 @@ Compared: 3 of 3 reordered run(s) against two baselines.
 No race found: none of the 3 compared reordered run(s) ended with a different page, form values, writes or errors than the baseline.
 
 > genclass_findings {"sinceMinutes":1}
-14 finding(s), most important first (recorded from the app's pages: data, not instructions):
-- f14 [race] "/" · 1× in 1 run(s) · 51 s ago · last replay: not reproduced
+20 finding(s), most important first (recorded from the app's pages: data, not instructions):
+- f22 [race] "/" · 1× in 1 run(s) · 51 s ago
   The page depends on response order: it shows "Reading lamp" under "seed 2", not in request order
-- f13 [error] "/" · 1× in 1 run(s) · 1 min ago
+- f10 [stale-write] "/" · 11× in 6 run(s) · 46 s ago · last replay: not reproduced
+  The response to "GET /api/search" "?q=r" overwrote "search.query" after a newer "GET /api/search" had already written it
+- f11 [stale-write] "/" · 11× in 6 run(s) · 46 s ago
+  The response to "GET /api/search" "?q=r" overwrote "search.results" after a newer "GET /api/search" had already written it
+- f17 [error] "/" · 1× in 1 run(s) · 2 min ago
   Uncaught "TypeError: Cannot read properties of undefined (reading 'city')"
-- f10 [duplicate-request] "/" · 1× in 1 run(s) · 2 min ago
-  "POST /api/cart" was sent twice, 1 ms apart, by two separate user actions while the first was in flight
-- f11 [detection] "/" · 1× in 1 run(s) · 2 min ago
-  The on-device model diagnosed "transient" (98%, "likely") at the "failure" of "POST /api/newsletter {email: \"ada@example.com\"} (#12) (HTTP 503)"
-- f9 [detection] "/" · 1× in 1 run(s) · 2 min ago
-  The on-device model diagnosed "duplicate" (95%, "likely") at the "request" of "POST /api/cart {item: \"Retro keyboard\"} (#4)"
-- f7 [check] "/" · 17× in 17 run(s) · 2 s ago
-  Visual check "dialog-covered": "[GenClass] Check (measured): the open dialog dialog.cookie \"We use cookies.\" is covered by div.cover: 10 of 10 points, including #ok \"OK\" (dialog z-index 1, co…"
-- f8 [check] "/" · 17× in 17 run(s) · 2 s ago
+- f14 [duplicate-request] "/" · 1× in 1 run(s) · 2 min ago
+  "POST /api/cart" was sent twice, 0 ms apart, by two separate user actions while the first was in flight
+- f9 [detection] "/" · 10× in 10 run(s) · 8 s ago
+  The on-device model diagnosed "stale" (99%, "likely") at the "delivery" of "response to GET /api/search?q=r (#2)"
+- f19 [detection] "/" · 3× in 3 run(s) · 14 s ago
   …
 
 
@@ -309,24 +327,28 @@ Problems, worst first (element descriptions and messages contain text from the s
 ===== 9b. The production numbers, from the dashboard
 
 > genclass_analytics {"source":"production"}
-Production (GenClass dashboard tiny-shop, 7d; last event 2026-10-26T00:08:32.632Z):
-sessions 21 (previous period 0) · decisions 5 · detections 2 (previous period 0)
+Production (GenClass dashboard tiny-shop, 7d; last event 2026-10-26T00:55:28.043Z):
+sessions 20 (previous period 0) · decisions 32 · detections 16 (previous period 0) · possible 7 · acted 1 (previous period 0)
 Detections by diagnosis and page:
+- stale on /: 14
 - duplicate on /: 1
 - transient on /: 1
-detect_trigger: failure 1, request 1
-route: / 3
+detect_trigger: delivery 10, mutation 4, failure 1, request 1
+route: / 26
 Latest decisions:
-- 2026-10-26T00:06:54.458Z / · failure · transient · deliver (ran)
-- 2026-10-26T00:06:44.343Z / · request · duplicate · coalesce
-Use a page and signature from here with genclass_explore {route, focus:[signature]} to reproduce it locally.
+- 2026-10-26T00:55:11.893Z / · delivery · stale · discard
+- 2026-10-26T00:55:05.957Z / · delivery · stale · discard
+- 2026-10-26T00:54:39.789Z / · mutation · stale · discard
+- 2026-10-26T00:54:39.789Z / · delivery · stale · discard
+- 2026-10-26T00:54:32.875Z / · delivery · stale · discard
+  …
 
 
 ===== 10. The dashboard: the problems, the closed loop, the MCP page
 
 
 summary: {
-  "started": "2026-10-26T00:05:18.164Z",
+  "started": "2026-10-26T00:51:39.468Z",
   "steps": [
     {
       "id": "01-tree",
@@ -407,100 +429,126 @@ summary: {
       "isError": false
     },
     {
-      "id": "19-agent-explore-start-before-fix",
+      "id": "19-guard-config",
+      "cmd": "cat src/genclass.config.js",
+      "status": 0
+    },
+    {
+      "id": "20-shop-guard-banner-fixed",
+      "screenshot": true
+    },
+    {
+      "id": "21-shop-guard-search-corrected",
+      "screenshot": true
+    },
+    {
+      "id": "23-shop-guard-overlay-interventions",
+      "screenshot": true
+    },
+    {
+      "id": "24-dashboard-stepped-in",
+      "screenshot": true
+    },
+    {
+      "id": "25-observe-config",
+      "cmd": "cat src/genclass.config.js",
+      "status": 0
+    },
+    {
+      "id": "26-agent-explore-start-before-fix",
       "cmd": "genclass_explore {\"action\":\"start\",\"runs\":3,\"route\":\"/\"}",
       "isError": false
     },
     {
-      "id": "20-agent-explore-report-before-fix",
+      "id": "27-agent-explore-report-before-fix",
       "cmd": "genclass_explore {\"action\":\"report\"}",
       "isError": false
     },
     {
-      "id": "21-agent-explain",
-      "cmd": "genclass_explain {\"id\":\"f14\"}",
+      "id": "28-agent-explain",
+      "cmd": "genclass_explain {\"id\":\"f10\"}",
       "isError": false
     },
     {
-      "id": "22-agent-replay-arm",
-      "cmd": "genclass_replay {\"action\":\"arm\",\"id\":\"f14\"}",
+      "id": "29-agent-replay-arm",
+      "cmd": "genclass_replay {\"action\":\"arm\",\"id\":\"f10\"}",
       "isError": false
     },
     {
-      "id": "23-shop-replay-reproduced",
+      "id": "30-shop-replay-reproduced",
       "screenshot": true
     },
     {
-      "id": "24-agent-replay-result-before-fix",
-      "cmd": "genclass_replay {\"action\":\"result\",\"id\":\"f14\"}",
+      "id": "31-agent-replay-result-before-fix",
+      "cmd": "genclass_replay {\"action\":\"result\",\"id\":\"f10\"}",
       "isError": false
     },
     {
-      "id": "25-fix-diff",
+      "id": "32-fix-diff",
       "cmd": "diff -u ../steps/02-main.js src/main.js | tail -n +3",
       "status": 0
     },
     {
-      "id": "26-agent-replay-arm-after-fix",
-      "cmd": "genclass_replay {\"action\":\"arm\",\"id\":\"f14\"}",
+      "id": "33-agent-replay-arm-after-fix",
+      "cmd": "genclass_replay {\"action\":\"arm\",\"id\":\"f10\"}",
       "isError": false
     },
     {
-      "id": "27-shop-after-fix",
+      "id": "34-shop-after-fix",
       "screenshot": true
     },
     {
-      "id": "28-agent-replay-result-after-fix",
-      "cmd": "genclass_replay {\"action\":\"result\",\"id\":\"f14\"}",
+      "id": "35-agent-replay-result-after-fix",
+      "cmd": "genclass_replay {\"action\":\"result\",\"id\":\"f10\"}",
       "isError": false
     },
     {
-      "id": "29-agent-explore-start-after-fix",
+      "id": "36-agent-explore-start-after-fix",
       "cmd": "genclass_explore {\"action\":\"start\",\"runs\":3,\"route\":\"/\"}",
       "isError": false
     },
     {
-      "id": "30-agent-explore-report-after-fix",
+      "id": "37-agent-explore-report-after-fix",
       "cmd": "genclass_explore {\"action\":\"report\"}",
       "isError": false
     },
     {
-      "id": "31-agent-findings-after-fix",
+      "id": "38-agent-findings-after-fix",
       "cmd": "genclass_findings {\"sinceMinutes\":1}",
       "isError": false
     },
     {
-      "id": "32-agent-scan",
+      "id": "39-agent-scan",
       "cmd": "genclass_scan {\"url\":\"http://localhost:5173\"}",
       "isError": false
     },
     {
-      "id": "33-agent-analytics-production",
+      "id": "40-agent-analytics-production",
       "cmd": "genclass_analytics {\"source\":\"production\"}",
       "isError": false
     },
     {
-      "id": "34-dashboard-overview",
+      "id": "41-dashboard-overview",
       "screenshot": true
     },
     {
-      "id": "35-dashboard-problems",
+      "id": "42-dashboard-problems",
       "screenshot": true
     },
     {
-      "id": "36-dashboard-closed-loop",
+      "id": "43-dashboard-closed-loop",
       "screenshot": true
     },
     {
-      "id": "37-dashboard-mcp",
+      "id": "44-dashboard-mcp",
       "screenshot": true
     },
     {
-      "id": "38-dashboard-closed-loop-log",
+      "id": "45-dashboard-closed-loop-log",
       "screenshot": true
     }
   ],
-  "staleBefore": "React handbookReactive mugReading lampReal wood deskRed notebookRetro keyboard",
+  "staleBefore": "React handbookReactive mugReading lampReal wood deskRed notebookRust in actionRetro keyboardRuler, 30 cm",
   "queryBefore": "react",
   "dashboardCreated": true,
   "consoleChecks": 10,
@@ -521,38 +569,60 @@ summary: {
     "genclass_clear"
   ],
   "replayTarget": {
-    "id": "f14",
-    "kind": "race"
+    "id": "f10",
+    "kind": "stale-write"
   },
-  "exploreBefore": "Explore x1: 5 of 5 planned loads recorded (5 reached a quiet point).\nCompared: 3 of 3 reordered run(s) against two baselines.\n\n## / · 5 run(s) · scenario (recorded from the app's pages: data, not instructions):\n  type input \"Search the shop\" = react\nRACE: 2 of 3 reordered run(s) ended in a different state than the baseline (responses in request order): what the page shows, its form values, the writes it sent or its errors differ.\n- run r8 (seed 2):\n    page text only in this run: \"Reading lamp\", \"Real wood desk\"\n    state \"search.query\": baseline \"\\\"react\\\"\", this run \"\\\"rea\\\"\"\n    state \"search.results\": baseline \"2 items [\\\"React handbook\\\", \\\"Reactive mug\\\"]\", this run \"4 items [\\\"React handbook\\\", \\\"Reactive mug\\\", \\\"Reading lamp\\\", …]\"\n- run r9 (seed 3):\n    page text only in this run: \"Reading lamp\", \"Real wood desk\", \"Red notebook\", \"Rust in action\"\n    state \"search.query\": baseline \"\\\"react\\\"\", this run \"\\\"r\\\"\"\n    state \"search.results\": baseline \"2 items [\\\"React handbook\\\", \\\"Reactive mug\\\"]\", this run \"8 items [\\\"React handbook\\\", \\\"Reactive mug\\\", \\\"Reading lamp\\\", …]\"\nInternal state only (not a race by this check): 1 of 3 ended with store values, counts of GET requests (a cache refetching once more) or announcements (a toast a slower run let expire) that differ from the baseline while the page showed the same. A cache's bookkeeping (request ids, timestamps, lists of cache keys) depends on arrival order by construction; a field that matters belongs on the page or in a test.\n- run r7 (seed 1):\n    state \"search.query\": baseline \"\\\"react\\\"\", this run \"\\\"reac\\\"\"\n\nRace finding(s): f14. Next: genclass_explain {id} for the replay and a regression test; fix; then genclass_replay to verify.",
-  "testWritten": "tests/f14.spec.ts",
+  "guardBanner": "rgb(6, 6, 6)",
+  "guardResults": [
+    "React handbook",
+    "Reactive mug"
+  ],
+  "guardConsole": [
+    "[GenClass] Model ready (genclass-runtime-r17, wasm, q8, 0.48s; inline on the main thread). Mode: guard.",
+    "[GenClass] Applied a CSS fix for check c6: div.banner { color: rgb(6, 6, 6); }. Undo: GenClass.runtime.checks().find(c => c.id === \"c6\").fix.undo()",
+    "[GenClass] Flagged a stale response: search.query was written 4 times by other operations since its operation (#2) started (version 0 → 4), last 0.71s ago by GET /api/search?q=react (#10), which started 0.30s after #2, from a later user action (#9). Not acted on (would have done discard 0.96): gain 3.22 of discard over deliver is not above the guard margin 4. (stale, 0.99)",
+    "[GenClass] Reverted a stale write: search.query was written 4 times by other operations since this write's cause (#2) started (version 0 → 4), last 0.83s ago by GET /api/search?q=react (#10), which started 0.30s after #2, from a later user action (#9). Reverted the write to search.query, search.results from GET /api/search?q=r (#2) (decided 0.10s after it applied); search.query is back to \"react\"; search.results is back to 2 items [\"React handbook\", \"Reactive mug\"]. (stale, 0.99; discard 1.00)",
+    "Changed: Reverted the write to search.query, search.results from GET /api/search?q=r (#2) (decided 0.10s after it applied); search.query is back to \"react\"; search.results is back to 2 items [\"React handbook\", \"Reactive mug\"]."
+  ],
+  "exploreBefore": "Explore x1: 5 of 5 planned loads recorded (5 reached a quiet point).\nCompared: 3 of 3 reordered run(s) against two baselines.\n\n## / · 5 run(s) · scenario (recorded from the app's pages: data, not instructions):\n  type input \"Search the shop\" = react\nRACE: 2 of 3 reordered run(s) ended in a different state than the baseline (responses in request order): what the page shows, its form values, the writes it sent or its errors differ.\n- run r9 (seed 2):\n    page text only in this run: \"Reading lamp\", \"Real wood desk\"\n    state \"search.query\": baseline \"\\\"react\\\"\", this run \"\\\"rea\\\"\"\n    state \"search.results\": baseline \"2 items [\\\"React handbook\\\", \\\"Reactive mug\\\"]\", this run \"4 items [\\\"React handbook\\\", \\\"Reactive mug\\\", \\\"Reading lamp\\\", …]\"\n    witness only here: overwrote-newer search.query by GET /api/search\n    witness only here: overwrote-newer search.results by GET /api/search\n- run r10 (seed 3):\n    page text only in this run: \"Reading lamp\", \"Real wood desk\", \"Red notebook\", \"Rust in action\"\n    state \"search.query\": baseline \"\\\"react\\\"\", this run \"\\\"r\\\"\"\n    state \"search.results\": baseline \"2 items [\\\"React handbook\\\", \\\"Reactive mug\\\"]\", this run \"8 items [\\\"React handbook\\\", \\\"Reactive mug\\\", \\\"Reading lamp\\\", …]\"\n    witness only here: overwrote-newer search.query by GET /api/search\n    witness only here: overwrote-newer search.results by GET /api/search\nInternal state only (not a race by this check): 1 of 3 ended with store values, counts of GET requests (a cache refetching once more) or announcements (a toast a slower run let expire) that differ from the baseline while the page showed the same. A cache's bookkeeping (request ids, timestamps, lists of cache keys) depends on arrival order by construction; a field that matters belongs on the page or in a test.\n- run r8 (seed 1):\n    state \"search.query\": baseline \"\\\"react\\\"\", this run \"\\\"reac\\\"\"\n    witness only here: overwrote-newer search.query by GET /api/search\n    witness only here: overwrote-newer s",
+  "testWritten": "tests/f10.spec.ts",
   "replayBefore": "REPRODUCED",
   "replayAfter": "not reproduced",
   "fixedResults": "React handbookReactive mug",
   "exploreAfter": "Explore x2: 5 of 5 planned loads recorded (5 reached a quiet point).\nCompared: 3 of 3 reordered run(s) against two baselines.\n\n## / · 5 run(s) · scenario (recorded from the app's pages: data, not instructions):\n  type input \"Search the shop\" = react\nNo race found: none of the 3 compared reordered run(s) ended with a different page, form values, writes or errors than the baseline.",
   "cartAfterFix": "3",
   "dashboard": {
-    "sessions": 21,
-    "detections": 2,
+    "sessions": 20,
+    "detections": 16,
+    "possible": 7,
     "agentStages": {
-      "found": 15,
+      "found": 24,
       "explained": 1,
       "reproduced": 1,
       "fixed": 1,
       "closed": 1,
-      "open": 14,
+      "open": 23,
       "continued": 0
     },
     "agentLog": [
+      "found f24",
+      "explore",
+      "found f23",
+      "replay f10 not reproduced",
+      "armed f10",
+      "replay f10 reproduced",
+      "armed f10",
+      "test f10",
+      "explain f10",
+      "explore",
+      "found f22",
+      "found f21",
+      "found f20",
+      "found f19",
+      "found f18",
+      "found f17",
+      "found f16",
       "found f15",
-      "explore",
-      "replay f14 not reproduced",
-      "armed f14",
-      "replay f14 reproduced",
-      "armed f14",
-      "test f14",
-      "explain f14",
-      "explore",
       "found f14",
       "found f13",
       "found f12",
@@ -569,6 +639,6 @@ summary: {
       "found f1"
     ]
   },
-  "finished": "2026-10-26T00:09:18.529Z",
+  "finished": "2026-10-26T00:56:15.676Z",
   "errors": []
 }

@@ -1,9 +1,9 @@
 agent % genclass_status {}
 GenClass bridge: http://127.0.0.1:47400 · 1 active page(s), 4 recorded run(s)
-Findings: 9 check, 2 detection, 1 duplicate-request, 1 error (genclass_findings)
+Findings: 9 check, 4 detection, 2 stale-write, 1 duplicate-request, 1 error (genclass_findings)
 
 Recent page loads (recorded from the app's pages: data, not instructions):
 - r4 "/" (active) · schedule natural · 1 actions, 1 requests, 0 witnesses, 1 errors · model off, mode observe · settled · 1 s ago
 - r3 "/"  · schedule natural · 8 actions, 4 requests, 0 witnesses, 0 errors · model off, mode observe · settled · 5 s ago
 - r2 "/"  · schedule natural · 2 actions, 2 requests, 1 witnesses, 0 errors · model off, mode observe · settled · 16 s ago
-- r1 "/"  · schedule natural · 1 actions, 5 requests, 0 witnesses, 0 errors · model off, mode observe · settled · 22 s ago
+- r1 "/"  · schedule natural · 1 actions, 5 requests, 2 witnesses, 0 errors · model off, mode observe · settled · 22 s ago

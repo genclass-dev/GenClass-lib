@@ -1,0 +1,6 @@
+agent % genclass_replay {"action":"result","id":"f10"}
+Replays of f10:
+- r11: REPRODUCED · the same fact was recorded again under the replayed order
+- r13: not reproduced · not recorded under the replayed order
+
+The recorded order no longer produces it: the fix holds for this schedule. Run genclass_explore once more to check other orders.

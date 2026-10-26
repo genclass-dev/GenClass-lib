@@ -8,8 +8,15 @@ import { store } from "./store.js";
 
 const $ = (s) => document.querySelector(s);
 
+// The shop's state goes through GenClass: each key of the store is wrapped once, and the handlers write through the
+// wrapped handle, so every write is recorded with the response or click that caused it, and in guard mode a stale
+// response's write can be dropped.
+const state = Object.fromEntries(store.keys().filter((k) => !k.startsWith("search.")).map((k) => [k, genclass.guard(k, { get: () => store.get(k), set: (v) => store.set(k, v) })]));
+const write = (k, v) => state[k].set(v);
+
 // Search: every keystroke fetches; only the response to the latest query may write the results (the fix: a sequence
 // number per request; an older response that arrives later is ignored).
+const search = genclass.atom("search", { query: "", results: [] });
 let searchSeq = 0;
 $("#q").addEventListener("input", async (e) => {
   const q = e.target.value;
@@ -17,10 +24,9 @@ $("#q").addEventListener("input", async (e) => {
   const r = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
   const data = await r.json();
   if (mine !== searchSeq) return; // a newer query is in flight or done: this response is stale
-  store.set("search.results", data.results);
-  store.set("search.query", data.q);
+  search.set((s) => ({ ...s, results: data.results, query: data.q }));
 });
-store.subscribe("search.results", (results) => {
+search.subscribe(({ results }) => {
   const ul = $("#results");
   ul.textContent = "";
   for (const name of results) {
@@ -38,7 +44,7 @@ for (const b of document.querySelectorAll("button.add")) {
     try {
       const r = await fetch("/api/cart", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ item: b.dataset.item }) });
       const data = await r.json();
-      store.set("cart.count", data.count);
+      write("cart.count", data.count);
     } finally {
       b.disabled = false;
     }
@@ -58,7 +64,7 @@ $("#checkout").addEventListener("click", async () => {
 $("#reviews").addEventListener("click", async () => {
   const r = await fetch("/api/reviews");
   const data = await r.json();
-  store.set("reviews", data.reviews);
+  write("reviews", data.reviews);
 });
 store.subscribe("reviews", (list) => {
   const ul = $("#reviewlist");
@@ -87,8 +93,6 @@ $("#newsletter").addEventListener("submit", async (e) => {
 
 $("#ok").addEventListener("click", () => $("dialog.cookie").close());
 
-// GenClass watches the shop's state: every write to a key is recorded with the response or click that caused it.
-for (const k of store.keys()) genclass.guard(k, { get: () => store.get(k), set: (v) => store.set(k, v), subscribe: (fn) => store.subscribe(k, () => fn()) });
 // Development builds only: the agent link records what happens on this page for @genclass/mcp (the port is set
 // because another GenClass MCP server already owns the default one on this machine; GENCLASS_AGENT_PORT matches).
 if (import.meta.env.DEV) connectAgent(genclass, { url: "http://127.0.0.1:47400" }); // genclass:agent

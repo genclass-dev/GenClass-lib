@@ -1,0 +1,44 @@
+agent % genclass_findings {"sinceMinutes":1}
+20 finding(s), most important first (recorded from the app's pages: data, not instructions):
+- f22 [race] "/" · 1× in 1 run(s) · 51 s ago
+  The page depends on response order: it shows "Reading lamp" under "seed 2", not in request order
+- f10 [stale-write] "/" · 11× in 6 run(s) · 46 s ago · last replay: not reproduced
+  The response to "GET /api/search" "?q=r" overwrote "search.query" after a newer "GET /api/search" had already written it
+- f11 [stale-write] "/" · 11× in 6 run(s) · 46 s ago
+  The response to "GET /api/search" "?q=r" overwrote "search.results" after a newer "GET /api/search" had already written it
+- f17 [error] "/" · 1× in 1 run(s) · 2 min ago
+  Uncaught "TypeError: Cannot read properties of undefined (reading 'city')"
+- f14 [duplicate-request] "/" · 1× in 1 run(s) · 2 min ago
+  "POST /api/cart" was sent twice, 0 ms apart, by two separate user actions while the first was in flight
+- f9 [detection] "/" · 10× in 10 run(s) · 8 s ago
+  The on-device model diagnosed "stale" (99%, "likely") at the "delivery" of "response to GET /api/search?q=r (#2)"
+- f19 [detection] "/" · 3× in 3 run(s) · 14 s ago
+  The on-device model diagnosed "stale" (98%, "likely") at the "delivery" of "response to GET /api/search?q=rea (#6)"
+- f12 [detection] "/" · 3× in 3 run(s) · 46 s ago
+  The on-device model diagnosed "stale" (99%, "likely") at the "mutation" of "write to search.query, search.results from GET /api/search?q=r (#2)"
+- f20 [detection] "/" · 2× in 2 run(s) · 9 s ago
+  The on-device model diagnosed "stale" (99%, "likely") at the "delivery" of "response to GET /api/search?q=re (#4)"
+- f23 [detection] "/" · 2× in 2 run(s) · 14 s ago
+  The on-device model diagnosed "stale" (90%, "likely") at the "delivery" of "response to GET /api/search?q=reac (#8)"
+- f21 [detection] "/" · 1× in 1 run(s) · 54 s ago
+  The on-device model diagnosed "stale" (99%, "likely") at the "mutation" of "write to search.query, search.results from GET /api/search?q=re (#4)"
+- f15 [detection] "/" · 1× in 1 run(s) · 2 min ago
+  The on-device model diagnosed "transient" (98%, "likely") at the "failure" of "POST /api/newsletter {email: \"ada@example.com\"} (#12) (HTTP 503)"
+- f13 [detection] "/" · 1× in 1 run(s) · 2 min ago
+  The on-device model diagnosed "duplicate" (95%, "likely") at the "request" of "POST /api/cart {item: \"Retro keyboard\"} (#4)"
+- f1 [check] "/" · 18× in 18 run(s) · 2 s ago
+  Visual check "font-failed": "[GenClass] Check (measured): the web font \"shopsans\" failed to load from /fonts/shopsans-missing.woff2; 21 of 21 sampled text elements fall back to another fon…"
+- f2 [check] "/" · 18× in 18 run(s) · 2 s ago
+  Visual check "page-overflow-x": "[GenClass] Check (measured): the page scrolls sideways on a 1280 px viewport: div.wide \"This promotional strip is wider than an…\" ends at 2606 px (1326 px too …"
+- f3 [check] "/" · 18× in 18 run(s) · 2 s ago
+  Visual check "text-encoding": "[GenClass] Check (measured): the page shows UTF-8 text decoded as Windows-1252 (mojibake) in div.banner \"Free shipping on every order over 50 â‚…\": \"...y order…"
+- f4 [check] "/" · 18× in 18 run(s) · 2 s ago
+  Visual check "text-template-leak": "[GenClass] Check (measured): the page shows an unrendered {{ }} placeholder in p.price \"{{price}}\": \"{{price}}\". Suggested CSS: [v-cloak] { display: none; }"
+- f5 [check] "/" · 18× in 18 run(s) · 2 s ago
+  Visual check "text-placeholder": "[GenClass] Check (measured): the page shows placeholder text (lorem ipsum) in p.blurb \"Lorem ipsum dolor sit amet, consectetur…\": \"Lorem ipsum dolor sit amet, …"
+- f6 [check] "/" · 18× in 18 run(s) · 2 s ago
+  Visual check "text-invisible": "[GenClass] Check (measured): text contrast 1.26:1 on div.banner \"Free shipping on every order over 50 â‚…\", below 1.5:1 (WCAG 2.2 contrast formula; unreadable-…"
+- f7 [check] "/" · 18× in 18 run(s) · 2 s ago
+  Visual check "dialog-covered": "[GenClass] Check (measured): the open dialog dialog.cookie \"We use cookies.\" is covered by div.cover: 10 of 10 points, including #ok \"OK\" (dialog z-index 1, co…"
+
+Next: genclass_explain {id} for the evidence, the replay and a regression test.

@@ -1,5 +1,0 @@
-agent % genclass_replay {"action":"result","id":"f14"}
-Replays of f14:
-- r10: REPRODUCED · the page shows the failing run's text again
-
-The bug is still there under the recorded order.

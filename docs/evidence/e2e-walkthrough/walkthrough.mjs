@@ -281,6 +281,54 @@ await step("5. The user uses the shop; the agent asks what happened", async () =
   summary.replayTarget = { id: topId, kind: topKind };
 });
 
+// ---------------------------------------------------------------------------------------------------- 5b. the hot fix: guard mode
+// Before any code changes: guard mode with the visual fixes on, on the still-buggy shop. GenClass acts at the network
+// boundary (the stale search's write is reverted) and applies the measured checks' CSS fix for the unreadable banner.
+const cfgPath = join(APP, "src", "genclass.config.js");
+const setConfig = (extra, note) => {
+  const cur = readFileSync(cfgPath, "utf8").replace(/^\/\/ guard:.*\n/m, "");
+  const tok = /token: ("[^"]+")/.exec(cur)?.[1] ?? '""';
+  writeFileSync(cfgPath, cur.replace(/globalThis\.GENCLASS_CONFIG = \{[^\n]*\n/, `${note ? `// guard: ${note}\n` : ""}globalThis.GENCLASS_CONFIG = { token: ${tok}, telemetry: true${extra} };\n`));
+};
+await step("5b. A hot fix today: guard mode on the unfixed shop", async () => {
+  setConfig(', mode: "guard", visual: { on: true, fix: true }', "act when the model is sure (discard a stale response, coalesce a duplicate); visual.fix: apply the measured checks' CSS fixes");
+  await sh("guard-config", "cat src/genclass.config.js", { title: "Terminal — guard mode and the visual fixes, one line in the config" });
+  consoleLines.length = 0;
+  await gotoSite();
+  await sleep(15_000); // the model, the checks, the fix
+  await shot(page, "shop-guard-banner-fixed");
+  summary.guardBanner = await page.$eval("div.banner", (e) => getComputedStyle(e).color);
+  await typeSearch("react");
+  await sleep(2500);
+  await shot(page, "shop-guard-search-corrected");
+  summary.guardResults = await page.$$eval("#results li", (ls) => ls.map((l) => l.textContent));
+  await settle();
+  const gc = consoleLines.filter((l) => /\[GenClass\] (Applied|Reverted|Prevented|Flagged|Model ready)|^\[\w+\] Changed:/.test(l)).map((l) => l.replace(/^\[\w+\] /, ""));
+  const id = `${num()}-browser-console-guard`;
+  saveTranscript(join(OUT, `${id}.txt`), { cwd: "browser", cmd: "console (guard mode)", out: gc.join("\n") });
+  await renderTerminal(render, join(OUT, `${id}.png`), { title: "Browser console — guard mode: what GenClass did, with Undo", cwd: "console", cmd: "(DevTools)", out: gc.join("\n").slice(0, 6000), kind: "DevTools" });
+  summary.guardConsole = gc.slice(0, 12);
+  // the devtools overlay: Interventions, with Undo
+  try {
+    await page.locator("genclass-devtools").locator("text=GenClass").first().click({ timeout: 5000 });
+    await sleep(800);
+    await page.locator("genclass-devtools").locator("text=Interventions").first().click({ timeout: 5000 });
+    await sleep(800);
+    await shot(page, "shop-guard-overlay-interventions");
+  } catch (e) {
+    errors.push(`overlay: ${e.message}`);
+  }
+  await sleep(12_000); // the page's telemetry batch
+  if (link) {
+    await page.goto(`${link}#top`);
+    await sleep(3500);
+    await shot(page, "dashboard-stepped-in");
+  }
+  // back to observe for the agent's loop below (guard would hide the race from explore by fixing it)
+  setConfig("");
+  await sh("observe-config", "cat src/genclass.config.js", { title: "Terminal — back to observe for the investigation" });
+});
+
 // ---------------------------------------------------------------------------------------------------- 6. explore before the fix
 const explore = async (label) => {
   const start = await mcp.call("genclass_explore", { action: "start", runs: 3, route: "/" });

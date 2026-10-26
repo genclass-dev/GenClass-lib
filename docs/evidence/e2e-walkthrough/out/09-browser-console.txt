@@ -1,6 +1,6 @@
 browser % console
 [GenClass] A token is set, but telemetry is off on local hosts (localhost, *.local, *.test, private networks), so this page does not feed your dashboard; your deployed site does.
-[GenClass] Model ready (genclass-runtime-r17, wasm, q8, 1.81s; inline on the main thread). Mode: observe.
+[GenClass] Model ready (genclass-runtime-r17, wasm, q8, 1.28s; inline on the main thread). Mode: observe.
 [GenClass] Check (measured): the web font "shopsans" failed to load from /fonts/shopsans-missing.woff2; 21 of 21 sampled text elements fall back to another font, for example div.banner "Free shipping on every order over 50 â‚…". Suggested CSS: @font-face { font-family: "shopsans"; src: url("/fonts/shopsans.woff2") format("woff2"); font-display: swap; }
 [GenClass] Check (measured): the page scrolls sideways on a 1280 px viewport: div.wide "This promotional strip is wider than an…" ends at 2606 px (1326 px too wide, a width wider than the viewport). Suggested CSS: div.wide { max-width: 100%; }
 [GenClass] Check (measured): the page shows UTF-8 text decoded as Windows-1252 (mojibake) in div.banner "Free shipping on every order over 50 â‚…": "...y order over 50 â‚¬ â€” today only". Fix: serve Content-Type: text/html; charset=utf-8, put <meta charset="utf-8"> first in <head>, store text as utf8mb4 and escape once.
