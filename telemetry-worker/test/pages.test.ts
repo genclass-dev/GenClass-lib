@@ -980,9 +980,13 @@ describe("dashboard page: the Supabase Studio frame (src/studio.ts): header, rai
     expect(r.writes).toEqual(["DELETE /api/account/projects/0123456789abcdef"]);
     expect(r.text("#delproj .err")).toBe("");
     await r.close();
-    const s = await render(sampleStats("7d", NOW));
+    const a = await render(sampleStats("7d", NOW), { account, id: "0123456789abcdef", firstEvent: "2026-10-12T09:00:00.000Z", runtimeReady: true }, { url: "https://genclass.dev/account/apps/0123456789abcdef#settings" });
+    expect(a.text("#vdesc")).toBe("This project's name, key and agent access, and deleting it.");
+    await a.close();
+    const s = await render(sampleStats("7d", NOW), {}, { url: "https://genclass.dev/dashboard/sample#settings" });
     expect(s.doc.querySelector("[data-delproj]")).toBeNull();
     expect(s.doc.querySelector('a[href="#delproj"]')).toBeNull();
+    expect(s.text("#vdesc")).toBe("This project's name, key and agent access.");
     await s.close();
   });
 

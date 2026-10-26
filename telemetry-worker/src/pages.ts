@@ -1715,7 +1715,7 @@ const DASH_JS = `
       health: ["Health", "Whether GenClass could watch your pages at all: model loads, decision time, what was not checked."],
       loop: ["Loop", "What broke on this app, and what your coding agent does with each problem."],
       mcp: ["MCP", "Let your coding agent read this project: production problems through @genclass/mcp, and what happens inside your pages while you develop."],
-      settings: ["Project Settings", "This project's name, key and agent access, and deleting it."],
+      settings: ["Project Settings", P.account ? "This project's name, key and agent access, and deleting it." : "This project's name, key and agent access."],
       forwarding: ["Integrations", "Send each new detection where you already look."],
       "export": ["Export", "Every event GenClass received for this app, as a file or through the API."]
     };
