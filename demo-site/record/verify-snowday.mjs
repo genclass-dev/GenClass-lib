@@ -1,6 +1,6 @@
 // The snow day site's five planted bugs, at the user's end: a copy of demo-site/snowday-before gets the script-tag
 // integration (the checkout's own build of the runtime, guard with the visual fixes and the eager profile, the board
-// search as one atom, the rest of the store guarded), runs on `wrangler pages dev` with its functions, and a headless Chromium plays the
+// search as one atom, the rest of the store guarded), runs on `wrangler dev` (the Worker, as on snowday-predictor.ca), and a headless Chromium plays the
 // five bugs in observe (they must show) and in guard (they must not):
 //   1 stale board search (the first letter's answer lands last)     2 double Subscribe   3 white text on white
 //   4 click block "Load road conditions" never releases             5 scroll lock the notice leaves behind
@@ -55,9 +55,9 @@ if (!integrated) {
 writeFileSync(join(WORK, "index.html"), html);
 sh(`lsof -nP -iTCP:${PORT} -sTCP:LISTEN -t | xargs -r kill 2>/dev/null; true`);
 await sleep(500);
-const dev = spawn("npx", ["--yes", "wrangler@4", "pages", "dev", ".", "--port", String(PORT), "--compatibility-date=2026-01-01"], { cwd: WORK, stdio: "ignore", detached: true });
+const dev = spawn("npx", ["--yes", "wrangler@4", "dev", "--port", String(PORT)], { cwd: WORK, stdio: "ignore", detached: true });
 const waitHttp = async (url, ms = 60000) => { const s = Date.now(); while (Date.now() - s < ms) { try { if ((await fetch(url)).status < 500) return true; } catch {} await sleep(400); } return false; };
-if (!(await waitHttp(`http://localhost:${PORT}/`))) throw new Error("wrangler pages dev did not come up");
+if (!(await waitHttp(`http://localhost:${PORT}/`))) throw new Error("wrangler dev did not come up");
 const stop = () => { try { process.kill(-dev.pid); } catch {} dev.kill(); sh(`lsof -nP -iTCP:${PORT} -sTCP:LISTEN -t | xargs -r kill 2>/dev/null; true`); };
 
 // ---------------------------------------------------------------------------------------------------- the five bugs, per mode
