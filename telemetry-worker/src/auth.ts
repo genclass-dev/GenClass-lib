@@ -1812,9 +1812,11 @@ export async function routeAuth(request: Request, url: URL, path: string, env: E
       // Studio's "Create a new project" (the form posts to /api/account/projects, as the CLI does)
       if (!get) return method();
       const a = await webSession(c);
-      if (!a) return redirect("/login?next=%2Faccount%2Fnew");
+      // ?name= fills in the project's name (the page check's "Fix it with GenClass" names the site it checked)
+      const suggested = (url.searchParams.get("name") ?? "").replace(/[\u0000-\u001f]/g, "").trim().slice(0, 80);
+      if (!a) return redirect(`/login?next=${encodeURIComponent(`/account/new${suggested ? `?name=${encodeURIComponent(suggested)}` : ""}`)}`);
       const view = await accountView(c, a);
-      return page(200, (n) => newProjectPage(n, { account: view.account, projects: view.projects.map((p) => ({ id: p.id, name: p.name })), plan: view.plan }));
+      return page(200, (n) => newProjectPage(n, { account: view.account, projects: view.projects.map((p) => ({ id: p.id, name: p.name })), plan: view.plan, suggested }));
     }
     case "/login/device": {
       if (!get) return method();

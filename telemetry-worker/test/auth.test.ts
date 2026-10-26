@@ -2030,6 +2030,19 @@ describe("accounts: the agent link (POST /api/account/projects/<id>/link) and St
     expect(projects).toContain("<h1>Projects</h1>");
     expect(projects).toContain("<h1>Account settings</h1>");
   });
+
+  it("/account/new?name=: the page check's site fills in the project name, through sign-in; markup in it stays text", async () => {
+    const { env } = setup();
+    const out = await call(env, "GET", "/account/new?name=snowday-predictor.ca", {});
+    expect(out.status).toBe(302);
+    expect(out.headers.get("location")).toBe("/login?next=%2Faccount%2Fnew%3Fname%3Dsnowday-predictor.ca");
+    const { cookie } = await signedIn(env, "ada@example.com");
+    expect(await (await call(env, "GET", "/account/new?name=snowday-predictor.ca", { cookie })).text()).toContain('autofocus value="snowday-predictor.ca">');
+    const odd = await (await call(env, "GET", `/account/new?name=${encodeURIComponent('"><script>x</script>')}`, { cookie })).text();
+    expect(odd).toContain('value="&#34;&#62;&#60;script&#62;x&#60;/script&#62;">');
+    expect(odd).not.toContain("<script>x</script>");
+    expect(await (await call(env, "GET", "/account/new", { cookie })).text()).toContain("required autofocus>");
+  });
 });
 
 describe("accounts: cookies in development", () => {

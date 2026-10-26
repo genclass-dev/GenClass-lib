@@ -875,7 +875,7 @@ describe("dashboard page: the Supabase Studio frame (src/studio.ts): header, rai
     const p = installPrompt("gc_TestToken0123456789abc");
     expect(p).toContain(`npm install ${RUNTIME_PKG}`);
     expect(p).toContain('GenClass.init({ token: "gc_TestToken0123456789abc" });');
-    expect(p).toContain(`<script src="${CDN_SCRIPT}" data-token="gc_TestToken0123456789abc"></script>`);
+    expect(p).toContain(`<script src="${CDN_SCRIPT}" data-token="gc_TestToken0123456789abc" data-devtools="local"></script>`);
     expect(p).toContain("observe");
     expect(p).toContain("Run the dev server");
     // the whole flow from one paste: the state, the agent link, the MCP server in the agent, the status check
@@ -887,6 +887,29 @@ describe("dashboard page: the Supabase Studio frame (src/studio.ts): header, rai
     expect(p).toContain("genclass_status should then list the page");
     expect(p).toContain(`npx ${RUNTIME_PKG} init --token gc_TestToken0123456789abc --yes`);
     expect(installPrompt("gc_x", "https://c.example/v1/events")).toContain('GenClass.init({ token: "gc_x", telemetry: { endpoint: "https://c.example/v1/events" } });');
+    // a site with no build step gets everything from the prompt alone: the script tag, the agent link from the CDN on local hosts
+    expect(p).toContain("A site with no build step (plain HTML pages, no bundler) installs nothing");
+    expect(p).toContain(`import("${CDN_SCRIPT}/dist/agent.js")`);
+    expect(p).toContain('["localhost", "127.0.0.1"].includes(location.hostname)');
+    // values one response writes together go in one atom
+    expect(p).toContain('rt.atom("search", { query: "", results: [] })');
+    expect(p).not.toContain("Deploy it");
+  });
+
+  it("Connect prompt choices: guard (and eager), the badge on every host, the agent link with the Loop view, deploy", () => {
+    const t = "gc_TestToken0123456789abc";
+    const g = installPrompt(t, null, { guard: true, eager: true, badge: true, deploy: true, agentLink: "https://genclass.dev/dashboard/LINK" });
+    expect(g).toContain(`const rt = GenClass.init({ token: "${t}", mode: "guard", aggressiveness: "eager", visual: { on: true, fix: true } });`);
+    expect(g).toContain('<script>window.GENCLASS_CONFIG = { aggressiveness: "eager" };</script>');
+    expect(g).toContain(`<script src="${CDN_SCRIPT}" data-token="${t}" data-mode="guard" data-visual="fix" data-devtools></script>`);
+    expect(g).toContain("3. Mode guard, as chosen on the dashboard");
+    expect(g).toContain("Mount the devtools overlay on every host, the deployed site too");
+    expect(g).toContain(`claude mcp add genclass -e GENCLASS_DASHBOARD=https://genclass.dev/dashboard/LINK -e GENCLASS_REPORT=on -- npx -y ${MCP_PKG}`);
+    expect(g).not.toContain(`npx -y ${MCP_PKG} init`);
+    expect(g).toContain("8. Deploy it, as chosen on the dashboard");
+    expect(g).toContain("9. Tell me what you changed and where it is deployed");
+    // eager only with guard
+    expect(installPrompt(t, null, { eager: true })).not.toContain("eager");
   });
 
   it("Project overview: usage cards from the period's totals, the three problems that need attention first, each with its prompt", async () => {
@@ -965,6 +988,56 @@ describe("dashboard page: the Supabase Studio frame (src/studio.ts): header, rai
     expect(b.textContent).toBe("Confirm: the old link stops working");
     expect(r.writes).toHaveLength(1);
     await r.close();
+  });
+
+  it("Fix them all: one prompt for every kind of problem, and the dev page's checks; the agent waits for page loads itself", async () => {
+    const st = sampleStats("7d", NOW);
+    const r = await render(st);
+    const b = r.doc.getElementById("fixall")!, b2 = r.doc.getElementById("fixall2")!;
+    expect(b.classList.contains("hidden")).toBe(false);
+    const p = b.getAttribute("data-copy")!;
+    expect(b2.getAttribute("data-copy")).toBe(p);
+    for (const x of st.breakdowns.detect_diagnosis!.filter((x) => x.key !== "expected")) expect(p).toMatch(new RegExp(`\\n- [^\\n]*${nf.format(x.count)} times?`));
+    expect(p).toContain("every check genclass_findings lists from the dev page");
+    expect(p).toContain("then wait for the loads yourself: check every 10 seconds (sleep 10 in a shell in between)");
+    expect(p).toContain("4. Replay the recorded order again: it must say not reproduced.");
+    // each problem's own prompt waits the same way
+    expect(r.doc.querySelector("#issues [data-copy]")!.getAttribute("data-copy")).toContain("then wait for the loads yourself");
+    await r.close();
+  });
+
+  it("Connect choices: ticking them rewrites the copied prompt with the server's own installPrompt; the agent choice makes the link", async () => {
+    const st = sampleStats("7d", NOW);
+    const r = await render(st, { account, id: "0123456789abcdef", firstEvent: "2026-10-12T09:00:00.000Z", runtimeReady: true });
+    const box = (k: string) => r.doc.querySelector(`#cchoices [data-choice="${k}"]`) as unknown as HTMLInputElement;
+    const copied = () => r.doc.getElementById("cpinstall")!.getAttribute("data-copy");
+    expect(copied()).toBe(installPrompt(st.token));
+    expect(box("eager").disabled).toBe(true);
+    box("guard").click();
+    expect(box("eager").disabled).toBe(false);
+    box("eager").click();
+    box("badge").click();
+    box("deploy").click();
+    expect(copied()).toBe(installPrompt(st.token, null, { guard: true, eager: true, badge: true, deploy: true }));
+    expect((r.doc.getElementById("cpinstallt") as unknown as HTMLTextAreaElement).value).toBe(copied());
+    // the agent choice makes the agent link (POST .../link), which the prompt then names, as the MCP page does
+    box("agent").click();
+    await new Promise((x) => setTimeout(x, 10));
+    const link = `https://genclass.dev/dashboard/${"S".repeat(32)}`;
+    expect(r.writes).toEqual(["POST /api/account/projects/0123456789abcdef/link"]);
+    expect(copied()).toBe(installPrompt(st.token, null, { guard: true, eager: true, badge: true, deploy: true, agentLink: link }));
+    expect(r.doc.querySelector("#mcp .alink-out code")!.textContent).toBe(link);
+    // unticking guard unticks eager
+    box("guard").click();
+    expect(box("eager").checked).toBe(false);
+    expect(copied()).toBe(installPrompt(st.token, null, { badge: true, deploy: true, agentLink: link }));
+    await r.close();
+    // a private link names itself; no request
+    const s = await render(st);
+    (s.doc.querySelector('#cchoices [data-choice="agent"]') as unknown as HTMLInputElement).click();
+    expect(s.doc.getElementById("cpinstall")!.getAttribute("data-copy")).toBe(installPrompt(st.token, null, { agentLink: "sample" }));
+    expect(s.writes).toEqual([]);
+    await s.close();
   });
 
   it("Delete project in an account: Project Settings' danger zone asks once, then sends DELETE with the confirm; a private link has none", async () => {
