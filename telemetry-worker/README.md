@@ -370,6 +370,7 @@ minutes in a single-use row named by the `gc_pending` cookie).
 | `GET /api/account/projects/<id>/stats?range=` | cookie | the dashboard stats (same shape as `/api/projects/<secret>`), owned apps only; 402 `{ locked: true, upgrade_url }` for a plan without the dashboard (none today); 403 for a bearer token |
 | `POST /api/account/projects/<id>/link` | cookie + Origin | a new private dashboard link for an owned app, the MCP view's agent link (what @genclass/mcp reads as `GENCLASS_DASHBOARD`): 201 `{ dashboardUrl }`, shown once (only its hash is stored, so any earlier link stops working); 403 for a bearer token, 404 for an app of another account |
 | `DELETE /api/account/projects/<id>/link` | cookie + Origin | turn off the app's private dashboard link (its hash is replaced by one nobody holds); 204 |
+| `DELETE /api/account/projects/<id>` | cookie + Origin | `{ confirm: "delete" }`: delete an owned app (Project Settings, Delete project) with its stats, visits, the agent's reports and log, its integrations and export copies; its key stops counting at once and its links stop working; 204, 400 without the confirm, 404 for an app of another account, 403 for a bearer token |
 | `DELETE /api/account/sessions/current` | bearer (CLI logout) or cookie + Origin | 204 |
 | `DELETE /api/account/sessions/<id>` | cookie + Origin | revoke one of this account's sessions; 204, 404 otherwise (403 for a bearer token) |
 | `DELETE /api/account/sessions/others` | cookie + Origin | revoke every session of the account except this one; 204 |

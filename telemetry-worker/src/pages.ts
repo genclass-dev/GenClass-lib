@@ -1643,6 +1643,20 @@ const DASH_JS = `
     });
   }
   document.addEventListener("click", function(e){
+    var b = e.target && e.target.closest ? e.target.closest("[data-delproj]") : null; if (!b || !P.account) return;
+    var err = b.parentNode && b.parentNode.nextElementSibling;
+    // the first click asks, the second (within 6 s) deletes the project and opens the Projects page
+    if (b.getAttribute("data-armed") !== "1") {
+      b.setAttribute("data-armed", "1"); b.textContent = "Confirm: delete this project and its data";
+      setTimeout(function(){ if (b.getAttribute("data-armed") === "1" && !b.disabled) { b.removeAttribute("data-armed"); b.textContent = "Delete project"; } }, 6000);
+      return;
+    }
+    b.disabled = true; if (err) err.textContent = "";
+    fetch("/api/account/projects/" + encodeURIComponent(P.id), { method: "DELETE", credentials: "same-origin", headers: { accept: "application/json", "content-type": "application/json" }, body: JSON.stringify({ confirm: "delete" }) })
+      .then(function(r){ if (r.ok) { location.href = "/account?deleted=project"; return; } return r.json().catch(function(){ return {}; }).then(function(j){ throw new Error((j && j.error) || "HTTP " + r.status); }); })
+      .catch(function(x){ if (err) err.textContent = "Not deleted: " + x.message + "."; b.disabled = false; b.removeAttribute("data-armed"); b.textContent = "Delete project"; });
+  });
+  document.addEventListener("click", function(e){
     var b = e.target && e.target.closest ? e.target.closest("[data-mklink]") : null; if (!b || !P.account) return;
     var box = b.closest(".alink"), err = box ? box.querySelector(".err") : null;
     // a link already exists: the first click asks, the second (within 6 s) replaces it and the old one stops working
@@ -1692,7 +1706,7 @@ const DASH_JS = `
   (function(){
     var VIEW = { top: "overview", trend: "overview", usage: "overview", advisor: "overview", getc: "overview", found: "problems", "possible-s": "problems", where: "pages", did: "pages",
       "recent-s": "activity", visits: "visitors", "ix-sources": "visitors", "ix-devices": "visitors", "ix-sessions": "visitors", "ix-entry": "visitors", "ix-funnels": "visitors", clicks: "visitors", moves: "visitors",
-      "health-s": "health", adv: "health", loop: "loop", mcp: "mcp", "mcp-tools": "mcp", "mcp-json": "mcp", settings: "settings", keys: "settings", forwarding: "forwarding", "export": "export" };
+      "health-s": "health", adv: "health", loop: "loop", mcp: "mcp", "mcp-tools": "mcp", "mcp-json": "mcp", settings: "settings", keys: "settings", delproj: "settings", forwarding: "forwarding", "export": "export" };
     var TITLE = {
       problems: ["Problems", "Each kind of problem GenClass found in this period: where it happened, how to fix it, and a prompt for your coding agent."],
       pages: ["Pages and actions", "The pages with the most problems, and what GenClass did about them."],
@@ -1701,11 +1715,11 @@ const DASH_JS = `
       health: ["Health", "Whether GenClass could watch your pages at all: model loads, decision time, what was not checked."],
       loop: ["Loop", "What broke on this app, and what your coding agent does with each problem."],
       mcp: ["MCP", "Let your coding agent read this project: production problems through @genclass/mcp, and what happens inside your pages while you develop."],
-      settings: ["Project Settings", "This project's name, key and agent access."],
+      settings: ["Project Settings", "This project's name, key and agent access, and deleting it."],
       forwarding: ["Integrations", "Send each new detection where you already look."],
       "export": ["Export", "Every event GenClass received for this app, as a file or through the API."]
     };
-    var PARENT = { "export": "settings" }, SCROLL = { did: 1, "possible-s": 1, "ix-sources": 1, "ix-devices": 1, "ix-sessions": 1, "ix-entry": 1, "ix-funnels": 1, clicks: 1, moves: 1, keys: 1, usage: 1, advisor: 1, getc: 1, adv: 1, "mcp-tools": 1, "mcp-json": 1 };
+    var PARENT = { "export": "settings" }, SCROLL = { did: 1, "possible-s": 1, "ix-sources": 1, "ix-devices": 1, "ix-sessions": 1, "ix-entry": 1, "ix-funnels": 1, clicks: 1, moves: 1, keys: 1, usage: 1, advisor: 1, getc: 1, adv: 1, "mcp-tools": 1, "mcp-json": 1, delproj: 1 };
     var links = [].slice.call(document.querySelectorAll(".snav a, .sb-pm a"));
     var parts = [].slice.call(document.querySelectorAll("[data-v]"));
     var current = null;
@@ -2147,6 +2161,15 @@ export function dashboardPage(
   <div class="blk-h"><h2>Agent access</h2><span class="aside">For @genclass/mcp</span></div>
   ${agentAccess(!!acct, !!opts.privateLink)}
 </section>
+${
+  acct && opts.id
+    ? `<section class="blk" id="delproj">
+  <div class="blk-h"><h2>Delete project</h2><span class="aside">Cannot be undone</span></div>
+  <p class="poss-note">Deletes ${esc(project.name)} with its stats, visitors, the agent's log and its export. Its key stops counting at once: batches the app still sends reach no dashboard, so take the GenClass lines out of its code too. Its agent link and any private dashboard link stop working.</p>
+  <div class="row mt-s"><button class="btn danger" type="button" data-delproj>Delete project</button></div><p class="err" role="alert"></p>
+</section>`
+    : ""
+}
 </div>`;
   // the rail (Studio's project navigation), the product menus of the views with sub-pages, the command menu's extras
   const rail: RailItem[][] = [
@@ -2200,6 +2223,7 @@ export function dashboardPage(
       groups: [
         { label: "Configuration", items: [{ href: "#settings", label: "General" }, { href: "#keys", label: "API keys" }] },
         ...(opts.extra ? [{ label: "Data", items: [{ href: "#forwarding", label: "Integrations" }, { href: "#export", label: "Export" }] }] : []),
+        ...(acct && opts.id ? [{ label: "Danger zone", items: [{ href: "#delproj", label: "Delete project" }] }] : []),
       ],
     },
   ];

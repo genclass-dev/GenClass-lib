@@ -967,6 +967,25 @@ describe("dashboard page: the Supabase Studio frame (src/studio.ts): header, rai
     await r.close();
   });
 
+  it("Delete project in an account: Project Settings' danger zone asks once, then sends DELETE with the confirm; a private link has none", async () => {
+    const r = await render(sampleStats("7d", NOW), { account, id: "0123456789abcdef", firstEvent: "2026-10-12T09:00:00.000Z", runtimeReady: true });
+    expect([...r.doc.querySelectorAll(".sb-pm a")].some((a) => a.getAttribute("href") === "#delproj" && a.textContent === "Delete project")).toBe(true);
+    const b = r.doc.querySelector("#settings #delproj [data-delproj]") as unknown as HTMLElement;
+    expect(b.textContent).toBe("Delete project");
+    b.click();
+    expect(b.textContent).toBe("Confirm: delete this project and its data");
+    expect(r.writes).toEqual([]);
+    b.click();
+    await new Promise((x) => setTimeout(x, 10));
+    expect(r.writes).toEqual(["DELETE /api/account/projects/0123456789abcdef"]);
+    expect(r.text("#delproj .err")).toBe("");
+    await r.close();
+    const s = await render(sampleStats("7d", NOW));
+    expect(s.doc.querySelector("[data-delproj]")).toBeNull();
+    expect(s.doc.querySelector('a[href="#delproj"]')).toBeNull();
+    await s.close();
+  });
+
   it("Copy as Markdown: the period as a report a person or an agent can read (totals, problems with pages and fixes, latest detections)", async () => {
     const st = sampleStats("7d", NOW);
     const copied: string[] = [];
