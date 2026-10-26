@@ -1,6 +1,6 @@
 agent % genclass_replay {"action":"result","id":"f14"}
 Replays of f14:
 - r10: REPRODUCED · the page shows the failing run's text again
-- r13: not reproduced · the page shows the baseline's text
+- r12: not reproduced · the page shows the baseline's text
 
 The recorded order no longer produces it: the fix holds for this schedule. Run genclass_explore once more to check other orders.

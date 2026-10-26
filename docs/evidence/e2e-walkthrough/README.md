@@ -1,4 +1,4 @@
-# Evidence: GenClass end to end, from a broken little shop to a closed loop
+# Evidence: onboarding a new project onto GenClass, step by step
 
 A new project, "Tiny Shop", a Vite site with a tiny Node API, written with the problems a rushed Friday leaves
 behind: a search that shows results for the wrong query when responses arrive out of order, a double click that adds
@@ -6,19 +6,21 @@ to the cart twice, a checkout that always fails, a slow endpoint, a click handle
 every third time, and a page full of visual faults (no viewport meta, a broken logo, a broken web font, a missing
 stylesheet, an unreadable banner in mojibake, an unrendered `{{price}}`, lorem ipsum, an undefined CSS variable, a
 distorted image, a strip wider than the screen, a button off screen, a promo overlay over the checkout button and a
-cookie dialog under a cover). The app is in [`app/`](app/) exactly as a user would have it, with no GenClass.
+cookie dialog under a cover). The app is in [`app/`](app/) as a user would have it, with no GenClass.
 
-Then GenClass is added the way the docs say, one step at a time, with the **published** `@genclass/runtime@beta`
-(0.3.0-beta.1), the **real** genclass.dev dashboard (a project is created for the shop) and the MCP server, driven
-by a browser playing the user and a small MCP client playing the coding agent. Every command's output is kept as a
-transcript (`out/NN-*.txt`) and as a terminal screenshot (`out/NN-*.png`), every page state as a screenshot, and the
-browser session as a video, `out/walkthrough.webm` (3 min 33 s) and `out/walkthrough.gif`.
+Then GenClass is added the way the docs tell a newcomer to, one step at a time, with the **published packages only**
+(`@genclass/runtime@beta`, 0.3.0-beta.2, and `@genclass/mcp@0.2.0`), a **real project at genclass.dev** (created by
+`init`) and the published MCP server, driven by a browser playing the user and a small MCP client playing the coding
+agent. Every step below shows what the user types (a terminal screenshot) and what the user sees (the page or the
+dashboard). The whole browser session is also a video, `out/walkthrough.webm` (4 min) and `out/walkthrough.gif`.
 
-**Terminal screenshots** are rendered from the captured output: the same text, in a terminal window, by Chromium
-(`lib/term.mjs`). The macOS Terminal cannot be driven from this session, and a rendering keeps every character
-readable. The dashboard's private link and the app's token are redacted in both the images and the transcripts.
+**About the terminal screenshots.** They are rendered from the captured output: the same text, verbatim, in a terminal
+window drawn by Chromium (`lib/term.mjs`), because the macOS Terminal cannot be driven from this session and a
+rendering keeps every character readable. Each has a plain-text twin, `out/NN-*.txt`. The dashboard's private link is
+redacted in both; the project key visible on the dashboard screenshots is the app's public token, which can only add
+telemetry to this app.
 
-## Run it
+## Run it yourself
 
 From the repository root:
 
@@ -26,176 +28,221 @@ From the repository root:
 bash docs/evidence/e2e-walkthrough/run.sh
 ```
 
-It needs Node 20 or later, Playwright's Chromium (`npx playwright install chromium`), the network (npm, jsDelivr for
-the model, genclass.dev for the dashboard; a new project is created at genclass.dev on every run), ffmpeg for the GIF,
-and ports 5173, 8788 and 47400 free. `walkthrough.mjs` is the script; `run.log` is the console output of the last
-run and `out/summary.json` its numbers. It takes about 6 minutes, most of it the page's model loading, the explore
-page loads and the scans.
+Needs Node 20 or later, Playwright's Chromium (`npx playwright install chromium`), the network (npm, jsDelivr for the
+model, genclass.dev for the dashboard: a new project is created on every run), ffmpeg for the GIF, and ports 5173,
+8788 and 47400 free. `walkthrough.mjs` is the script, `run.log` the console output of the last run, `out/summary.json`
+its numbers. About six minutes. The only departure from a single-server setup: this machine already runs a GenClass
+MCP server on the default port, so the demo's server and the app's `connectAgent` use port 47400; a user with one
+server sets no port.
 
-Two things are run from this repository rather than from npm, and the transcripts say so where it happens: the
-page scan, because the `scan` command is newer than the published 0.3.0-beta.1 CLI, and the MCP server process,
-because the `@genclass/mcp` 0.1.0 on npm predates the dashboard mirror (`GENCLASS_REPORT`) and `genclass_scan`,
-both in this repository's unreleased 0.1.0. The MCP server's `init` is the published one. See
-[What this run found](#what-this-run-found-in-genclass-itself).
+---
 
-## The steps, as the user does them
+## Step 0. The shop, before GenClass
 
-### 0. The shop, before
+What the user has: a Vite project with one dev dependency and plain `fetch` calls.
 
-[`01-tree`](out/01-tree.png): the project (`package.json` has one dev dependency, Vite; `src/main.js` is plain
-fetch calls). [`02-shop-before`](out/02-shop-before.png) is the page; [`03-shop-before-stale-search`](out/03-shop-before-stale-search.png)
-is what typing "react" quickly shows: six results, for the query "re", because the API answers short queries
-slowly and the last response to arrive wins.
+![The project before](out/01-tree.png)
+
+What the user sees: the page, and what typing "react" quickly shows: six results, for the query "re", because the
+API answers short queries slowly and the last response to arrive wins.
 
 ![The shop before](out/02-shop-before.png)
 
-### 1. A scan, with nothing installed
+![The stale search before](out/03-shop-before-stale-search.png)
+
+## Step 1. A scan, with nothing installed
 
 ```
-node ../../../../packages/runtime/bin/genclass-runtime.mjs scan http://localhost:5173
+npx @genclass/runtime@beta scan http://localhost:5173
 ```
 
-[`04-scan`](out/04-scan.png): the page is loaded in headless Chromium at desktop and phone sizes with the measured
-visual checks; **visual score 8/100, 10 problems (6 high, 3 medium, 1 low)**, each with its element, the measurement
-and a suggested fix (the `scan` command is run from this repository; see above).
+The first thing a newcomer can run, before touching the project: the page is loaded in headless Chromium at desktop
+and phone sizes with the measured visual checks. **Visual score 8/100, 10 problems (6 high, 3 medium, 1 low)**, each
+with its element, the measurement and a suggested CSS fix.
 
-![The scan](out/04-scan.png)
+![The scan before any integration](out/04-scan.png)
 
-### 2. One command: `npx @genclass/runtime@beta init --yes`
+## Step 2. One command: `npx @genclass/runtime@beta init --yes`
 
-[`05-init`](out/05-init.png): `init` finds "Vite + vanilla" and the entry file, explains telemetry, shows the diff,
-installs `@genclass/runtime@^0.3.0-beta.1`, **creates the project at genclass.dev** and prints the private
-dashboard link, saved to `.genclass.local` (added to `.gitignore`). [`06-init-diff`](out/06-init-diff.png) is what it
-wrote: two lines at the top of `src/main.js` (`import "./genclass.config"` and
-`import genclass from "@genclass/runtime/auto"`), one dev-only line at the bottom (the devtools overlay), and
-`src/genclass.config.js` with the token.
+`init` finds "Vite + vanilla" and the entry file, explains telemetry, shows the diff, installs the runtime, creates
+the project at genclass.dev and prints the private dashboard link, saved to `.genclass.local`.
 
 ![init](out/05-init.png)
 
-[`07-shop-with-runtime-and-overlay`](out/07-shop-with-runtime-and-overlay.png): the page with the overlay at the
-bottom right. [`08-browser-console`](out/08-browser-console.png): with no code of the user's, the measured checks
-report in the console: the `{{price}}` leak, the lorem ipsum, the 1.26:1 banner, the covered dialog, the broken logo,
-each with the measurement, the threshold and a fix (10 `[GenClass]` lines on this load).
+What it wrote: two imports at the top of `src/main.js`, one dev-only line at the bottom for the devtools overlay, and
+`src/genclass.config.js` with the project key.
 
-### 3. Three lines more
+![What init wrote](out/06-init-diff.png)
 
-[`09-wire-diff`](out/09-wire-diff.png): the user wires the shop's state and the agent link, following what
-`genclass_setup` prints (step 4):
+What the user sees when they open the link: the dashboard in its onboarding state, "Waiting for the first event",
+with the four things to do next (add the key, load a page, connect a coding agent, turn on analytics).
 
-```js
-import { connectAgent } from "@genclass/runtime/agent";
-// GenClass watches the shop's state: every write to a key is recorded with the response or click that caused it.
-for (const k of store.keys()) genclass.guard(k, { get: () => store.get(k), set: (v) => store.set(k, v), subscribe: (fn) => store.subscribe(k, () => fn()) });
-if (import.meta.env.DEV) connectAgent(genclass, { url: "http://127.0.0.1:47400" });
+![The dashboard right after init](out/07-dashboard-fresh-no-data.png)
+
+And the shop with the runtime in it: the overlay at the bottom right, and, in the browser console, the measured checks
+reporting with no code of the user's: the `{{price}}` leak, the lorem ipsum, the 1.26:1 banner, the covered dialog,
+the broken logo, each with the measurement, the threshold and a fix (10 lines on this load).
+
+![The shop with the runtime](out/08-shop-with-runtime-and-overlay.png)
+
+![The browser console](out/09-browser-console.png)
+
+## Step 3. Three lines more: the shop's state, the agent link, telemetry from localhost
+
+The user wires the store so GenClass sees every write with its cause, adds the agent link for development builds,
+and sets `telemetry: true` because the demo runs on localhost, which never sends by default.
+
+![The state, the agent link, telemetry on](out/10-wire-diff.png)
+
+What the user sees a few seconds later: the dashboard has gone from "Waiting" to "Live", with its first page loads
+and the model loaded on the device.
+
+![The dashboard with its first events](out/11-dashboard-first-events.png)
+
+## Step 4. The coding agent
+
+```
+npx -y @genclass/mcp@0.2.0 init
 ```
 
-and sets `telemetry: true` in `genclass.config.js`, because the demo runs on localhost, which never sends by
-default. The port is set only because another GenClass MCP server already owns the default one on this machine
-(`GENCLASS_AGENT_PORT` on the server side matches); a user with one server needs no port.
+writes the project's `.mcp.json` and prints the setup steps. The agent's client then starts the server with the
+dashboard link (`GENCLASS_DASHBOARD`) and `GENCLASS_REPORT=on`, so what the agent does is mirrored to the dashboard.
 
-### 4. The coding agent
+![The MCP server in the project](out/12-mcp-init.png)
 
-[`10-mcp-init`](out/10-mcp-init.png): `npx -y @genclass/mcp@0.1.0 init` writes `.mcp.json` and prints the three
-setup steps. The agent's client then starts the server with `GENCLASS_DASHBOARD` (the private link) and
-`GENCLASS_REPORT=on`, so the loop is mirrored to the dashboard. [`11-agent-setup`](out/11-agent-setup.png) is
-`genclass_setup`; [`12-agent-status-nopage`](out/12-agent-status-nopage.png) is `genclass_status` before any page
-connected: "0 active page(s)… see genclass_setup".
+The agent's first two calls: `genclass_setup` (the lines a dev build needs) and `genclass_status` before any page has
+connected.
 
-### 5. The user uses the shop; the agent asks what happened
+![genclass_setup](out/13-agent-setup.png)
+
+![genclass_status, no page yet](out/14-agent-status-nopage.png)
+
+## Step 5. The user uses the shop; the agent asks what happened
 
 Four page loads, each one thing the user does: the fast search, the double click on Add to cart, checkout plus
-reviews plus three subscribes, the profile button ([`13`](out/13-shop-stale-search.png), [`14`](out/14-shop-used.png)).
-[`15-agent-status`](out/15-agent-status.png): "1 active page(s), 4 recorded run(s) · Findings: 9 check, 2 detection,
-1 duplicate-request, 1 error". [`16-agent-findings`](out/16-agent-findings.png), most important first:
+reviews plus three subscribes, the profile button.
 
-- `f13 [error]` Uncaught "TypeError: Cannot read properties of undefined (reading 'city')"
-- `f10 [duplicate-request]` "POST /api/cart" was sent twice, 1 ms apart, by two separate user actions while the first was in flight
-- `f11 [detection]` the on-device model diagnosed "transient" (98%) at the failure of POST /api/newsletter (HTTP 503)
-- `f9 [detection]` the on-device model diagnosed "duplicate" (95%) at the request of POST /api/cart
-- nine `[check]` findings: image-broken, font-failed, page-overflow-x, text-encoding, text-template-leak, text-placeholder, text-invisible, dialog-covered, control-unreachable
+![The stale search, recorded](out/15-shop-stale-search.png)
 
-![The findings](out/16-agent-findings.png)
+![The shop in use](out/16-shop-used.png)
 
-### 6. Explore: the same search, responses in other orders
+`genclass_status` now: "1 active page(s), 4 recorded run(s) · Findings: 9 check, 2 detection, 1 duplicate-request,
+1 error".
 
-[`17`](out/17-agent-explore-start-before-fix.png), [`18-agent-explore-report-before-fix`](out/18-agent-explore-report-before-fix.png):
+![genclass_status](out/17-agent-status.png)
+
+`genclass_findings`, most important first: the TypeError in the profile handler; `POST /api/cart` sent twice, 1 ms
+apart, by two user actions while the first was in flight; the model's "transient" (98%) at the newsletter's 503 and
+"duplicate" (95%) at the cart request; and nine measured checks.
+
+![genclass_findings](out/18-agent-findings.png)
+
+## Step 6. Explore: the same search with the responses in other orders
+
 `genclass_explore` arms five page loads (two baselines in request order, three seeded orders); the browser types
-"react" on each. The report: **RACE: 2 of 3 reordered runs ended in a different state than the baseline**: under
-seed 2 the page shows "Reading lamp" and "Real wood desk" and `search.query` is "rea"; under seed 3 it shows eight
-results for "r". One run differed in internal state only and is listed apart, not as a race. **Race finding f14.**
+"react" on each. The report: **RACE: 2 of 3 reordered runs ended in a different state than the baseline**: under seed
+2 the page shows "Reading lamp" and "Real wood desk" and the query is "rea"; under seed 3, eight results for "r".
+**Race finding f14.**
 
-### 7. Explain and replay: reproduced
+![genclass_explore start](out/19-agent-explore-start-before-fix.png)
 
-[`19-agent-explain`](out/19-agent-explain.png): the evidence (which fields differed, which text only the failing run
-showed), the run's steps with every request, delivery and state write in causal order, the delivery order
-(`#5 → #2 → #1 → #4 → #3`), how to reproduce it, and a Playwright regression test, saved as `tests/f14.spec.ts`.
-[`20`](out/20-agent-replay-arm.png) arms the replay (schedule: seeded 2); the browser loads the page and types the
-same word; [`22-agent-replay-result-before-fix`](out/22-agent-replay-result-before-fix.png): **"r10: REPRODUCED ·
-the page shows the failing run's text again. The bug is still there under the recorded order."**
+![genclass_explore report: a race](out/20-agent-explore-report-before-fix.png)
 
-![Explain](out/19-agent-explain.png)
+## Step 7. Explain and replay: reproduced
 
-### 8. The fix, then the proof
+`genclass_explain f14`: which fields and text differed, every request, delivery and state write of the failing run
+in causal order, the delivery order, how to reproduce it, and a Playwright regression test (saved as
+`tests/f14.spec.ts`).
 
-[`23-fix-diff`](out/23-fix-diff.png): a sequence number per search request, so an older response that arrives later
-is ignored; the Add to cart button disabled while its request is in flight; a guard on the profile's missing address.
-[`26-agent-replay-result-after-fix`](out/26-agent-replay-result-after-fix.png): **"r13: not reproduced · the page
-shows the baseline's text. The recorded order no longer produces it: the fix holds for this schedule."**
-[`28-agent-explore-report-after-fix`](out/28-agent-explore-report-after-fix.png): explore again, five loads: **"No race
-found: none of the 3 compared reordered runs ended with a different page, form values, writes or errors than the
-baseline."** [`29-agent-findings-after-fix`](out/29-agent-findings-after-fix.png) lists f14 with "last replay: not
-reproduced", and the double click after the fix adds one item (`cartAfterFix` in `summary.json`).
+![genclass_explain](out/21-agent-explain.png)
 
-![The fix](out/23-fix-diff.png)
+`genclass_replay arm` gives the next page load that order (schedule: seeded 2); the browser loads the page and types
+the same word; the result: **"REPRODUCED · the page shows the failing run's text again. The bug is still there under
+the recorded order."**
 
-### 9. The scan from the agent, and the production numbers
+![genclass_replay arm](out/22-agent-replay-arm.png)
 
-[`30-agent-scan`](out/30-agent-scan.png): `genclass_scan {url}` from the agent: the same 10 problems with their
-fixes, as JSON too. [`31-agent-analytics-production`](out/31-agent-analytics-production.png):
-`genclass_analytics {source: "production"}` reads the shop's dashboard through the private link: 22 page loads,
-detections by diagnosis and page (duplicate on /, transient on /), the latest decisions, with the pointer to
-`genclass_explore {route, focus}`.
+![The shop under the replayed order](out/23-shop-replay-reproduced.png)
 
-### 10. The dashboard
+![genclass_replay result: reproduced](out/24-agent-replay-result-before-fix.png)
 
-The dashboard the user got in step 2, filled by the page's telemetry (`telemetry: true`) and the agent's mirror:
-[`32-dashboard-overview`](out/32-dashboard-overview.png), [`33-dashboard-problems`](out/33-dashboard-problems.png),
-[`35-dashboard-mcp`](out/35-dashboard-mcp.png), and the Closed loop view, [`34-dashboard-closed-loop`](out/34-dashboard-closed-loop.png)
-with its stages for this session, **found 15 · reproduced 1 · fix proven 1 · closed 1**, and the agent's log
-[`36-dashboard-closed-loop-log`](out/36-dashboard-closed-loop-log.png): found ×15, explore (1 race found), evidence
-read, test written, replay armed, replay reproduced, replay armed, replay not reproduced ("the fix holds"), explore
-(0 races found).
+## Step 8. The fix, then the proof
 
-![The closed loop on the dashboard](out/34-dashboard-closed-loop.png)
+The agent edits the code: a sequence number per search request, so an older response that arrives later is ignored;
+the Add to cart button disabled while its request is in flight; a guard on the profile's missing address.
 
-![The agent's log on the dashboard](out/36-dashboard-closed-loop-log.png)
+![The fix](out/25-fix-diff.png)
+
+The same replay again: **"not reproduced · the page shows the baseline's text. The recorded order no longer produces
+it: the fix holds for this schedule."**
+
+![genclass_replay arm after the fix](out/26-agent-replay-arm-after-fix.png)
+
+![The shop after the fix, same order](out/27-shop-after-fix.png)
+
+![genclass_replay result: not reproduced](out/28-agent-replay-result-after-fix.png)
+
+Explore once more, five loads: **"No race found."** And the findings list shows f14 with "last replay: not
+reproduced"; the double click after the fix adds one item.
+
+![genclass_explore after the fix](out/29-agent-explore-start-after-fix.png)
+
+![genclass_explore report: no race](out/30-agent-explore-report-after-fix.png)
+
+![genclass_findings after the fix](out/31-agent-findings-after-fix.png)
+
+## Step 9. The scan from the agent, and the production numbers
+
+`genclass_scan {url}`: the same 10 visual problems with their fixes, from inside the agent, as JSON too.
+
+![genclass_scan](out/32-agent-scan.png)
+
+`genclass_analytics {source: "production"}` reads the shop's dashboard through the private link: 21 page loads,
+detections by diagnosis and page, the latest decisions, with the pointer to `genclass_explore {route, focus}`.
+
+![genclass_analytics production](out/33-agent-analytics-production.png)
+
+## Step 10. The dashboard at the end
+
+The dashboard the user got in step 2, filled by the page's telemetry and the agent's mirror.
+
+![Overview](out/34-dashboard-overview.png)
+
+![Problems](out/35-dashboard-problems.png)
+
+The Closed loop view: its stages for this session, **found 15 · reproduced 1 · fix proven 1 · closed 1**, and the
+agent's log: found ×15, explore (1 race found), evidence read, test written, replay armed, replay reproduced, replay
+armed, replay not reproduced ("the fix holds"), explore (0 races found).
+
+![The closed loop](out/36-dashboard-closed-loop.png)
+
+![The agent's log](out/38-dashboard-closed-loop-log.png)
+
+The MCP page, with the setup per coding agent and the agent link:
+
+![MCP](out/37-dashboard-mcp.png)
 
 ## The recording
 
 ![The browser session](out/walkthrough.gif)
 
-`out/walkthrough.webm` is the full recording: the shop before, the stale search, the page with the runtime, the
-user's session, the replays, the explores, then the dashboard's views.
+`out/walkthrough.webm` is the full recording: the shop before, the stale search, the dashboard waiting and then live,
+the user's session, the replays, the explores, then the dashboard's views.
 
-## What this run found in GenClass itself
+## What building this found in GenClass
 
-The walkthrough is the first time the whole loop ran on the published packages against the real dashboard, and it
-found three things, two of them fixed in this change (`packages/mcp`, with tests):
+The first runs of this walkthrough found two bugs in `@genclass/mcp`, both fixed with tests before 0.2.0 shipped: the
+dashboard mirror only ever sent "found" (the tools' in-process calls bypassed the reporting wrapper), and a race
+replay could never say "not reproduced" on a page that always shows a line the failing run showed once more (the
+verdict checked presence where explore had counted). They also showed that the packages then on npm predated the
+mirror and the scan, which is why 0.3.0-beta.2 and 0.2.0 were released; this run uses those published packages only.
 
-1. **The dashboard mirror only ever sent "found".** `serve()` wrapped the API with the reporter for the bridge's HTTP
-   path but gave the tools' own in-process calls a fresh, unwrapped API, so explain, tests, replays and explores never
-   reached the dashboard. Fixed in `src/server.ts` (`test/mcp.test.ts`, "GENCLASS_REPORT mirrors the tools' own calls").
-2. **A race replay could never say "not reproduced" on this page.** Explore compares page text as counts ("Reading
-   lamp" once on the product card, twice when a stale result shows it too), but the replay verdict checked presence
-   only, so the product card alone made every replay "reproduced", after the fix too. The finding's evidence now keeps
-   the counts and the verdict needs the line as many times as the failing run showed it (`src/compare.ts`,
-   `src/store.ts`; `test/store.test.ts`, "a race replay counts page lines").
-3. **npm is behind the repository.** `@genclass/mcp@0.1.0` on npm has eight tools, no `genclass_scan` and no
-   `GENCLASS_REPORT`; the published runtime CLI has no `scan`. Both are in the repository under the same version
-   numbers. Until a release, a user who follows the docs gets the loop without the dashboard mirror and without the
-   scan tool; the walkthrough runs those two from the repository and says so.
+One thing about the demo itself: an earlier version gave the results list `aria-live="polite"`, and 0.3.0-beta.2
+reports live-region text as announcements (toasts that expire), which explore keeps out of what the page "shows".
+A results list is not a status region, so the attribute went; a real app that announces results that way would see
+the same.
 
 Not shown here: the generated regression test being run (it needs `@playwright/test` in the shop and
 `GENCLASS_APP_URL`); the duplicate-request fix proven by replay (disabling the button changes the user's recorded
-actions, so that replay reports "steps differed", which is correct; the second click simply no longer sends); and
-the visual faults being fixed (the scan lists each with its CSS).
+actions, so that replay reports "steps differed", which is correct: the second click no longer sends); and the
+visual faults being fixed (the scan lists each with its CSS).
