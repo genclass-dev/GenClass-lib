@@ -87,9 +87,7 @@ try {
   await p2.click("#board-q");
   for (const ch of "halton") { await p2.type("#board-q", ch); await sleep(60); }
   await sleep(3000);
-  await p2.evaluate(() => document.querySelector("#alert-btn").scrollIntoView({ block: "center" }));
-  await sleep(300);
-  const sub = await p2.locator("#alert-btn").boundingBox();
+  const sub = await p2.locator("#vote-yes").boundingBox();
   await p2.mouse.click(sub.x + sub.width / 2, sub.y + sub.height / 2);
   await sleep(100);
   await p2.mouse.click(sub.x + sub.width / 2, sub.y + sub.height / 2);
@@ -98,7 +96,7 @@ try {
   await p2.mouse.move(380, 450);
   for (let i = 0; i < 4; i++) { await p2.mouse.wheel(0, 300); await sleep(600); }
   await sleep(2500);
-  await p2.evaluate(() => document.querySelector("#roads-btn").click());
+  await p2.evaluate(() => window.scrollTo(0, 0)); await p2.fill("#postal-code", "L6H"); await p2.evaluate(() => document.querySelector("#predict-btn").click());
   await sleep(9000);
   const local = await p2.evaluate(() => ({ interventions: GenClass.runtime.interventions().length, checks: GenClass.runtime.checks().filter((c) => c.fix?.applied).map((c) => c.kind), agent: !!globalThis.__GENCLASS_AGENT__?.connected }));
   check("guard intervened and applied the visual fixes on the page", local.interventions >= 1 && local.checks.length >= 3, `${local.interventions} intervention(s), fixes: ${local.checks.join(", ")}`);
@@ -119,7 +117,7 @@ try {
   check("the dashboard shows the page loads", /"(pageLoads|sessions|loads)":\s*[1-9]/.test(s) || /page_?loads?\D{1,4}[1-9]/i.test(s), s.slice(0, 0));
   check("the dashboard shows the stale response", /stale/i.test(s));
   check("the dashboard shows what GenClass did (the stale write dropped)", (stats?.totals?.interventions ?? 0) >= 1 && /discard/.test(JSON.stringify(stats?.breakdowns?.intervention ?? [])));
-  check("the dashboard shows the duplicate Subscribe", /duplicate/.test(JSON.stringify(stats?.breakdowns?.diagnosis ?? [])));
+  check("the dashboard shows the duplicate vote", /duplicate/.test(JSON.stringify(stats?.breakdowns?.diagnosis ?? [])));
   // the measured visual checks are never sent (TELEMETRY.md): their fixes are shown in the page's overlay only
   writeFileSync(join(REC, "out", "e2e-stats.json"), JSON.stringify(stats, null, 2));
 

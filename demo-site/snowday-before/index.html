@@ -396,6 +396,8 @@
         .extra .row { display: flex; gap: 10px; align-items: center; }
         .extra button { padding: 10px 16px; border-radius: 8px; border: 0; background: var(--primary); color: #fff; cursor: pointer; white-space: nowrap; }
         .extra p { margin-top: 10px; color: var(--primary-light); }
+        .extra .poll-note { margin: -4px 0 8px; font-size: 13px; }
+        .extra .row button strong { margin-left: 6px; }
         .trust-note {
             max-width: 700px;
             margin: 1rem auto 0;
@@ -1139,7 +1141,7 @@
                 <a href="#faq" class="nav-link">FAQ</a>
             </div>
         </div>
-        <div class="alert-bar">Snow day alerts for your board, every evening at 6 pm: sign up below the forecast.</div>
+        <div class="alert-bar">Storm watch tonight: predictions refresh every hour as the forecast changes.</div>
     </nav>
     <!-- Snowfall Effect -->
     <div class="snowflakes" id="snowflakes"></div>
@@ -1183,12 +1185,10 @@
                     <input id="board-q" type="search" placeholder="Type your board's name" autocomplete="off">
                     <ul id="board-results"></ul>
                 </div>
-                <div class="glass-card extra" id="alerts">
-                    <h2>Snow day alerts and roads</h2>
-                    <input id="alert-email" type="email" value="you@example.com">
-                    <div class="row"><button id="alert-btn">Subscribe</button><button id="roads-btn">Load road conditions</button></div>
-                    <p>Subscriptions: <strong id="alert-count">0</strong></p>
-                    <ul id="roads-list"></ul>
+                <div class="glass-card extra" id="poll">
+                    <h2>Will schools close tomorrow?</h2>
+                    <p class="poll-note">Today's community vote</p>
+                    <div class="row"><button id="vote-yes" data-choice="yes">❄️ Snow day <strong id="yes-count">124</strong></button><button id="vote-no" data-choice="no">🏫 School's on <strong id="no-count">88</strong></button></div>
                 </div>
             </div>
             <!-- Results Card -->
@@ -2230,10 +2230,11 @@
             // Hide any previous errors
             errorEl.classList.remove('visible');
 
-            // Show loading state
+            // Show loading state, and block clicks on the page while predicting
             btn.disabled = true;
             btnText.style.display = 'none';
             spinner.style.display = 'block';
+            document.body.style.pointerEvents = 'none';
 
             try {
                 // Get coordinates from postal code
@@ -2247,6 +2248,7 @@
 
                 // Update UI
                 updateResults(coords.displayName || `${postalCode.toUpperCase()}`, prediction);
+                document.body.style.pointerEvents = '';
 
             } catch (error) {
                 console.error('Prediction error:', error);
@@ -2261,7 +2263,7 @@
 
         // The page's small state store: board search results and the alert subscription count.
         const store = (() => {
-            const state = { 'boards.query': '', 'boards.results': [], 'alerts.list': [] };
+            const state = { 'boards.query': '', 'boards.results': [], 'poll.votes': [] };
             const subs = new Map();
             return {
                 get: (k) => state[k],
@@ -2283,24 +2285,18 @@
             ul.textContent = '';
             for (const name of results) { const li = document.createElement('li'); li.textContent = name; ul.appendChild(li); }
         });
-        // Alerts: each click posts; two quick clicks subscribe twice (two subscriptions, two emails every evening).
-        document.getElementById('alert-btn').addEventListener('click', async function () {
-            const email = document.getElementById('alert-email').value;
-            const response = await fetch('/api/alerts', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email }) });
-            const data = await response.json();
-            const list = store.get('alerts.list');
-            if (!list.some((x) => x.id === data.id)) store.set('alerts.list', [...list, data]);
-        });
-        store.subscribe('alerts.list', function (list) { document.getElementById('alert-count').textContent = String(list.length); });
-        // Road conditions: a slow endpoint. While it loads, the page blocks clicks "so nobody double-loads", and forgets
-        // to unblock.
-        document.getElementById('roads-btn').addEventListener('click', async function () {
-            document.body.style.pointerEvents = 'none';
-            const response = await fetch('/api/roads');
-            const data = await response.json();
-            const ul = document.getElementById('roads-list');
-            ul.textContent = '';
-            for (const r of data.roads) { const li = document.createElement('li'); li.textContent = r.road + ': ' + r.status; ul.appendChild(li); }
+        // Poll: each click posts a vote; two quick clicks vote twice.
+        for (const btn of document.querySelectorAll('#poll button')) {
+            btn.addEventListener('click', async function () {
+                const response = await fetch('/api/vote', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ choice: btn.dataset.choice }) });
+                const data = await response.json();
+                const votes = store.get('poll.votes');
+                if (!votes.some((v) => v.id === data.id)) store.set('poll.votes', [...votes, data]);
+            });
+        }
+        store.subscribe('poll.votes', function (votes) {
+            document.getElementById('yes-count').textContent = String(124 + votes.filter((v) => v.choice === 'yes').length);
+            document.getElementById('no-count').textContent = String(88 + votes.filter((v) => v.choice === 'no').length);
         });
         // The notice: the page locks scrolling while it is up, and OK closes it without unlocking.
         document.documentElement.style.overflow = 'hidden';

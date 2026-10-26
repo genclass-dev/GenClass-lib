@@ -49,9 +49,9 @@ await sleep(10000);
 await page.click("#board-q");
 for (const ch of "halton") { await page.type("#board-q", ch); await sleep(60); }
 await sleep(3000);
-await page.evaluate(() => document.querySelector("#alert-btn").scrollIntoView({ block: "center" }));
+await page.evaluate(() => document.querySelector("#vote-yes").scrollIntoView({ block: "center" }));
 await sleep(300);
-const sub = await page.locator("#alert-btn").boundingBox();
+const sub = await page.locator("#vote-yes").boundingBox();
 await page.mouse.click(sub.x + sub.width / 2, sub.y + sub.height / 2);
 await sleep(100);
 await page.mouse.click(sub.x + sub.width / 2, sub.y + sub.height / 2);
@@ -61,7 +61,7 @@ await sleep(300);
 await page.mouse.move(380, 450);
 for (let i = 0; i < 4; i++) { await page.mouse.wheel(0, 300); await sleep(600); }
 await sleep(2500);
-await page.evaluate(() => document.querySelector("#roads-btn").click());
+await page.evaluate(() => window.scrollTo(0, 0)); await page.fill("#postal-code", "L6H"); await page.evaluate(() => document.querySelector("#predict-btn").click());
 await sleep(9000);
 const agent = await page.evaluate(() => { const a = globalThis.__GENCLASS_AGENT__; return a ? { connected: a.connected, run: a.run } : null; }).catch(() => null);
 console.log("agent link:", JSON.stringify(agent));
@@ -70,7 +70,7 @@ await sleep(1500);
 await browser.close();
 
 // ---------------------------------------------------------------------------------------------------- Claude fixes the code
-const prompt = `Users of this snow day site report five problems: the school board search sometimes shows boards for an older query; a double click on Subscribe subscribes twice; the alert bar at the top is unreadable; after "Load road conditions" nothing on the page can be clicked any more; after the notice's OK the page cannot scroll. GenClass has recorded a session with all of them on this site's dev page. Use genclass_status, then genclass_findings and genclass_explain on the findings, and fix the cause of each of the five in index.html (its inline script and styles; keep the GenClass lines in <head> and the boards atom as they are, and do not add dependencies). Keep each fix small and idiomatic: ignore stale search responses; prevent the duplicate post; readable alert bar text; release the click block when the roads arrive (and on failure); unlock scrolling when the notice closes. Then list the five fixes in one line each.`;
+const prompt = `Users of this snow day site report five problems: the school board search sometimes shows boards for an older query; a double click on a poll button votes twice; the alert bar at the top is unreadable; after a mistyped postal code nothing on the page can be clicked any more; after the notice's OK the page cannot scroll. GenClass has recorded a session with all of them on this site's dev page. Use genclass_status, then genclass_findings and genclass_explain on the findings, and fix the cause of each of the five in index.html (its inline script and styles; keep the GenClass lines in <head> and the boards atom as they are, and do not add dependencies). Keep each fix small and idiomatic: ignore stale search responses; prevent the duplicate post; readable alert bar text; release the click block on every path of the prediction, including errors; unlock scrolling when the notice closes. Then list the five fixes in one line each.`;
 console.log("asking Claude Code (Opus)…");
 const t0 = Date.now();
 const claude = spawnSync("bash", ["-lc", `export PATH="$HOME/.local/bin:$PATH"; claude -p ${JSON.stringify(prompt)} --model opus --output-format json --permission-mode acceptEdits --allowedTools "Bash,Edit,Write,Read,Glob,Grep,mcp__genclass__*" --mcp-config .mcp.json --strict-mcp-config`], { cwd: WORK, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], maxBuffer: 50 * 1024 * 1024 });
