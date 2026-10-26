@@ -1,8 +1,10 @@
 # Record the GenClass demo yourself: the script
 
-The site is a copy of the Snow Day Predictor (snowday-predictor.ca) as it was before GenClass, with five bugs planted,
-deployed as its own Cloudflare Pages project: **https://snowday-demo.pages.dev** (the real site is never touched). The
-copy lives in `demo-site/snowday-before` (the page, `functions/api/` for the board search, alerts and road conditions).
+The demo runs on the real site, **https://snowday-predictor.ca**: the Snow Day Predictor as it was before GenClass,
+with five bugs planted, is deployed to its Worker (`snowday-predictor`, Dizon's Cloudflare account) right before the
+recording; GenClass fixes them there; afterwards the site goes back to today's version, which already runs GenClass.
+The code is `demo-site/snowday-before`: the real site's pages, `worker.js` and `wrangler.jsonc` (the live Worker's name,
+compatibility date and `ASSETS` binding), and `functions/api/` for the board search, alerts and road conditions.
 
 One take, two windows side by side on one screen: **Chrome on the left** (the site, genclass.dev), **VS Code on the
 right** (the site's folder, Claude Code in the integrated terminal). The story: the broken site, live → one prompt
@@ -21,7 +23,7 @@ Chrome app window, which has no address bar.
 | After the notice's OK the page cannot scroll | fixed: the leaked `overflow: hidden` removed | fixed |
 | After "Load road conditions" nothing can be clicked | fixed: the leaked `pointer-events: none` removed | fixed |
 
-Proven before recording (2026-10-26): on the live link all five bugs show; guard fixes four on the user's screen and
+Proven before recording (2026-10-26, on the Pages copy and on the Worker locally): all five bugs show; guard fixes four on the user's screen and
 flags the double Subscribe; Claude (Opus) fixes all five in about 40 s from GenClass's findings; the dashboard shows
 the page loads, the stale response, the dropped write and the duplicate, and the Loop log gets the agent's steps.
 
@@ -29,16 +31,18 @@ the page loads, the stale response, the dropped write and the duplicate, and the
 
 1. **Quit the other Claude Code session** on this Mac (the desktop app's Code tab): its GenClass MCP server owns the
    bridge port, and the Claude in VS Code must own it so the dashboard mirror and the replays work.
-2. **Reset the site** to its broken state and deploy that, so the link shows the five bugs:
+2. **Reset the code** to its broken state and **deploy it to snowday-predictor.ca**, right before you start recording
+   (real visitors see the five bugs from now until act 3's deploy):
 
    ```bash
-   cd ~/GenClass-lib-main/demo-site/snowday-before && git checkout -- . && git clean -fdqx . && XDG_CONFIG_HOME=~/.config-dizon CLOUDFLARE_ACCOUNT_ID=4daefdf7440d182204be114a9c9f5074 npx --yes wrangler@4 pages deploy . --project-name snowday-demo --branch main --commit-dirty=true
+   cd ~/GenClass-lib-main/demo-site/snowday-before && git checkout -- . && git clean -fdqx . && XDG_CONFIG_HOME=~/.config-dizon CLOUDFLARE_ACCOUNT_ID=4daefdf7440d182204be114a9c9f5074 npx --yes wrangler@4 deploy
    ```
 
    (`XDG_CONFIG_HOME=~/.config-dizon` is a separate wrangler login, so Mehar's default login stays as it is; it reaches
-   both the Dizon and Daybot accounts, so `CLOUDFLARE_ACCOUNT_ID` picks Dizon.) Open https://snowday-demo.pages.dev once.
-3. **The dev server**, for act 6 only: `XDG_CONFIG_HOME=~/.config-dizon CLOUDFLARE_ACCOUNT_ID=4daefdf7440d182204be114a9c9f5074 npx --yes wrangler@4 pages dev . --port 8788`
-   in the same folder, in a terminal you will not show. Leave it running.
+   both the Dizon and Daybot accounts, so `CLOUDFLARE_ACCOUNT_ID` picks Dizon.) Open https://snowday-predictor.ca once
+   (⌘⇧R, so the cached page goes).
+3. **The dev server**, for act 6 only: `npx --yes wrangler@4 dev --port 8788` in the same folder, in a terminal you
+   will not show. Leave it running.
 4. **Chrome**: one window, signed in to Google, no other tabs. Bookmark bar hidden (⌘⇧B). Put it on the left half.
 5. **VS Code**: `code ~/GenClass-lib-main/demo-site/snowday-before`, open `index.html`. Open the integrated terminal (⌃`)
    and drag it up to about half the window. Close the chat side bar. Put the window on the right half. In the terminal:
@@ -52,7 +56,7 @@ the page loads, the stale response, the dropped write and the duplicate, and the
 
 ## 1. The broken site, live (40 s)
 
-Chrome: https://snowday-demo.pages.dev. Five bugs, in this order (the last one kills the page, so it goes last):
+Chrome: https://snowday-predictor.ca. Five bugs, in this order (the last one kills the page, so it goes last):
 
 1. Point at the white strip under the menu. Say: *"There is a snow day alert banner there. White on white."*
 2. Type a postal code, `L6H 3X5`, Predict: the real prediction works.
@@ -77,7 +81,7 @@ VS Code terminal. Nothing to show in Chrome during this act.
 - **3a.** Paste the copied prompt and add one line at the end before Enter:
 
   ```text
-  This is a static site with no build step (index.html and Cloudflare Pages functions): use the script tag from the dashboard, and load the agent link from the same CDN version only when the page is on localhost.
+  This is a static site with no build step (index.html served by a Cloudflare Worker, worker.js): use the script tag from the dashboard, and load the agent link from the same CDN version only when the page is on localhost.
   ```
 
   Claude adds the script tag with the key, connects the store, adds the agent link for local pages and the MCP
@@ -100,12 +104,12 @@ VS Code terminal. Nothing to show in Chrome during this act.
 - **3d.** Deploy:
 
   ```text
-  Deploy this to Cloudflare Pages: XDG_CONFIG_HOME=~/.config-dizon CLOUDFLARE_ACCOUNT_ID=4daefdf7440d182204be114a9c9f5074 npx --yes wrangler@4 pages deploy . --project-name snowday-demo --branch main --commit-dirty=true, and tell me the URL.
+  Deploy this to production with XDG_CONFIG_HOME=~/.config-dizon CLOUDFLARE_ACCOUNT_ID=4daefdf7440d182204be114a9c9f5074 npx --yes wrangler@4 deploy, and tell me when https://snowday-predictor.ca serves it.
   ```
 
 ## 4. The same site, fixed on the user's screen (60 s)
 
-Chrome: https://snowday-demo.pages.dev, reloaded (⌘⇧R). Wait for the GenClass badge at the bottom right to say
+Chrome: https://snowday-predictor.ca, reloaded (⌘⇧R). Wait for the GenClass badge at the bottom right to say
 **guard** and the model to be ready (about 5 s). The same things, same order:
 
 1. The alert banner reads **"Snow day alerts for your board, every evening at 6 pm…"** in grey on white.
@@ -158,6 +162,18 @@ Type `halton` fast once. Say: *"The dev build, where the agent can replay the ne
 
 The project's **Loop**: **Issue found → Reproduced → Fix proven → Closed**, then **What your agent did**. Say:
 *"Everything the agent did, mirrored here. A person reads the test and ships."* Stop the recording.
+
+## 8. After the recording: the real site back, GenClass on
+
+Put back today's version of the site (it already runs GenClass, in heal mode, with its own project):
+
+```bash
+cd ~/GenClass-lib-main/demo-site/snowday-before && XDG_CONFIG_HOME=~/.config-dizon CLOUDFLARE_ACCOUNT_ID=4daefdf7440d182204be114a9c9f5074 npx --yes wrangler@4 rollback 3b0ff5e1-37cf-412f-8e52-b83c30381647 --name snowday-predictor --message "after the GenClass demo"
+```
+
+`3b0ff5e1-…` is the version Mehar deployed on 2026-10-25, live when the demo was prepared. The demo's board search,
+alerts and road conditions are demo data and must not stay on the real site; the agent's fixes from act 6 stay in the
+folder as the record of the demo. Then `git checkout -- . && git clean -fdqx .` resets the folder for the next take.
 
 ## After: the 2–3 minute cut
 

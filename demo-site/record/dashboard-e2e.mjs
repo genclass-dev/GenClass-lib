@@ -53,7 +53,7 @@ html = html.replace("<head>", `<head>
 if (!html.includes(token)) throw new Error("the key did not go in");
 writeFileSync(join(WORK, "index.html"), html);
 for (const p of [PORT, BRIDGE]) sh(`lsof -nP -iTCP:${p} -sTCP:LISTEN -t | xargs -r kill 2>/dev/null; true`);
-const dev = spawn("npx", ["--yes", "wrangler@4", "pages", "dev", ".", "--port", String(PORT), "--compatibility-date=2026-01-01"], { cwd: WORK, stdio: "ignore", detached: true });
+const dev = spawn("npx", ["--yes", "wrangler@4", "dev", "--port", String(PORT)], { cwd: WORK, stdio: "ignore", detached: true });
 
 // the MCP server, as a coding agent runs it: stdio JSON-RPC, owning the bridge, mirroring to the dashboard
 const mcp = spawn("npx", ["-y", "@genclass/mcp@0.2.0"], { cwd: WORK, env: { ...process.env, GENCLASS_AGENT_PORT: BRIDGE, GENCLASS_DASHBOARD: link, GENCLASS_REPORT: "on", GENCLASS_STATE_DIR: "none" }, stdio: ["pipe", "pipe", "pipe"], detached: true });
@@ -73,7 +73,7 @@ const tool = async (name, args = {}) => { const r = await rpc("tools/call", { na
 const stop = () => { for (const p of [dev, mcp]) { try { process.kill(-p.pid); } catch {} } for (const p of [PORT, BRIDGE]) sh(`lsof -nP -iTCP:${p} -sTCP:LISTEN -t | xargs -r kill 2>/dev/null; true`); };
 const waitHttp = async (url, ms = 60000) => { const s = Date.now(); while (Date.now() - s < ms) { try { if ((await fetch(url)).status < 500) return true; } catch {} await sleep(400); } return false; };
 try {
-  if (!(await waitHttp(`http://localhost:${PORT}/`))) throw new Error("wrangler pages dev did not come up");
+  if (!(await waitHttp(`http://localhost:${PORT}/`))) throw new Error("wrangler dev did not come up");
   await rpc("initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "dashboard-e2e", version: "1" } });
   mcp.stdin.write(JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }) + "\n");
   await sleep(3000);
