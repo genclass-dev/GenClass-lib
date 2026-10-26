@@ -64,6 +64,7 @@ const waitHttp = async (url, ms = 30000) => {
   return false;
 };
 await waitHttp("http://localhost:5173/");
+await waitHttp("http://localhost:5173/api/search?q=r"); // the API behind the proxy too, so act 1 shows the race, not an empty list
 writeFileSync(join(BEFORE, ".vercelignore"), ".mcp.json\n.genclass.local\n.genclass/\nnode_modules\n");
 // One GenClass MCP server owns the bridge for the whole demo (as a live Claude Code session's would); each `claude -p`
 // run's server finds the port taken and shares it. Its env mirrors the agent's steps to the dashboard once the link
@@ -149,7 +150,8 @@ say("recording started");
 // ---------------------------------------------------------------------------------------------------- the windows
 spawn("open", ["-a", "Terminal", join(OUT, "terminal.command")], { stdio: "ignore" });
 await sleep(2500);
-sh(`osascript -e 'tell application "Terminal" to set bounds of front window to {846, 30, 1512, 980}' -e 'tell application "Terminal" to set font size of front window to 14'`);
+// the font first, then the bounds: the other way round Terminal keeps its column count and widens past the screen's edge
+sh(`osascript -e 'tell application "Terminal" to set font size of front window to 14' -e 'tell application "Terminal" to set bounds of front window to {846, 30, 1512, 980}'`);
 browser = await chromium.launch({ headless: false, args: ["--window-position=0,30", "--window-size=840,950"], ignoreDefaultArgs: ["--enable-automation"] });
 const context = await browser.newContext({ viewport: null, colorScheme: "light" });
 const page = await context.newPage();

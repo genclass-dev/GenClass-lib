@@ -170,7 +170,12 @@ Vercel CLI signed in, `claude` on the PATH, and nothing else on the screen; it t
 node demo-site/record/orchestrate.mjs && node demo-site/record/postprocess.mjs
 ```
 
-What the take showed (2026-10-25): the dashboard's one prompt integrated the shop (observe, the state wrapped, the
+`demo-site/record/cut2min.py` is the 2-minute cut of that take (`out/demo-2min.mp4`, 1:58 at 1080p): the bug, the
+copied prompt, Claude integrating at 16x, guard preventing the stale response with a zoom on the overlay's card, the
+deploy, the live site in observe then guard, the dashboard, the agent's explore, replay, fix and clean re-explore,
+and the Loop page. Its source times belong to the take of 2026-10-26; a new take needs them found again.
+
+What the take showed (2026-10-25 and 26): the dashboard's one prompt integrated the shop (observe, the state wrapped, the
 agent link, the MCP server); the second prompt turned on guard with the visual fixes, the overlay and the search atom;
 guard prevented the stale search response on the dev page and on the live site, with Undo; the dashboard listed
 "Stale responses" on the live site; the agent's explore found the race, its replay reproduced it, the fix with the
