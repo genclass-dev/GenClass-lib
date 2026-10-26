@@ -54,6 +54,21 @@ the page loads, the stale response, the dropped write and the duplicate, and the
 6. **Rehearse the fast typing once**: in "Find your school board", type `halton` fast (under a second). The list ends
    on five boards (the answer for "h") while the box says halton. That is the first bug.
 
+## 0b. The page check first (30 s)
+
+Chrome, before anything else: **https://genclass.dev/scan**. Type `snowday-predictor.ca`, **Check page**. A cached
+result comes back in a few seconds (a fresh scan takes about 40 s; results are cached for 6 hours, so run it once
+before recording). Show:
+
+- **57/100**, and scroll the categories: Accessibility 53 (low-contrast buttons), Phone 75 (a tap target too small),
+  Security 46 (no CSP, no HSTS, http does not redirect), Search and sharing 82 ("read more" links).
+- Each finding with its element and a one-line fix.
+
+Say: *"Before touching any code: a free page check on genclass.dev. Ten problems a user hits, each with the element and
+the fix. What a static scan can't see is what happens when people actually use the page. That's next."* (The page
+check runs its own copy of the visual checks, from before the current runtime: it reports Visual bugs 100 and misses
+the white banner that GenClass catches in act 4.)
+
 ## 1. The broken site, live (60 s)
 
 Chrome: https://snowday-predictor.ca. Open DevTools docked at the bottom (⌥⌘I), **Network** tab, filter `boards`.
