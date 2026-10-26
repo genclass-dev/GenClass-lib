@@ -1,12 +1,16 @@
 # The demo, step by step
 
-The site: **https://tiny-shop-gray.vercel.app** (Vercel team daybot-8ee5232e, project `tiny-shop`, deployed from
-`demo-site/tiny-shop` with `vercel --prod`). It is Tiny Shop with GenClass already in it: the published
-`@genclass/runtime@beta`, guard mode, the visual fixes on, telemetry on (a public host sends by default), and the
-devtools overlay kept on in production so the audience can see what GenClass does. Its GenClass project is
-"tiny-shop (demo)"; the private dashboard link is in `demo-site/tiny-shop/.genclass.local` (never committed).
+Two copies of the same shop live here:
 
-Three URLs of the same site tell the whole story:
+- **`tiny-shop-before/`**: the shop as it is, no GenClass. This is what you open in VS Code and have Claude
+  integrate, live, on camera.
+- **`tiny-shop/`**: the finished state, already deployed to **https://tiny-shop-gray.vercel.app** (Vercel team
+  daybot-8ee5232e, project `tiny-shop`). GenClass from npm, guard mode, the visual fixes on, telemetry on (a public
+  host sends by default), the devtools overlay kept on in production so the audience sees what GenClass does. Its
+  GenClass project is "tiny-shop (demo)"; the private link is in `tiny-shop/.genclass.local`, never committed. It is
+  the fallback if the live integration goes sideways, and the site for acts 1, 4 and 6.
+
+Three URLs of the deployed site tell the story without a redeploy:
 
 | URL | what it shows |
 |---|---|
@@ -28,31 +32,32 @@ The bugs to trigger, and how:
 ## Before recording
 
 1. **Sign in to GenClass** at https://genclass.dev/login (Google, GitHub, or email and password).
-2. **Put the demo app in your account**, so the dashboard shows under Apps instead of a private link. In a terminal:
+2. **Put the deployed app in your account**, so its dashboard shows under Apps rather than as a private link:
 
    ```bash
    cd demo-site/tiny-shop
    npx @genclass/runtime@beta login
    ```
 
-   It prints a code and opens https://genclass.dev/login/device; approve it there. Back in the terminal it finds the
-   app's private link in `.genclass.local` and offers to add that dashboard to your account: say yes. From then on the
-   dashboard is at genclass.dev under Apps → tiny-shop (demo), and it already holds the page loads from today.
-3. **Warm the dashboard**: open the three URLs above once each and use the shop for a minute (search fast, double
-   click, checkout, reviews, profile, subscribe three times). Events arrive in batches every 10 s. Then the Overview,
-   Problems and Pages views have something to show when the recording starts.
-4. **Have Claude Code ready** in `demo-site/tiny-shop` with the MCP server added, from the dashboard's own MCP page
-   (it generates the exact command with your agent link), or:
+   It prints a code and opens https://genclass.dev/login/device; approve it. Back in the terminal it finds the app's
+   private link in `.genclass.local` and offers to add that dashboard to your account: say yes.
+3. **Warm the dashboard**: open the three URLs above and use the shop for a minute (search fast, double click,
+   checkout, reviews, profile, subscribe three times). Events arrive in batches every 10 s. Then Overview, Problems
+   and Pages have material when the recording starts.
+4. **Prepare the live integration**: `cd demo-site/tiny-shop-before && npm install`, open it in VS Code
+   (`code demo-site/tiny-shop-before`), start Claude Code in that folder, and have a terminal ready. Make sure no
+   `.genclass.local` or `src/genclass.config.js` is left in it from a rehearsal (`git status` shows nothing to clean
+   when it is pristine).
+5. **Claude Code's MCP server** for act 5: added from the dashboard's MCP page (it generates the exact command with your
+   agent link), or
 
    ```bash
    claude mcp add genclass -e GENCLASS_DASHBOARD=<your dashboard link> -e GENCLASS_REPORT=on -- npx -y @genclass/mcp@0.2.0
    ```
 
-   `GENCLASS_REPORT=on` is what mirrors the agent's steps to the dashboard's Closed loop view. Keep the link out of
-   anything you commit.
-5. **Open VS Code** on `demo-site/tiny-shop` (`code demo-site/tiny-shop`) and the dev server: `npm run dev`
-   (the API on 8788, Vite on http://localhost:5173). The agent link only works on localhost, which is why the agent
-   act runs on the dev server, not on Vercel.
+   `GENCLASS_REPORT=on` is what mirrors the agent's steps to the Closed loop view. Keep the link out of anything you
+   commit. Then in `tiny-shop-before`, `npm run dev` (the API on 8788, Vite on http://localhost:5173) when act 5
+   starts; the agent link works on localhost only, which is why that act runs on the dev server.
 
 ## The recording
 
@@ -62,53 +67,83 @@ Open `https://tiny-shop-gray.vercel.app/?genclass=off`. Say what it is: a small 
 Type `react` fast: the list ends on the wrong results. Double-click Add to cart: two. Point at the banner nobody can
 read and the `{{price}}`.
 
-### Act 2. Sign in, one command, the dashboard (60 s)
+### Act 2. Sign in and prompt Claude to integrate it (90 s)
 
-Show genclass.dev signed in, the app under Apps. Show the one line in `src/main.js` in VS Code:
-`import genclass from "@genclass/runtime/auto"` and `src/genclass.config.js` with the key. Say: `npx
-@genclass/runtime@beta init` wrote both and created this dashboard.
+This is the act that shows how a developer actually adds GenClass: by asking their coding agent.
 
-Open `https://tiny-shop-gray.vercel.app/?genclass=observe`. The overlay at the bottom right: open it, Checks tab:
-the measured checks on this page, each with the measurement, the threshold and the CSS fix. Type `react` fast; open
-the Detections tab: "Stale response", with the model's confidence and the evidence. Say: observe changes nothing,
-it reports, and these reports are already on the dashboard.
+1. **genclass.dev, signed in.** Apps → New app → name it `tiny-shop`. Its page opens on the Connect dialog with the
+   project key and the big button **"Copy the prompt for your coding agent"**. Click it. (The prompt it copies, with
+   the key filled in:)
 
-Switch to the dashboard: Overview (page loads, problems found, stepped in), Problems (stale responses, double
-submits, failing endpoints, each with how to fix it), Pages.
+   > Add GenClass to this web app with its project key, so the app's GenClass dashboard shows what breaks for its
+   > users in production (double submits, stale responses, failing endpoints, write races).
+   > 1. Install the runtime with the project's package manager: npm install @genclass/runtime@beta …
+   > 2. Start it as early as possible in the browser entry … with this project's key gc_… :
+   >    import { GenClass } from "@genclass/runtime"; GenClass.init({ token: "gc_…" });
+   > 3. Keep the default mode, observe: GenClass reports and never changes what the app does.
+   > 4. Run the dev server and load a page to check that the app builds and runs without errors. …
+   > 5. Tell me what you changed.
 
-### Act 3. The hot fix (45 s)
+2. **VS Code on `tiny-shop-before`, Claude Code open.** Paste the prompt. Claude installs `@genclass/runtime@beta`,
+   adds the two lines to `src/main.js` (or runs `npx @genclass/runtime@beta init --token gc_… --yes`, which writes
+   `src/genclass.config.js` and the imports for it), starts the dev server, loads a page, and reports back. Show the
+   diff it made: one import, one config line with the key. Say: that is the integration.
+
+3. **One more prompt**, the lines that make the demo's bugs protectable and the agent's loop possible:
+
+   > Make the search state a GenClass atom (genclass.atom("search", { query: "", results: [] })) and write the search
+   > results through it, wrap the store's other keys with genclass.guard, add the agent link for development builds
+   > (import { connectAgent } from "@genclass/runtime/agent"; if (import.meta.env.DEV) connectAgent(genclass)), and keep
+   > the devtools overlay on in production for this demo. Then set mode: "guard" with visual: { on: true, fix: true } in
+   > genclass.config.js. Run the dev server and tell me what changed.
+
+   Claude edits `src/main.js` and `src/genclass.config.js`; the result is what `tiny-shop/src` holds, so you can diff
+   against it if it strays. Load http://localhost:5173: the overlay's badge at the bottom right says guard.
+
+4. **Deploy.** Prompt: "Deploy this to Vercel, production." Claude runs `vercel --prod` (the CLI is signed in). Or
+   skip the wait and switch to the already deployed `tiny-shop-gray.vercel.app`, which is this exact state.
+
+### Act 3. The dashboard (45 s)
+
+Open `https://tiny-shop-gray.vercel.app/?genclass=observe`. Open the overlay, Checks tab: the measured checks on this
+page, each with the measurement, the threshold and the CSS fix. Type `react` fast; Detections tab: "Stale response",
+with the model's confidence and the evidence. Say: observe changes nothing, it reports, and these reports are already
+on the dashboard.
+
+Switch to genclass.dev: Overview (page loads, problems found, stepped in), Problems (stale responses, double submits,
+failing endpoints, each with how to fix it), Pages.
+
+### Act 4. The hot fix (45 s)
 
 Open `https://tiny-shop-gray.vercel.app/` (guard). The banner is readable: GenClass applied the CSS fix at run time,
 with an Undo. Type `react` fast: the list ends on the right results. Open the overlay, Interventions: "Reverted a
-stale write", stale 99%, discard, the undo button. Say: no code changed; the same model that reported the bug acts
+stale write", stale 99%, discard, the Undo button. Say: no code changed; the same model that reported the bug acts
 when it is sure, with a minimal, reversible action, and leaves alone what it is not sure about (the double click:
 flagged, not acted on, the gain was under the bar).
 
 Back on the dashboard: "It stepped in N times, and nothing it changed was undone."
 
-### Act 4. The coding agent closes the loop (90 s)
+### Act 5. The coding agent closes the loop (90 s)
 
-In VS Code with Claude Code open on `demo-site/tiny-shop`, the dev server running, the page open at
-http://localhost:5173. Type `react` fast on the local page.
+VS Code on the integrated shop, the dev server running, the page open at http://localhost:5173, Claude Code with the
+MCP server. Prompt it the way the dashboard's MCP page suggests, or just talk:
 
-In Claude Code:
-
-1. "What's wrong with the search?" → it calls `genclass_findings`: the stale-write findings at the top, with the
-   TypeError and the duplicate request under them.
-2. "Explain it" → `genclass_explain`: every request, delivery and state write in causal order, the delivery order
+1. "Connect to GenClass and check the page is seen." → `genclass_status`: 1 active page.
+2. Type `react` fast on the local page. "What's wrong with the search?" → `genclass_findings`: the stale-write
+   findings at the top, the TypeError and the duplicate request under them.
+3. "Explain it." → `genclass_explain`: every request, delivery and state write in causal order, the delivery order
    that produced it, and a Playwright test.
-3. "Prove it" → `genclass_replay arm`; type `react` on the page again; `genclass_replay result`: **REPRODUCED**.
-4. "Fix it" → it edits `src/main.js` (a sequence number per search request; the diff is in
-   `../../docs/evidence/e2e-walkthrough/steps/06-main.fixed.js` if you want to paste it); replay again: **not
-   reproduced**.
-5. "Any other order?" → `genclass_explore`, five page loads typing `react` (the agent asks you to load the page five
-   times, or runs it with Playwright): **No race found**.
+4. "Prove it." → `genclass_replay arm`; type `react` again; `genclass_replay result`: **REPRODUCED**.
+5. "Fix it." → Claude edits `src/main.js` (a sequence number per search request; the reference fix is
+   `../docs/evidence/e2e-walkthrough/steps/06-main.fixed.js`); replay again: **not reproduced**.
+6. "Any other order?" → `genclass_explore`: five page loads typing `react` (Claude asks you to load the page five
+   times, or drives it with Playwright): **No race found**.
 
-Switch to the dashboard's **Closed loop** view: found → reproduced → fix proven → closed, with the agent's log under
+Switch to the dashboard's **Closed loop** view: found → reproduced → fix proven → closed, and the agent's log under
 it: found, evidence read, test written, replay reproduced, replay not reproduced, explore. Say: everything the agent
 did, mirrored; a person reads the test and ships.
 
-### Act 5. One command on any page (15 s)
+### Act 6. One command on any page (15 s)
 
 ```bash
 npx @genclass/runtime@beta scan https://tiny-shop-gray.vercel.app
@@ -123,10 +158,11 @@ Visual score 8/100, 10 problems, each with its CSS fix. Say: before anything is 
 - The model loads at idle in the first second; wait for the overlay's badge before typing.
 - Guard's revert happens 0.1 s after the stale write lands: the list flashes to the wrong results and snaps back.
   That is the moment; the overlay's Interventions tab is the proof.
-- The agent act needs `connectAgent` (it is in `src/main.js`, development builds only) and an MCP server on the
-  default port 47357; `genclass_status` says whether the page is connected.
+- The agent act needs `connectAgent` in the page (development builds only) and an MCP server on the default port
+  47357; `genclass_status` says whether the page is connected.
+- If Claude's live integration strays, `demo-site/tiny-shop/src` is the finished state to compare with or copy in.
 
-## Redeploy
+## Redeploy the finished site
 
 ```bash
 cd demo-site/tiny-shop && npm install && vercel --prod --scope daybot-8ee5232e
