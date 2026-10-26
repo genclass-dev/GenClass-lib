@@ -49,7 +49,7 @@ if (!integrated) {
             const data = await response.json();
             boards.set((s) => ({ ...s, results: data.results, query: data.q }));
         });
-        boards.subscribe(function ({ results }) {`).replace("store.set('alerts.count', data.count);", "guarded['alerts.count'].set(data.count);");
+        boards.subscribe(function ({ results }) {`).replace("if (!list.some((x) => x.id === data.id)) store.set('alerts.list', [...list, data]);", "if (!list.some((x) => x.id === data.id)) guarded['alerts.list'].set([...list, data]);");
   if (!html.includes("GenClass.runtime.atom('boards'")) throw new Error("the board search did not match");
 }
 writeFileSync(join(WORK, "index.html"), html);

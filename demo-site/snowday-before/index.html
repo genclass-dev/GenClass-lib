@@ -2259,7 +2259,7 @@
 
         // The page's small state store: board search results and the alert subscription count.
         const store = (() => {
-            const state = { 'boards.query': '', 'boards.results': [], 'alerts.count': 0 };
+            const state = { 'boards.query': '', 'boards.results': [], 'alerts.list': [] };
             const subs = new Map();
             return {
                 get: (k) => state[k],
@@ -2281,14 +2281,15 @@
             ul.textContent = '';
             for (const name of results) { const li = document.createElement('li'); li.textContent = name; ul.appendChild(li); }
         });
-        // Alerts: each click posts; two quick clicks subscribe twice.
+        // Alerts: each click posts; two quick clicks subscribe twice (two subscriptions, two emails every evening).
         document.getElementById('alert-btn').addEventListener('click', async function () {
             const email = document.getElementById('alert-email').value;
-            const response = await fetch('/api/alerts', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email, count: store.get('alerts.count') }) });
+            const response = await fetch('/api/alerts', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email }) });
             const data = await response.json();
-            store.set('alerts.count', data.count);
+            const list = store.get('alerts.list');
+            if (!list.some((x) => x.id === data.id)) store.set('alerts.list', [...list, data]);
         });
-        store.subscribe('alerts.count', function (n) { document.getElementById('alert-count').textContent = String(n); });
+        store.subscribe('alerts.list', function (list) { document.getElementById('alert-count').textContent = String(list.length); });
         // Road conditions: a slow endpoint. While it loads, the page blocks clicks "so nobody double-loads", and forgets
         // to unblock.
         document.getElementById('roads-btn').addEventListener('click', async function () {
