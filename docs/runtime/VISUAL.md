@@ -1242,7 +1242,8 @@ background differs or the colour no longer reaches its target (the item stopped 
 toggle, a dark-mode switch), it is undone with the reason "the background or colour scheme changed, so the fix no
 longer fits", and a later re-check may apply it again (at most twice per finding and page). An element outside the
 viewport is not re-measured (hit testing finds no points there, which would read as a changed background): its fix
-stays as it is until it is back in view. Tokens carry a prefix per engine (`f<prefix>-3`), so two runtimes on one page
+stays as it is until it is back in view; the same holds while `pointer-events: none` reaches the element (hit testing
+skips it). Tokens carry a prefix per engine (`f<prefix>-3`), so two runtimes on one page
 never share a rule.
 
 ### 11.3 Undo
