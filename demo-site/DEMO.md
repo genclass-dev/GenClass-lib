@@ -29,6 +29,16 @@ The bugs to trigger, and how:
 - **The visual faults** are there on every load: the grey-on-grey banner in mojibake, the broken logo, `{{price}}`,
   lorem ipsum, the strip that scrolls sideways, the cookie dialog under a cover, the "Secret deals" button off screen.
 
+## The five bugs GenClass fixes on the user's screen
+
+`tiny-shop-before` plants five bugs that guard mode with the visual fixes repairs at runtime, each reversibly, without a
+code change: the stale search response (the write is reverted), the double add-to-cart (the identical request in
+flight is reused), the white-on-white banner (a contrast fix in an owned stylesheet), the scroll lock the cookie notice
+leaves on `body` and the click block "Load reviews" never releases (one leaked inline declaration removed each).
+`node demo-site/record/verify-fixes.mjs` proves it headlessly: the five show in observe, none in guard
+(`LOCAL_RUNTIME=1` for the checkout's build). `node demo-site/record/agent-fix-test.mjs` then lets Claude Code fix all
+five in the code from GenClass's findings and runs the same check on the result.
+
 ## Before recording
 
 1. **Sign in to GenClass** at https://genclass.dev/login (Google, GitHub, or email and password).
@@ -86,7 +96,7 @@ This is how a developer adds GenClass: one prompt from the dashboard into their 
 
 3. **One prompt more, the beat that sets up act 4**: "Three small changes: guard mode with the visual fixes; the
    devtools overlay on every build so the audience sees what GenClass does; the search state in one GenClass atom,
-   `rt.atom("search", { query: "", results: [] })`, written once per response." Claude sets `mode: "guard"` and
+   `rt.atom("search", { query: "", results: [] })`, written once per response." Claude sets `mode: "guard"`, `aggressiveness: "eager"` and
    `visual: { on: true, fix: true }` where `GenClass.init` is called, drops the development-only condition on the
    overlay import, and makes the search an atom (the README's one line; the reference is `tiny-shop/src/main.js`).
    Load http://localhost:5173: the overlay's badge at the bottom right says guard.

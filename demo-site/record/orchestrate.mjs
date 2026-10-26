@@ -35,7 +35,7 @@ mkdirSync(SIG, { recursive: true });
 // ---------------------------------------------------------------------------------------------------- 0. a pristine shop
 say("reset tiny-shop-before to its committed state");
 for (const f of ["src/main.js", "package.json", "vite.config.js", "index.html"]) {
-  const r = sh(`git show yc-demo-site:demo-site/tiny-shop-before/${f}`);
+  const r = sh(`git show HEAD:demo-site/tiny-shop-before/${f}`);
   if (r.status === 0) writeFileSync(join(BEFORE, f), r.stdout);
 }
 for (const f of ["src/genclass.config.js", ".mcp.json", ".genclass.local", "package-lock.json"]) rmSync(join(BEFORE, f), { force: true });
@@ -246,7 +246,7 @@ await sleep(5000);
 await closeOverlay();
 
 // ---------------------------------------------------------------------------------------------------- act 3: guard, the hot fix (local)
-await prompt(2, 'Three small changes for this demo. (1) Wherever GenClass.init is called, set mode: "guard" and visual: { on: true, fix: true }. (2) Load the devtools overlay on every build, not only in development, so the audience sees what GenClass does: import("@genclass/runtime/devtools").then((d) => d.mountDevtools(rt)) (rt is what GenClass.init returned). (3) Keep the search state in one GenClass atom instead of separate store keys: const search = rt.atom("search", { query: "", results: [] }); the search handler writes it once per response with search.set((s) => ({ ...s, results: data.results, query: data.q })), and the results list renders from search.subscribe. Keep everything else as it is. Tell me the lines you changed.');
+await prompt(2, 'Three small changes for this demo. (1) Wherever GenClass.init is called, set mode: "guard", aggressiveness: "eager" and visual: { on: true, fix: true }. (2) Load the devtools overlay on every build, not only in development, so the audience sees what GenClass does: import("@genclass/runtime/devtools").then((d) => d.mountDevtools(rt)) (rt is what GenClass.init returned). (3) Keep the search state in one GenClass atom instead of separate store keys: const search = rt.atom("search", { query: "", results: [] }); the search handler writes it once per response with search.set((s) => ({ ...s, results: data.results, query: data.q })), and the results list renders from search.subscribe. Keep everything else as it is. Tell me the lines you changed.');
 await front();
 for (let i = 0; i < 20; i++) { const s = await (await fetch("http://localhost:5173/src/genclass.config.js")).text().catch(() => ""); if (s.includes("guard")) break; await sleep(500); }
 await page.goto("http://localhost:5173/", { waitUntil: "domcontentloaded" });
