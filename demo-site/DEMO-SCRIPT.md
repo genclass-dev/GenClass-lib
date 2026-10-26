@@ -43,7 +43,11 @@ the page loads, the stale response, the dropped write and the duplicate, and the
    (⌘⇧R, so the cached page goes).
 3. **The dev server**, for act 6 only: `npx --yes wrangler@4 dev --port 8788` in the same folder, in a terminal you
    will not show. Leave it running.
-4. **Chrome**: one window, signed in to Google, no other tabs. Bookmark bar hidden (⌘⇧B). Put it on the left half.
+4. **Chrome**: one window, signed in to Google, **signed out of genclass.dev** (if you are signed in: your account
+   menu at the top right of genclass.dev → Sign out), so act 2 shows the sign-in. Exactly two tabs: **tab 1**
+   https://genclass.dev (the home page), **tab 2** https://snowday-predictor.ca. Leave tab 1 in front. Bookmark bar
+   hidden (⌘⇧B). Put the window on the left half. From here on the recording never types an address: every page is a
+   click from these two tabs.
 5. **VS Code**: `code ~/GenClass-lib-main/demo-site/snowday-before`, open `index.html`. Open the integrated terminal (⌃`)
    and drag it up to about half the window. Close the chat side bar. Put the window on the right half. In the terminal:
 
@@ -56,9 +60,9 @@ the page loads, the stale response, the dropped write and the duplicate, and the
 
 ## 0b. The page check first (30 s)
 
-Chrome, before anything else: **https://genclass.dev/scan**. Type `snowday-predictor.ca`, **Check page**. A cached
-result comes back in a few seconds (a fresh scan takes about 40 s; results are cached for 6 hours, so run it once
-before recording). Show:
+Chrome, tab 1, the genclass.dev home page. Scroll down one screen to **Check any page.**, click the box that says
+`your-site.com`, type `snowday-predictor.ca` and click **Scan**. A cached result comes back in a few seconds (a fresh
+scan takes about 40 s; results are cached for 6 hours, so run it once before recording). Show:
 
 - **50/100 without GenClass, 56 with GenClass on.** Scroll the categories: Visual bugs 75, Accessibility 56, Phone
   75, Speed 84, Security 46, Search and sharing 82, **Races 75**.
@@ -75,7 +79,8 @@ the frozen page, the double vote. That's what GenClass in the page is for."*
 
 ## 1. The broken site, live (60 s)
 
-Chrome: https://snowday-predictor.ca. Open DevTools docked at the bottom (⌥⌘I), **Network** tab, filter `boards`.
+Chrome: click **tab 2** (snowday-predictor.ca) and reload it (⌘R). Open DevTools docked at the bottom (⌥⌘I), **Network**
+tab, type `boards` in its filter box.
 Five bugs, in this order (the last one freezes the page, so it goes last):
 
 1. Point at the white strip under the menu. Say: *"There is a storm-watch banner there. White on white."*
@@ -85,54 +90,78 @@ Five bugs, in this order (the last one freezes the page, so it goes last):
    for the first letter lands last and wins. A race condition: every autocomplete has one."*
 4. In "Will schools close tomorrow?", double-click **Snow day** at a normal pace: the count goes **124 → 126**. Say:
    *"One person, two votes."*
-5. Click **OK** on the notice at the bottom left, then scroll with the wheel: **the page does not move**. Say: *"The
-   notice locked scrolling and forgot to unlock it."*
+5. Click **OK** on the notice at the bottom left, then scroll with the wheel: **the page does not move**. Point out
+   that there is not one ad on screen: the site runs Google ads, and the first one sits in the cards just below the
+   bottom of the window. Say: *"The notice locked scrolling and forgot to unlock it. And this site lives on ads: every
+   one of them is below this line, and nobody can scroll to them. This bug costs money."*
 6. Mistype the postal code, `L6H`, and Predict: the error shows, then click anything: **nothing responds**. Say:
    *"Predict blocks clicks while it works and only unblocks when it succeeds. One typo and the page is dead. Five
    bugs, live."*
 
 ## 2. Sign in and get the prompt (40 s)
 
-Chrome: https://genclass.dev/login → **Continue with Google** → **New project**, name `snowday`, **Create new project**.
-The project opens on its **Connect** dialog. Click **Copy the prompt for your coding agent**. Say: *"That's the whole
-setup. One prompt."* Then the **MCP** tab → **Create agent link** (you copy it in 3b).
+Chrome, tab 1 (still on the page check's result). Every step is a click:
+
+1. The **GenClass** logo at the top left: back to the home page.
+2. **Sign in**, at the top right → **Continue with Google** → pick your Google account. (A first sign-in with Google
+   creates the account.) You land on **Projects**.
+3. **New project**, at the top right of the project list (on an account with no projects yet, the **New project**
+   button under *Create your first project*).
+4. **Project name**: type `snowday` → **Create new project**.
+5. The project opens with the **Connect to your project** dialog, on its **Framework** tab. Click the big green
+   **Copy the prompt for your coding agent**. Say: *"That's the whole setup. One prompt."*
+6. Close the dialog with the **×** at its top right. The project's overview stays open in tab 1, waiting for its
+   first event.
 
 ## 3. Claude adds GenClass and deploys (3–4 minutes of Claude working; this stretch gets sped up)
 
-VS Code terminal. Nothing to show in Chrome during this act.
+VS Code on the right, Claude Code running in its terminal (from section 0). Chrome only for 3b's agent link.
 
-- **3a.** Paste the copied prompt and add one line at the end before Enter:
+- **Before 3a**: click once in Claude Code's input box, then press **Shift+Tab** until the line under it says
+  **accept edits on**. Claude then edits files without stopping; it still asks before running a command (choose
+  **Yes**).
+- **3a.** Paste (⌘V): Claude Code shows the prompt folded as *[Pasted text …]*. Type a space and this line after it,
+  then Enter:
 
   ```text
   This is a static site with no build step (index.html served by a Cloudflare Worker, worker.js): use the script tag from the dashboard, and load the agent link from the same CDN version only when the page is on localhost.
   ```
 
   Claude adds the script tag with the key, connects the store, adds the agent link for local pages and the MCP
-  server, and reports. Keep `index.html` open so the edit shows. Say: *"No docs read. The dashboard told the agent what
-  to do."*
-- **3b.** The agent link for the dashboard mirror (paste yours):
+  server, and reports. Keep `index.html` open in VS Code: the edit shows as Claude makes it. Say: *"No docs read. The
+  dashboard told the agent what to do."*
+- **3b.** The agent link, so the dashboard shows what the agent does in act 6:
+  1. Chrome, tab 1 (the project). Left sidebar: **MCP**.
+  2. Scroll down to **Agent access** → **Create agent link**. The link shows once: click **Copy** next to it. Say:
+     *"One link, and my agent can read production."*
+  3. VS Code, Claude's input box: type the line below, and paste (⌘V) the link where it says `<paste the agent
+     link>`, then Enter:
 
-  ```text
-  Add to the genclass server in .mcp.json the env GENCLASS_DASHBOARD = <paste the agent link> and GENCLASS_REPORT = on, then tell me to restart you.
-  ```
+     ```text
+     Add to the genclass server in .mcp.json the env GENCLASS_DASHBOARD = <paste the agent link> and GENCLASS_REPORT = on, then tell me to restart you.
+     ```
 
-  Then `/exit` and `claude --model opus --continue`; approve the project's MCP server once.
-- **3c.** The demo settings:
+  4. When Claude says to restart: type `/exit`, Enter, then `claude --model opus --continue`, Enter. Claude Code
+     asks about the new MCP server in `.mcp.json` (genclass): choose **Use this MCP server**. Shift+Tab to **accept
+     edits on** again.
+- **3c.** The demo settings. Type or paste into Claude, then Enter:
 
   ```text
   Three small changes for this demo. (1) On the GenClass script tag, or in window.GENCLASS_CONFIG, set mode "guard", aggressiveness "eager" and visual { on: true, fix: true }. (2) Show the devtools overlay on every host, not only locally, so the audience sees what GenClass does. (3) Keep the board search state in one GenClass atom instead of the two store keys: const boards = GenClass.runtime.atom("boards", { query: "", results: [] }); the input handler writes it once per response with boards.set((s) => ({ ...s, results: data.results, query: data.q })), and the list renders from boards.subscribe. Keep everything else as it is. Tell me the lines you changed.
   ```
 
   Say: *"Guard mode. GenClass may now act, with minimal reversible actions, when it is sure."*
-- **3d.** Deploy:
+- **3d.** Deploy. Type or paste into Claude, then Enter; when Claude asks to run `wrangler deploy`, choose **Yes**:
 
   ```text
   Deploy this to production with XDG_CONFIG_HOME=~/.config-dizon CLOUDFLARE_ACCOUNT_ID=4daefdf7440d182204be114a9c9f5074 npx --yes wrangler@4 deploy, and tell me when https://snowday-predictor.ca serves it.
   ```
 
+  When Claude says the site serves it, go to act 4.
+
 ## 4. The same site, fixed on the user's screen (75 s)
 
-Chrome: https://snowday-predictor.ca, reloaded (⌘⇧R). DevTools stays open, now on the **Console** tab: every line
+Chrome: click **tab 2** (snowday-predictor.ca) and reload it with ⌘⇧R. DevTools stays open, now on the **Console** tab: every line
 GenClass prints starts with `[GenClass]`. Wait for the badge at the bottom right to say **guard** and the model to be
 ready (about 5 s). The same things, same order:
 
@@ -144,23 +173,33 @@ ready (about 5 s). The same things, same order:
 3. Double-click **Snow day**: the count still goes up by 2. Console: *Flagged a duplicate request … Not acted on*. Say:
    *"Not everything is safe to fix on the fly. This one it reports, and the agent fixes it in the code."*
 4. Click OK on the notice, scroll: **the page scrolls** a second later. Console: *the page cannot scroll: html has
-   overflow-y: hidden…*, then *Applied a CSS fix: removed the inline overflow: hidden*.
+   overflow-y: hidden…*, then *Applied a CSS fix: removed the inline overflow: hidden*. Keep scrolling, slowly, down
+   the page: **the ads load** in the cards, the FAQ and the article list as each comes into view. Say: *"And there
+   are the ads. One CSS fix on the user's screen, and the site's revenue is back."* Scroll back to the top for the last
+   one.
 5. Mistype `L6H`, Predict: the error shows, and a second later **clicks work**. Console: *pointer-events: none has been
    left on body…*, then *Applied a CSS fix: removed the inline pointer-events: none on body*.
 
-Badge → **Interventions**: *"Prevented a stale response … discard · guard"* with **Undo**. **Checks**: the banner's
+Click the GenClass badge at the bottom right → **Interventions**: *"Prevented a stale response … discard · guard"* with **Undo**. **Checks**: the banner's
 contrast, the scroll lock and the click block, each with *"Runtime fix: applied"* and its CSS. Say: *"Nothing in the
 site's code changed. GenClass fixed four of five on the user's screen, reversibly, and reported the fifth."*
 
 ## 5. The dashboard (45 s)
 
-Chrome: the project on genclass.dev (wait about 10 s after act 4). Slowly, scroll a little on each: **Overview**
-(page loads, problems, stopped by GenClass, model loaded), **Problems** (stale responses, double submits, each with a
-**Copy prompt**), **What GenClass did**, **Pages**. Say: *"Everything production saw, with a prompt per problem."*
+Chrome: click **tab 1** (the project), about 10 s after act 4, and click **Refresh** at the top right. Then the left
+sidebar, one item at a time, scrolling a little on each:
+
+1. **Project overview**: page loads, problems found, stopped by GenClass, the model loaded.
+2. **Problems**: *What GenClass found*, the stale responses and the double submits, each with a **Copy prompt**.
+3. **Actions**: *What GenClass did*, the reverted write and the CSS fixes.
+4. **Pages**: which pages had them.
+
+Say: *"Everything production saw, with a prompt per problem."*
 
 ## 6. The agent closes the loop (3 minutes; Claude's thinking gets sped up)
 
-The dev build on this Mac, in a Chrome app window (no address bar):
+The dev build on this Mac, in a Chrome app window (no address bar). Run this in the off-screen terminal from section
+0, step 3; only the window it opens is on camera:
 
 ```bash
 open -na "Google Chrome" --args --app="http://localhost:8788/?genclass=observe" --window-size=760,952 --window-position=0,30
@@ -189,7 +228,8 @@ Type `halton` fast once. Say: *"The dev build, where the agent can replay the ne
 
 ## 7. The closed loop on the dashboard (20 s)
 
-The project's **Loop**: **Issue found → Reproduced → Fix proven → Closed**, then **What your agent did**. Say:
+Chrome's main window, **tab 1** (the project), left sidebar: **Closed loop**. It shows **Issue found → Reproduced →
+Fix proven → Closed**; scroll to **What your agent did**. Say:
 *"Everything the agent did, mirrored here. A person reads the test and ships."* Stop the recording.
 
 ## 8. After the recording: the real site back, GenClass on
@@ -224,6 +264,10 @@ from hit testing, and while it is out of view). It is published and the dashboar
 
 ## If something does not fire
 
+- A full-screen Google ad after a reload, or an ad bar pinned to the bottom over the notice or the badge: close it
+  with its × or its arrow tab. They are Google's, not the bugs; Google shows them less often to someone who has
+  loaded the site many times, so a few may come up and then stop.
+- After the scroll fix some ad slots stay empty (a gap in the card): Google fills most slots, not every one.
 - The race needs the six letters within about a second: type fast.
 - Wait for the badge's model before typing (the first seconds after a load).
 - The board search must be the atom from 3c, or guard cannot drop the stale write.
