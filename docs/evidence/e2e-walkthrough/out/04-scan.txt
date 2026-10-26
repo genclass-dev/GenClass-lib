@@ -1,7 +1,7 @@
-~/tiny-shop % node ../../../../packages/runtime/bin/genclass-runtime.mjs scan http://localhost:5173
+~/tiny-shop % npx @genclass/runtime@beta scan http://localhost:5173
 
   GenClass scan • http://localhost:5173/
-  ran locally: Chromium 153.0.8010.12, desktop 1280x800, phone 390x844; @genclass/runtime 0.3.0-beta.1 visual checks in observe mode (no telemetry, no model, nothing sent)
+  ran locally: Chromium 153.0.8010.12, desktop 1280x800, phone 390x844; @genclass/runtime 0.3.0-beta.2 visual checks in observe mode (no telemetry, no model, nothing sent)
 
   Visual score 8/100  •  10 problems (6 high, 3 medium, 1 low)
 

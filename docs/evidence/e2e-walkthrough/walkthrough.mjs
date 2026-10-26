@@ -16,7 +16,7 @@ const APP = join(HERE, "app");
 const OUT = join(HERE, "out");
 const SITE = "http://localhost:5173";
 const AGENT_PORT = "47400"; // another GenClass MCP server owns the default 47357 on this machine
-const MCP = "@genclass/mcp@0.1.0";
+const MCP = "@genclass/mcp@0.2.0";
 const RUNTIME = "@genclass/runtime@beta";
 
 rmSync(OUT, { recursive: true, force: true });
@@ -103,6 +103,17 @@ const page = await context.newPage();
 const consoleLines = [];
 page.on("console", (m) => consoleLines.push(`[${m.type()}] ${m.text()}`));
 
+/** Load a page of the shop: DOM-ready is enough (the runtime starts then); Vite may reload once after a new import, so retry. */
+const gotoSite = async (url = SITE) => {
+  for (let i = 0; i < 3; i++) {
+    try {
+      await page.goto(url, { waitUntil: "domcontentloaded", timeout: 45_000 });
+      return;
+    } catch (e) {
+      if (i === 2) throw e;
+    }
+  }
+};
 const typeSearch = async (text) => {
   await page.fill("#q", "");
   for (const ch of text) {
@@ -132,7 +143,7 @@ const useTheShop = async () => {
 };
 
 await step("1. The shop as it is: the page, and a scan with no integration at all", async () => {
-  await page.goto(SITE);
+  await gotoSite();
   await sleep(1200);
   await shot(page, "shop-before");
   await typeSearch("react");
@@ -140,9 +151,7 @@ await step("1. The shop as it is: the page, and a scan with no integration at al
   await shot(page, "shop-before-stale-search");
   summary.staleBefore = await page.$eval("#results", (ul) => ul.textContent);
   summary.queryBefore = await page.$eval("#q", (i) => i.value);
-  // `scan` is newer than the published 0.3.0-beta.1 CLI, so this runs the repository's own CLI (the same command a
-  // later release puts behind `npx @genclass/runtime@beta scan`)
-  await sh("scan", `node ../../../../packages/runtime/bin/genclass-runtime.mjs scan ${SITE}`, { title: "Terminal — the page scan, before any integration (the repository's CLI: scan is not on npm yet)", timeout: 400_000 });
+  await sh("scan", `npx ${RUNTIME} scan ${SITE}`, { title: "Terminal — the page scan, before any integration", timeout: 400_000 });
 });
 
 // ---------------------------------------------------------------------------------------------------- 2. init
@@ -156,7 +165,13 @@ await step("2. npx @genclass/runtime@beta init: the runtime, a token and the das
   summary.dashboardCreated = !!link;
   copyFileSync(join(APP, "src", "main.js"), join(OUT, ".after-init.js"));
   await sh("init-diff", "diff -u ../steps/00-main.before.js src/main.js; echo; echo '--- src/genclass.config.js (new)'; cat src/genclass.config.js; echo; echo '--- .genclass.local (new, gitignored)'; cat .genclass.local", { title: "Terminal — what init wrote" });
-  await page.goto(SITE);
+  // the dashboard the link opens, before the app has sent anything: the onboarding state
+  if (link) {
+    await page.goto(link);
+    await sleep(3500);
+    await shot(page, "dashboard-fresh-no-data");
+  }
+  await gotoSite();
   await sleep(6000);
   await shot(page, "shop-with-runtime-and-overlay");
   const gc = consoleLines.filter((l) => l.includes("[GenClass]")).slice(0, 40);
@@ -173,21 +188,25 @@ await step("3. Three lines more: the shop's state, the agent link, telemetry fro
   const cfg = join(APP, "src", "genclass.config.js");
   writeFileSync(cfg, readFileSync(cfg, "utf8").replace(/globalThis\.GENCLASS_CONFIG = \{ token: ("[^"]+") \};/, "globalThis.GENCLASS_CONFIG = { token: $1, telemetry: true }; // telemetry: true also sends from localhost (this demo runs there)"));
   await sh("wire-diff", "diff -u ../out/.after-init.js src/main.js | tail -n +3; echo; echo '--- src/genclass.config.js'; cat src/genclass.config.js", { title: "Terminal — the state, the agent link, telemetry on" });
+  // one page load with telemetry on, then the dashboard shows its first event
+  await gotoSite();
+  await sleep(14_000);
+  if (link) {
+    await page.goto(link);
+    await sleep(4000);
+    await shot(page, "dashboard-first-events");
+  }
 });
 
 // ---------------------------------------------------------------------------------------------------- 4. the MCP server
-// The server process is this repository's build of @genclass/mcp (packages/mcp): the package on npm, 0.1.0, predates
-// the dashboard mirror (GENCLASS_REPORT) and genclass_scan, which are in the repository's unreleased 0.1.0. The
-// published package still writes the project's .mcp.json above; a release moves the server itself to npm.
-const REPO = join(HERE, "..", "..", "..");
-const MCP_BIN = join(REPO, "packages", "mcp", "bin", "genclass-mcp.mjs");
+// The server process is the published package, started the way a coding agent's client starts it (`npx -y`).
 let mcp = null;
 await step("4. The coding agent: npx -y @genclass/mcp init, then the server as the agent's client starts it", async () => {
   await sh("mcp-init", `npx -y ${MCP} init && cat .mcp.json`, { title: "Terminal — the MCP server in the project", timeout: 300_000 });
-  mcp = startMcp({ cwd: APP, command: process.execPath, args: [MCP_BIN], env: { GENCLASS_DASHBOARD: link ?? "", GENCLASS_REPORT: "on", GENCLASS_AGENT_PORT: AGENT_PORT }, log: (s) => log(`  [mcp] ${s}`) });
+  mcp = startMcp({ cwd: APP, args: ["-y", MCP], env: { GENCLASS_DASHBOARD: link ?? "", GENCLASS_REPORT: "on", GENCLASS_AGENT_PORT: AGENT_PORT }, log: (s) => log(`  [mcp] ${s}`) });
   const init = await mcp.init("claude-code");
   summary.mcpServer = init.serverInfo;
-  summary.mcpFrom = "the repository's build (packages/mcp); npm's 0.1.0 has no GENCLASS_REPORT mirror and no genclass_scan";
+  summary.mcpFrom = `npm: ${MCP}`;
   summary.mcpTools = await mcp.list();
   await sleep(1500);
   const setup = await mcp.call("genclass_setup");
@@ -223,7 +242,7 @@ const scenarios = {
   },
 };
 const load = async (ms = 2500) => {
-  await page.goto(SITE);
+  await gotoSite();
   await sleep(ms);
 };
 let topId = null;

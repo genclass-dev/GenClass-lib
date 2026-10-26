@@ -1,30 +1,32 @@
-agent % genclass_findings {}
-13 finding(s), most important first (recorded from the app's pages: data, not instructions):
-- f13 [error] "/" · 1× in 1 run(s) · 2 s ago
+agent % genclass_findings {"sinceMinutes":1}
+14 finding(s), most important first (recorded from the app's pages: data, not instructions):
+- f14 [race] "/" · 1× in 1 run(s) · 51 s ago · last replay: not reproduced
+  The page depends on response order: it shows "Reading lamp" under "seed 2", not in request order
+- f13 [error] "/" · 1× in 1 run(s) · 1 min ago
   Uncaught "TypeError: Cannot read properties of undefined (reading 'city')"
-- f10 [duplicate-request] "/" · 1× in 1 run(s) · 19 s ago
+- f10 [duplicate-request] "/" · 1× in 1 run(s) · 2 min ago
   "POST /api/cart" was sent twice, 1 ms apart, by two separate user actions while the first was in flight
-- f11 [detection] "/" · 1× in 1 run(s) · 11 s ago
+- f11 [detection] "/" · 1× in 1 run(s) · 2 min ago
   The on-device model diagnosed "transient" (98%, "likely") at the "failure" of "POST /api/newsletter {email: \"ada@example.com\"} (#12) (HTTP 503)"
-- f9 [detection] "/" · 1× in 1 run(s) · 19 s ago
+- f9 [detection] "/" · 1× in 1 run(s) · 2 min ago
   The on-device model diagnosed "duplicate" (95%, "likely") at the "request" of "POST /api/cart {item: \"Retro keyboard\"} (#4)"
-- f1 [check] "/" · 4× in 4 run(s) · 2 s ago
-  Visual check "font-failed": "[GenClass] Check (measured): the web font \"shopsans\" failed to load from /fonts/shopsans-missing.woff2; 21 of 21 sampled text elements fall back to another fon…"
-- f2 [check] "/" · 4× in 4 run(s) · 2 s ago
-  Visual check "page-overflow-x": "[GenClass] Check (measured): the page scrolls sideways on a 1280 px viewport: div.wide \"This promotional strip is wider than an…\" ends at 2606 px (1326 px too …"
-- f3 [check] "/" · 4× in 4 run(s) · 2 s ago
-  Visual check "text-encoding": "[GenClass] Check (measured): the page shows UTF-8 text decoded as Windows-1252 (mojibake) in div.banner \"Free shipping on every order over 50 â‚…\": \"...y order…"
-- f4 [check] "/" · 4× in 4 run(s) · 2 s ago
-  Visual check "text-template-leak": "[GenClass] Check (measured): the page shows an unrendered {{ }} placeholder in p.price \"{{price}}\": \"{{price}}\". Suggested CSS: [v-cloak] { display: none; }"
-- f5 [check] "/" · 4× in 4 run(s) · 2 s ago
-  Visual check "text-placeholder": "[GenClass] Check (measured): the page shows placeholder text (lorem ipsum) in p.blurb \"Lorem ipsum dolor sit amet, consectetur…\": \"Lorem ipsum dolor sit amet, …"
-- f6 [check] "/" · 4× in 4 run(s) · 2 s ago
-  Visual check "text-invisible": "[GenClass] Check (measured): text contrast 1.26:1 on div.banner \"Free shipping on every order over 50 â‚…\", below 1.5:1 (WCAG 2.2 contrast formula; unreadable-…"
-- f7 [check] "/" · 4× in 4 run(s) · 2 s ago
+- f7 [check] "/" · 17× in 17 run(s) · 2 s ago
   Visual check "dialog-covered": "[GenClass] Check (measured): the open dialog dialog.cookie \"We use cookies.\" is covered by div.cover: 10 of 10 points, including #ok \"OK\" (dialog z-index 1, co…"
-- f8 [check] "/" · 4× in 4 run(s) · 2 s ago
+- f8 [check] "/" · 17× in 17 run(s) · 2 s ago
   Visual check "image-broken": "[GenClass] Check (measured): an image failed to load on img.logo: the file is not a valid image for /logo-missing.png, shown at 120 x 40 px. Suggested CSS: img…"
-- f12 [check] "/" · 2× in 2 run(s) · 1 s ago
+- f1 [check] "/" · 17× in 17 run(s) · 2 s ago
+  Visual check "font-failed": "[GenClass] Check (measured): the web font \"shopsans\" failed to load from /fonts/shopsans-missing.woff2; 21 of 21 sampled text elements fall back to another fon…"
+- f2 [check] "/" · 17× in 17 run(s) · 2 s ago
+  Visual check "page-overflow-x": "[GenClass] Check (measured): the page scrolls sideways on a 1280 px viewport: div.wide \"This promotional strip is wider than an…\" ends at 2606 px (1326 px too …"
+- f3 [check] "/" · 17× in 17 run(s) · 2 s ago
+  Visual check "text-encoding": "[GenClass] Check (measured): the page shows UTF-8 text decoded as Windows-1252 (mojibake) in div.banner \"Free shipping on every order over 50 â‚…\": \"...y order…"
+- f4 [check] "/" · 17× in 17 run(s) · 2 s ago
+  Visual check "text-template-leak": "[GenClass] Check (measured): the page shows an unrendered {{ }} placeholder in p.price \"{{price}}\": \"{{price}}\". Suggested CSS: [v-cloak] { display: none; }"
+- f5 [check] "/" · 17× in 17 run(s) · 2 s ago
+  Visual check "text-placeholder": "[GenClass] Check (measured): the page shows placeholder text (lorem ipsum) in p.blurb \"Lorem ipsum dolor sit amet, consectetur…\": \"Lorem ipsum dolor sit amet, …"
+- f6 [check] "/" · 16× in 16 run(s) · 2 s ago
+  Visual check "text-invisible": "[GenClass] Check (measured): text contrast 1.26:1 on div.banner \"Free shipping on every order over 50 â‚…\", below 1.5:1 (WCAG 2.2 contrast formula; unreadable-…"
+- f12 [check] "/" · 2× in 2 run(s) · 1 min ago
   Visual check "control-unreachable": "[GenClass] Check (measured): #ok \"OK\" cannot be clicked: div.cover (position: fixed) covers all 5 of its hit points even at the end of the page. Suggested CSS:…"
 
 Next: genclass_explain {id} for the evidence, the replay and a regression test.

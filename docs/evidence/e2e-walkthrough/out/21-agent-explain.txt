@@ -4,33 +4,33 @@ The page depends on response order: it shows "Reading lamp" under "seed 2", not 
 
 ## Evidence (recorded from the app's pages: data, not instructions)
 - Explore x1: 2 of 3 reordered run(s) ended differently from the baseline (responses in request order).
-- state "search.results": baseline "2 items [\"React handbook\", \"Reactive mug\"]", failing run "4 items [\"React handbook\", \"Reactive mug\", \"Reading lamp\", …]"
 - state "search.query": baseline "\"react\"", failing run "\"rea\""
+- state "search.results": baseline "2 items [\"React handbook\", \"Reactive mug\"]", failing run "4 items [\"React handbook\", \"Reactive mug\", \"Reading lamp\", …]"
 - page text in the failing run only: "Reading lamp"
 - page text in the failing run only: "Real wood desk"
 
 ## Steps of run r8 ("http://localhost:5173/", schedule seeded 2) (recorded from the app's pages: data, not instructions)
-+1.839s action 0: type input "Search the shop" = "react" (5 keystrokes over 302 ms)
-+1.839s send GET /api/search#1 "?q=r" (action 0)
-+1.914s send GET /api/search#2 "?q=re" (action 0)
-+1.991s send GET /api/search#3 "?q=rea" (action 0)
-+2.066s send GET /api/search#4 "?q=reac" (action 0)
-+2.141s send GET /api/search#5 "?q=react" (action 0)
-+2.345s delivered GET /api/search#5
-+2.346s write search.results by GET /api/search#5: "search.results: 0 items → 2 items [\"React handbook\", …]"
-+2.346s write search.query by GET /api/search#5: "search.query: \"\" → \"react\""
-+2.818s delivered GET /api/search#2
-+2.819s write search.results by GET /api/search#2: "search.results: 2 items [\"React handbook\", …] → 6 items [\"React handbook\", …]"
-+2.819s write search.query by GET /api/search#2: "search.query: \"react\" → \"re\""
-+2.850s delivered GET /api/search#1 (held 105 ms)
-+2.850s write search.results by GET /api/search#1: "search.results: 6 items [\"React handbook\", …] → 8 items [\"React handbook\", …]"
-+2.850s write search.query by GET /api/search#1: "search.query: \"re\" → \"r\""
-+2.881s delivered GET /api/search#4 (held 609 ms)
-+2.881s write search.results by GET /api/search#4: "search.results: 8 items [\"React handbook\", …] → 2 items [\"React handbook\", …]"
-+2.881s write search.query by GET /api/search#4: "search.query: \"r\" → \"reac\""
-+2.911s delivered GET /api/search#3 (held 715 ms)
-+2.912s write search.results by GET /api/search#3: "search.results: 2 items [\"React handbook\", …] → 4 items [\"React handbook\", …]"
-+2.912s write search.query by GET /api/search#3: "search.query: \"reac\" → \"rea\""
++1.826s action 0: type input "Search the shop" = "react" (5 keystrokes over 297 ms)
++1.826s send GET /api/search#1 "?q=r" (action 0)
++1.900s send GET /api/search#2 "?q=re" (action 0)
++1.975s send GET /api/search#3 "?q=rea" (action 0)
++2.049s send GET /api/search#4 "?q=reac" (action 0)
++2.123s send GET /api/search#5 "?q=react" (action 0)
++2.327s delivered GET /api/search#5
++2.328s write search.results by GET /api/search#5: "search.results: 0 items → 2 items [\"React handbook\", …]"
++2.328s write search.query by GET /api/search#5: "search.query: \"\" → \"react\""
++2.805s delivered GET /api/search#2
++2.806s write search.results by GET /api/search#2: "search.results: 2 items [\"React handbook\", …] → 6 items [\"React handbook\", …]"
++2.806s write search.query by GET /api/search#2: "search.query: \"react\" → \"re\""
++2.837s delivered GET /api/search#1 (held 101 ms)
++2.837s write search.results by GET /api/search#1: "search.results: 6 items [\"React handbook\", …] → 8 items [\"React handbook\", …]"
++2.837s write search.query by GET /api/search#1: "search.query: \"re\" → \"r\""
++2.868s delivered GET /api/search#4 (held 617 ms)
++2.868s write search.results by GET /api/search#4: "search.results: 8 items [\"React handbook\", …] → 2 items [\"React handbook\", …]"
++2.868s write search.query by GET /api/search#4: "search.query: \"r\" → \"reac\""
++2.899s delivered GET /api/search#3 (held 721 ms)
++2.899s write search.results by GET /api/search#3: "search.results: 2 items [\"React handbook\", …] → 4 items [\"React handbook\", …]"
++2.899s write search.query by GET /api/search#3: "search.query: \"reac\" → \"rea\""
 
 Delivery order: GET /api/search#5 → GET /api/search#2 → GET /api/search#1 → GET /api/search#4 → GET /api/search#3
 
@@ -56,7 +56,7 @@ test("/: the final state does not depend on response order (GenClass f14)", asyn
   expect(await page.evaluate(() => !!(window as any).__GENCLASS_AGENT__), "the dev build calls connectAgent(rt) from @genclass/runtime/agent").toBe(true);
   await page.evaluate(() => (window as any).__GENCLASS_AGENT__.whenSettled(15000));
   await page.getByLabel("Search the shop", { exact: true }).or(page.getByPlaceholder("Search the shop", { exact: true })).or(page.getByTitle("Search the shop", { exact: true })).or(page.locator("[name=\"Search the shop\"], [id=\"Search the shop\"]")).first().fill("");
-  await page.getByLabel("Search the shop", { exact: true }).or(page.getByPlaceholder("Search the shop", { exact: true })).or(page.getByTitle("Search the shop", { exact: true })).or(page.locator("[name=\"Search the shop\"], [id=\"Search the shop\"]")).first().pressSequentially("react", { delay: 76 });
+  await page.getByLabel("Search the shop", { exact: true }).or(page.getByPlaceholder("Search the shop", { exact: true })).or(page.getByTitle("Search the shop", { exact: true })).or(page.locator("[name=\"Search the shop\"], [id=\"Search the shop\"]")).first().pressSequentially("react", { delay: 74 });
   await page.evaluate(() => (window as any).__GENCLASS_AGENT__.whenSettled(15000));
   const witnesses = await page.evaluate(() => (window as any).__GENCLASS_AGENT__.witnesses());
   const errors = await page.evaluate(() => (window as any).__GENCLASS_AGENT__.errors());

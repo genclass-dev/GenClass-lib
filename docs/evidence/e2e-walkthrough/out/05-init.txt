@@ -2,6 +2,7 @@
 
   GenClass Runtime • init
 
+  ✔ Version    @genclass/runtime 0.3.0-beta.2 (npm dist-tag beta)
   ✔ Project    tiny-shop (Vite + vanilla)
   ✔ Packages   npm
   ✔ Entry      src/main.js
@@ -10,7 +11,7 @@
              GenClass sends anonymous diagnostics to its maintainers: its decisions, action outcomes,
              model status and counts. No text from the page (the situation text the model read is sent
              only with telemetry: { include: { situation: true } }); never cookies or IP addresses;
-             never from localhost or private hosts. Turn it off: npx @genclass/runtime init --no-telemetry
+             never from localhost or private hosts. Turn it off: npx @genclass/runtime@beta init --no-telemetry
              (or GenClass.init({ telemetry: false }), ?genclass=no-telemetry in the URL).
              What is sent: https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md
              Privacy policy: https://github.com/genclass-dev/GenClass-lib/blob/main/PRIVACY.md
@@ -40,17 +41,18 @@
     + globalThis.GENCLASS_CONFIG = { token: "gc_new-token-created-when-you-apply" };
     + // genclass:init end
 
-  Install  npm install @genclass/runtime@^0.3.0-beta.1 --no-audit --no-fund
+  Install  npm install @genclass/runtime@^0.3.0-beta.2 --no-audit --no-fund
 
-  → npm install @genclass/runtime@^0.3.0-beta.1 --no-audit --no-fund
+  → npm install @genclass/runtime@^0.3.0-beta.2 --no-audit --no-fund
 
-added 19 packages in 2s
+added 19 packages in 3s
 
   ✔ GenClass Runtime is set up. (src/main.js, src/genclass.config.js)
 
   Your dashboard  https://genclass.dev/dashboard/<redacted>
   Keep this link private; it is the only way to open your dashboard.
-  The dashboard is free; the link opens it.
+  Free for every app: what GenClass found, on which pages, and what it did, and (with analytics: true)
+  how visitors use each page. Print this link again any time: npx @genclass/runtime@beta dashboard
   Saved in .genclass.local (git already ignores it).
   It fills once your deployed app runs with telemetry on. Local hosts (localhost, *.local, *.test, private
   networks) do not send by default (telemetry: true opts them in), and visitors who opt out or send
@@ -62,6 +64,6 @@ added 19 packages in 2s
     • In development an overlay shows what GenClass sees (bottom-right, Alt+Shift+G).
     • Rule it out while debugging: add ?genclass=off to the URL.
 
-  Undo: npx @genclass/runtime remove
+  Undo: npx @genclass/runtime@beta remove
 
 

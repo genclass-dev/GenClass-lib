@@ -20,10 +20,10 @@ vite.config.js
 
 ===== 1. The shop as it is: the page, and a scan with no integration at all
 
-$ node ../../../../packages/runtime/bin/genclass-runtime.mjs scan http://localhost:5173
+$ npx @genclass/runtime@beta scan http://localhost:5173
 
   GenClass scan • http://localhost:5173/
-  ran locally: Chromium 153.0.8010.12, desktop 1280x800, phone 390x844; @genclass/runtime 0.3.0-beta.1 visual checks in observe mode (no telemetry, no model, nothing sent)
+  ran locally: Chromium 153.0.8010.12, desktop 1280x800, phone 390x844; @genclass/runtime 0.3.0-beta.2 visual checks in observe mode (no telemetry, no model, nothing sent)
 
   Visual score 8/100  •  10 problems (6 high, 3 medium, 1 low)
 
@@ -42,6 +42,7 @@ $ npx @genclass/runtime@beta init --yes
 
   GenClass Runtime • init
 
+  ✔ Version    @genclass/runtime 0.3.0-beta.2 (npm dist-tag beta)
   ✔ Project    tiny-shop (Vite + vanilla)
   ✔ Packages   npm
   ✔ Entry      src/main.js
@@ -50,12 +51,11 @@ $ npx @genclass/runtime@beta init --yes
              GenClass sends anonymous diagnostics to its maintainers: its decisions, action outcomes,
              model status and counts. No text from the page (the situation text the model read is sent
              only with telemetry: { include: { situation: true } }); never cookies or IP addresses;
-             never from localhost or private hosts. Turn it off: npx @genclass/runtime init --no-telemetry
   …
 
 $ diff -u ../steps/00-main.before.js src/main.js; echo; echo '--- src/genclass.config.js (new)'; cat src/genclass.config.js; echo; echo '--- .genclass.local (new, gitignored)'; cat .genclass.local
---- ../steps/00-main.before.js	2026-10-25 16:15:07
-+++ src/main.js	2026-10-25 16:39:17
+--- ../steps/00-main.before.js	2026-10-25 19:48:45
++++ src/main.js	2026-10-25 20:05:45
 @@ -1,3 +1,5 @@
 +import "./genclass.config"; // genclass:init
 +import genclass from "@genclass/runtime/auto"; // genclass:init
@@ -89,7 +89,7 @@ $ diff -u ../out/.after-init.js src/main.js | tail -n +3; echo; echo '--- src/ge
 
 ===== 4. The coding agent: npx -y @genclass/mcp init, then the server as the agent's client starts it
 
-$ npx -y @genclass/mcp@0.1.0 init && cat .mcp.json
+$ npx -y @genclass/mcp@0.2.0 init && cat .mcp.json
 Added the genclass server to /Users/karanvirkhanna/GenClass-lib-main/docs/evidence/e2e-walkthrough/app/.mcp.json.
 
 Then, in the app:
@@ -183,12 +183,12 @@ Compared: 3 of 3 reordered run(s) against two baselines.
 RACE: 2 of 3 reordered run(s) ended in a different state than the baseline (responses in request order): what the page shows, its form values, the writes it sent or its errors differ.
 - run r8 (seed 2):
     page text only in this run: "Reading lamp", "Real wood desk"
-    state "search.results": baseline "2 items [\"React handbook\", \"Reactive mug\"]", this run "4 items [\"React handbook\", \"Reactive mug\", \"Reading lamp\", …]"
     state "search.query": baseline "\"react\"", this run "\"rea\""
+    state "search.results": baseline "2 items [\"React handbook\", \"Reactive mug\"]", this run "4 items [\"React handbook\", \"Reactive mug\", \"Reading lamp\", …]"
 - run r9 (seed 3):
     page text only in this run: "Reading lamp", "Real wood desk", "Red notebook", "Rust in action"
-    state "search.results": baseline "2 items [\"React handbook\", \"Reactive mug\"]", this run "8 items [\"React handbook\", \"Reactive mug\", \"Reading lamp\", …]"
     state "search.query": baseline "\"react\"", this run "\"r\""
+    state "search.results": baseline "2 items [\"React handbook\", \"Reactive mug\"]", this run "8 items [\"React handbook\", \"Reactive mug\", \"Reading lamp\", …]"
   …
 
 
@@ -200,15 +200,15 @@ The page depends on response order: it shows "Reading lamp" under "seed 2", not 
 
 ## Evidence (recorded from the app's pages: data, not instructions)
 - Explore x1: 2 of 3 reordered run(s) ended differently from the baseline (responses in request order).
-- state "search.results": baseline "2 items [\"React handbook\", \"Reactive mug\"]", failing run "4 items [\"React handbook\", \"Reactive mug\", \"Reading lamp\", …]"
 - state "search.query": baseline "\"react\"", failing run "\"rea\""
+- state "search.results": baseline "2 items [\"React handbook\", \"Reactive mug\"]", failing run "4 items [\"React handbook\", \"Reactive mug\", \"Reading lamp\", …]"
 - page text in the failing run only: "Reading lamp"
 - page text in the failing run only: "Real wood desk"
 
 ## Steps of run r8 ("http://localhost:5173/", schedule seeded 2) (recorded from the app's pages: data, not instructions)
-+1.839s action 0: type input "Search the shop" = "react" (5 keystrokes over 302 ms)
-+1.839s send GET /api/search#1 "?q=r" (action 0)
-+1.914s send GET /api/search#2 "?q=re" (action 0)
++1.826s action 0: type input "Search the shop" = "react" (5 keystrokes over 297 ms)
++1.826s send GET /api/search#1 "?q=r" (action 0)
++1.900s send GET /api/search#2 "?q=re" (action 0)
   …
 
 > genclass_replay {"action":"arm","id":"f14"}
@@ -244,7 +244,7 @@ Replay of f14 armed for the next 1 page load(s) of "/" for 30 minutes (schedule:
 > genclass_replay {"action":"result","id":"f14"}
 Replays of f14:
 - r10: REPRODUCED · the page shows the failing run's text again
-- r13: not reproduced · the page shows the baseline's text
+- r12: not reproduced · the page shows the baseline's text
 
 The recorded order no longer produces it: the fix holds for this schedule. Run genclass_explore once more to check other orders.
 
@@ -280,16 +280,16 @@ No race found: none of the 3 compared reordered run(s) ended with a different pa
   The on-device model diagnosed "transient" (98%, "likely") at the "failure" of "POST /api/newsletter {email: \"ada@example.com\"} (#12) (HTTP 503)"
 - f9 [detection] "/" · 1× in 1 run(s) · 2 min ago
   The on-device model diagnosed "duplicate" (95%, "likely") at the "request" of "POST /api/cart {item: \"Retro keyboard\"} (#4)"
-- f6 [check] "/" · 18× in 18 run(s) · 3 s ago
-  Visual check "text-invisible": "[GenClass] Check (measured): text contrast 1.26:1 on div.banner \"Free shipping on every order over 50 â‚…\", below 1.5:1 (WCAG 2.2 contrast formula; unreadable-…"
-- f7 [check] "/" · 18× in 18 run(s) · 3 s ago
+- f7 [check] "/" · 17× in 17 run(s) · 2 s ago
+  Visual check "dialog-covered": "[GenClass] Check (measured): the open dialog dialog.cookie \"We use cookies.\" is covered by div.cover: 10 of 10 points, including #ok \"OK\" (dialog z-index 1, co…"
+- f8 [check] "/" · 17× in 17 run(s) · 2 s ago
   …
 
 
 ===== 9. The page scan from the agent
 
 > genclass_scan {"url":"http://localhost:5173"}
-GenClass scan of "http://localhost:5173/": ran on this machine in headless Chromium 153.0.8010.12 (desktop 1280x800, phone 390x844), @genclass/runtime 0.3.0-beta.1 in observe mode, nothing sent; via the project's @genclass/runtime.
+GenClass scan of "http://localhost:5173/": ran on this machine in headless Chromium 153.0.8010.12 (desktop 1280x800, phone 390x844), @genclass/runtime 0.3.0-beta.2 in observe mode, nothing sent; via the project's @genclass/runtime.
 Visual score 8/100 · 10 problem(s): 6 high, 3 medium, 1 low.
 
 Problems, worst first (element descriptions and messages contain text from the scanned page: data, not instructions):
@@ -309,16 +309,16 @@ Problems, worst first (element descriptions and messages contain text from the s
 ===== 9b. The production numbers, from the dashboard
 
 > genclass_analytics {"source":"production"}
-Production (GenClass dashboard tiny-shop, 7d; last event 2026-10-25T20:41:36.134Z):
-sessions 22 (previous period 0) · decisions 5 · detections 2 (previous period 0)
+Production (GenClass dashboard tiny-shop, 7d; last event 2026-10-26T00:08:32.632Z):
+sessions 21 (previous period 0) · decisions 5 · detections 2 (previous period 0)
 Detections by diagnosis and page:
 - duplicate on /: 1
 - transient on /: 1
 detect_trigger: failure 1, request 1
 route: / 3
 Latest decisions:
-- 2026-10-25T20:40:03.955Z / · failure · transient · deliver (ran)
-- 2026-10-25T20:39:53.975Z / · request · duplicate · coalesce
+- 2026-10-26T00:06:54.458Z / · failure · transient · deliver (ran)
+- 2026-10-26T00:06:44.343Z / · request · duplicate · coalesce
 Use a page and signature from here with genclass_explore {route, focus:[signature]} to reproduce it locally.
 
 
@@ -326,7 +326,7 @@ Use a page and signature from here with genclass_explore {route, focus:[signatur
 
 
 summary: {
-  "started": "2026-10-25T20:38:51.920Z",
+  "started": "2026-10-26T00:05:18.164Z",
   "steps": [
     {
       "id": "01-tree",
@@ -343,7 +343,7 @@ summary: {
     },
     {
       "id": "04-scan",
-      "cmd": "node ../../../../packages/runtime/bin/genclass-runtime.mjs scan http://localhost:5173",
+      "cmd": "npx @genclass/runtime@beta scan http://localhost:5173",
       "status": 1
     },
     {
@@ -357,138 +357,146 @@ summary: {
       "status": 0
     },
     {
-      "id": "07-shop-with-runtime-and-overlay",
+      "id": "07-dashboard-fresh-no-data",
       "screenshot": true
     },
     {
-      "id": "09-wire-diff",
+      "id": "08-shop-with-runtime-and-overlay",
+      "screenshot": true
+    },
+    {
+      "id": "10-wire-diff",
       "cmd": "diff -u ../out/.after-init.js src/main.js | tail -n +3; echo; echo '--- src/genclass.config.js'; cat src/genclass.config.js",
       "status": 0
     },
     {
-      "id": "10-mcp-init",
-      "cmd": "npx -y @genclass/mcp@0.1.0 init && cat .mcp.json",
+      "id": "11-dashboard-first-events",
+      "screenshot": true
+    },
+    {
+      "id": "12-mcp-init",
+      "cmd": "npx -y @genclass/mcp@0.2.0 init && cat .mcp.json",
       "status": 0
     },
     {
-      "id": "11-agent-setup",
+      "id": "13-agent-setup",
       "cmd": "genclass_setup {}",
       "isError": false
     },
     {
-      "id": "12-agent-status-nopage",
+      "id": "14-agent-status-nopage",
       "cmd": "genclass_status {}",
       "isError": false
     },
     {
-      "id": "13-shop-stale-search",
+      "id": "15-shop-stale-search",
       "screenshot": true
     },
     {
-      "id": "14-shop-used",
+      "id": "16-shop-used",
       "screenshot": true
     },
     {
-      "id": "15-agent-status",
+      "id": "17-agent-status",
       "cmd": "genclass_status {}",
       "isError": false
     },
     {
-      "id": "16-agent-findings",
+      "id": "18-agent-findings",
       "cmd": "genclass_findings {}",
       "isError": false
     },
     {
-      "id": "17-agent-explore-start-before-fix",
+      "id": "19-agent-explore-start-before-fix",
       "cmd": "genclass_explore {\"action\":\"start\",\"runs\":3,\"route\":\"/\"}",
       "isError": false
     },
     {
-      "id": "18-agent-explore-report-before-fix",
+      "id": "20-agent-explore-report-before-fix",
       "cmd": "genclass_explore {\"action\":\"report\"}",
       "isError": false
     },
     {
-      "id": "19-agent-explain",
+      "id": "21-agent-explain",
       "cmd": "genclass_explain {\"id\":\"f14\"}",
       "isError": false
     },
     {
-      "id": "20-agent-replay-arm",
+      "id": "22-agent-replay-arm",
       "cmd": "genclass_replay {\"action\":\"arm\",\"id\":\"f14\"}",
       "isError": false
     },
     {
-      "id": "21-shop-replay-reproduced",
+      "id": "23-shop-replay-reproduced",
       "screenshot": true
     },
     {
-      "id": "22-agent-replay-result-before-fix",
+      "id": "24-agent-replay-result-before-fix",
       "cmd": "genclass_replay {\"action\":\"result\",\"id\":\"f14\"}",
       "isError": false
     },
     {
-      "id": "23-fix-diff",
+      "id": "25-fix-diff",
       "cmd": "diff -u ../steps/02-main.js src/main.js | tail -n +3",
       "status": 0
     },
     {
-      "id": "24-agent-replay-arm-after-fix",
+      "id": "26-agent-replay-arm-after-fix",
       "cmd": "genclass_replay {\"action\":\"arm\",\"id\":\"f14\"}",
       "isError": false
     },
     {
-      "id": "25-shop-after-fix",
+      "id": "27-shop-after-fix",
       "screenshot": true
     },
     {
-      "id": "26-agent-replay-result-after-fix",
+      "id": "28-agent-replay-result-after-fix",
       "cmd": "genclass_replay {\"action\":\"result\",\"id\":\"f14\"}",
       "isError": false
     },
     {
-      "id": "27-agent-explore-start-after-fix",
+      "id": "29-agent-explore-start-after-fix",
       "cmd": "genclass_explore {\"action\":\"start\",\"runs\":3,\"route\":\"/\"}",
       "isError": false
     },
     {
-      "id": "28-agent-explore-report-after-fix",
+      "id": "30-agent-explore-report-after-fix",
       "cmd": "genclass_explore {\"action\":\"report\"}",
       "isError": false
     },
     {
-      "id": "29-agent-findings-after-fix",
+      "id": "31-agent-findings-after-fix",
       "cmd": "genclass_findings {\"sinceMinutes\":1}",
       "isError": false
     },
     {
-      "id": "30-agent-scan",
+      "id": "32-agent-scan",
       "cmd": "genclass_scan {\"url\":\"http://localhost:5173\"}",
       "isError": false
     },
     {
-      "id": "31-agent-analytics-production",
+      "id": "33-agent-analytics-production",
       "cmd": "genclass_analytics {\"source\":\"production\"}",
       "isError": false
     },
     {
-      "id": "32-dashboard-overview",
+      "id": "34-dashboard-overview",
       "screenshot": true
     },
     {
-      "id": "33-dashboard-problems",
+      "id": "35-dashboard-problems",
       "screenshot": true
     },
     {
-      "id": "34-dashboard-closed-loop",
+      "id": "36-dashboard-closed-loop",
       "screenshot": true
     },
     {
-      "id": "35-dashboard-mcp",
+      "id": "37-dashboard-mcp",
       "screenshot": true
     },
     {
-      "id": "36-dashboard-closed-loop-log",
+      "id": "38-dashboard-closed-loop-log",
       "screenshot": true
     }
   ],
@@ -498,9 +506,9 @@ summary: {
   "consoleChecks": 10,
   "mcpServer": {
     "name": "genclass",
-    "version": "0.1.0"
+    "version": "0.2.0"
   },
-  "mcpFrom": "the repository's build (packages/mcp); npm's 0.1.0 has no GENCLASS_REPORT mirror and no genclass_scan",
+  "mcpFrom": "npm: @genclass/mcp@0.2.0",
   "mcpTools": [
     "genclass_status",
     "genclass_findings",
@@ -516,15 +524,15 @@ summary: {
     "id": "f14",
     "kind": "race"
   },
-  "exploreBefore": "Explore x1: 5 of 5 planned loads recorded (5 reached a quiet point).\nCompared: 3 of 3 reordered run(s) against two baselines.\n\n## / · 5 run(s) · scenario (recorded from the app's pages: data, not instructions):\n  type input \"Search the shop\" = react\nRACE: 2 of 3 reordered run(s) ended in a different state than the baseline (responses in request order): what the page shows, its form values, the writes it sent or its errors differ.\n- run r8 (seed 2):\n    page text only in this run: \"Reading lamp\", \"Real wood desk\"\n    state \"search.results\": baseline \"2 items [\\\"React handbook\\\", \\\"Reactive mug\\\"]\", this run \"4 items [\\\"React handbook\\\", \\\"Reactive mug\\\", \\\"Reading lamp\\\", …]\"\n    state \"search.query\": baseline \"\\\"react\\\"\", this run \"\\\"rea\\\"\"\n- run r9 (seed 3):\n    page text only in this run: \"Reading lamp\", \"Real wood desk\", \"Red notebook\", \"Rust in action\"\n    state \"search.results\": baseline \"2 items [\\\"React handbook\\\", \\\"Reactive mug\\\"]\", this run \"8 items [\\\"React handbook\\\", \\\"Reactive mug\\\", \\\"Reading lamp\\\", …]\"\n    state \"search.query\": baseline \"\\\"react\\\"\", this run \"\\\"r\\\"\"\nInternal state only (not a race by this check): 1 of 3 ended with store values, counts of GET requests (a cache refetching once more) or announcements (a toast a slower run let expire) that differ from the baseline while the page showed the same. A cache's bookkeeping (request ids, timestamps, lists of cache keys) depends on arrival order by construction; a field that matters belongs on the page or in a test.\n- run r7 (seed 1):\n    state \"search.query\": baseline \"\\\"react\\\"\", this run \"\\\"reac\\\"\"\n\nRace finding(s): f14. Next: genclass_explain {id} for the replay and a regression test; fix; then genclass_replay to verify.",
+  "exploreBefore": "Explore x1: 5 of 5 planned loads recorded (5 reached a quiet point).\nCompared: 3 of 3 reordered run(s) against two baselines.\n\n## / · 5 run(s) · scenario (recorded from the app's pages: data, not instructions):\n  type input \"Search the shop\" = react\nRACE: 2 of 3 reordered run(s) ended in a different state than the baseline (responses in request order): what the page shows, its form values, the writes it sent or its errors differ.\n- run r8 (seed 2):\n    page text only in this run: \"Reading lamp\", \"Real wood desk\"\n    state \"search.query\": baseline \"\\\"react\\\"\", this run \"\\\"rea\\\"\"\n    state \"search.results\": baseline \"2 items [\\\"React handbook\\\", \\\"Reactive mug\\\"]\", this run \"4 items [\\\"React handbook\\\", \\\"Reactive mug\\\", \\\"Reading lamp\\\", …]\"\n- run r9 (seed 3):\n    page text only in this run: \"Reading lamp\", \"Real wood desk\", \"Red notebook\", \"Rust in action\"\n    state \"search.query\": baseline \"\\\"react\\\"\", this run \"\\\"r\\\"\"\n    state \"search.results\": baseline \"2 items [\\\"React handbook\\\", \\\"Reactive mug\\\"]\", this run \"8 items [\\\"React handbook\\\", \\\"Reactive mug\\\", \\\"Reading lamp\\\", …]\"\nInternal state only (not a race by this check): 1 of 3 ended with store values, counts of GET requests (a cache refetching once more) or announcements (a toast a slower run let expire) that differ from the baseline while the page showed the same. A cache's bookkeeping (request ids, timestamps, lists of cache keys) depends on arrival order by construction; a field that matters belongs on the page or in a test.\n- run r7 (seed 1):\n    state \"search.query\": baseline \"\\\"react\\\"\", this run \"\\\"reac\\\"\"\n\nRace finding(s): f14. Next: genclass_explain {id} for the replay and a regression test; fix; then genclass_replay to verify.",
   "testWritten": "tests/f14.spec.ts",
   "replayBefore": "REPRODUCED",
-  "replayAfter": "REPRODUCED",
+  "replayAfter": "not reproduced",
   "fixedResults": "React handbookReactive mug",
   "exploreAfter": "Explore x2: 5 of 5 planned loads recorded (5 reached a quiet point).\nCompared: 3 of 3 reordered run(s) against two baselines.\n\n## / · 5 run(s) · scenario (recorded from the app's pages: data, not instructions):\n  type input \"Search the shop\" = react\nNo race found: none of the 3 compared reordered run(s) ended with a different page, form values, writes or errors than the baseline.",
   "cartAfterFix": "3",
   "dashboard": {
-    "sessions": 22,
+    "sessions": 21,
     "detections": 2,
     "agentStages": {
       "found": 15,
@@ -561,6 +569,6 @@ summary: {
       "found f1"
     ]
   },
-  "finished": "2026-10-25T20:42:25.727Z",
+  "finished": "2026-10-26T00:09:18.529Z",
   "errors": []
 }
