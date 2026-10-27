@@ -83,7 +83,7 @@ What follows from that:
 - **Rule 7.** No new dependency. axe-core is not added; the contrast pipeline below reimplements the parts of its
   approach that matter (stack at text rects, walk to the first opaque layer, abstain on anything complex).
 - **Rule 8.** No visual telemetry shipped until the owner approved the exact fields (section 10): counts only,
-  approved on 2026-10-27 and sent from `0.3.0-beta.4`.
+  approved on 2026-10-27 and sent from `0.3.0-beta.5`.
 
 ## 2. Shared machinery
 
@@ -998,7 +998,7 @@ Why off on public hosts by default:
    time is 4 to 6 times larger (estimate, to be measured). The visitor gets nothing back unless a developer reads the
    reports.
 2. **Nobody reads production consoles.** Production findings reach only an app's own `report` function or sinks;
-   since `0.3.0-beta.4` their counts also reach the app's dashboard through telemetry (section 10). An app that wants
+   since `0.3.0-beta.5` their counts also reach the app's dashboard through telemetry (section 10). An app that wants
    them sets `visual: true`.
 3. **Visitors' environments cause false reports.** Dark-mode extensions, page translation, zoom, forced colours and
    user font settings change what is measured. The abstain list covers the known ones; the bench (section 15) has to
@@ -1184,7 +1184,7 @@ receives every report.
 
 ## 10. Telemetry
 
-**Approved by the owner on 2026-10-27; sent from `0.3.0-beta.4`.** Rule 8 says widening what is sent needs the
+**Approved by the owner on 2026-10-27; sent from `0.3.0-beta.5`.** Rule 8 says widening what is sent needs the
 owner's OK, and the request of 2026-10-13 did not mention telemetry, so until then nothing about the checks was sent.
 (The first implementation added a `visual` field to the session and summary events; the review of 2026-10-13 removed
 both, section 19.) The owner approved these fields, counts only, on 2026-10-27, after a production site full of stuck
@@ -1504,7 +1504,7 @@ Owner decisions:
    `visual: true`), and whether `?genclass-visual=on` may enable report-only checks on public hosts.
 2. **Fixes**: explicit `visual.fix` plus `guard` or `heal`, and the three v1 fix kinds.
 3. **Telemetry**: the fields in section 10 (counts per kind and normalised route), under rule 8. Approved on
-   2026-10-27, sent from `0.3.0-beta.4`.
+   2026-10-27, sent from `0.3.0-beta.5`.
 4. **Sinks**: `"check"` records only for sinks that list it in `kinds`.
 5. **Gates**: the numbers in section 15. Measured on 2026-10-13 (RESULTS.md section 14): the false-report and fix gates
    are met; the 4x-throttling gate is not reliably met (pass 1 inside 100 ms on 78.1% of clean local pages in runs 1

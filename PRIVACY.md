@@ -30,7 +30,7 @@ object; version 0.2.1 sent from those hosts by default, by mistake, fixed in 0.2
   their users.
 - **Technical details:** GenClass and model versions, settings, device type (WebGPU or WASM), load times and error
   counts, and the website's hostname.
-- **Counts of the measured visual checks, from runtime 0.3.0-beta.4, only where they run** (off on public sites
+- **Counts of the measured visual checks, from runtime 0.3.0-beta.5, only where they run** (off on public sites
   unless the website's developer turned them on): whether the checks run on the page and whether their fixes are on,
   how many problems each check found (such as text in its background's colour, or a page that stopped scrolling), the
   same per page path, and how many fixes GenClass applied on the page and undid. Never which element, its text, its

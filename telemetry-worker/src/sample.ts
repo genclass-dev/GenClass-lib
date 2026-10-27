@@ -4,7 +4,7 @@
 // refresh does not reshuffle the chart. It shows the "possible issues" tier too (lower confidence, never counted as
 // problems), with its own simulated counts, and interaction analytics (page views, time on page, scroll depth, clicks,
 // rage and dead clicks per element; visits, their sources, devices, countries, entry and exit pages, and two funnels),
-// as an app that turned them on would, and the measured visual checks (runtime 0.3.0-beta.4) with their runtime fixes,
+// as an app that turned them on would, and the measured visual checks (runtime 0.3.0-beta.5) with their runtime fixes,
 // as an app with `visual: { on: true, fix: true }` in guard mode sends them.
 
 import { dayKey, hourKey, RANGES, type Range, type Stats } from "./dashboard.js";

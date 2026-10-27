@@ -5,7 +5,7 @@
 // 2,582 visitors (Search Console), and the 1,037 problems and 458 live fixes the owner counted on the site. The
 // dashboard, Copy as Markdown and the MCP server (GET /api/projects/<secret>) all read it from there; stored data,
 // exports, funnels and the agent log stay measured. The estimate yields to the measured counts as soon as the project
-// receives its first page load with measured checks (runtime 0.3.0-beta.4, which sends their counts: stats() in
+// receives its first page load with measured checks (runtime 0.3.0-beta.5, which sends their counts: stats() in
 // src/dashboard.ts); remove the entry after the recording.
 
 import type { Stats } from "./dashboard.js";

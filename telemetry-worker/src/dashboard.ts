@@ -12,7 +12,7 @@
 //   `summary.counts.possibleDetections`. Their own metrics (possible, possible_*), exact like detections, never in
 //   detections or detect_diagnosis. The worker never derives the tier from decision records: what the dashboard lists
 //   is what the page's console listed.
-// - Measured visual checks (runtime 0.3.0-beta.4, docs/runtime/VISUAL.md section 10): deterministic measurements with
+// - Measured visual checks (runtime 0.3.0-beta.5, docs/runtime/VISUAL.md section 10): deterministic measurements with
 //   fixed thresholds (a scroll lock left on, a page that stops taking clicks, invisible text, ads over content), never a
 //   model finding, so never in detections. The runtime sends counts only, cumulative in each `summary`
 //   (`counts.checks` per kind, `counts.checksByRoute`, `counts.fixes`, `runtime.visual`), counted exactly like the
@@ -571,7 +571,7 @@ export function summarize(batch: AggBatch): {
         c.add("model_kind", str(e.model) ?? "(unknown)");
         const dev = e.device as Ev | undefined;
         if (dev && typeof dev === "object") c.add("webgpu_available", dev.webgpu ? "yes" : "no");
-        // the measured visual checks' coverage (runtime 0.3.0-beta.4): whether they run here, and whether fixes may
+        // the measured visual checks' coverage (runtime 0.3.0-beta.5): whether they run here, and whether fixes may
         if (e.visual === "off" || e.visual === "local" || e.visual === "on") c.add("visual_setting", e.visual);
         if (e.fix === true) c.add("visual_fix");
         break;
@@ -1448,7 +1448,7 @@ export async function stats(db: D1Like, p: Project, range: Range, now: Date): Pr
     funnels: vs.funnels,
   };
   // the recorded demo's estimate for its project (src/demo.ts), until that project's first page load with measured
-  // checks arrives (runtime 0.3.0-beta.4 on the live site): from then on, in every period, its measured counts
+  // checks arrives (runtime 0.3.0-beta.5 on the live site): from then on, in every period, its measured counts
   const demo = demoData(p.name);
   if (!demo || !p.last_event) return out;
   const measured = await db.prepare("SELECT 1 AS ok FROM daily WHERE token = ? AND metric = 'check_loads' LIMIT 1").bind(p.token).first();

@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased (0.3.0-beta.4)
+## Unreleased (0.3.0-beta.5)
 
 - **The measured visual checks' counts reach the dashboard** (owner approval 2026-10-27; VISUAL.md section 10,
   TELEMETRY.md). A site full of stuck scroll locks and frozen clicks, each measured and fixed in its visitors'

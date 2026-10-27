@@ -958,7 +958,7 @@ const DASH_JS = `
     b.setAttribute("data-copy", fixPrompt(k, n, where)); b.setAttribute("aria-label", "Copy a prompt to fix " + lower(T(k).name));
     return b;
   }
-  // ---------- measured visual checks (runtime 0.3.0-beta.4, docs/runtime/VISUAL.md): deterministic measurements with
+  // ---------- measured visual checks (runtime 0.3.0-beta.5, docs/runtime/VISUAL.md): deterministic measurements with
   // fixed thresholds, never a model finding. Their own kind on every view: a "Measured check" badge, a hatched key and
   // their own slot in Fig. 1, their own prompt (genclass_scan measures the page again). Counts only reach the
   // dashboard: never a selector, element text, colour or URL.
@@ -1223,7 +1223,7 @@ const DASH_JS = `
       errs.slice(0, 4).forEach(function(x){ var li = el("li", null, fmt(x.count) + " \\u00D7 " + x.key); li.title = x.key; ul.appendChild(li); });
       dd.appendChild(ul);
     }
-    // the measured checks' coverage (runtime 0.3.0-beta.4): the counts above are read against it
+    // the measured checks' coverage (runtime 0.3.0-beta.5): the counts above are read against it
     var vs = map(B.visual_setting), cl = T0.check_loads || 0, tiers = map(B.check_tier);
     if (cl || vs.on || vs.local) {
       var cs = cl ? [plural(cl, "page load", "page loads") + " ran them", tiers.light ? fmt(tiers.light) + " on the light tier (low-end devices: the near-free checks only)" : "", T0.visual_fix ? fmt(T0.visual_fix) + " with runtime fixes on" : "", T0.check_ms ? "about " + fmt(T0.check_ms / cl) + " ms of check time each" : ""].filter(Boolean).join(", ") + "."
