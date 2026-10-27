@@ -798,11 +798,11 @@ const DASH_JS = `
     });
     if (!T0.modelLoadAvgMs) T0.modelLoadAvgMs = 3900;
     T0.detectionsWithPage = found;
-    var eng = {}; Object.keys(pages).forEach(function(r){ eng[r] = pages[r] * d.engagedSec * 1000; });
+    var eng = {}, reach = []; Object.keys(pages).forEach(function(r){ eng[r] = pages[r] * d.engagedSec * 1000; reach.push({ key: r + "\\t50", count: Math.round(pages[r] * 0.61) }, { key: r + "\\t100", count: Math.round(pages[r] * 0.34) }); });
     var add = { detect_diagnosis: kv(kinds), detect_issue: issue, detect_route: kv(routes), page_route: kv(pages), mode: [{ key: "guard", count: loads }],
       intervention: kv(fixed), action_outcome: [{ key: "applied", count: nfixed }, { key: "undone", count: n(d.undone) }],
       possible_diagnosis: kv(poss), possible_issue: possIssue, possible_route: kv(possRoutes),
-      ix_views: kv(pages), ix_engaged_ms: kv(eng), ix_ref: kv(sc(d.ref)), ix_device: kv(sc(d.device)), ix_browser: kv(sc(d.browser)), ix_os: kv(sc(d.os)),
+      ix_views: kv(pages), ix_engaged_ms: kv(eng), ix_scroll: reach, ix_ref: kv(sc(d.ref)), ix_device: kv(sc(d.device)), ix_browser: kv(sc(d.browser)), ix_os: kv(sc(d.os)),
       ix_country: kv(sc(d.country)), ix_returning: kv(sc(d.returning)), ix_click: kv(clicks), ix_rage: kv(rage), ix_dead: kv(dead) };
     Object.keys(add).forEach(function(m){ B[m] = add[m]; });
     S.distinct = S.distinct || {}; S.distinct.detect_route = Object.keys(routes).length; S.distinct.page_route = Object.keys(pages).length;
