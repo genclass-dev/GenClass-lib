@@ -10,6 +10,19 @@ import type { Stats } from "../src/dashboard.js";
 const NOW = new Date("2026-10-13T20:00:00Z");
 const nf = new Intl.NumberFormat();
 
+/** The sample without its measured visual checks, for the tests about the model's findings alone. */
+function noChecks(st: Stats): Stats {
+  st.totals = { ...st.totals, checks: 0, checksWithPage: 0, check_loads: 0, visual_fix: 0, check_ms: 0 };
+  st.series = st.series.map((b) => ({ ...b, checks: 0 }));
+  st.checkSeries = st.checkSeries.map((b) => ({ ...b, counts: {} }));
+  const { check_kind: _k, check_issue: _i, check_fix: _f, check_tier: _t, visual_setting: _v, ...rest } = st.breakdowns;
+  st.breakdowns = rest;
+  st.previous = { ...st.previous, checks: 0 };
+  return st;
+}
+/** Problems on the page: the model's detections and the measured checks. */
+const problems = (st: Stats) => (st.totals.detections ?? 0) + (st.totals.checks ?? 0);
+
 /** A page's <body> (the Studio frame: header, rail, product menus, <main>, dialogs) without its inline script, and the script. */
 function page(html: string): { body: string; script: string } {
   const script = /<script nonce="NONCE">([\s\S]*?)<\/script>/.exec(html)![1]!;
@@ -53,10 +66,10 @@ describe("dashboard page: possible issues tier", () => {
     expect(st.totals.possible).toBeGreaterThan(0);
     const { doc, text, hidden, heads, close } = await render(st);
     expect(text("#pname")).toContain("simulated data");
-    expect(text("#summary")).toContain(`found ${nf.format(st.totals.detections!)} problems`);
+    expect(text("#summary")).toContain(`found ${nf.format(problems(st))} problems (${nf.format(st.totals.checks!)} measured checks)`);
     expect(text("#summary")).toContain(`It also flagged ${nf.format(st.totals.possible!)} possible issues at lower confidence, listed separately and not counted as problems.`);
-    // Fig. 1 and its count stay confirmed-only; Fig. 2 draws the possible tier as hollow bars
-    expect(text("#trendn")).toBe(`${nf.format(st.totals.detections!)} problems`);
+    // Fig. 1 and its count stay confirmed-only (the model's detections and the measured checks); Fig. 2 draws the possible tier as hollow bars
+    expect(text("#trendn")).toBe(`${nf.format(problems(st))} problems`);
     expect(hidden("possfig")).toBe(false);
     expect(text("#possn")).toBe(`${nf.format(st.totals.possible!)} possible issues`);
     expect(doc.querySelectorAll('#possplot rect[stroke="var(--ink3)"]').length).toBe(st.series.filter((b) => b.possible).length);
@@ -80,7 +93,7 @@ describe("dashboard page: possible issues tier", () => {
   });
 
   it("with possible issues and no problems, the summary says so and Fig. 1 stays empty", async () => {
-    const st = sampleStats("7d", NOW);
+    const st = noChecks(sampleStats("7d", NOW));
     st.totals.detections = 0;
     st.typeSeries = st.typeSeries.map((b) => ({ ...b, counts: {} }));
     st.breakdowns = { ...st.breakdowns, detect_diagnosis: [], detect_issue: [], detect_route: [] };
@@ -114,7 +127,7 @@ describe("dashboard page: possible issues tier", () => {
 
 describe("dashboard page: display fixes", () => {
   it("Pages affected, the summary and the sidebar count every page with a problem, not only the top 25", async () => {
-    const st = sampleStats("7d", NOW);
+    const st = noChecks(sampleStats("7d", NOW));
     st.breakdowns = { ...st.breakdowns, detect_route: Array.from({ length: 25 }, (_, i) => ({ key: `/p/${i}`, count: 1 })) };
     st.distinct = { ...st.distinct, detect_route: 30 };
     const { doc, text, close } = await render(st);
@@ -196,7 +209,7 @@ describe("dashboard page: account mode (/account/apps/<id>) with live stats", ()
     expect(r.hidden("period")).toBe(false);
     expect(r.hidden("content")).toBe(false);
     expect(r.hidden("nodata")).toBe(true);
-    expect(r.text("#trendn")).toBe(`${nf.format(st.totals.detections!)} problems`);
+    expect(r.text("#trendn")).toBe(`${nf.format(problems(st))} problems`);
     expect(r.hidden("possfig")).toBe(false);
     expect(r.text("#possn")).toBe(`${nf.format(st.totals.possible!)} possible issues`);
     expect(r.hidden("possible-s")).toBe(false);
@@ -917,10 +930,11 @@ describe("dashboard page: the Supabase Studio frame (src/studio.ts): header, rai
     const r = await render(st);
     expect([...r.doc.querySelectorAll("#usage .ucard .k")].map((x) => x.textContent)).toEqual(["Page loads", "Problems found", "Stepped in", "Visits"]);
     expect([...r.doc.querySelectorAll("#usage .ucard .v")].map((x) => x.textContent)).toEqual(
-      [st.totals.sessions, st.totals.detections, st.totals.interventions, st.totals.ix_sessions].map((n) => nf.format(n!)),
+      [st.totals.sessions, problems(st), st.totals.interventions, st.totals.ix_sessions].map((n) => nf.format(n!)),
     );
     expect(r.text("#ulead")).toBe(nf.format(st.totals.sessions!));
-    const kinds = st.breakdowns.detect_diagnosis!.filter((x) => x.key !== "expected");
+    // the model's kinds and the measured checks' kinds
+    const kinds = [...st.breakdowns.detect_diagnosis!.filter((x) => x.key !== "expected"), ...st.breakdowns.check_kind!];
     expect(r.doc.querySelectorAll("#advisor article")).toHaveLength(3);
     expect(r.text("#advn")).toBe(`${kinds.length} kinds of problems need attention`);
     expect(r.doc.querySelectorAll("#advisor [data-copy]")).toHaveLength(3);
@@ -998,7 +1012,7 @@ describe("dashboard page: the Supabase Studio frame (src/studio.ts): header, rai
     const p = b.getAttribute("data-copy")!;
     expect(b2.getAttribute("data-copy")).toBe(p);
     for (const x of st.breakdowns.detect_diagnosis!.filter((x) => x.key !== "expected")) expect(p).toMatch(new RegExp(`\\n- [^\\n]*${nf.format(x.count)} times?`));
-    expect(p).toContain("every check genclass_findings lists from the dev page");
+    expect(p).toContain("check genclass_findings lists from the dev page");
     expect(p).toContain("then wait for the loads yourself: check every 10 seconds (sleep 10 in a shell in between)");
     expect(p).toContain("4. Replay the recorded order again: it must say not reproduced.");
     // each problem's own prompt waits the same way
@@ -1072,7 +1086,8 @@ describe("dashboard page: the Supabase Studio frame (src/studio.ts): header, rai
     const md = copied[0]!;
     expect(md.startsWith("# Sample storefront (simulated data) (GenClass dashboard)\n\nIn the last 7 days, to ")).toBe(true);
     expect(md).toContain(`| Page loads | ${nf.format(st.totals.sessions!)} |`);
-    expect(md).toContain(`| Problems found | ${nf.format(st.totals.detections!)} |`);
+    expect(md).toContain(`| Problems found | ${nf.format(problems(st))} |`);
+    expect(md).toContain(`| Of them measured checks (not model findings) | ${nf.format(st.totals.checks!)} |`);
     expect(md).toContain("## Problems by type");
     expect(md).toMatch(/### Double submits: \d+/);
     expect(md).toContain("Pages: `/checkout` (");
@@ -1088,5 +1103,133 @@ describe("dashboard page: the Supabase Studio frame (src/studio.ts): header, rai
       expect(scripts.length, name).toBeGreaterThan(0);
       for (const code of scripts) expect(() => new Function(code), name).not.toThrow();
     }
+  });
+});
+
+describe("dashboard page: measured visual checks (docs/runtime/VISUAL.md section 10)", () => {
+  /** A period with measured checks only: no model detections, `fixed` check fixes still in place. */
+  function checksOnly(checks: number, fixed = 0): Stats {
+    const st = noChecks(sampleStats("7d", NOW));
+    st.totals = { ...st.totals, detections: 0, detectionsWithPage: 0, interventions: 0, possible: 0, sessions: 100, checks, checksWithPage: checks, check_loads: 100 };
+    st.breakdowns = { ...st.breakdowns, detect_diagnosis: [], detect_issue: [], detect_route: [], intervention: [], action_outcome: [], possible_diagnosis: [], possible_issue: [], possible_route: [], check_kind: checks ? [{ key: "scroll-lock-stuck", count: checks }] : [], check_issue: checks ? [{ key: "scroll-lock-stuck\t/", count: checks }] : [], check_fix: fixed ? [{ key: "applied", count: fixed }] : [], visual_setting: [{ key: "on", count: 100 }] };
+    st.distinct = { ...st.distinct, detect_route: 0 };
+    st.typeSeries = st.typeSeries.map((b) => ({ ...b, counts: {} }));
+    st.series = st.series.map((b, i) => ({ ...b, detections: 0, possible: 0, checks: i === st.series.length - 1 ? checks : 0 }));
+    st.checkSeries = st.checkSeries.map((b, i) => ({ ...b, counts: i === st.checkSeries.length - 1 ? { "scroll-lock-stuck": checks } : {} }));
+    st.recent = [];
+    return st;
+  }
+
+  it("the sample: a card per check with the Measured check badge, what was measured, where, the usual fix and its own prompt", async () => {
+    const st = sampleStats("7d", NOW);
+    const r = await render(st);
+    const cards = [...r.doc.querySelectorAll("#issues .find.chk")];
+    expect(cards.map((c) => c.querySelector("h3 .bdg")!.textContent)).toEqual(st.breakdowns.check_kind!.map(() => "Measured check"));
+    expect(cards).toHaveLength(st.breakdowns.check_kind!.length);
+    // the model's cards carry no such badge
+    expect(r.doc.querySelectorAll("#issues .find:not(.chk) .bdg")).toHaveLength(0);
+    const lock = cards.find((c) => c.querySelector("h3")!.textContent!.startsWith("Scroll locked"))!;
+    expect(lock.querySelector(".n")!.textContent).toBe(nf.format(st.breakdowns.check_kind!.find((x) => x.key === "scroll-lock-stuck")!.count));
+    expect(lock.textContent).toContain("overflow: hidden");
+    expect(lock.querySelector(".where")!.textContent).toContain("/products/:id");
+    expect(lock.querySelector("p.fix")!.textContent).toContain("GenClass removes the leaked lock");
+    const prompt = lock.querySelector("[data-copy]")!.getAttribute("data-copy")!;
+    expect(prompt).toContain("Fix a problem GenClass measured in production in this web app (Sample storefront (simulated data)): scroll locked (the measured check scroll-lock-stuck)");
+    expect(prompt).toContain("not a model finding");
+    expect(prompt).toContain("1. genclass_scan on /products/:id");
+    expect(prompt).toContain("Open and close every dialog, menu and notice on the page");
+    expect(prompt).toContain("must not list scroll-lock-stuck any more");
+    expect(prompt).toContain("then wait for the loads yourself");
+    expect(prompt).not.toContain("genclass_replay");
+    await r.close();
+  });
+
+  it("Fig. 1 gives the checks their own hatched slot; the summary, the tiles and the rail count them as problems, never as detections", async () => {
+    const st = sampleStats("7d", NOW);
+    const r = await render(st);
+    const checks = st.totals.checks!;
+    expect([...r.doc.querySelectorAll("#legend span")].map((x) => x.textContent)).toContain("Measured checks");
+    const hatched = [...r.doc.querySelectorAll('#trendplot rect[data-slot="checks"]')];
+    expect(hatched).toHaveLength(st.series.filter((b) => b.checks).length);
+    expect(hatched.every((x) => x.getAttribute("fill") === "url(#chkp)")).toBe(true);
+    expect(r.doc.querySelector("#trendplot pattern#chkp")).not.toBeNull();
+    expect(r.heads("#trendtable")).toContain("Measured checks");
+    expect(r.text("#trendn")).toBe(`${nf.format(problems(st))} problems`);
+    expect(r.text("#summary")).toContain(`(${nf.format(checks)} measured checks)`);
+    expect(r.text("#tiles > div:nth-child(1) .v")).toBe(nf.format(problems(st)));
+    expect(r.text("#tiles > div:nth-child(1) .s")).toContain(`${nf.format(checks)} measured checks`);
+    expect(r.text("#c-trend")).toBe(nf.format(problems(st)));
+    expect(r.text("#c-found")).toBe(String(st.breakdowns.detect_diagnosis!.length + st.breakdowns.check_kind!.length));
+    // the Pages table draws them hatched and says what the hatching is
+    expect([...r.doc.querySelectorAll("#pages .mix i")].some((i) => (i.getAttribute("title") ?? "").startsWith("Measured checks: "))).toBe(true);
+    expect(r.text("#pages figcaption")).toContain("Hatched: measured checks, not model findings.");
+    // the possible tier and the detections' own counts are untouched
+    expect(r.text("#possn")).toBe(`${nf.format(st.totals.possible!)} possible issues`);
+    await r.close();
+  });
+
+  it("What GenClass did lists the check fixes as their own action, with the undone ones; Health says where the checks ran", async () => {
+    const st = sampleStats("7d", NOW);
+    const r = await render(st);
+    const applied = st.breakdowns.check_fix!.find((x) => x.key === "applied")!.count;
+    const row = [...r.doc.querySelectorAll("#acted tbody tr")].find((tr) => tr.textContent!.includes("Fixed a measured check"))!;
+    expect(row.querySelector(".bdg")!.textContent).toBe("Measured check");
+    expect(row.querySelector("td.num")!.textContent).toBe(nf.format(applied));
+    expect(r.text("#acted figcaption")).toContain("1 check fix undone");
+    expect(r.text("#health")).toContain("Measured checks");
+    expect(r.text("#health")).toContain(`${nf.format(st.totals.check_loads!)} page loads ran them`);
+    expect(r.text("#c-did")).toBe(nf.format(st.totals.interventions! + applied));
+    await r.close();
+  });
+
+  it("the app's status counts them: Critical when they are not fixed live, Needs attention when every one was, Healthy with none", async () => {
+    let r = await render(checksOnly(10));
+    expect(r.text("#verdictt")).toBe("Critical");
+    expect(r.text("#verdicts")).toBe("10 problems not fixed live");
+    expect(r.text("#summary")).toContain("found 10 problems (all measured checks) on 1 page");
+    await r.close();
+    r = await render(checksOnly(10, 10));
+    expect(r.text("#verdictt")).toBe("Needs attention");
+    expect(r.text("#verdicts")).toBe("every problem was fixed live; the code still needs the fix");
+    expect(r.text("#summary")).toContain("It fixed 10 measured checks on visitors' screens");
+    await r.close();
+    r = await render(checksOnly(0));
+    expect(r.text("#verdictt")).toBe("Healthy");
+    await r.close();
+  });
+
+  it("Fix them all names every check with its kind and measures the page again with genclass_scan", async () => {
+    const r = await render(checksOnly(4));
+    const b = r.doc.getElementById("fixall")!;
+    expect(b.classList.contains("hidden")).toBe(false);
+    const p = b.getAttribute("data-copy")!;
+    expect(p).toContain("- Scroll locked (measured check scroll-lock-stuck), 4 times, on /.");
+    expect(p).toContain("run genclass_scan on its page instead");
+    expect(p).toContain("For a measured check, genclass_scan on its page must no longer list it.");
+    expect(p).toContain("every other check genclass_findings lists from the dev page");
+    // the overview's first card is the check, with its own prompt
+    expect(r.doc.querySelector("#advisor article h3 .bdg")!.textContent).toBe("Measured check");
+    expect(r.doc.querySelector("#advisor [data-copy]")!.getAttribute("data-copy")).toContain("genclass_scan");
+    await r.close();
+  });
+
+  it("Health tells an app whose pages do not run the checks how to turn them on", async () => {
+    const st = checksOnly(0);
+    st.totals.check_loads = 0;
+    st.breakdowns.visual_setting = [{ key: "local", count: 100 }];
+    const r = await render(st);
+    expect(r.text("#health")).toContain("They are off on public hosts unless the app turns them on: visual: true");
+    expect(r.text("#health")).toContain("not running");
+    await r.close();
+  });
+
+  it("the demo's project shows its estimate's labels only while the stats are the estimate", async () => {
+    const st = { ...checksOnly(3), name: "Snowday Predictor" };
+    const r = await render(st);
+    // measured stats (no demo flag): the measured tile, not the estimate's "Fixed live" and "+"
+    expect(r.text("#tiles > div:nth-child(1) .v")).toBe("3");
+    expect(r.text("#tiles")).toContain("Stopped by GenClass");
+    expect(r.text("#tiles")).not.toContain("Fixed live");
+    await r.close();
   });
 });

@@ -4,7 +4,8 @@
 // refresh does not reshuffle the chart. It shows the "possible issues" tier too (lower confidence, never counted as
 // problems), with its own simulated counts, and interaction analytics (page views, time on page, scroll depth, clicks,
 // rage and dead clicks per element; visits, their sources, devices, countries, entry and exit pages, and two funnels),
-// as an app that turned them on would.
+// as an app that turned them on would, and the measured visual checks (runtime 0.3.0-beta.4) with their runtime fixes,
+// as an app with `visual: { on: true, fix: true }` in guard mode sends them.
 
 import { dayKey, hourKey, RANGES, type Range, type Stats } from "./dashboard.js";
 
@@ -38,6 +39,16 @@ const POSSIBLE: [string, number, [string, number][]][] = [
   ["overload", 0.5, [["/search", 1]]],
   ["failing", 0.3, [["/orders", 1]]],
 ];
+
+/** Measured visual checks (simulated): per check kind, a daily rate and where it shows up. */
+const CHECKS: [string, number, [string, number][]][] = [
+  ["scroll-lock-stuck", 1.5, [["/products/:id", 0.7], ["/", 0.3]]],
+  ["text-invisible", 1.1, [["/checkout", 1]]],
+  ["image-broken", 0.9, [["/products", 0.6], ["/products/:id", 0.4]]],
+  ["click-blocked", 0.5, [["/cart", 1]]],
+];
+/** The share of each fixable kind's findings that got a runtime fix (the others had no inline declaration to remove). */
+const CHECK_FIXED: Record<string, number> = { "scroll-lock-stuck": 0.8, "text-invisible": 0.6 };
 
 /** Interaction analytics per page (simulated): share of page views, average engaged seconds, share reaching 25/50/75/100 %. */
 const IX_PAGES: [string, number, number, number[]][] = [
@@ -188,13 +199,31 @@ export function sampleStats(rangeParam: string | null, now: Date): Stats {
       });
     }
   }
+  // measured visual checks: their own draw per bucket, their own counters (never in detections)
+  const ctot: Record<string, number> = {};
+  const checkSeries = buckets.map((b) => {
+    const r = rng([...b].reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 211));
+    const counts: Record<string, number> = {};
+    for (const [k, w] of CHECKS) {
+      const n = hourly ? (r() < w / 7 ? 1 : 0) : Math.max(0, Math.round(w * (0.35 + r() * 1.3)));
+      if (n) {
+        counts[k] = n;
+        ctot[k] = (ctot[k] ?? 0) + n;
+      }
+    }
+    return { bucket: b, counts };
+  });
+  const checks = Object.values(ctot).reduce((a, b) => a + b, 0);
+  const cissue: { key: string; count: number }[] = [];
+  for (const [k, , routes] of CHECKS) if (ctot[k]) split(ctot[k]!, routes, (route, c) => cissue.push({ key: `${k}\t${route}`, count: c }));
+  const fixesApplied = Object.entries(CHECK_FIXED).reduce((a, [k, f]) => a + Math.round((ctot[k] ?? 0) * f), 0);
   const perBucket = hourly ? 11 : 262;
   const r = rng(span * 17 + Math.floor(now.getTime() / 86_400_000));
   const series = buckets.map((b, i) => {
     const sessions = Math.round(perBucket * (0.82 + r() * 0.36));
     // a page load plus its in-app route changes
     const ix_views = Math.round(sessions * 1.36);
-    return { bucket: b, sessions, decisions: Math.round(perBucket * 0.66 * (0.8 + r() * 0.4)), detections: Object.values(typeSeries[i]!.counts).reduce((a, x) => a + x, 0), acted: 0, possible: possibleBy[i]!, ix_views, ix_sessions: Math.round(ix_views / 2.6) };
+    return { bucket: b, sessions, decisions: Math.round(perBucket * 0.66 * (0.8 + r() * 0.4)), detections: Object.values(typeSeries[i]!.counts).reduce((a, x) => a + x, 0), acted: 0, possible: possibleBy[i]!, checks: Object.values(checkSeries[i]!.counts).reduce((a, x) => a + x, 0), ix_views, ix_sessions: Math.round(ix_views / 2.6) };
   });
   const visitCount = series.reduce((a, s) => a + s.ix_sessions, 0);
   const shareOf = (list: [string, number][]) => list.map(([key, f]) => ({ key, count: Math.max(1, Math.round(visitCount * f)) }));
@@ -280,6 +309,11 @@ export function sampleStats(rangeParam: string | null, now: Date): Stats {
     ix_first_ms: IX_FIRST.map(([r0], i) => ({ key: r0, count: Math.round(viewsOf(r0) * 0.8) * (3200 + 1700 * i) })),
     ix_path: IX_PATHS.map(([key, rate]) => ({ key, count: Math.round((entries * rate) / 100) })),
     ...Object.fromEntries(Object.entries(IX_SHARES).map(([m, list]) => [m, shareOf(list)])),
+    check_kind: Object.entries(ctot).map(([key, count]) => ({ key, count })).sort((a, b) => b.count - a.count),
+    check_issue: cissue.sort((a, b) => b.count - a.count),
+    check_fix: [{ key: "applied", count: fixesApplied }, ...(fixesApplied > 4 ? [{ key: "undone", count: 1 }] : [])].filter((x) => x.count > 0),
+    check_tier: [{ key: "full", count: Math.round(sessions * 0.93) }, { key: "light", count: Math.round(sessions * 0.07) }],
+    visual_setting: [{ key: "on", count: sessions }],
   };
   return {
     name: SAMPLE_PROJECT.name,
@@ -295,12 +329,14 @@ export function sampleStats(rangeParam: string | null, now: Date): Stats {
       detectionsWithPage: detections, possible, possibleWithPage: possible, hidden_skipped: Math.round(sessions * 0.05), model_dropped: hourly ? 0 : Math.round(sessions * 0.002), telemetry_dropped: 0,
       ix_views: views, ix_engaged_ms: engagedMs, ix_click: total(ixClick), ix_rage: total(ixRage), ix_dead: total(ixDead), ix_sessions: visitCount,
       ix_entry: total(ixEntry), ix_exit: total(ixExit),
+      checks, checksWithPage: checks, check_loads: sessions, visual_fix: sessions, check_ms: Math.round(sessions * 38),
     },
     breakdowns,
     distinct: Object.fromEntries(Object.entries(breakdowns).map(([k, v]) => [k, v.length])),
     series,
     typeSeries,
-    previous: { sessions: Math.round(sessions * 0.94), detections: Math.round(detections * 1.15), acted: Math.max(0, interventions - 2), ix_views: Math.round(views * 0.91), ix_sessions: Math.round(visitCount * 0.88) },
+    checkSeries,
+    previous: { sessions: Math.round(sessions * 0.94), detections: Math.round(detections * 1.15), acted: Math.max(0, interventions - 2), checks: Math.round(checks * 1.3), ix_views: Math.round(views * 0.91), ix_sessions: Math.round(visitCount * 0.88) },
     recent,
     agent: sampleAgent(now),
     visits: { sessions: visitCount, pages: views, bounces: Math.round(visitCount * 0.41), entry: shareOf(ENTRY), exit: shareOf(EXIT) },

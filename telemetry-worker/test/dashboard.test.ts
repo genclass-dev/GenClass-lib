@@ -887,3 +887,95 @@ describe("interaction analytics: runtime `interactions` events (docs/runtime/ANA
     for (const m of ["ix_entry", "ix_exit", "ix_nav", "ix_nav_ms", "ix_arrive", "ix_first", "ix_path"]) expect(st.breakdowns[m]!.length, m).toBeGreaterThan(0);
   });
 });
+
+// ------------------------------------------------------------------------------------------ measured visual checks
+
+/** A summary as runtime 0.3.0-beta.4 sends it once the measured checks ran (src/visual/bridge.ts withChecks). */
+const vsumm = (seq: number, checks: E, byRoute: E, fixes: E, visual: E = { passes: 2, ms: 31.6, partial: 0, tier: "full" }): E =>
+  summ(seq, { decisions: 0, checks, checksByRoute: byRoute, fixes }, { runtime: { model: { decisions: 0 }, visual } });
+
+describe("measured visual checks: counts from page-load summaries (docs/runtime/VISUAL.md section 10)", () => {
+  it("counts them exactly per page load (a repeated batch, a bigger summary, a late older one), never as detections", async () => {
+    const { sql } = setup();
+    const s1 = vsumm(1, { "scroll-lock-stuck": 2, "text-invisible": 1 }, { "/": { "scroll-lock-stuck": 2 }, "/items/:id": { "text-invisible": 1 } }, { applied: 1, undone: 0 });
+    await aggregate(sql.api, TOK, batchOf([{ ...sess(), visual: "on", fix: true }, s1], "0.3.0-beta.4"), NOW);
+    await aggregate(sql.api, TOK, batchOf([s1], "0.3.0-beta.4"), NOW); // repeated
+    let s = await statsOf(sql);
+    expect(s.totals).toMatchObject({ sessions: 1, checks: 3, checksWithPage: 3, check_loads: 1, check_ms: 32, visual_fix: 1 });
+    expect(s.totals.detections ?? 0).toBe(0);
+    expect(bdOf(s, "check_kind")).toEqual({ "scroll-lock-stuck": 2, "text-invisible": 1 });
+    expect(bdOf(s, "check_issue")).toEqual({ "scroll-lock-stuck\t/": 2, "text-invisible\t/items/:id": 1 });
+    expect(bdOf(s, "check_fix")).toEqual({ applied: 1 });
+    expect(bdOf(s, "check_tier")).toEqual({ full: 1 });
+    expect(bdOf(s, "visual_setting")).toEqual({ on: 1 });
+    expect(s.breakdowns.detect_diagnosis ?? []).toEqual([]);
+    expect(s.series.at(-1)).toMatchObject({ checks: 3, detections: 0 });
+    expect(s.checkSeries.at(-1)!.counts).toEqual({ "scroll-lock-stuck": 2, "text-invisible": 1 });
+
+    // the page load's next summary is cumulative: only what is new is added; an older one arriving late adds nothing
+    const s2 = vsumm(5, { "scroll-lock-stuck": 3, "text-invisible": 1 }, { "/": { "scroll-lock-stuck": 3 }, "/items/:id": { "text-invisible": 1 } }, { applied: 2, undone: 1 }, { passes: 4, ms: 60.2, partial: 1, tier: "full" });
+    await aggregate(sql.api, TOK, batchOf([s2], "0.3.0-beta.4"), NOW);
+    await aggregate(sql.api, TOK, batchOf([s1], "0.3.0-beta.4"), NOW);
+    s = await statsOf(sql);
+    expect(s.totals).toMatchObject({ checks: 4, check_loads: 1, check_partial: 1, check_ms: 60 });
+    expect(bdOf(s, "check_kind")).toEqual({ "scroll-lock-stuck": 3, "text-invisible": 1 });
+    expect(bdOf(s, "check_fix")).toEqual({ applied: 2, undone: 1 });
+
+    // a second page load adds its own
+    await aggregate(sql.api, TOK, { ...batchOf([{ ...sess(), visual: "on" }, vsumm(1, { "ad-heavy": 1 }, { "/": { "ad-heavy": 1 } }, { applied: 0, undone: 0 }, { passes: 1, ms: 9, partial: 0, tier: "light" })], "0.3.0-beta.4"), sid: "b1b2c3d4e5f6a7b8c9d0e1f2" }, NOW);
+    s = await statsOf(sql);
+    expect(s.totals).toMatchObject({ sessions: 2, checks: 5, check_loads: 2, visual_fix: 1 });
+    expect(bdOf(s, "check_tier")).toEqual({ full: 1, light: 1 });
+    expect(bdOf(s, "visual_setting")).toEqual({ on: 2 });
+  });
+
+  it("keeps only check kinds and page paths: anything else in the counts is not counted", async () => {
+    const { sql } = setup();
+    const routes: E = Object.fromEntries(Array.from({ length: 25 }, (_, i) => [`/p${i}`, { "image-broken": 1 }]));
+    routes["not-a-path"] = { "image-broken": 1 };
+    await aggregate(sql.api, TOK, batchOf([vsumm(1, { "image-broken": 26, "<script>": 5, "Text Invisible": 2, "page-blank": -3 }, routes, { applied: "x", undone: null })], "0.3.0-beta.4"), NOW);
+    const s = await statsOf(sql);
+    expect(bdOf(s, "check_kind")).toEqual({ "image-broken": 26 });
+    expect(s.totals.checks).toBe(26);
+    // at most 20 paths of one summary, as the runtime keeps them; each key at most 64 characters
+    const keys = Object.keys(bdOf(s, "check_issue"));
+    expect(keys.length).toBe(20);
+    expect(keys.every((k) => k.startsWith("image-broken\t/p"))).toBe(true);
+    expect(s.breakdowns.check_fix ?? []).toEqual([]);
+  });
+
+  it("an older runtime's summary (no check fields) and a session without them add no check counters", async () => {
+    const { sql } = setup();
+    await aggregate(sql.api, TOK, batchOf([sess(), summ(1, { decisions: 2 })]), NOW);
+    const s = await statsOf(sql);
+    expect(s.totals.sessions).toBe(1);
+    for (const m of ["checks", "check_loads", "check_ms", "visual_fix"]) expect(s.totals[m] ?? 0, m).toBe(0);
+    for (const m of ["check_kind", "check_issue", "check_fix", "check_tier", "visual_setting"]) expect(s.breakdowns[m] ?? [], m).toEqual([]);
+    expect(s.series.every((b) => b.checks === 0)).toBe(true);
+  });
+
+  it("the demo's project answers with its estimate until its first page load with measured checks, then with the measured counts", async () => {
+    const { sql } = setup();
+    const demo = { ...PROJ, name: "Snowday Predictor", last_event: NOW.toISOString() };
+    await aggregate(sql.api, TOK, batchOf([sess(), summ(1, { decisions: 1 })]), NOW);
+    let s = await stats(sql.api, demo, "7d", NOW);
+    expect(s.demo).toBe(true);
+    expect(s.totals.sessions).toBeGreaterThan(1000);
+    await aggregate(sql.api, TOK, { ...batchOf([{ ...sess(), visual: "on", fix: true }, vsumm(1, { "scroll-lock-stuck": 1 }, { "/": { "scroll-lock-stuck": 1 } }, { applied: 1, undone: 0 })], "0.3.0-beta.4"), sid: "c1b2c3d4e5f6a7b8c9d0e1f2" }, NOW);
+    s = await stats(sql.api, demo, "7d", NOW);
+    expect(s.demo).toBeUndefined();
+    expect(s.totals).toMatchObject({ sessions: 2, checks: 1 });
+    // every other project is never the estimate
+    expect((await statsOf(sql)).demo).toBeUndefined();
+  });
+
+  it("the sample dashboard has simulated checks, apart from its detections", () => {
+    const s = sampleStats("7d", NOW);
+    expect(s.totals.checks).toBeGreaterThan(0);
+    expect(s.breakdowns.check_kind!.reduce((a, x) => a + x.count, 0)).toBe(s.totals.checks);
+    expect(s.breakdowns.check_issue!.reduce((a, x) => a + x.count, 0)).toBe(s.totals.checks);
+    expect(s.series.reduce((a, b) => a + b.checks, 0)).toBe(s.totals.checks);
+    expect(s.checkSeries).toHaveLength(7);
+    expect(s.breakdowns.detect_issue!.reduce((a, x) => a + x.count, 0)).toBe(s.totals.detections);
+  });
+});

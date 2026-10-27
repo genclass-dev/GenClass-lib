@@ -4,7 +4,9 @@
 // project stats() answers with this estimate instead of the measured counts: the week since GenClass was installed,
 // 2,582 visitors (Search Console), and the 1,037 problems and 458 live fixes the owner counted on the site. The
 // dashboard, Copy as Markdown and the MCP server (GET /api/projects/<secret>) all read it from there; stored data,
-// exports, funnels and the agent log stay measured. Remove the entry after the recording.
+// exports, funnels and the agent log stay measured. The estimate yields to the measured counts as soon as the project
+// receives its first page load with measured checks (runtime 0.3.0-beta.4, which sends their counts: stats() in
+// src/dashboard.ts); remove the entry after the recording.
 
 import type { Stats } from "./dashboard.js";
 
@@ -341,13 +343,14 @@ export function applyDemo(s: Stats, d: DemoData, now: Date): Stats {
 
   return {
     ...s,
+    demo: true,
     lastEvent: recent[0]?.t ?? s.lastEvent,
     totals,
     breakdowns,
     distinct: { ...s.distinct, detect_route: Object.keys(routes).length, page_route: Object.keys(pages).length },
     series,
     typeSeries,
-    previous: { sessions: 0, detections: 0, acted: 0, ix_views: 0, ix_sessions: 0 },
+    previous: { sessions: 0, detections: 0, acted: 0, checks: 0, ix_views: 0, ix_sessions: 0 },
     recent,
     visits: { ...s.visits, sessions: visitors, pages: loads, bounces: n(d.bounces), entry: kv(sc(d.entry)), exit: kv(sc(d.exit)) },
   };
