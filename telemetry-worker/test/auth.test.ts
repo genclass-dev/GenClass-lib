@@ -1121,7 +1121,7 @@ describe("accounts: GitHub and Google first, an email and a password always; cre
         expect(html, tag).not.toContain("Create account with a passkey");
         expect(html, tag).not.toContain("Sign in with a passkey");
         // the fixture's Free has no dashboard (the real plans' line is checked in test/plans.test.ts)
-        expect(html, tag).toContain("The runtime needs no account. Dashboards come with a paid plan.");
+        expect(html, tag).toContain("The runtime needs no account: <a href=\"/start/open-source\">set it up without one</a>. Dashboards come with a paid plan.");
         expect(html, tag).not.toMatch(/trial/i);
       }
       expect(await (await call(env, "GET", "/login", {})).text()).toContain('<a href="/login/forgot">Forgot your password?</a>');

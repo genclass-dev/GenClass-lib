@@ -408,7 +408,7 @@ describe("dashboard pages", () => {
   });
 
   it("serves /start, redirects /dashboard, and passes other genclass.dev paths to the site", async () => {
-    const { env } = setup();
+    const { env, sql } = setup();
     const start = await handle(new Request("https://genclass.dev/start"), env, opts);
     expect(start.status).toBe(200);
     const html = await start.text();
@@ -419,6 +419,19 @@ describe("dashboard pages", () => {
     expect(html).toContain('fetch("/api/projects"');
     expect(html).toContain("https://cdn.jsdelivr.net/npm/@genclass/runtime");
     expect((await handle(new Request("https://genclass.dev/dashboard"), env, opts)).headers.get("location")).toBe("/start");
+    // the open-source parts with no account: a static page under the same nonce CSP, nothing written
+    const TABLES = ["projects", "accounts", "auth_sessions", "challenges", "sessions"];
+    const rowsBefore: Record<string, unknown> = Object.fromEntries(TABLES.map((t) => [t, sql.rows(`SELECT COUNT(*) AS n FROM ${t}`)[0]!.n]));
+    const oss = await handle(new Request("https://genclass.dev/start/open-source"), env, opts);
+    expect(oss.status).toBe(200);
+    expect(oss.headers.get("cache-control")).toBe("no-store");
+    expect(oss.headers.get("content-security-policy")).toMatch(/script-src 'nonce-[A-Za-z0-9]+'/);
+    const ossHtml = await oss.text();
+    expect(ossHtml).toContain("GenClass without an account");
+    expect(ossHtml).toContain("Copy the prompt for your coding agent");
+    expect(ossHtml).not.toContain('fetch("/api/projects"');
+    expect((await handle(new Request("https://genclass.dev/start/open-source", { method: "HEAD" }), env, opts)).status).toBe(200);
+    for (const t of TABLES) expect(sql.rows(`SELECT COUNT(*) AS n FROM ${t}`)[0]!.n, t).toBe(rowsBefore[t]);
     const seen: string[] = [];
     const passthrough = async (r: Request) => {
       seen.push(new URL(r.url).pathname);
@@ -426,6 +439,9 @@ describe("dashboard pages", () => {
     };
     expect(await (await handle(new Request("https://genclass.dev/starter-kit"), env, { ...opts, passthrough })).text()).toBe("site");
     expect(seen).toEqual(["/starter-kit"]);
+    // /start/open-source answers GET and HEAD only; anything else falls through to the site, as /start does
+    expect(await (await handle(new Request("https://genclass.dev/start/open-source", { method: "POST" }), env, { ...opts, passthrough })).text()).toBe("site");
+    expect(seen).toEqual(["/starter-kit", "/start/open-source"]);
     // on workers.dev nothing is passed through
     expect((await handle(new Request("https://x.workers.dev/starter-kit"), env, { ...opts, passthrough })).status).toBe(404);
     expect((await handle(new Request("https://genclass.dev/api/nope"), env, { ...opts, passthrough })).status).toBe(404);

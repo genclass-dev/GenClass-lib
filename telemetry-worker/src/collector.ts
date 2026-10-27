@@ -11,8 +11,9 @@
 // OPTIONS /v1/events (CORS preflight), GET /v1/health.
 //
 // Per-app tokens and dashboards (src/dashboard.ts, src/pages.ts; also routed on genclass.dev/{api/*,start*,dashboard*}):
-// POST /api/projects, GET /api/projects/<secret>, GET /start, GET /dashboard/<secret>. A batch with a known top-level
-// `token` is also aggregated into D1 for that app's dashboard; without one it is stored in R2 only, exactly as before.
+// POST /api/projects, GET /api/projects/<secret>, GET /start, GET /start/open-source (no account, no token), GET
+// /dashboard/<secret>. A batch with a known top-level `token` is also aggregated into D1 for that app's dashboard;
+// without one it is stored in R2 only, exactly as before.
 // Every plan includes the dashboard (billing/plans.json), so a private link opens it, also for an app with no account
 // (Free). A plan file that left the dashboard out would open the locked page instead (src/locked.ts) and its stats
 // would answer 402. Collection never depends on it: every known token is aggregated.
@@ -42,7 +43,7 @@ import {
 import { routeBilling } from "./billing.js";
 import { json, readCapped } from "./http.js";
 import { afterBatch } from "./paid.js";
-import { dashboardPage, notFoundPage, ownEndpoint, securityHeaders, startPage } from "./pages.js";
+import { dashboardPage, notFoundPage, openSourcePage, ownEndpoint, securityHeaders, startPage } from "./pages.js";
 import { lockedLink } from "./locked.js";
 import { hasDashboard, projectAccess } from "./plans.js";
 import { SAMPLE_PROJECT, SAMPLE_SECRET, sampleStats } from "./sample.js";
@@ -404,6 +405,13 @@ async function routeSite(request: Request, url: URL, path: string, env: Env, opt
     if (m !== "GET" && m !== "HEAD") return null;
     const nonce = randomBase62(22);
     return html(200, startPage(nonce, { runtimeReady: runtimeHasTokens(env), endpoint: ownEndpoint(env) }), nonce);
+  }
+
+  // the open-source parts with no account and no token (pages.ts openSourcePage): static, nothing stored
+  if (path === "/start/open-source") {
+    if (m !== "GET" && m !== "HEAD") return null;
+    const nonce = randomBase62(22);
+    return html(200, openSourcePage(nonce), nonce);
   }
 
   if (path === "/dashboard") {

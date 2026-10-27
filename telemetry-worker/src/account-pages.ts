@@ -272,9 +272,12 @@ export interface AuthPageOptions {
   notice?: string | null;
 }
 
-/** Under the sign-in ways: the runtime needs no account, and what an account's Free plan gives (billing/plans.json). */
+/**
+ * Under the sign-in ways: the runtime needs no account (the way in without one: /start/open-source, pages.ts
+ * openSourcePage), and what an account's Free plan gives (billing/plans.json).
+ */
 const optional = (): string =>
-  `<p class="opt">The runtime needs no account. ${entitled(FREE, "dashboard") ? "The dashboard is free for every app." : "Dashboards come with a paid plan."}</p>`;
+  `<p class="opt">The runtime needs no account: <a href="/start/open-source">set it up without one</a>. ${entitled(FREE, "dashboard") ? "The dashboard is free for every app." : "Dashboards come with a paid plan."}</p>`;
 
 /** The passkey sign-in button's script: sign in, then go to `next` (or reload, on the device page). */
 const PASSKEY_LOGIN_JS = `

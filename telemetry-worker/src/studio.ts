@@ -305,12 +305,17 @@ function gcSelect(node){
 // Copy text with the Clipboard API; when the browser refuses (no secure context, the document not focused, an embedded
 // page), copy through a temporary textarea and execCommand, which works on the click itself; failing both, select the
 // text in node so the person can copy it by hand (a textarea fallback is shown selected: one keystroke copies it).
+// Focus goes back where it was (the button), so a keyboard user's next Tab continues from there.
 function gcLegacyCopy(text){
+  var prev = document.activeElement, ta = null;
   try {
-    var ta = document.createElement("textarea"); ta.value = text; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.top = "0"; ta.style.left = "0"; ta.style.opacity = "0";
-    document.body.appendChild(ta); ta.focus(); ta.select(); ta.setSelectionRange(0, text.length);
-    var ok = document.execCommand("copy"); document.body.removeChild(ta); return ok;
+    ta = document.createElement("textarea"); ta.value = text; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.top = "0"; ta.style.left = "0"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.focus({ preventScroll: true }); ta.select(); ta.setSelectionRange(0, text.length);
+    return document.execCommand("copy");
   } catch (e) { return false; }
+  finally {
+    try { if (ta && ta.parentNode) ta.parentNode.removeChild(ta); if (prev && prev.focus && prev !== document.body) prev.focus({ preventScroll: true }); } catch (e) {}
+  }
 }
 function gcCopy(b, text, node){
   var label = b.getAttribute("data-label") || b.textContent;
