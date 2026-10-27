@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Interstitial ad</title>
+<script src="/dist/genclass.global.js" data-model="off" data-telemetry="off"></script>
+<style>
+  body { margin: 0; font: 16px/1.5 system-ui, sans-serif; color: #111827; background: #fff; }
+  main { padding: 24px; max-width: 720px; }
+  .ad-interstitial { position: fixed; inset: 0; z-index: 100; background: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; }
+  .ad-interstitial iframe { border: 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Recipes for a rainy week</h1>
+  <p>Five dinners that take less than thirty minutes, from a lentil soup to a tray of roasted vegetables with feta.</p>
+  <p>Each recipe lists what you can prepare the evening before, so the week stays quick.</p>
+</main>
+<div id="interstitial-ad" class="ad-interstitial" data-k="a2" data-expect="ad-heavy">
+  <button type="button">Continue to the site</button>
+  <iframe src="https://ads.example.test/frame?w=300&amp;h=250" width="300" height="250" title="Advertisement"></iframe>
+</div>
+</body>
+</html>

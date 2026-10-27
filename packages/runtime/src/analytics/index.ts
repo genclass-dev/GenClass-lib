@@ -9,6 +9,18 @@
 // - Counts per page view, sent as `interactions` events whose counts are deltas since the view's previous event:
 //   page views, engaged time, scroll milestones, and clicks, rage clicks and dead clicks per element key. Never element
 //   text, input values, coordinates, the order or timing of clicks, the query string or a visitor id.
+// - Visits (ANALYTICS.md section 1.2): a view's first event names its visit (a random id kept in localStorage under
+//   the app's token, replaced after VISIT_IDLE_MS without a page view or an event, or when a page load comes from
+//   another site or a campaign link). The view that opens a visit also says where it came from (the referring host,
+//   three utm values without ids), the device class, browser and OS families (buckets, never the user agent) and
+//   whether this browser had a visit before (the stored flag). The stored entry is removed by stop(). Its own writes
+//   set rt.selfStorage, so the storage observer does not record them. Visit times are wall-clock ms
+//   (performance.timeOrigin plus the Clock), read only to compare with the stored time: nothing about them is sent.
+// - Navigation paths (ANALYTICS.md section 11): on a view's first event, how it was reached (`nav`) and the previous
+//   view of this page load with the ms between (`from`, `fromMs`); once per view, the element key of the first
+//   interaction (`first`, `firstMs`); on the page load's last event (pagehide), `exit` and the ordered `path` of its
+//   routes (at most PATH_MAX). Never the referrer (the visit's
+//   `ref` is its own field), the history entries' keys or ids.
 // - Element keys come from markup only (keyOf); every part read from an attribute goes through telemetry's DATA_LIKE.
 // - Only trusted events count (isTrusted, whatever observe.untrustedEvents says), never those inside
 //   [data-genclass-ignore] (the devtools overlay).
@@ -20,6 +32,10 @@
 import type { RuntimeImpl } from "../runtime.js";
 import type { RtEvent } from "../types.js";
 import type { TelemetryClient } from "../telemetry/client.js";
+
+// the version as a build-time constant (tsup.config.ts), not src/version.ts: this chunk has no static imports
+declare const __GENCLASS_PKG_VERSION__: string;
+const VERSION: string = typeof __GENCLASS_PKG_VERSION__ === "string" ? __GENCLASS_PKG_VERSION__ : "0.0.0";
 
 /** Engaged time counts at most this long after the visitor's last input. */
 export const IDLE_MS = 30_000;
@@ -34,6 +50,17 @@ export const DEAD_MS = 1000;
 export const MAX_CLICK_KEYS = 50;
 export const MAX_FLAG_KEYS = 20;
 export const KEY_MAX = 120;
+/** Routes in a page load's `path`; a longer path ends with "(more)". */
+export const PATH_MAX = 10;
+/** How a view was reached (ANALYTICS.md section 11.1). */
+export type NavType = "load" | "reload" | "back_forward" | "push" | "back" | "forward" | "pop";
+/** A visit ends after this long without a page view or an `interactions` event. */
+export const VISIT_IDLE_MS = 30 * 60_000;
+/** utm_* values and the referring host are cut to these lengths. */
+export const UTM_MAX = 40;
+export const REF_MAX = 80;
+/** The localStorage key of the visit flag: this prefix and the app's token. */
+export const VISIT_KEY = "genclass.analytics.";
 /** Scroll position reads at most this often; other inputs update the engagement anchor at most this often. */
 const SCROLL_MS = 250;
 const INPUT_MS = 500;
@@ -43,6 +70,10 @@ const INTERACTIVE =
   "button,a,input,select,textarea,summary,label,[role=button],[role=link],[role=tab],[role=menuitem],[role=checkbox],[role=option],[role=switch],[contenteditable=''],[contenteditable=true]";
 /** Links and buttons: the elements a dead click is counted on. */
 const DEAD = "a,button,[role=button],[role=link],[role=tab],[role=menuitem],input[type=button],input[type=submit],input[type=reset]";
+/** Form fields: a keyboard user's first interaction is often a focus on one. */
+const FIELD = "input,select,textarea,[contenteditable=''],[contenteditable=true]";
+/** A focus counts as an interaction when a key was pressed this recently (Tab), not when the page moved focus. */
+const FOCUS_KEY_MS = 1000;
 const LANDMARKS = new Set(["header", "nav", "main", "aside", "footer", "form", "dialog"]);
 // From src/visual/measure.ts (the visual chunk; a static import would make this chunk depend on another file).
 const GENERATED_ID = /^[:«]|[:»]$|^(headlessui|radix|react-aria|mui|chakra|ember|ext-gen|yui_|j_id|rc_|__next)|^[a-f0-9-]{12,}$|\d{4,}/i;
@@ -54,8 +85,12 @@ function hashedClass(c: string): boolean {
   return /^[a-z]{1,3}[A-Z0-9][A-Za-z0-9]{4,}$/.test(c);
 }
 
-type Loc = { href?: string; origin?: string; pathname?: string };
+type Loc = { href?: string; origin?: string; pathname?: string; hostname?: string; search?: string };
 type G = Record<string, unknown> & {
+  localStorage?: Storage;
+  performance?: { timeOrigin?: number };
+  navigator?: { userAgent?: string; maxTouchPoints?: number; userAgentData?: { mobile?: boolean } };
+  crypto?: { getRandomValues?: (a: Uint8Array) => Uint8Array };
   document?: Document & { prerendering?: boolean };
   location?: Loc;
   addEventListener?: (t: string, fn: (e: Event) => void, o?: AddEventListenerOptions) => void;
@@ -192,22 +227,133 @@ const bump = (m: Map<string, number>, key: string, cap: number) => {
   m.set(k, (m.get(k) ?? 0) + 1);
 };
 
+/** The device class, browser family and OS family, from the user agent string and its hints. Never the string itself. */
+export function deviceOf(ua: string, hint: { mobile?: boolean; touch?: number } = {}): { device: string; browser: string; os: string } {
+  const touchMac = /Macintosh/.test(ua) && (hint.touch ?? 0) > 1; // iPadOS asks for desktop sites with a Mac string
+  const os = /Windows/.test(ua)
+    ? "Windows"
+    : /iPhone|iPad|iPod/.test(ua) || touchMac
+      ? "iOS"
+      : /CrOS/.test(ua)
+        ? "ChromeOS"
+        : /Android/.test(ua)
+          ? "Android"
+          : /Mac OS X|Macintosh/.test(ua)
+            ? "macOS"
+            : /Linux|X11/.test(ua)
+              ? "Linux"
+              : "Other";
+  const device =
+    /iPad|Tablet|PlayBook|Silk/.test(ua) || touchMac || (os === "Android" && !/Mobile/.test(ua))
+      ? "tablet"
+      : hint.mobile === true || /Mobi|iPhone|iPod|Android/.test(ua)
+        ? "mobile"
+        : "desktop";
+  const browser = /bot|crawl|spider|Headless/i.test(ua)
+    ? "Other"
+    : /Edg(e|A|iOS)?\//.test(ua)
+      ? "Edge"
+      : /OPR\/|Opera/.test(ua)
+        ? "Opera"
+        : /SamsungBrowser/.test(ua)
+          ? "Samsung Internet"
+          : /Firefox\/|FxiOS/.test(ua)
+            ? "Firefox"
+            : /CriOS|Chrome\//.test(ua)
+              ? "Chrome"
+              : /Safari\//.test(ua)
+                ? "Safari"
+                : "Other";
+  return { device, browser, os };
+}
+
+/** The referring site as its host ("www." dropped), when it is not this site; "(other)" when the host looks like data. */
+export function refHost(referrer: string | undefined, host: string | undefined, U: typeof URL | undefined, data: RegExp): string | undefined {
+  if (!referrer || !U) return undefined;
+  let h: string;
+  try {
+    const u = new U(referrer);
+    if (!/^(https?|android-app):$/.test(u.protocol)) return undefined;
+    h = u.hostname.toLowerCase().replace(/^www\./, "");
+  } catch {
+    return undefined;
+  }
+  if (!h || h === (host ?? "").toLowerCase().replace(/^www\./, "")) return undefined;
+  return h.length > REF_MAX || data.test(h) ? "(other)" : h;
+}
+
+/** A utm_* value as sent: lower case, letters, digits and . _ + - and spaces, id-like words dropped, at most UTM_MAX. */
+export function utmValue(v: string | null | undefined, data: RegExp): string | undefined {
+  const s = (v ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9 ._+-]/g, "")
+    .replace(/[a-z0-9]+/g, (w) => (/\d{4,}|^[0-9a-f]{8,}$/.test(w) || w.length >= 20 ? "" : w))
+    .replace(/([ ._+-])[ ._+-]+/g, "$1")
+    .replace(/^[ ._+-]+|[ ._+-]+$/g, "")
+    .slice(0, UTM_MAX)
+    .replace(/[ ._+-]+$/, "");
+  return s && !data.test(s) ? s : undefined;
+}
+
 export interface AnalyticsController {
   /** Stop recording and drop the counts not sent yet. */
   stop(): void;
 }
 
 export interface AnalyticsChunk {
-  startAnalytics(rt: RuntimeImpl, t: TelemetryClient, ignored: (e: Event) => boolean, data: RegExp): AnalyticsController;
+  startAnalytics(rt: RuntimeImpl, t: TelemetryClient, ignored: (e: Event) => boolean, data: RegExp, version?: string): AnalyticsController;
 }
 
 let noticeShown = false;
-export const ANALYTICS_NOTICE = "[GenClass] Interaction analytics are on (this app turned them on): page views, time on page, scroll depth and clicks per element, never page text.";
+let mismatchShown = false;
+export const ANALYTICS_NOTICE =
+  "[GenClass] Interaction analytics are on (this app turned them on): page views and the path between them, visits, time on page, scroll depth, clicks per element, the referring site, campaign and device type, never page text.";
 
-/** Start recording (the stub checked telemetry and the token). `ignored`: dom-user's ignoredEvent; `data`: DATA_LIKE. */
-export function startAnalytics(rt: RuntimeImpl, t: TelemetryClient, ignored: (e: Event) => boolean, data: RegExp): AnalyticsController {
+/** Navigation Timing's type for the page load's first view: "load", "reload" or "back_forward". */
+export function loadNav(g: { performance?: { getEntriesByType?: (t: string) => { type?: string }[] } }): NavType {
+  try {
+    const t = g.performance?.getEntriesByType?.("navigation")?.[0]?.type;
+    return t === "reload" ? "reload" : t === "back_forward" ? "back_forward" : "load";
+  } catch {
+    return "load";
+  }
+}
+
+/** The direction of a history traversal from the Navigation API's entry indexes ("pop" when either is unknown). */
+export function popNav(before: number | undefined, after: number | undefined): NavType {
+  if (typeof before !== "number" || typeof after !== "number" || before === after) return "pop";
+  return after < before ? "back" : "forward";
+}
+
+/** Interaction analytics first shipped in this runtime. */
+export const ANALYTICS_SINCE = "0.3.0-beta.1";
+
+/**
+ * The warning when this chunk and the script tag that loaded it are not the same release (a self-hosted dist/ with
+ * files of two versions), or null. `version`: the tag's (src/cdn/analytics-loader.ts); the ESM entries pass none,
+ * since an app's bundler ships the chunk with the runtime it came with.
+ */
+export function versionMismatch(version: string | undefined): string | null {
+  if (version === undefined || version === VERSION) return null;
+  return `[GenClass] analytics: this analytics code is @genclass/runtime ${VERSION} but the script tag that loaded it is ${version}. Serve every file from one version's dist/ (interaction analytics need ${ANALYTICS_SINCE} or later: npm install @genclass/runtime@beta).`;
+}
+
+/**
+ * Start recording (the stub checked telemetry and the token). `ignored`: dom-user's ignoredEvent; `data`: DATA_LIKE;
+ * `version`: the script tag's version (one warning per page when it is not this chunk's; recording still starts).
+ */
+export function startAnalytics(rt: RuntimeImpl, t: TelemetryClient, ignored: (e: Event) => boolean, data: RegExp, version?: string): AnalyticsController {
   const g = rt.global as G;
   const doc = g.document;
+  const mismatch = versionMismatch(version);
+  if (mismatch && !mismatchShown) {
+    mismatchShown = true;
+    try {
+      ((g.console as Console | undefined) ?? (globalThis as { console?: Console }).console)?.warn?.(mismatch);
+    } catch {
+      /* ignore */
+    }
+  }
   const clock = rt.clock;
   if (t.stopped || !doc || typeof g.addEventListener !== "function") return { stop() {} };
   const k: KeyContext = { route: (p) => t.route(p), loc: g.location, url: g.URL ?? (globalThis as { URL?: typeof URL }).URL, data };
@@ -241,6 +387,116 @@ export function startAnalytics(rt: RuntimeImpl, t: TelemetryClient, ignored: (e:
   let pid = 0;
   let mo: MutationObserver | null = null;
   const timers = new Set<unknown>();
+  // navigation: how the open view was reached, the previous view of this page load, the first interaction, the path
+  let nav: NavType = loadNav(g as Parameters<typeof loadNav>[0]);
+  let pendingNav: NavType | null = null;
+  let from: string | undefined;
+  let fromMs = 0;
+  let opened = 0;
+  let prevRoute: string | undefined;
+  let prevOpened = 0;
+  let firstKey = "";
+  let firstMs = 0;
+  let firstSent = false;
+  let lastKey = -Infinity;
+  let path: string[] = [];
+  const entryIndex = (): number | undefined => {
+    try {
+      const i = (g.navigation as { currentEntry?: { index?: number } } | undefined)?.currentEntry?.index;
+      return typeof i === "number" && i >= 0 ? i : undefined;
+    } catch {
+      return undefined;
+    }
+  };
+  let navIndex = entryIndex();
+
+  // the visit: its id, whether the next view is this page load's first, and what the view that opened it sends
+  const owner = rt as unknown as { selfStorage: boolean };
+  const skey = VISIT_KEY + (t.token ?? "endpoint");
+  const origin0 = g.performance?.timeOrigin;
+  const wall = () => (typeof origin0 === "number" ? origin0 + clock.now() : NaN);
+  let visit = "";
+  let firstView = true;
+  let entry: Record<string, unknown> | null = null;
+  const store = (v: string | null) => {
+    owner.selfStorage = true;
+    try {
+      if (v === null) g.localStorage?.removeItem(skey);
+      else g.localStorage?.setItem(skey, v);
+    } catch {
+      /* storage blocked: the visit lasts this page load */
+    } finally {
+      owner.selfStorage = false;
+    }
+  };
+  const keepVisit = () => {
+    const now = wall();
+    if (visit && Number.isFinite(now)) store(JSON.stringify({ v: visit, t: Math.round(now), r: 1 }));
+  };
+  /** Where this page load came from: another site's host and the utm values (only for its first view). */
+  const sources = (): Record<string, unknown> => {
+    const out: Record<string, unknown> = {};
+    const ref = refHost(doc.referrer, g.location?.hostname, k.url, data);
+    if (ref) out.ref = ref;
+    try {
+      const q = new URLSearchParams(g.location?.search ?? "");
+      const utm: Record<string, string> = {};
+      for (const f of ["source", "medium", "campaign"]) {
+        const v = utmValue(q.get(`utm_${f}`), data);
+        if (v) utm[f] = v;
+      }
+      if (Object.keys(utm).length) out.utm = utm;
+    } catch {
+      /* ignore */
+    }
+    return out;
+  };
+  /** The visit the view opening now belongs to: the stored one while it is fresh, else a new one (with `entry`). */
+  const enter = () => {
+    const now = wall();
+    const src = firstView ? sources() : {};
+    firstView = false;
+    let prev: Record<string, unknown> | null = null;
+    let readable = true;
+    try {
+      prev = JSON.parse(g.localStorage?.getItem(skey) ?? "null") as Record<string, unknown> | null;
+    } catch {
+      readable = false;
+    }
+    const pv = prev?.v;
+    const pt = prev?.t;
+    let cont =
+      readable && Number.isFinite(now)
+        ? typeof pv === "string" && /^[0-9a-f]{16}$/.test(pv) && typeof pt === "number" && Math.abs(now - pt) < VISIT_IDLE_MS
+          ? pv
+          : ""
+        : visit;
+    // (a stored time ahead of now, from rounding or a clock set back, counts by its distance); a page load from another
+    // site or a campaign link starts a visit, as an idle gap does
+    if (src.ref || src.utm) cont = "";
+    if (cont) {
+      visit = cont;
+      entry = null;
+    } else {
+      visit = "";
+      try {
+        const b = g.crypto?.getRandomValues?.(new Uint8Array(8));
+        if (b) visit = Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
+      } catch {
+        /* no visit without a random id */
+      }
+      const nav = g.navigator;
+      entry = visit
+        ? {
+            entry: true,
+            ...src,
+            ...deviceOf(String(nav?.userAgent ?? ""), { mobile: nav?.userAgentData?.mobile, touch: nav?.maxTouchPoints }),
+            ...(readable ? { returning: !!prev && prev.r === 1 } : {}),
+          }
+        : null;
+    }
+    keepVisit();
+  };
 
   const here = () => t.route();
   const account = (at: number) => {
@@ -251,6 +507,19 @@ export function startAnalytics(rt: RuntimeImpl, t: TelemetryClient, ignored: (e:
     view = ++views;
     route = here();
     start = true;
+    // the first view of a page load keeps its load type; later ones were reached by a traversal or a route change
+    if (pendingNav) nav = pendingNav;
+    else if (prevRoute !== undefined) nav = "push";
+    pendingNav = null;
+    from = prevRoute;
+    fromMs = prevRoute !== undefined ? Math.max(0, Math.round(at - prevOpened)) : 0;
+    prevRoute = route;
+    prevOpened = opened = at;
+    navIndex = entryIndex();
+    firstKey = "";
+    firstSent = false;
+    if (path.length < PATH_MAX) path.push(route ?? "(unknown)");
+    else if (path.length === PATH_MAX) path.push("(more)");
     engaged = 0;
     acc = at;
     last = visible ? at : -Infinity;
@@ -258,6 +527,7 @@ export function startAnalytics(rt: RuntimeImpl, t: TelemetryClient, ignored: (e:
     clicks.clear();
     rage.clear();
     dead.clear();
+    enter();
   };
 
   /** Read the scroll position: the milestones the bottom of the viewport reached (2 px slack). */
@@ -278,14 +548,30 @@ export function startAnalytics(rt: RuntimeImpl, t: TelemetryClient, ignored: (e:
     }
   };
 
-  /** Queue this view's `interactions` event if anything changed; `end` closes the view. */
-  const emit = (end: boolean, measure = true) => {
+  /** Queue this view's `interactions` event if anything changed; `end` closes the view, `exit` the page load. */
+  const emit = (end: boolean, measure = true, exit = false) => {
     if (!view) return;
     account(clock.now());
     if (measure) read();
     const e: Record<string, unknown> = { t: "interactions", view, route };
     let any = start;
-    if (start) e.start = true;
+    if (start) {
+      e.start = true;
+      e.nav = nav;
+      if (from !== undefined) {
+        e.from = from;
+        e.fromMs = fromMs;
+      }
+      if (visit) e.visit = visit;
+      if (entry) Object.assign(e, entry);
+      entry = null;
+    }
+    if (firstKey && !firstSent) {
+      e.first = firstKey;
+      e.firstMs = firstMs;
+      firstSent = true;
+      any = true;
+    }
     const ms = Math.round(engaged);
     if (ms > 0) {
       e.engagedMs = ms;
@@ -312,7 +598,18 @@ export function startAnalytics(rt: RuntimeImpl, t: TelemetryClient, ignored: (e:
       e.end = true;
       view = 0;
     }
-    if (any) t.push(e);
+    if (exit) {
+      // where this page load ended, and the routes it went through; a restore from the back/forward cache starts anew
+      e.exit = true;
+      e.path = path;
+      path = [];
+      prevRoute = undefined;
+      any = true;
+    }
+    if (any) {
+      t.push(e);
+      keepVisit();
+    }
   };
 
   /** The view the visitor is on now: open one, or end the current one when the route changed. */
@@ -379,6 +676,33 @@ export function startAnalytics(rt: RuntimeImpl, t: TelemetryClient, ignored: (e:
     timers.add(tm);
   };
 
+  /** The view's first interaction: a click, or a focus on a form field right after a key press. */
+  const firstAt = (key: string, at: number) => {
+    if (firstKey || !view) return;
+    firstKey = key;
+    firstMs = Math.max(0, Math.round(at - opened));
+  };
+  const onKey = (e: Event) => {
+    if (e.isTrusted !== false) lastKey = clock.now();
+    onInput(e);
+  };
+  const onFocus = (e: Event) => {
+    const at = clock.now();
+    if (firstKey || at - lastKey > FOCUS_KEY_MS || !trusted(e)) return;
+    const el = targetOf(e);
+    const field = el?.closest?.(FIELD);
+    if (!field) return;
+    touch(at);
+    firstAt(keyOf(field, k), at);
+  };
+  const onPop = () => {
+    const dir = popNav(navIndex, entryIndex());
+    navIndex = entryIndex();
+    if (here() !== route) pendingNav = dir;
+    // the nav observer's listener ran first and already opened this view as a route change: it was a traversal
+    else if (view && start && nav === "push" && clock.now() - opened < 50) nav = dir;
+  };
+
   const onClick = (ev: Event) => {
     if (!trusted(ev)) return;
     const at = clock.now();
@@ -386,6 +710,7 @@ export function startAnalytics(rt: RuntimeImpl, t: TelemetryClient, ignored: (e:
     const el = targetOf(ev);
     const key = keyOf(el, k);
     bump(clicks, key, MAX_CLICK_KEYS);
+    firstAt(key, at);
     // rage: RAGE_CLICKS on one element within RAGE_MS, once per burst; not while the visitor selects text
     if (key !== rk) {
       rk = key;
@@ -430,8 +755,13 @@ export function startAnalytics(rt: RuntimeImpl, t: TelemetryClient, ignored: (e:
   const onPageHide = () => {
     gone = true;
   };
-  const onPageShow = () => {
+  const onPageShow = (e: Event) => {
     gone = false;
+    // restored from the back/forward cache: the next view starts a new path, reached by back or forward
+    if ((e as PageTransitionEvent).persisted) {
+      pendingNav = "back_forward";
+      prevRoute = undefined;
+    }
   };
   const onNav = (e: RtEvent) => {
     if (e.kind === "nav" && view && here() !== route) {
@@ -445,7 +775,10 @@ export function startAnalytics(rt: RuntimeImpl, t: TelemetryClient, ignored: (e:
     [g as unknown as EventTarget, "click", onClick, opts],
     [g as unknown as EventTarget, "pointerdown", onInput, opts],
     [g as unknown as EventTarget, "pointermove", onInput, opts],
-    [g as unknown as EventTarget, "keydown", onInput, opts],
+    [g as unknown as EventTarget, "keydown", onKey, opts],
+    [g as unknown as EventTarget, "focusin", onFocus, opts],
+    // capture: at the window it runs before the nav observer's own popstate listener
+    [g as unknown as EventTarget, "popstate", onPop, { capture: true }],
     [g as unknown as EventTarget, "wheel", onInput, opts],
     [g as unknown as EventTarget, "touchstart", onInput, opts],
     // the document's own scroll only (a scrolling container's events do not reach the window in the bubble phase)
@@ -462,7 +795,7 @@ export function startAnalytics(rt: RuntimeImpl, t: TelemetryClient, ignored: (e:
       /* analytics never break the runtime */
     }
   });
-  t.pre = (reason) => emit(reason === "pagehide" || reason === "destroy");
+  t.pre = (reason) => emit(reason === "pagehide" || reason === "destroy", true, reason === "pagehide");
 
   // the first page view: now, or when a prerendered page is shown
   const first = () => open(clock.now());
@@ -498,9 +831,10 @@ export function startAnalytics(rt: RuntimeImpl, t: TelemetryClient, ignored: (e:
   rt.addTeardown(off);
   return {
     stop() {
-      // consent withdrawn: nothing more is recorded and the counts not sent yet are dropped
+      // consent withdrawn: nothing more is recorded, the counts not sent yet are dropped and the visit flag removed
       view = 0;
       off();
+      store(null);
     },
   };
 }

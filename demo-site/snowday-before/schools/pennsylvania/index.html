@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en-US" itemscope itemtype="https://schema.org/CollectionPage">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+
+    <!-- ============================================ -->
+    <!-- PENNSYLVANIA SCHOOLS - Regional guide -->
+    <!-- ============================================ -->
+    <title>Pennsylvania Snow Day Predictor | Philadelphia Pittsburgh Erie School Closures | PA Schools Cancelled</title>
+    <meta name="title"
+        content="Pennsylvania Snow Day Predictor | Philadelphia School District Pittsburgh Erie Allentown">
+    <meta name="description"
+        content="Snow Day Predictor for all Pennsylvania school districts! Check if Philadelphia, Pittsburgh, Erie, Allentown schools will close tomorrow. 500 PA districts covered. Lake effect & nor'easter predictions. weather-based estimate.">
+
+    <!-- MASSIVE PA KEYWORD OPTIMIZATION -->
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+    <link rel="canonical" href="https://snowday-predictor.ca/schools/pennsylvania/">
+
+    <!-- GEO TAGS -->
+    <meta name="geo.region" content="US-PA">
+    <meta name="geo.placename" content="Pennsylvania, United States">
+    <meta name="geo.position" content="39.95;-75.16">
+
+    <!-- OPEN GRAPH -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://snowday-predictor.ca/schools/pennsylvania/">
+    <meta property="og:title" content="❄️ Pennsylvania Snow Day Predictor | Philadelphia Pittsburgh Erie">
+    <meta property="og:description"
+        content="Check if PA schools will close tomorrow! Free predictions for 500 school districts.">
+    <meta property="og:image" content="https://snowday-predictor.ca/og-image.jpg">
+    <meta property="og:locale" content="en_US">
+
+    <!-- TWITTER -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="❄️ Pennsylvania Snow Day Predictor | Philly Pittsburgh Schools">
+
+    <!-- PWA -->
+    <meta name="theme-color" content="#1e3a5f">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+
+    <!-- BREADCRUMB SCHEMA -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+            {"@type": "ListItem", "position": 1, "name": "Home", "item": "https://snowday-predictor.ca/"},
+            {"@type": "ListItem", "position": 2, "name": "School Districts", "item": "https://snowday-predictor.ca/schools/"},
+            {"@type": "ListItem", "position": 3, "name": "Pennsylvania", "item": "https://snowday-predictor.ca/schools/pennsylvania/"}
+        ]
+    }
+    </script>
+
+    <!-- PA DISTRICTS SCHEMA -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "ItemList",
+        "name": "Pennsylvania School Districts - Snow Day Predictor",
+        "numberOfItems": 500,
+        "itemListElement": [
+            {"@type": "ListItem", "position": 1, "name": "School District of Philadelphia", "url": "https://snowday-predictor.ca/schools/pennsylvania/philadelphia/"},
+            {"@type": "ListItem", "position": 2, "name": "Pittsburgh Public Schools", "url": "https://snowday-predictor.ca/schools/pennsylvania/pittsburgh/"},
+            {"@type": "ListItem", "position": 3, "name": "Erie City School District", "url": "https://snowday-predictor.ca/schools/pennsylvania/erie/"},
+            {"@type": "ListItem", "position": 4, "name": "Allentown School District", "url": "https://snowday-predictor.ca/schools/pennsylvania/allentown/"},
+            {"@type": "ListItem", "position": 5, "name": "Reading School District", "url": "https://snowday-predictor.ca/schools/pennsylvania/reading/"}
+        ]
+    }
+    </script>
+
+    <!-- FAQ SCHEMA -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+            {
+                "@type": "Question",
+                "name": "Will Philadelphia schools be closed tomorrow?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Use our Snow Day Predictor with your Philadelphia ZIP code (19xxx) to check. The School District of Philadelphia announces closures through their website, the SDP app, and local news (6ABC, NBC10, CBS3, Fox29). Decisions are typically made by 5:30 AM."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "Does Erie PA get more snow than Philadelphia?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Yes! Erie is in the Lake Erie snow belt and averages 100+ inches of snow annually due to lake effect. Philadelphia averages only 20-25 inches. Erie schools close more frequently."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "When do Pittsburgh schools announce closures?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Pittsburgh Public Schools typically announces by 6:00 AM through their website, app, and local news stations (KDKA, WTAE, WPXI). Subscribe to alerts for fastest notification."
+                }
+            }
+        ]
+    }
+    </script>
+
+    <style>
+        :root {
+            --primary: #3b82f6;
+            --primary-light: #93c5fd;
+            --secondary: #8b5cf6;
+            --accent: #06b6d4;
+            --bg-dark: #0f172a;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --glass-bg: rgba(255, 255, 255, 0.08);
+            --glass-border: rgba(255, 255, 255, 0.12);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0f172a 100%);
+            min-height: 100vh;
+            color: var(--text-primary);
+        }
+
+        .nav-header {
+            background: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(12px);
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 1000;
+            padding: 0.8rem 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .nav-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        .nav-logo {
+            text-decoration: none;
+            color: var(--text-primary);
+            font-weight: 700;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.5rem;
+        }
+
+        .nav-link {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .nav-link:hover {
+            color: var(--text-primary);
+        }
+
+        .breadcrumb {
+            padding: 100px 20px 0;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .breadcrumb a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.875rem;
+        }
+
+        .breadcrumb span {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            margin: 0 0.5rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 30px 20px 40px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        h1 {
+            font-size: clamp(2rem, 5vw, 2.75rem);
+            font-weight: 800;
+            background: linear-gradient(135deg, #f0f9ff 0%, #93c5fd 50%, #06b6d4 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 1rem;
+        }
+
+        .subtitle {
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+            max-width: 700px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+
+        .stats-bar {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin: 2rem 0;
+            flex-wrap: wrap;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--accent);
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+
+        .cta-section {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            border-radius: 20px;
+            padding: 2.5rem;
+            text-align: center;
+            margin: 2rem 0;
+        }
+
+        .cta-section h2 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .cta-section p {
+            opacity: 0.9;
+            margin-bottom: 1.5rem;
+        }
+
+        .cta-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: white;
+            color: #1d4ed8;
+            padding: 1rem 2rem;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: transform 0.2s;
+        }
+
+        .cta-button:hover {
+            transform: translateY(-2px);
+        }
+
+        .region-section {
+            margin: 3rem 0;
+        }
+
+        .region-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+        }
+
+        .district-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1rem;
+        }
+
+        .district-card {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 1.25rem;
+            transition: transform 0.3s, border-color 0.3s;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .district-card:hover {
+            transform: translateY(-3px);
+            border-color: var(--primary);
+        }
+
+        .district-card.lake-effect {
+            border-color: #7c3aed;
+            background: rgba(124, 58, 237, 0.1);
+        }
+
+        .district-name {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+
+        .district-info {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .district-students {
+            font-size: 0.75rem;
+            color: var(--accent);
+            margin-top: 0.5rem;
+        }
+
+        .lake-effect-tag {
+            font-size: 0.7rem;
+            color: #c4b5fd;
+            background: rgba(124, 58, 237, 0.3);
+            padding: 2px 8px;
+            border-radius: 10px;
+            display: inline-block;
+            margin-top: 0.5rem;
+        }
+
+        .faq-section {
+            margin: 3rem 0;
+        }
+
+        .faq-section h2 {
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+            text-align: center;
+        }
+
+        .faq-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1rem;
+        }
+
+        .faq-item {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 1.25rem;
+        }
+
+        .faq-item h3 {
+            font-size: 1rem;
+            color: var(--primary-light);
+            margin-bottom: 0.5rem;
+        }
+
+        .faq-item p {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        footer {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 2rem;
+            text-align: center;
+            margin-top: 4rem;
+        }
+
+        footer p {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+
+        footer a {
+            color: var(--primary-light);
+            text-decoration: none;
+        }
+
+        @media (max-width: 640px) {
+            .district-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <nav class="nav-header">
+        <div class="nav-content">
+            <a href="/" class="nav-logo">❄️ Snow Day Predictor</a>
+            <div class="nav-links">
+                <a href="/" class="nav-link">Calculator</a>
+                <a href="/schools/" class="nav-link">All Schools</a>
+                <a href="/schools/pennsylvania/" class="nav-link" style="color: var(--primary-light);">Pennsylvania</a>
+            </div>
+        </div>
+    </nav>
+
+    <nav class="breadcrumb">
+        <a href="/">Home</a><span>›</span>
+        <a href="/schools/">Schools</a><span>›</span>
+        <a href="/schools/pennsylvania/">Pennsylvania</a>
+    </nav>
+
+    <div class="container">
+        <header>
+            <h1>🔔 Pennsylvania Snow Day Predictor</h1>
+            <p class="subtitle">Free snow day predictions for all 500 Pennsylvania school districts. From Philadelphia
+                to Pittsburgh to Erie's lake effect zone!</p>
+
+            <div class="stats-bar">
+                <div class="stat-item">
+                    <div class="stat-value">500</div>
+                    <div class="stat-label">School Districts</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">1.7M</div>
+                    <div class="stat-label">Students</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">3,000+</div>
+                    <div class="stat-label">Schools</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">Beta</div>
+                    <div class="stat-label">Model</div>
+                </div>
+            </div>
+        </header>
+
+        <main>
+            <section class="cta-section">
+                <h2>❄️ Check Your PA Snow Day Chance</h2>
+                <p>Enter your Pennsylvania ZIP code to get an instant prediction</p>
+                <a href="/" class="cta-button">🎯 Get My Prediction</a>
+            </section>
+
+            <!-- Greater Philadelphia -->
+            <section class="region-section" id="philadelphia">
+                <h2 class="region-title">🏛️ Greater Philadelphia</h2>
+                <div class="district-grid">
+                    <a href="/schools/pennsylvania/" class="district-card">
+                        <div class="district-name">School District of Philadelphia</div>
+                        <div class="district-info">Philadelphia • ZIP: 19xxx</div>
+                        <div class="district-students">200,000+ students • Largest in PA</div>
+                    </a>
+                    <a href="/schools/pennsylvania/" class="district-card">
+                        <div class="district-name">Lower Merion School District</div>
+                        <div class="district-info">Montgomery County</div>
+                    </a>
+                    <a href="/schools/pennsylvania/" class="district-card">
+                        <div class="district-name">Central Bucks School District</div>
+                        <div class="district-info">Bucks County</div>
+                        <div class="district-students">18,000 students</div>
+                    </a>
+                    <a href="/schools/pennsylvania/" class="district-card">
+                        <div class="district-name">West Chester Area SD</div>
+                        <div class="district-info">Chester County</div>
+                    </a>
+                    <a href="/schools/pennsylvania/" class="district-card">
+                        <div class="district-name">Chester Upland School District</div>
+                        <div class="district-info">Delaware County</div>
+                    </a>
+                </div>
+            </section>
+
+            <!-- Pittsburgh Metro -->
+            <section class="region-section" id="pittsburgh">
+                <h2 class="region-title">🌉 Pittsburgh Metro</h2>
+                <div class="district-grid">
+                    <a href="/schools/pennsylvania/" class="district-card">
+                        <div class="district-name">Pittsburgh Public Schools</div>
+                        <div class="district-info">Pittsburgh • Allegheny County</div>
+                        <div class="district-students">21,000+ students</div>
+                    </a>
+                    <a href="/schools/pennsylvania/" class="district-card">
+                        <div class="district-name">North Allegheny School District</div>
+                        <div class="district-info">Allegheny County</div>
+                    </a>
+                    <a href="/schools/pennsylvania/" class="district-card">
+                        <div class="district-name">Mt. Lebanon School District</div>
+                        <div class="district-info">Allegheny County</div>
+                    </a>
+                    <a href="/schools/pennsylvania/" class="district-card">
+                        <div class="district-name">Bethel Park School District</div>
+                        <div class="district-info">Allegheny County</div>
+                    </a>
+                </div>
+            </section>
+
+            <!-- Erie (Lake Effect) -->
+            <section class="region-section" id="erie">
+                <h2 class="region-title">🌊 Erie (Lake Effect Zone)</h2>
+                <div class="district-grid">
+                    <a href="/schools/pennsylvania/" class="district-card lake-effect">
+                        <div class="district-name">Erie City School District</div>
+                        <div class="district-info">Erie • Erie County</div>
+                        <div class="district-students">11,000 students</div>
+                        <div class="lake-effect-tag">🌊 100+ inches/year</div>
+                    </a>
+                    <a href="/schools/pennsylvania/" class="district-card lake-effect">
+                        <div class="district-name">Millcreek Township SD</div>
+                        <div class="district-info">Erie County</div>
+                        <div class="lake-effect-tag">🌊 Lake Effect Zone</div>
+                    </a>
+                </div>
+            </section>
+
+            <!-- Central PA -->
+            <section class="region-section" id="central">
+                <h2 class="region-title">🏔️ Central Pennsylvania</h2>
+                <div class="district-grid">
+                    <a href="/schools/pennsylvania/" class="district-card">
+                        <div class="district-name">Harrisburg City School District</div>
+                        <div class="district-info">Harrisburg • Dauphin County</div>
+                        <div class="district-students">State Capital</div>
+                    </a>
+                    <a href="/schools/pennsylvania/" class="district-card">
+                        <div class="district-name">State College Area SD</div>
+                        <div class="district-info">Centre County</div>
+                        <div class="district-students">Penn State area</div>
+                    </a>
+                    <a href="/schools/pennsylvania/" class="district-card">
+                        <div class="district-name">Allentown School District</div>
+                        <div class="district-info">Lehigh County</div>
+                        <div class="district-students">17,000 students</div>
+                    </a>
+                    <a href="/schools/pennsylvania/" class="district-card">
+                        <div class="district-name">Reading School District</div>
+                        <div class="district-info">Berks County</div>
+                    </a>
+                    <a href="/schools/pennsylvania/" class="district-card">
+                        <div class="district-name">Scranton School District</div>
+                        <div class="district-info">Lackawanna County</div>
+                    </a>
+                </div>
+            </section>
+
+            <!-- FAQ -->
+            <section class="faq-section" id="faq">
+                <h2>❓ Pennsylvania Snow Day FAQs</h2>
+                <div class="faq-grid">
+                    <article class="faq-item">
+                        <h3>Will Philadelphia schools close tomorrow?</h3>
+                        <p>Use our predictor with your Philly ZIP (19xxx). SDP announces by 5:30 AM via website, app,
+                            and 6ABC/NBC10/CBS3/Fox29.</p>
+                    </article>
+                    <article class="faq-item">
+                        <h3>Does Erie get more snow than Philly?</h3>
+                        <p>Yes! Erie averages 100+ inches/year (lake effect) vs Philadelphia's 20-25 inches. Erie
+                            schools close much more frequently.</p>
+                    </article>
+                    <article class="faq-item">
+                        <h3>When do Pittsburgh schools announce?</h3>
+                        <p>Pittsburgh Public Schools announces by 6:00 AM via their website, app, and local news (KDKA,
+                            WTAE, WPXI).</p>
+                    </article>
+                    <article class="faq-item">
+                        <h3>Do suburban districts follow Philadelphia?</h3>
+                        <p>No! Each PA district decides independently. Lower Merion, Central Bucks, and other suburban
+                            districts make their own calls.</p>
+                    </article>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <footer>
+        <p>© 2026 Snow Day Predictor | <a href="/">Home</a> | <a href="/schools/">All Districts</a> | <a
+                href="/privacy.html">Privacy</a></p>
+        <p style="margin-top: 0.5rem; opacity: 0.7; font-size: 0.75rem;">Covering all 500 Pennsylvania school districts
+        </p>
+    </footer>
+</body>
+
+</html>

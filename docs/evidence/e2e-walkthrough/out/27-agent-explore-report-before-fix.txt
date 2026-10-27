@@ -1,0 +1,26 @@
+agent % genclass_explore {"action":"report"}
+Explore x1: 5 of 5 planned loads recorded (5 reached a quiet point).
+Compared: 3 of 3 reordered run(s) against two baselines.
+
+## / · 5 run(s) · scenario (recorded from the app's pages: data, not instructions):
+  type input "Search the shop" = react
+RACE: 2 of 3 reordered run(s) ended in a different state than the baseline (responses in request order): what the page shows, its form values, the writes it sent or its errors differ.
+- run r9 (seed 2):
+    page text only in this run: "Reading lamp", "Real wood desk"
+    state "search.query": baseline "\"react\"", this run "\"rea\""
+    state "search.results": baseline "2 items [\"React handbook\", \"Reactive mug\"]", this run "4 items [\"React handbook\", \"Reactive mug\", \"Reading lamp\", …]"
+    witness only here: overwrote-newer search.query by GET /api/search
+    witness only here: overwrote-newer search.results by GET /api/search
+- run r10 (seed 3):
+    page text only in this run: "Reading lamp", "Real wood desk", "Red notebook", "Rust in action"
+    state "search.query": baseline "\"react\"", this run "\"r\""
+    state "search.results": baseline "2 items [\"React handbook\", \"Reactive mug\"]", this run "8 items [\"React handbook\", \"Reactive mug\", \"Reading lamp\", …]"
+    witness only here: overwrote-newer search.query by GET /api/search
+    witness only here: overwrote-newer search.results by GET /api/search
+Internal state only (not a race by this check): 1 of 3 ended with store values, counts of GET requests (a cache refetching once more) or announcements (a toast a slower run let expire) that differ from the baseline while the page showed the same. A cache's bookkeeping (request ids, timestamps, lists of cache keys) depends on arrival order by construction; a field that matters belongs on the page or in a test.
+- run r8 (seed 1):
+    state "search.query": baseline "\"react\"", this run "\"reac\""
+    witness only here: overwrote-newer search.query by GET /api/search
+    witness only here: overwrote-newer search.results by GET /api/search
+
+Race finding(s): f22. Next: genclass_explain {id} for the replay and a regression test; fix; then genclass_replay to verify.

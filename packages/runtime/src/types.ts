@@ -652,10 +652,55 @@ export interface SessionSummary {
   heldMs: { total: number; max: number };
   errors: number;
   /**
+   * The fetch and XHR requests GenClass saw in this page load, in total and per host (issue 94): how many started,
+   * how they ended (status class, no response, aborted, answered by GenClass), how many answers were not JSON where
+   * the app read them as JSON, and their latency. `requests: 0` means GenClass saw no request (loaded after the app
+   * sent them, or the app keeps a `fetch` reference of its own); requests with nothing in `detections` means it saw
+   * them and found nothing salient. Present once the measured checks' chunk has loaded (`visual`: development hosts
+   * by default, `visual: true` elsewhere, or the devtools overlay, `rt.checkNow()`), so first load carries no code for
+   * it. Local only: telemetry does not send it, and a sink's summary record carries the totals with an empty `hosts`.
+   */
+  requests?: RequestSummary;
+  /**
    * Measured visual checks (InitOptions.visual): findings per kind and per route, fixes, cost and coverage. Present
    * only once the checks have run, so a summary without them is unchanged.
    */
   visual?: VisualSummary;
+}
+
+/** One host's (or all hosts') request counts in SessionSummary.requests. */
+export interface RequestHealth {
+  /** fetch and XHR requests started (GenClass's own retries and hedges excluded). */
+  requests: number;
+  /** Responses by status class. */
+  "2xx": number;
+  "3xx": number;
+  "4xx": number;
+  "5xx": number;
+  /** Ended without a response: a network error, a timeout (XHR `timeout`, `AbortSignal.timeout`) or status 0. */
+  network: number;
+  /** Aborted by the app (an AbortController, `xhr.abort()`). */
+  aborted: number;
+  /**
+   * fetch answers whose Content-Type is not JSON although the app read them with `response.json()`, any status.
+   * Judged from the header, never by parsing the body. (XHR `responseType = "json"` is not counted.)
+   */
+  notJson: number;
+  /** Answered by GenClass instead of the network: a blocked request or a reused response (guard and heal only). */
+  byGenClass: number;
+  /** Still in flight (a request pending past `visual.checks.stallMs` is also a `request-stalled` check). */
+  pending: number;
+  /**
+   * Latency of the answers that did not fail (ms, rounded), from the learned baselines: the last 64 per endpoint
+   * (method and normalised path). Absent before the first such answer.
+   */
+  latency?: { n: number; p50: number; p95: number };
+}
+
+/** SessionSummary.requests: the totals, and the same counts per host. */
+export interface RequestSummary extends RequestHealth {
+  /** Per host: "same-origin" for the page's own origin, else the host ("api.example.com"); "other" past 30 hosts. */
+  hosts: Record<string, RequestHealth>;
 }
 
 /** What an audit entry records (rt.audit()). */
@@ -815,7 +860,7 @@ export interface InitOptions {
    * record on the console) and `@genclass/runtime/sinks/webhook` (batched POSTs to a URL you configure). The zero-code
    * entries also take them by name (`console-json:noevidence` sends no evidence text): `window.GENCLASS_CONFIG = {
    * sinks: ["webhook:/genclass"] }`, `<meta name="genclass" content="sink=console-json">`, `data-sink="console-json"`
-   * on the script tag, or `npx @genclass/runtime init --sink webhook:/genclass`. Forwarding to Sentry, PostHog or
+   * on the script tag, or `npx @genclass/runtime@beta init --sink webhook:/genclass`. Forwarding to Sentry, PostHog or
    * Datadog is not part of the runtime (on every genclass.dev plan, Free included, the GenClass collector forwards to
    * them once turned on: https://genclass.dev/pricing); a page config that names `sentry`, `posthog` or `datadog` gets one console warning
    * that says so and nothing else.
@@ -901,11 +946,19 @@ export interface InitOptions {
    * per page view, the page route, page views, engaged time (the tab visible, at most 30 s after the last input),
    * scroll depth (25 / 50 / 75 / 100 %) and clicks, rage clicks and dead clicks per element, the element named from
    * markup only (`data-genclass-name`, `data-testid`, an id, a link's target, stable class names or a short
-   * structural path; never its text). Sent as `interactions` telemetry events, never fed to a decision or the model.
+   * structural path; never its text). Per visit (page views with no gap over 30 minutes) also a random visit id, the
+   * referring host, the utm_source / utm_medium / utm_campaign values without ids, the device class, browser and OS
+   * families (buckets, never the user agent) and whether the browser visited before. Within one page load also how
+   * each view was reached (a load, a reload, back/forward, an in-app route change), the previous view's route and the
+   * ms between, the element key of the view's first interaction, and at pagehide the exit and the routes in order (at
+   * most 10). Sent as `interactions` telemetry events, never fed to a decision or the model.
    * **Default: off.** Needs telemetry on and the app's `token` (or your own `telemetry.endpoint`); every telemetry
-   * opt-out and Global Privacy Control turn it off too. Nothing is stored on the device. Where analytics need consent
+   * opt-out and Global Privacy Control turn it off too. While it runs, one `localStorage` entry
+   * (`genclass.analytics.<token>`) holds the visit id and the visited-before flag. Where analytics need consent
    * (the EU, EEA and UK), leave it off and call `runtime.analytics.start()` once the visitor agrees. Also
    * `data-analytics="on"`, `<meta name="genclass" content="analytics=on">`, `window.GENCLASS_CONFIG.analytics`.
+   * Since 0.3.0-beta.1 (`npm install @genclass/runtime@beta`; 0.2.x, npm's `latest` until 0.3.0, ignores it). When the
+   * analytics code does not load, `runtime.analytics.reason` is "error" (the script tag also warns on the console).
    */
   analytics?: boolean;
   /**
@@ -933,7 +986,7 @@ export interface InitOptions {
    */
   visual?: boolean | "local" | VisualOptions;
   /**
-   * Your app's GenClass token (`gc_` + 22 letters/digits; get one with `npx @genclass/runtime init` or at
+   * Your app's GenClass token (`gc_` + 22 letters/digits; get one with `npx @genclass/runtime@beta init` or at
    * https://genclass.dev/start). Public: it only lets this app's telemetry batches be grouped under your private
    * dashboard link. It does nothing while telemetry is off (opt-outs and Global Privacy Control still win). An invalid
    * value logs one console warning and is ignored. Also `data-token`, `<meta name="genclass" content="token=...">`,
@@ -1085,7 +1138,12 @@ export interface Learned {
 
 // --------------------------------------------------------------------------- measured visual checks (VISUAL.md)
 
-/** The v1 measured visual checks (docs/runtime/VISUAL.md section 3). */
+/**
+ * The measured visual checks (docs/runtime/VISUAL.md section 3). `ad-heavy` (3.25): ad slots cover 30% of the page,
+ * half the first screen, a sticky ad 30% of the screen, or an ad interstitial half of it. `text-warped` (3.26): text a
+ * reader cannot read as text (overlapping lines, a line cut mid-way, characters no font can draw, mirrored or skewed
+ * text, letter spacing that splits words, text drawn below 8 px). Both report only, never fix, never feed the model.
+ */
 export type CheckKind =
   | "image-broken"
   | "image-css-broken"
@@ -1109,7 +1167,10 @@ export type CheckKind =
   | "scroll-lock-stuck"
   | "control-unreachable"
   | "focus-obscured"
-  | "dialog-covered";
+  | "dialog-covered"
+  | "request-stalled"
+  | "ad-heavy"
+  | "text-warped";
 
 /** The checks that may apply a runtime fix (opt-in, reversible, never in observe). */
 export type VisualFixKind = "text-invisible" | "pointer-events-leak" | "scroll-lock-stuck";
@@ -1121,8 +1182,11 @@ export type CheckSeverity = "high" | "medium" | "low";
 export interface VisualOptions {
   /** Same values as the shorthand. Default "local" in GenClass.init() (browser), false in createRuntime(). */
   on?: boolean | "local";
-  /** Turn single kinds on or off. Default: every v1 kind on. */
-  checks?: Partial<Record<CheckKind, boolean>>;
+  /**
+   * Turn single kinds on or off. Default: every kind on. `stallMs`: how long a fetch or XHR request may stay pending
+   * before `request-stalled` reports it (default 15,000; clamped to 1,000..600,000).
+   */
+  checks?: Partial<Record<CheckKind, boolean>> & { stallMs?: number };
   /**
    * Runtime fixes (VISUAL.md section 11). Default false. true allows the three fix kinds; or a list of them. Needs
    * `on: true` (the "local" default and ?genclass-visual=on never fix) and guard or heal mode (heal alone never turns
@@ -1316,7 +1380,10 @@ export interface AnalyticsStatus {
    * whether they are on; does nothing while telemetry is off or without a token.
    */
   start(): boolean;
-  /** Stop recording and drop the counts not sent yet (the visitor withdrew consent). `start()` turns it on again. */
+  /**
+   * Stop recording, drop the counts not sent yet and remove the visit entry from `localStorage` (the visitor withdrew
+   * consent). `start()` turns it on again.
+   */
   stop(): void;
 }
 

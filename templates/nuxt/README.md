@@ -25,7 +25,7 @@ export default defineNuxtConfig({ modules: ["@genclass/nuxt"] });
 The module adds one client-only plugin, before your own plugins, whose first line is `import "@genclass/runtime/auto"`:
 GenClass is installed when the entry chunk runs, before Nuxt creates the app and before any component's first request.
 It runs in the browser only: server rendering, Nitro routes and prerendering are untouched. It watches fetch, XHR,
-WebSocket, EventSource, user input and timers. `npx @genclass/runtime init` installs GenClass in an existing Nuxt
+WebSocket, EventSource, user input and timers. `npx @genclass/runtime@beta init` installs GenClass in an existing Nuxt
 project without the module (a `plugins/genclass.client.ts` with the same line).
 
 **What it sees in a Nuxt app.** Automatic state discovery covers React, Redux and Zustand, not Vue refs or Pinia

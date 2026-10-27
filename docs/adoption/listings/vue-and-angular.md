@@ -86,7 +86,7 @@ tool that finds leaked RxJS subscriptions in Angular apps.` A bullet, the name l
 detects and highlights Angular components that are re-rendering", and `rxjs-leak-finder`). "Runtime" is for things
 that run Angular itself (dynamic compile, platforms); "Performance" and "Networking" are stretches.
 
-**Before submitting.** The Angular path is one import in `src/main.ts` (`templates/angular`, `npx @genclass/runtime
+**Before submitting.** The Angular path is one import in `src/main.ts` (`templates/angular`, `npx @genclass/runtime@beta
 init`), covered by the compat matrix (Angular 22 with SSR, `HttpClient` on fetch and on XHR). Angular signals are not
 discovered automatically; the description must not imply they are.
 

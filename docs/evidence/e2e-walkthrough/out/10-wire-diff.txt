@@ -1,0 +1,69 @@
+~/tiny-shop % diff -u ../out/.after-init.js src/main.js | tail -n +3; echo; echo '--- src/genclass.config.js'; cat src/genclass.config.js
+@@ -1,5 +1,6 @@
+ import "./genclass.config"; // genclass:init
+ import genclass from "@genclass/runtime/auto"; // genclass:init
++import { connectAgent } from "@genclass/runtime/agent"; // genclass:agent
+ // Tiny Shop's page script, as a small shop might write it: fetch on every keystroke with no cancellation, add-to-cart
+ // without an idempotency key, a checkout that does not handle a failure well, and a profile handler that trusts the
+ // response's shape. The store is a plain object with get/set so the page has one place its state lives.
+@@ -7,15 +8,23 @@
+ 
+ const $ = (s) => document.querySelector(s);
+ 
++// The shop's state goes through GenClass: each key of the store is wrapped once, and the handlers write through the
++// wrapped handle, so every write is recorded with the response or click that caused it, and in guard mode a stale
++// response's write can be dropped.
++const state = Object.fromEntries(store.keys().filter((k) => !k.startsWith("search.")).map((k) => [k, genclass.guard(k, { get: () => store.get(k), set: (v) => store.set(k, v) })]));
++const write = (k, v) => state[k].set(v);
++
+ // Search: every keystroke fetches; whichever response arrives last wins, even if it answers an older query.
++// The search state is a GenClass atom (the one line from the README): every write is recorded with the response that
++// caused it, and in guard mode a stale response's write can be dropped.
++const search = genclass.atom("search", { query: "", results: [] });
+ $("#q").addEventListener("input", async (e) => {
+   const q = e.target.value;
+   const r = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+   const data = await r.json();
+-  store.set("search.results", data.results);
+-  store.set("search.query", data.q);
++  search.set((s) => ({ ...s, results: data.results, query: data.q }));
+ });
+-store.subscribe("search.results", (results) => {
++search.subscribe(({ results }) => {
+   const ul = $("#results");
+   ul.textContent = "";
+   for (const name of results) {
+@@ -30,7 +39,7 @@
+   b.addEventListener("click", async () => {
+     const r = await fetch("/api/cart", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ item: b.dataset.item }) });
+     const data = await r.json();
+-    store.set("cart.count", data.count);
++    write("cart.count", data.count);
+   });
+ }
+ store.subscribe("cart.count", (n) => ($("#cartcount").textContent = String(n)));
+@@ -47,7 +56,7 @@
+ $("#reviews").addEventListener("click", async () => {
+   const r = await fetch("/api/reviews");
+   const data = await r.json();
+-  store.set("reviews", data.reviews);
++  write("reviews", data.reviews);
+ });
+ store.subscribe("reviews", (list) => {
+   const ul = $("#reviewlist");
+@@ -75,4 +84,8 @@
+ });
+ 
+ $("#ok").addEventListener("click", () => $("dialog.cookie").close());
++
++// Development builds only: the agent link records what happens on this page for @genclass/mcp (the port is set
++// because another GenClass MCP server already owns the default one on this machine; GENCLASS_AGENT_PORT matches).
++if (import.meta.env.DEV) connectAgent(genclass, { url: "http://127.0.0.1:47400" }); // genclass:agent
+ if (import.meta.env.DEV) import("@genclass/runtime/devtools").then((d) => d.mountDevtools(genclass)); // genclass:init
+
+--- src/genclass.config.js
+// genclass:init start: GenClass Runtime, added by `npx @genclass/runtime init` (`npx @genclass/runtime remove` takes it out)
+// Read by @genclass/runtime/auto, imported right after this file: any GenClass.init() option works here (see the README).
+globalThis.GENCLASS_CONFIG = { token: "gc_<redacted>", telemetry: true }; // telemetry: true also sends from localhost (this demo runs there)
+// genclass:init end
+

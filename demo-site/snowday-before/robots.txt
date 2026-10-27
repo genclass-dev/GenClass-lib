@@ -1,0 +1,11 @@
+# Snow Day Predictor robots.txt
+
+User-agent: *
+Allow: /
+
+# Internal/dev content
+Disallow: /.git/
+Disallow: /battlesnake_code/
+Disallow: /*.py$
+
+Sitemap: https://snowday-predictor.ca/sitemap.xml

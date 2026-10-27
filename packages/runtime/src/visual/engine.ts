@@ -26,6 +26,9 @@ import * as A from "./checks/assets.js";
 import * as T from "./checks/text.js";
 import * as L from "./checks/layout.js";
 import * as I from "./checks/interact.js";
+import * as S from "./checks/stall.js";
+import * as AD from "./checks/ads.js";
+import * as W from "./checks/warped.js";
 
 export const KINDS: CheckKind[] = [
   "image-broken",
@@ -51,6 +54,9 @@ export const KINDS: CheckKind[] = [
   "control-unreachable",
   "focus-obscured",
   "dialog-covered",
+  "request-stalled",
+  "ad-heavy",
+  "text-warped",
 ];
 
 /** The near-free kinds: browser-reported facts and interaction hooks. Low-end and sampled-out sessions run only these. */
@@ -70,6 +76,7 @@ export const LIGHT = new Set<CheckKind>([
   "control-unreachable",
   "focus-obscured",
   "dialog-covered",
+  "request-stalled",
 ]);
 const COLOUR = new Set<CheckKind>(["text-invisible"]);
 /**
@@ -83,8 +90,8 @@ const MO_OPTS: MutationObserverInit = { childList: true, subtree: true, characte
 /** Mutation records per second above which the observer rests for 5 s (an animation library writing styles every frame). */
 const MO_RATE = 3000;
 let engines = 0;
-const TEXT = new Set<CheckKind>(["text-invisible", "text-template-leak", "text-placeholder", "text-encoding", "page-overflow-x"]);
-const LAYOUT = new Set<CheckKind>(["page-overflow-x", "viewport-meta-missing", "control-unreachable", "focus-obscured", "dialog-covered", "click-blocked"]);
+const TEXT = new Set<CheckKind>(["text-invisible", "text-template-leak", "text-placeholder", "text-encoding", "page-overflow-x", "text-warped"]);
+const LAYOUT = new Set<CheckKind>(["page-overflow-x", "viewport-meta-missing", "control-unreachable", "focus-obscured", "dialog-covered", "click-blocked", "ad-heavy"]);
 
 export interface Cfg {
   checks: Record<CheckKind, boolean>;
@@ -99,6 +106,8 @@ export interface Cfg {
   lowEnd: "light" | "full" | "off";
   sample: number;
   maxConsoleLines: number;
+  /** request-stalled: pending this long (visual.checks.stallMs, default 15 s, clamped to 1 s..10 min). */
+  stallMs: number;
 }
 
 const num = (v: unknown, d: number): number => (typeof v === "number" && Number.isFinite(v) ? v : d);
@@ -133,6 +142,7 @@ export function resolveCfg(o: VisualOptions, doc: Document | null): Cfg {
     lowEnd: o.lowEnd === "full" || o.lowEnd === "off" ? o.lowEnd : "light",
     sample: clamp(num(o.sample, 1), 0, 1),
     maxConsoleLines: Math.floor(clamp(num(o.maxConsoleLines, 10), 0, 100)),
+    stallMs: clamp(num(o.checks?.stallMs, S.STALL_MS), 1000, 600_000),
   };
 }
 
@@ -211,6 +221,10 @@ export class Visual implements VisualController {
   private scrollTimer: unknown = null;
   private cssVarSig = "";
   private warned = new Set<string>();
+  /** request-stalled: when each control last became busy; requests already judged; whether controls are watched. */
+  private busyAt = new WeakMap<Element, number>();
+  private stalled = new Set<string>();
+  private busySince: number | null = null;
 
   constructor(
     private readonly host: VisualHost,
@@ -266,6 +280,7 @@ export class Visual implements VisualController {
     } catch {
       /* a missing API: the checks that need it stay quiet */
     }
+    if (this.cfg.checks["request-stalled"] && this.host.pending) this.watchStalls();
     if (auto) void this.boot().catch(() => undefined);
   }
 
@@ -785,14 +800,17 @@ export class Visual implements VisualController {
         yield* A.brokenCssImages(ctx, env, drafts);
         yield* L.pageOverflow(ctx, drafts);
         yield* self.cssVars(ctx, drafts);
+        yield* AD.adHeavy(ctx, drafts);
       }
       yield* L.distortedImages(ctx, rts, drafts);
       const text = ctx.on("text-template-leak") || ctx.on("text-placeholder") || ctx.on("text-encoding");
-      if (text || ctx.on("text-invisible")) {
-        yield* T.walkText(ctx, rts, scan, 5000, ctx.on("text-invisible"));
+      const cands = ctx.on("text-invisible") || ctx.on("text-warped");
+      if (text || cands) {
+        yield* T.walkText(ctx, rts, scan, 5000, cands);
         T.placeholderImages(ctx, rts, scan);
         T.patternDrafts(ctx, scan, drafts);
         yield* T.measureContrast(ctx, scan.cands, drafts, self.rest);
+        yield* W.measureWarped(ctx, scan.cands, drafts);
       }
       yield;
       self.dialogs(ctx, drafts);
@@ -876,7 +894,7 @@ export class Visual implements VisualController {
   private finding(d: Draft): CheckFinding {
     const el = d.el;
     const s = el ? selectorOf(el, this.win) : { selector: "page", structural: false };
-    let target = "page";
+    let target = d.target ?? "page";
     if (el) {
       try {
         target = this.host.describe(el);
@@ -949,8 +967,15 @@ export class Visual implements VisualController {
     const r = this.reader();
     if (plan.type === "color") {
       if (!plan.el.isConnected) return false;
+      // out of the viewport there is nothing to measure (hit testing finds no points there): the fix stays as it is
+      // until the element is back in view
+      const b = r.rect(plan.el);
+      if (!deep && (b.bottom <= 0 || b.top >= r.win.innerHeight || b.right <= 0 || b.left >= r.win.innerWidth)) return true;
       // a re-measure, not a pass: its abstentions are not counted again
       const ctx = { ...this.ctx(r), abstain: () => undefined };
+      // hit testing skips the text while pointer-events: none reaches it (a click block on body): a re-measure then
+      // finds no points, which is no evidence the background changed, so the fix stays until a measure says so
+      if (!deep && r.cs(plan.el).pointerEvents === "none") return true;
       const read = T.readContrast(ctx, r, plan.el, rootInfo(r));
       if (!read || read.v.verdict === "unknown" || read.v.ratio < plan.target || !nearColor(read.v.bg, plan.bg)) return false;
       return !deep || !T.hiddenLayer(ctx, r, plan.el, read.input);
@@ -1152,6 +1177,79 @@ export class Visual implements VisualController {
     const d = e.effectiveDirective || e.violatedDirective || "";
     if (d.startsWith("style-src")) this.fixer.cspBlocked();
     if (this.settledAt !== null && A.cspReportable(e)) this.requestFull();
+  }
+
+  // ---------------------------------------------------------------------------------- request-stalled
+
+  /**
+   * VISUAL.md 3.24: watch the attributes that make a control busy (their own observer, so the passes' dirty tracking
+   * never sees them) and judge the pending requests on the Clock: at most every 2 s, sooner when one is due. Runs
+   * from the start, not after the page settles: a stalled request keeps the network busy, and settle waits for it.
+   */
+  private watchStalls(): void {
+    const MO = this.win.MutationObserver;
+    if (typeof MO === "function") {
+      try {
+        const mo = new MO((recs) => {
+          const now = this.clock.now();
+          for (const r of recs) if (S.busyState(r.target as Element)) this.busyAt.set(r.target as Element, now);
+        });
+        mo.observe(this.doc.documentElement, { attributes: true, subtree: true, attributeFilter: S.BUSY_ATTRS });
+        this.offs.push(() => mo.disconnect());
+        this.busySince = this.clock.now();
+      } catch {
+        /* no observer: findings say "not watched" */
+      }
+    }
+    const loop = (): unknown => this.later(loop, this.stalls());
+    loop();
+  }
+
+  /** Report the requests pending past stallMs (once each); returns when to look again. */
+  private stalls(): number {
+    const now = this.clock.now();
+    const ms = this.cfg.stallMs;
+    let next = 2000;
+    if (!this.live() || !this.visibleNow()) return next;
+    const g = this.win as unknown as { location?: { host?: string } };
+    for (const r of this.host.pending?.(ms) ?? []) {
+      if (this.stalled.has(r.id)) continue;
+      const due = r.start + ms - now;
+      if (due > 0) {
+        next = Math.min(next, due);
+        continue;
+      }
+      if (this.stalled.size >= 500) this.stalled.delete(this.stalled.values().next().value as string);
+      this.stalled.add(r.id);
+      const where = r.sig.slice(r.sig.indexOf(" ") + 1);
+      const p = S.parseSig(r.sig, String(g.location?.host ?? ""));
+      if (this.cfg.ignore.some((i) => i === p.host || where.startsWith(i))) continue;
+      const watched = this.busySince !== null && this.busySince <= r.start - S.BUSY_LEAD_MS;
+      this.publish([S.stallDraft({ req: r, pageHost: String(g.location?.host ?? ""), now, stallMs: ms, control: this.busyControl(r.start), watched })]);
+    }
+    return Math.max(250, next);
+  }
+
+  /** The control that became busy earliest since `start` (or up to 1 s before it) and is still busy. */
+  private busyControl(start: number): S.StallInput["control"] {
+    let best: S.StallInput["control"] = null;
+    try {
+      for (const el of this.doc.querySelectorAll(S.BUSY_SEL)) {
+        const t = this.busyAt.get(el);
+        const state = S.busyState(el);
+        if (t === undefined || !state || t < start - S.BUSY_LEAD_MS || (best && t >= best.since) || el.closest("[data-genclass-ignore]")) continue;
+        let name = el.tagName.toLowerCase();
+        try {
+          name = this.host.describe(el);
+        } catch {
+          /* the tag name */
+        }
+        best = { el, name, state, since: t };
+      }
+    } catch {
+      /* no querySelectorAll */
+    }
+    return best;
   }
 
   // ------------------------------------------------------------------------------------- interactions

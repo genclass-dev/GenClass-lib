@@ -14,7 +14,7 @@ import { icon } from "./icons.ts";
 applyTheme();
 const root = siteRoot();
 
-const INSTALL = `<span class="p">$ </span>npm install @genclass/runtime
+const INSTALL = `<span class="p">$ </span>npm install @genclass/runtime@beta
 
 ${highlight(`import { GenClass } from "@genclass/runtime";
 GenClass.init();`)}`;
@@ -23,7 +23,7 @@ function hero(): HTMLElement {
   const copy = h("button", { class: "btn btn-xs copy-btn", type: "button", html: `${icon("copy")}Copy` });
   copy.addEventListener("click", async () => {
     try {
-      await navigator.clipboard.writeText(`npm install @genclass/runtime\n\nimport { GenClass } from "@genclass/runtime";\nGenClass.init();\n`);
+      await navigator.clipboard.writeText(`npm install @genclass/runtime@beta\n\nimport { GenClass } from "@genclass/runtime";\nGenClass.init();\n`);
       toast("Copied");
     } catch {
       toast("Clipboard is not available here");

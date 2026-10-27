@@ -270,4 +270,34 @@ describe("the fix gate (VISUAL.md 11.1)", () => {
     expect(reports[0].fix?.applied).toBe(false);
     v.stop();
   });
+
+  it("a colour fix stays while its element is scrolled out of view (nothing to re-measure there)", () => {
+    document.body.innerHTML = '<p class="hero">Hi</p>';
+    const p = document.querySelector("p")!;
+    const { v, reports } = engine({ m: "guard" });
+    (v as unknown as { publish(d: Draft[]): CheckFinding[] }).publish([draft(p)]);
+    expect(reports[0].fix?.applied).toBe(true);
+    // the banner scrolled above the viewport: the periodic re-measure must not read that as a changed background
+    p.getBoundingClientRect = () => ({ width: 300, height: 20, top: -400, left: 0, right: 300, bottom: -380, x: 0, y: -400, toJSON: () => ({}) }) as DOMRect;
+    (v as unknown as { fixer: { reverify(): void } }).fixer.reverify();
+    expect(reports[0].fix?.applied).toBe(true);
+    expect(p.hasAttribute("data-genclass-fix")).toBe(true);
+    v.stop();
+  });
+
+  it("a colour fix stays while pointer-events: none on body hides the text from hit testing", () => {
+    document.body.innerHTML = '<p class="hero">Hi</p>';
+    const p = document.querySelector("p")!;
+    const { v, reports } = engine({ m: "guard" });
+    (v as unknown as { publish(d: Draft[]): CheckFinding[] }).publish([draft(p)]);
+    expect(reports[0].fix?.applied).toBe(true);
+    p.getBoundingClientRect = () => ({ width: 300, height: 20, top: 40, left: 0, right: 300, bottom: 60, x: 0, y: 40, toJSON: () => ({}) }) as DOMRect;
+    document.body.style.pointerEvents = "none";
+    p.style.pointerEvents = "none"; // what a browser computes for p from body (jsdom does not inherit it)
+    (v as unknown as { fixer: { reverify(): void } }).fixer.reverify();
+    expect(reports[0].fix?.applied).toBe(true);
+    expect(p.hasAttribute("data-genclass-fix")).toBe(true);
+    document.body.style.pointerEvents = "";
+    v.stop();
+  });
 });

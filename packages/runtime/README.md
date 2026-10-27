@@ -48,7 +48,7 @@ import "@genclass/runtime/auto"; // first line of your entry file (Next.js 15.3+
 Or with no build step, first in `<head>`:
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@0.3.0-beta.1"></script>
+<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@0.3.0-beta.4"></script>
 ```
 
 That is the whole setup. Network traffic, user actions, errors and timing are observed, and so is your app's state:
@@ -56,10 +56,14 @@ React component state, Redux and Redux Toolkit stores, and Zustand stores with `
 ([Automatic state discovery](#automatic-state-discovery)). Pinia, Svelte stores, signals and a plain HTML page's DOM
 are not: there, stale responses are reported only for stores you register (double submits need no state).
 
-**Versions:** this README describes `0.3.0` with model `@genclass/runtime-model@0.2.0`. On 2026-10-22, `0.2.2` was
-npm `latest` and `0.3.0-beta.0` was `beta` (`npm view @genclass/runtime dist-tags` shows them now); features marked
-`0.3.0-beta.1` are not in `0.3.0-beta.0`. Keep `@beta` in npm and npx commands while `0.3.0` is in beta, and pin the
-script tag: the unversioned URL serves `latest`, and `0.2.x` ignores a token and its CLI has no `login` or `--sink`.
+**Versions:** this README describes `0.3.0` with model `@genclass/runtime-model@0.2.0`. The newest line is
+`0.3.0-beta.4`, npm's `beta` dist-tag (`0.3.0-beta.1` to `beta.4` were released between 2026-10-22 and 2026-10-27);
+npm's `latest` is still the older `0.2.2` (`npm view @genclass/runtime dist-tags` shows them now). Every npm and npx
+command here names `@beta`: without it npm installs `0.2.x`, which has no token, dashboard, interaction analytics,
+visual checks or agent link and ignores those options without a word (a TypeScript app gets a type error for
+`analytics` and `token`), and whose CLI has no `login`, `dashboard`, `scan` or `--sink`. `0.2.x` is the exception,
+for an app that cannot take a prerelease. Pin the script tag: the unversioned URL serves `latest`. A feature marked
+with a beta number (`0.3.0-beta.2`, say) is not in the betas before it.
 
 > **Anonymous diagnostics are on by default** on public hosts: GenClass's decisions and counts, no text from your
 > page, sent to the GenClass maintainers to improve the model. Off on `localhost` and other local hosts from `0.2.2`
@@ -74,7 +78,7 @@ script tag: the unversioned URL serves `latest`, and `0.2.x` ignores a token and
 [What it looks for](#what-it-looks-for) · [Safety and cost](#safety-and-cost-measured) ·
 [Model quality](#model-quality) · [Costs](#costs) · [Privacy and telemetry](#privacy-and-telemetry) ·
 [Known limitations](#known-limitations) · [Install](#install) ·
-[For AI coding agents](#for-ai-coding-agents-installing-genclass) ·
+[For AI coding agents](#for-ai-coding-agents-installing-genclass) · [Audit a page](#audit-a-page) ·
 [Your coding agent](#your-coding-agent-replay-and-explore) ·
 [protect()](#function-specific-protect) · [Your dashboard](#your-dashboard) ·
 [Automatic state discovery](#automatic-state-discovery) · [State it can protect](#state-it-can-protect) ·
@@ -331,10 +335,14 @@ observing with no download and no worker.
   neither is sent; without telemetry, a token does nothing.
 - **Interaction analytics are off unless you turn them on** (new in `0.3.0-beta.1`; `0.3.0-beta.0` does not have
   them). `GenClass.init({ token, analytics: true })` also sends, per page view, the route, engaged time, scroll depth,
-  and clicks, rage clicks and dead clicks per element (the element named from markup, never its text). They need
-  telemetry on and the app's token (or your own `telemetry.endpoint`); no visitor id exists and nothing is stored on
-  the device; they never feed a decision or the model. Every opt-out above turns them off. Where consent is needed
-  (the EU, EEA and UK), leave `analytics` unset and call `runtime.analytics.start()` once the visitor consents. Details:
+  and clicks, rage clicks and dead clicks per element (the element named from markup, never its text), and from
+  `0.3.0-beta.2`, within one page load, how each view was reached, the route before it with the time between, the
+  first element used on it, and where the page load ended with its routes in order (at most 10). They need
+  telemetry on and the app's token (or your own `telemetry.endpoint`); no visitor id exists, and the one thing stored
+  on the device is the visit flag in `localStorage` (from `0.3.0-beta.2`: it links the page loads of a visit and says
+  whether the browser visited before; `runtime.analytics.stop()` removes it); they never feed a decision or the
+  model. Every opt-out above turns them off. Where consent is needed (the EU, EEA and UK), leave `analytics` unset and
+  call `runtime.analytics.start()` once the visitor consents. Details:
   [TELEMETRY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md#interaction-analytics).
 - **The measured visual checks send nothing**, and sinks send only where you point them.
 - **The CLI** contacts genclass.dev only for the command you run: `init` creates a dashboard only after you approve
@@ -411,7 +419,32 @@ npx @genclass/runtime@beta remove             # undo exactly what init added
 ```
 
 Other flags: `--yes`, `--no-telemetry`, `--no-token`, `--token gc_...`, `--sink`, `--model-url`, `--no-install`,
-`--no-devtools`.
+`--no-devtools`, and from `0.3.0-beta.2` `--no-network` and `--sync` (plain HTML).
+
+**Which version** (from `0.3.0-beta.2`). `init` (and `login`, `connect`) first prints its own version and the npm
+dist-tag it came from, asks npm's dist-tags once (`npm view @genclass/runtime dist-tags`, at most 3 s; never with
+`--dry-run`, `--no-network`, `--no-token` or `--no-telemetry`, nothing when offline) and says when a newer release is
+on npm, with the command that runs it:
+
+```
+  ✔ Version    @genclass/runtime 0.3.0-beta.3 (npm dist-tag beta)
+  ▲ Newer      @genclass/runtime 0.3.0-beta.4 is on npm (dist-tag beta): run npx @genclass/runtime@beta init instead
+```
+
+It installs its own version (`@genclass/runtime@^0.3.0-beta.4` today), and a project that already has an older one
+(a `0.2.x` from `npx @genclass/runtime init` without `@beta`) is upgraded, after the same diff and question. Every
+command it prints names `@beta` while it is a prerelease.
+
+**Plain HTML** (from `0.3.0-beta.2`): `init` writes the script tag with `defer`, so a slow or blocked CDN never holds
+up the page. GenClass then starts once the page is parsed: before your `defer` and `type="module"` scripts and before
+`DOMContentLoaded`, but after classic scripts that have neither `defer` nor `async`, so requests and errors those
+scripts cause while the page is still loading are not seen, and a library loaded that way before GenClass (a UMD
+React from a CDN) is not discovered; a click handler's `fetch` is seen either way, and the model still loads at idle
+after `load`. `--sync` writes the blocking tag of earlier versions, which runs before every script. `remove` takes
+the tag out whatever attributes you add to it (`defer`, `async`, `nonce`). When a project looks mostly static (no
+`fetch`, XHR, WebSocket or EventSource call in its sources, or a plain HTML page with one script), `init` says so in
+one sentence and points to the visual checks and the page scan (`npx @genclass/runtime@beta scan <url>`,
+[Audit a page](#audit-a-page)).
 
 **2. One import** (any bundler), first in your entry file, so it is installed before your framework:
 
@@ -425,13 +458,14 @@ Options go in `window.GENCLASS_CONFIG = { ... }` (any `InitOptions`, set before 
 **3. One script tag** (no build step), first in `<head>`:
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@0.3.0-beta.1" data-mode="observe" data-devtools="local"></script>
+<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@0.3.0-beta.4" data-mode="observe" data-devtools="local"></script>
 ```
 
 It exposes `window.GenClass` and loads the model worker and the overlay on demand from the same version; `data-mode`,
 `data-devtools`, `data-telemetry`, `data-token`, `data-scope`, `data-sink` and more configure it
 ([every attribute](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/INSTALL.md#which-attributes-does-the-script-tag-take)).
-Keep the version pinned.
+Keep the version pinned: the unversioned URL serves npm's `latest` (the older `0.2.x` until `0.3.0` is stable); on a
+plain HTML page `init` writes a pinned jsDelivr URL with SRI and, from `0.3.0-beta.2`, `defer`.
 
 **4. By hand:** `npm install @genclass/runtime@beta`, then first in your entry file:
 
@@ -464,6 +498,47 @@ or import `@genclass/runtime/discover` first and pass `autoState: true`.
 
 To change GenClass itself, read [AGENTS.md](https://github.com/genclass-dev/GenClass-lib/blob/main/AGENTS.md).
 
+## Audit a page
+
+One command checks any page, yours or not, with GenClass's 26 measured visual checks
+([below](#visual-and-css-checks-new-in-030)) and prints a score and each problem with the element, its selector and a
+suggested CSS fix, worst first. Nothing needs to be installed in the page:
+
+```bash
+npx @genclass/runtime@beta scan https://example.com          # also: audit; a dev server works too (localhost:5173)
+npx @genclass/runtime@beta scan localhost:5173/pricing --json # the same report as JSON on stdout, for agents and CI
+```
+
+```
+  GenClass scan • https://genclass-scan-fixture.mehar-144.workers.dev/
+  ran locally: Chromium 153.0.8010.12, desktop 1280x800, phone 390x844; @genclass/runtime 0.3.0-beta.1 visual checks in observe mode (no telemetry, no model, nothing sent)
+
+  Visual score 15/100  •  7 problems (6 high, 1 medium)
+
+  HIGH
+  ✖ control-unreachable (desktop)
+      link "Terms"  body > footer > a
+      body > footer > a "Terms" cannot be clicked: div.chatbar (position: fixed) covers all 5 of its hit points even at the end of the page.
+      fix: body { padding-bottom: 72px; }  (Reserves space for div.chatbar, or move it on small screens: ...)
+  ✖ text-invisible (desktop, phone)
+      p "This sentence is nearly white on white."  p.fine
+      text contrast 1.08:1 on p.fine "This sentence is nearly white on white.", below 1.5:1 (WCAG 2.2 contrast formula; unreadable-text threshold): #f6f6f6 on #ffffff from body.
+      fix: p.fine { color: #767676; }  (Reaches 4.5:1. ...)
+  ...
+```
+
+It runs on your machine when Playwright's Chromium is available (`npm i -D playwright && npx playwright install
+chromium`, in the project or globally): headless Chromium loads the page at desktop (1280x800) and phone (390x844)
+sizes with this package's script-tag build injected before the page's first script, in observe mode with telemetry
+off and no model, presses Tab and scrolls to the end so the focus and fixed-bar checks see something, and reads
+`rt.checks()`. The only requests are the page's own. The score is the hosted page check's "Visual bugs" category
+formula on these findings. Without Playwright, or with `--hosted`, the page is checked by the
+[genclass.dev page check](https://genclass-scan.mehar-144.workers.dev/scan) instead (it says so, and adds
+accessibility, speed and security audits); a `localhost` or private address is never sent there, and `--local` never
+uses it. `--phone` checks the phone size only, `--timeout <s>` sets the page load timeout. Exit code 0 when nothing
+is found, 1 when the checks found something, 2 on an error. Coding agents get the same as the `genclass_scan` tool of
+[`@genclass/mcp`](https://github.com/genclass-dev/GenClass-lib/tree/main/packages/mcp).
+
 ## Your coding agent: replay and explore
 
 A race depends on the network's timing, so it rarely shows on your fast machine and never in a test where mocked APIs
@@ -479,7 +554,7 @@ Claude Code and other coding agents, and lets the agent:
 - **keep the proof:** a generated Playwright test that sets the same order and fails while the bug is there.
 
 ```bash
-claude mcp add genclass -- npx -y @genclass/mcp@0.1.0
+claude mcp add genclass -- npx -y @genclass/mcp@0.2.0
 ```
 
 ```ts
@@ -536,12 +611,24 @@ writes), the meta tag or the script tag.
 digits) that groups its diagnostics on a dashboard at genclass.dev, kept in a GenClass account (the CLI's `login`,
 then `connect`, `whoami`, `logout`) or behind one private link per app (anyone with the link can open it), which
 `init` saves in `.genclass.local` and `npx @genclass/runtime@beta dashboard` prints again (from `0.3.0-beta.2`;
-`--open` opens it). The dashboard is free for every app, with 90 days of history (1 year on
-Enterprise), and so is your own classifier, which a person from GenClass trains on your app's traffic, bug reports or
-labelled examples once you ask ([pricing](https://genclass.dev/pricing)). It needs telemetry on and a deployed host:
-local hosts do not send by default. Pass a key with `GenClass.init({ token })`, `data-token`, `token=` in the meta tag
-or `window.GENCLASS_CONFIG = { token }`. Accounts, the private link and what the CLI sends:
-[DASHBOARD.md](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/DASHBOARD.md).
+`--open` opens it). The dashboard is free for every app, with 90 days of history (1 year on Enterprise), and so are
+your own classifier, which a person from GenClass trains on your app's traffic, bug reports or labelled examples once
+you ask, and the `@genclass/mcp` server for coding agents ([pricing](https://genclass.dev/pricing)). It needs
+telemetry on and a deployed host: local hosts do not send by default. Pass a key with `GenClass.init({ token })`,
+`data-token`, `token=` in the meta tag or `window.GENCLASS_CONFIG = { token }`. Accounts, the private link and what
+the CLI sends: [DASHBOARD.md](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/DASHBOARD.md).
+
+**What it shows:** what GenClass found, on which pages, and what it did (decisions, detections by diagnosis, actions,
+top routes and protected functions, model load and latency, runtime and model versions). With `analytics: true`
+(`0.3.0-beta.1` or later, off by default) also how visitors use each page (page views, time on page, scroll depth, the
+most clicked elements, rage and dead clicks; `data-genclass-name="pricing-cta"` gives an element a readable name) and,
+from `0.3.0-beta.2`, how they move: the most taken paths, page-to-page steps with the time before each, where page
+loads start and end, back and forward use, and the first element used per page. `0.2.x` ignores `analytics: true`
+without a word, so the Visitors view says which runtime versions your app sends from. With the script tag, when the
+analytics code itself does not load (a self-hosted `dist/` missing `analytics/`), the console says so (from
+`0.3.0-beta.2`) and `runtime.analytics.reason` is `"error"`; files of two releases in one `dist/` get one warning
+naming both ([ANALYTICS.md](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/ANALYTICS.md)
+section 4.1).
 
 ## Automatic state discovery
 
@@ -619,10 +706,17 @@ The default never holds a store write: `set(x); get()` always returns `x` (write
 
 ## Visual and CSS checks (new in 0.3.0)
 
-GenClass also measures visual bugs that never throw an error, in 23 kinds: text nearly the colour of its background,
-images, fonts, stylesheets and media that failed to load, pages that scroll sideways on a phone, invisible layers
-that swallow clicks, dialogs hidden behind other elements, and leaks such as "[object Object]" or "$NaN". Each report
-names the element, what was measured and the threshold, and suggests a CSS change:
+GenClass also measures visual bugs that never throw an error, in 26 kinds (23 before `0.3.0-beta.2`): text nearly the
+colour of its background, images, fonts, stylesheets and media that failed to load, pages that scroll sideways on a
+phone, invisible layers that swallow clicks, dialogs hidden behind other elements, and leaks such as "[object Object]"
+or "$NaN"; from `0.3.0-beta.2` also a `fetch` or XHR request still pending after 15 s (`request-stalled`, with the
+button the page disabled or marked `aria-busy` for it; `visual: { checks: { stallMs } }` sets the wait; long polls,
+streams, sockets and endpoints that usually take that long are not checked), ad slots (named so by their id, class or
+ad attributes, or cross-site frames at ad sizes) covering 30% of the page, half the first screen or, fixed, 30% of
+the screen, or a full-screen ad on top of the page (`ad-heavy`), and text that cannot be read as text (`text-warped`:
+lines on top of each other or cut through by their box, half an emoji or another character no font can draw,
+mirrored or skewed text, letters spaced wider than words, text drawn below 8 px). Each report names the element,
+what was measured and the threshold, and suggests a CSS change:
 
 ```
 [GenClass] Check (measured): text contrast 1.04:1 on p.hero__subtitle "Ship faster with fewer bugs", below 1.5:1 (WCAG 2.2 contrast formula; unreadable-text threshold): #fafafa on #ffffff from section.hero. Suggested CSS: p.hero__subtitle { color: #737373; }
@@ -633,13 +727,17 @@ feed a decision. They skip what they cannot know (text over photos, video, canva
 on development hosts (a dev server's port on `localhost` and similar, `*.test` names) and when the devtools overlay
 mounts; elsewhere turn them on with `visual: true`. First-load cost is about 0.5 KB gzip; the checks load 1.5 s after
 `load`, read the page in idle slices of 8 ms and send nothing. Opt-in fixes (`visual: { on: true, fix: true }` in
-guard or heal mode) are re-measured and undoable. `checkPage()` from `@genclass/runtime/visual` runs one pass in a test.
+guard or heal mode) are re-measured and undoable. `checkPage()` from `@genclass/runtime/visual` runs one pass in a
+test; `npx @genclass/runtime@beta scan <url>` checks any URL without one ([Audit a page](#audit-a-page)).
 
 On the demos, templates and compat apps: 0 false reports in 128 page views, and in the bench's run 5 recall 1.00 on
 planted faults for 19 of the 23 kinds (0.67 to 0.96 for the other four; the planted forms are the checks' author's).
 The checks were tuned on 40 public home pages, where run 5's 6 findings in 97 loads were not reviewed, so there is no
 false-report rate for other sites yet
 ([RESULTS.md §14](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/RESULTS.md#14-visual-bench-false-reports-recall-and-cost-github-runners-chromium-153-2026-10-13-branch-wave2visual)).
+`request-stalled` on the demos: 0 false reports in 120 clean and chaos runs, and 11 of 18 planted 60 s hangs found
+(polls on a learned schedule are skipped by design;
+[RESULTS.md §23](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/RESULTS.md#23-issue-94-request-stalled-on-the-demos-and-the-first-load-cost-of-summaryrequests-local-2026-10-25-branch-issue-94)).
 Every kind: [API.md](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/API.md#measured-visual-checks);
 thresholds: [VISUAL.md](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/VISUAL.md).
 
@@ -650,6 +748,15 @@ thresholds: [VISUAL.md](https://github.com/genclass-dev/GenClass-lib/blob/main/d
 - **Events and introspection:** `rt.on("detect" | "decide" | "act" | "report", fn)`; `rt.explain(id)` gives the exact
   situation text the model read, every answer with probabilities, and what changed; `rt.decisions()`,
   `rt.interventions()`.
+- **What it saw** (from `0.3.0-beta.2`): `rt.summary().requests` counts this page load's `fetch` and XHR requests, in
+  total and per host (`"same-origin"` or the API's host): `requests`, answers by status class (`2xx` to `5xx`),
+  `network` (no answer), `aborted`, `notJson` (read with `response.json()` while the Content-Type is not JSON),
+  `byGenClass`, `pending`, and `latency` (`p50`, `p95` of the answers that did not fail). `requests: 0` means GenClass
+  did not see your requests (it loaded after them, or the app keeps its own `fetch` reference); requests counted with
+  nothing in `detections` means it saw them and nothing was salient (a 404 or a non-JSON answer your own `catch`
+  handles is counted, not reported). It is counted by the measured checks' chunk, so it is there wherever the checks
+  run (development hosts by default; `visual: true` or `data-visual="on"` in production, the devtools overlay,
+  `rt.checkNow()`), costs no first-load bytes, and stays in the page: telemetry does not send it.
 - **Undo and audit:** `ActionRecord.undo()` for `discard`, late reverts, `rollback` and custom actions with `onUndo`;
   altered responses carry an `x-genclass` header. `rt.audit()` records every decision, action, undo and mode change
   with the gate, the probabilities and the model's sha256.
@@ -762,8 +869,9 @@ retraining, which has not been measured
   about 0.7 ms and 0.3 ms.
 - **Bundle:** the published `0.3.0-beta.0` measured 108.25 KB gzip for `/auto` and 100.13 KB for the main entry
   ([RESULTS.md §10](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/RESULTS.md#10-release-030-beta0-first-load-and-telemetry-volume-ci)).
-  The interaction-analytics stub measured about 108.5 / 100.4 KB on its branch (§15); `main`, the coming
-  `0.3.0-beta.1`, is not re-measured, and `test/bundle.test.ts` caps it at 108.6 / 100.48 KB. The model worker, ONNX
+  The interaction-analytics stub measured about 108.5 / 100.4 KB on its branch (§15); `0.3.0-beta.1` to `beta.4` are
+  not re-measured here (`summary().requests` added 34 B in `0.3.0-beta.2`, §21), and `test/bundle.test.ts` caps it
+  at 108.6 / 100.48 KB. The model worker, ONNX
   Runtime, the devtools, the sinks and the visual checks load on demand; ONNX Runtime's `.wasm` (3.1 MB brotli; 5.5 MB
   with WebGPU, per the install tests) is never part of your build. The script-tag file is about 129 KB gzip.
 - **Model:** with onnxruntime-web 1.30 on single-thread WASM, a forward pass takes an estimated 182 / 330 / 599 ms at
@@ -803,8 +911,8 @@ GenClass.init({ model: { baseUrl: "/genclass-model/", ortWasmPaths: "/genclass-m
   `https://genclass.dev` to `connect-src`, or pass `telemetry: false`. A blocked page stops after 3 failed requests.
 - A webhook sink on another origin needs that origin in `connect-src`.
 
-CLI: `init`, `remove`, `login`, `connect`, `whoami`, `logout`, `dashboard`, `fetch-model <dir>` (self-hosting) and
-`info <dir>`;
+CLI: `init`, `remove`, `login`, `connect`, `whoami`, `logout`, `dashboard`, `scan <url>` (alias `audit`, from
+`0.3.0-beta.2`: [Audit a page](#audit-a-page)), `fetch-model <dir>` (self-hosting) and `info <dir>`;
 `npx @genclass/runtime@beta --help` lists them, and `init --help` and `login --help` give every flag (Next.js-only
 `--strategy`: INSTALL.md).
 

@@ -1,0 +1,11 @@
+# Full suites, 2026-10-25T17:26:42Z, branch closed-loop-dashboard at 4491fa1
+
+## telemetry-worker, on the branch's own tree (git archive): npx vitest run
+ Test Files  14 passed (14)
+      Tests  321 passed (321)
+
+## @genclass/mcp: typecheck, build, vitest
+
+ESM dist/index.js     143.19 KB
+ Test Files  12 passed (12)
+      Tests  130 passed (130)

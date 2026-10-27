@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en" itemscope itemtype="https://schema.org/CollectionPage">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <title>Snow Day Predictor Directory | Active Region Guides</title>
+    <meta name="description"
+        content="Browse active snow day coverage pages for supported states, provinces, and major Ontario school boards.">
+    <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
+    <link rel="canonical" href="https://snowday-predictor.ca/schools/">
+
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://snowday-predictor.ca/schools/">
+    <meta property="og:title" content="Snow Day Predictor Directory">
+    <meta property="og:description" content="Active region guides for snow day probability coverage.">
+    <meta property="og:image" content="https://snowday-predictor.ca/og-image.jpg">
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Snow Day Predictor Directory">
+    <meta name="twitter:description" content="Browse active state, province, and school board guides.">
+    <meta name="twitter:image" content="https://snowday-predictor.ca/twitter-card.jpg">
+
+    <meta name="theme-color" content="#1e3a5f">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "CollectionPage",
+        "name": "Snow Day Predictor Directory",
+        "description": "Active region coverage pages for the Snow Day Predictor.",
+        "url": "https://snowday-predictor.ca/schools/",
+        "mainEntity": {
+            "@type": "ItemList",
+            "itemListElement": [
+                {"@type": "ListItem", "position": 1, "name": "Ontario", "url": "https://snowday-predictor.ca/schools/ontario/"},
+                {"@type": "ListItem", "position": 2, "name": "New York", "url": "https://snowday-predictor.ca/schools/new-york/"},
+                {"@type": "ListItem", "position": 3, "name": "Massachusetts", "url": "https://snowday-predictor.ca/schools/massachusetts/"},
+                {"@type": "ListItem", "position": 4, "name": "Michigan", "url": "https://snowday-predictor.ca/schools/michigan/"},
+                {"@type": "ListItem", "position": 5, "name": "Ohio", "url": "https://snowday-predictor.ca/schools/ohio/"},
+                {"@type": "ListItem", "position": 6, "name": "Washington", "url": "https://snowday-predictor.ca/schools/washington/"}
+            ]
+        }
+    }
+    </script>
+
+    <style>
+        :root {
+            --primary: #3b82f6;
+            --primary-dark: #1d4ed8;
+            --primary-light: #93c5fd;
+            --accent: #06b6d4;
+            --bg-dark: #0f172a;
+            --bg-medium: #1e293b;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --glass-bg: rgba(255, 255, 255, 0.08);
+            --glass-border: rgba(255, 255, 255, 0.12);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 55%, #0f172a 100%);
+            min-height: 100vh;
+            color: var(--text-primary);
+        }
+
+        .nav-header {
+            background: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 1000;
+            padding: 0.8rem 0;
+        }
+
+        .nav-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        .nav-logo {
+            color: var(--text-primary);
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+        }
+
+        .nav-link {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.92rem;
+        }
+
+        .nav-link:hover {
+            color: var(--text-primary);
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 100px 20px 40px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 2.5rem;
+        }
+
+        h1 {
+            font-size: clamp(2rem, 5vw, 3rem);
+            font-weight: 800;
+            background: linear-gradient(135deg, #f0f9ff 0%, #93c5fd 50%, #06b6d4 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.75rem;
+        }
+
+        .subtitle {
+            font-size: 1.05rem;
+            color: var(--text-secondary);
+            max-width: 760px;
+            margin: 0 auto;
+            line-height: 1.55;
+        }
+
+        .directory-note {
+            margin: 1rem auto 0;
+            max-width: 780px;
+            background: rgba(15, 23, 42, 0.55);
+            border: 1px solid rgba(148, 163, 184, 0.22);
+            border-radius: 12px;
+            color: #cbd5e1;
+            padding: 0.8rem 1rem;
+            font-size: 0.9rem;
+        }
+
+        .section {
+            margin-bottom: 2.75rem;
+        }
+
+        .section-title {
+            font-size: 1.4rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.55rem;
+        }
+
+        .region-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+            gap: 1rem;
+        }
+
+        .region-card {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 14px;
+            padding: 1rem 1.05rem;
+            text-decoration: none;
+            color: inherit;
+            transition: transform 0.2s, border-color 0.2s;
+            display: block;
+        }
+
+        .region-card:hover {
+            transform: translateY(-2px);
+            border-color: var(--primary);
+        }
+
+        .region-card h3 {
+            font-size: 1rem;
+            color: var(--primary-light);
+            margin-bottom: 0.35rem;
+        }
+
+        .region-card p {
+            font-size: 0.86rem;
+            color: var(--text-secondary);
+            line-height: 1.45;
+        }
+
+        .cta-section {
+            margin-top: 2.5rem;
+            text-align: center;
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.26), rgba(6, 182, 212, 0.2));
+            border: 1px solid rgba(147, 197, 253, 0.3);
+            border-radius: 16px;
+            padding: 1.75rem 1rem;
+        }
+
+        .cta-section p {
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+        }
+
+        .cta-button {
+            display: inline-block;
+            background: white;
+            color: var(--primary-dark);
+            padding: 0.75rem 1.25rem;
+            border-radius: 10px;
+            text-decoration: none;
+            font-weight: 700;
+        }
+
+        footer {
+            border-top: 1px solid rgba(148, 163, 184, 0.12);
+            margin-top: 2.8rem;
+            padding-top: 1.1rem;
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+
+        footer a {
+            color: var(--primary-light);
+            text-decoration: none;
+        }
+
+        @media (max-width: 640px) {
+            .nav-links {
+                gap: 0.75rem;
+            }
+
+            .nav-link {
+                font-size: 0.84rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <nav class="nav-header">
+        <div class="nav-content">
+            <a href="/" class="nav-logo">❄️ Snow Day Predictor</a>
+            <div class="nav-links">
+                <a href="/" class="nav-link">Calculator</a>
+                <a href="/methodology.html" class="nav-link">Methodology</a>
+                <a href="/about.html" class="nav-link">About</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <header>
+            <h1>School Coverage Directory</h1>
+            <p class="subtitle">These are the region pages currently published in this repository. Use this directory to
+                navigate supported states, provinces, and Ontario board guides.</p>
+            <p class="directory-note">Coverage is active for selected regions and may expand over time. If a region is
+                not listed below, it is not yet published as a dedicated page.</p>
+        </header>
+
+        <main>
+            <section class="section" id="canada">
+                <h2 class="section-title">🇨🇦 Canada</h2>
+                <div class="region-grid">
+                    <a href="/schools/ontario/" class="region-card"><h3>Ontario</h3><p>Province page with board-level links.</p></a>
+                    <a href="/schools/quebec/" class="region-card"><h3>Quebec</h3><p>Province-level closure guide.</p></a>
+                    <a href="/schools/british-columbia/" class="region-card"><h3>British Columbia</h3><p>Province-level closure guide.</p></a>
+                    <a href="/schools/alberta/" class="region-card"><h3>Alberta</h3><p>Province-level closure guide.</p></a>
+                    <a href="/schools/manitoba/" class="region-card"><h3>Manitoba</h3><p>Province-level closure guide.</p></a>
+                    <a href="/schools/saskatchewan/" class="region-card"><h3>Saskatchewan</h3><p>Province-level closure guide.</p></a>
+                    <a href="/schools/nova-scotia/" class="region-card"><h3>Nova Scotia</h3><p>Province-level closure guide.</p></a>
+                </div>
+            </section>
+
+            <section class="section" id="ontario-boards">
+                <h2 class="section-title">🏫 Ontario Board Guides</h2>
+                <div class="region-grid">
+                    <a href="/schools/ontario/hdsb/" class="region-card"><h3>HDSB</h3><p>Halton District School Board guide.</p></a>
+                    <a href="/schools/ontario/tdsb/" class="region-card"><h3>TDSB</h3><p>Toronto District School Board guide.</p></a>
+                    <a href="/schools/ontario/pdsb/" class="region-card"><h3>PDSB</h3><p>Peel District School Board guide.</p></a>
+                    <a href="/schools/ontario/yrdsb/" class="region-card"><h3>YRDSB</h3><p>York Region District School Board guide.</p></a>
+                </div>
+            </section>
+
+            <section class="section" id="usa">
+                <h2 class="section-title">🇺🇸 United States</h2>
+                <div class="region-grid">
+                    <a href="/schools/new-york/" class="region-card"><h3>New York</h3><p>State-level closure guide.</p></a>
+                    <a href="/schools/massachusetts/" class="region-card"><h3>Massachusetts</h3><p>State-level closure guide.</p></a>
+                    <a href="/schools/pennsylvania/" class="region-card"><h3>Pennsylvania</h3><p>State-level closure guide.</p></a>
+                    <a href="/schools/michigan/" class="region-card"><h3>Michigan</h3><p>State-level closure guide.</p></a>
+                    <a href="/schools/ohio/" class="region-card"><h3>Ohio</h3><p>State-level closure guide.</p></a>
+                    <a href="/schools/illinois/" class="region-card"><h3>Illinois</h3><p>State-level closure guide.</p></a>
+                    <a href="/schools/wisconsin/" class="region-card"><h3>Wisconsin</h3><p>State-level closure guide.</p></a>
+                    <a href="/schools/minnesota/" class="region-card"><h3>Minnesota</h3><p>State-level closure guide.</p></a>
+                    <a href="/schools/iowa/" class="region-card"><h3>Iowa</h3><p>State-level closure guide.</p></a>
+                    <a href="/schools/indiana/" class="region-card"><h3>Indiana</h3><p>State-level closure guide.</p></a>
+                    <a href="/schools/connecticut/" class="region-card"><h3>Connecticut</h3><p>State-level closure guide.</p></a>
+                    <a href="/schools/new-jersey/" class="region-card"><h3>New Jersey</h3><p>State-level closure guide.</p></a>
+                    <a href="/schools/new-hampshire/" class="region-card"><h3>New Hampshire</h3><p>State-level closure guide.</p></a>
+                    <a href="/schools/vermont/" class="region-card"><h3>Vermont</h3><p>State-level closure guide.</p></a>
+                    <a href="/schools/maine/" class="region-card"><h3>Maine</h3><p>State-level closure guide.</p></a>
+                    <a href="/schools/colorado/" class="region-card"><h3>Colorado</h3><p>State-level closure guide.</p></a>
+                    <a href="/schools/maryland/" class="region-card"><h3>Maryland</h3><p>State-level closure guide.</p></a>
+                    <a href="/schools/virginia/" class="region-card"><h3>Virginia</h3><p>State-level closure guide.</p></a>
+                    <a href="/schools/washington/" class="region-card"><h3>Washington</h3><p>State-level closure guide.</p></a>
+                </div>
+            </section>
+
+            <section class="cta-section">
+                <p>Need a quick estimate now?</p>
+                <a href="/" class="cta-button">Check My Snow Day Chance</a>
+            </section>
+        </main>
+
+        <footer>
+            <p>© 2026 Snow Day Predictor | <a href="/methodology.html">Methodology</a> | <a href="/sources.html">Official Sources</a> | <a href="/editorial-policy.html">Editorial Policy</a></p>
+        </footer>
+    </div>
+</body>
+
+</html>

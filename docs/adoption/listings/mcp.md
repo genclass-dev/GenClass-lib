@@ -96,7 +96,7 @@ official registry); docs.github.com "Extend Copilot Chat with MCP" (VS Code adds
   > different orders to find race conditions, replays one exact order to prove a fix, and writes a Playwright
   > regression test. It needs no account or API key and sends nothing off the machine. Measured so far on one page
   > (a stale-response race): it found the race in 5 of 6 reordered runs and reported nothing on the fixed page.
-  > Install in VS Code: `code --add-mcp '{"name":"genclass","command":"npx","args":["-y","@genclass/mcp@0.1.0"]}'`.
+  > Install in VS Code: `code --add-mcp '{"name":"genclass","command":"npx","args":["-y","@genclass/mcp@0.2.0"]}'`.
   > Thank you.
 
 ## 3. Anthropic directory (claude.ai/directory/manage)
@@ -117,7 +117,7 @@ support.claude.com "Anthropic Software Directory Policy".
   the four acknowledgements. Updates: GitHub push webhook.
 - **What the checks will say.** Local run of `claude plugin validate packages/mcp/plugin --profile directory`
   (Claude Code 2.1.310): passes; one warning, `ICON_MISSING`. The portal also holds pinned launchers for a reviewer:
-  expect "Runs a pinned npx or uvx package" (both `.mcp.json` and the hook run `npx -y @genclass/mcp@0.1.0`), and
+  expect "Runs a pinned npx or uvx package" (both `.mcp.json` and the hook run `npx -y @genclass/mcp@0.2.0`), and
   possibly "MCP server command wasn't read" because the server is not a file inside the plugin folder. An unpinned
   launcher would block; `packages/mcp/test/manifests.test.ts` keeps both pins equal to `package.json`'s version. The
   way to avoid the hold is to ship the built server (`dist/cli.js`, 125 KB, no dependencies) inside the plugin
@@ -159,7 +159,7 @@ Source: glama.ai/mcp/faq; glama.ai/blog/2025-07-08-what-is-glamajson; schema gla
 ```dockerfile
 FROM node:22-alpine
 ENV GENCLASS_STATE_DIR=none
-ENTRYPOINT ["npx", "-y", "@genclass/mcp@0.1.0"]
+ENTRYPOINT ["npx", "-y", "@genclass/mcp@0.2.0"]
 ```
 
 - **Fields.** Display name `GenClass`; description: the 100-character text above. How Glama treats a server in a
@@ -208,7 +208,7 @@ Source: https://mcp.so/submit; chatmcp/mcpso issue 1 "Submit Your MCP Servers he
   > GenClass: https://github.com/genclass-dev/GenClass-lib (server in `packages/mcp`). A local MCP server that shows a
   > coding agent what happened inside a web app's pages in causal order, finds race conditions by re-running a page
   > with responses delivered in different orders, replays one exact order to prove a fix, and writes a Playwright
-  > regression test. Install: `npx -y @genclass/mcp@0.1.0`. Category: developer tools.
+  > regression test. Install: `npx -y @genclass/mcp@0.2.0`. Category: developer tools.
 
 ## 9. cursor.directory
 
@@ -238,10 +238,10 @@ Source: google-gemini/gemini-cli `docs/extensions/releasing.md` and `docs/extens
 
 - **How.** No submission: a daily crawler lists public repositories with the GitHub topic `gemini-cli-extension`
   whose root holds `gemini-extension.json`. Add the topic to `genclass-dev/GenClass-lib` once 0.1.0 is on npm. The
-  committed `gemini-extension.json` starts `npx -y @genclass/mcp@0.1.0` (kept equal to the package version by
+  committed `gemini-extension.json` starts `npx -y @genclass/mcp@0.2.0` (kept equal to the package version by
   `manifests.test.ts`).
 - **Install line for the entry.** `gemini extensions install https://github.com/genclass-dev/GenClass-lib`. This
-  clones the whole repository, which is large; `gemini mcp add genclass npx -- -y @genclass/mcp@0.1.0` adds the server
+  clones the whole repository, which is large; `gemini mcp add genclass npx -- -y @genclass/mcp@0.2.0` adds the server
   alone.
 
 ## 12. Smithery (smithery.ai)

@@ -1,0 +1,6 @@
+.mcp.json
+.genclass.local
+.genclass/
+.vscode/
+node_modules
+test/

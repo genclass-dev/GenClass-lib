@@ -20,8 +20,8 @@ page of the dev server. The page side needs `@genclass/runtime` 0.3.0-beta.1 or 
 
 | part | file | what it does |
 |---|---|---|
-| MCP server `genclass` | `.mcp.json` | runs `npx -y @genclass/mcp@0.1.0`: eight tools (`genclass_status`, `genclass_findings`, `genclass_explain`, `genclass_explore`, `genclass_replay`, `genclass_analytics`, `genclass_setup`, `genclass_clear`) and a bridge on 127.0.0.1:47357 that your app's pages connect to |
-| `UserPromptSubmit` hook | `hooks/hooks.json` | runs `npx -y @genclass/mcp@0.1.0 hook` before each prompt: up to five findings recorded since the last prompt are added to the prompt as context |
+| MCP server `genclass` | `.mcp.json` | runs `npx -y @genclass/mcp@0.2.0`: nine tools (`genclass_status`, `genclass_findings`, `genclass_explain`, `genclass_explore`, `genclass_replay`, `genclass_analytics`, `genclass_setup`, `genclass_scan`, `genclass_clear`) and a bridge on 127.0.0.1:47357 that your app's pages connect to |
+| `UserPromptSubmit` hook | `hooks/hooks.json` | runs `npx -y @genclass/mcp@0.2.0 hook` before each prompt: up to five findings recorded since the last prompt are added to the prompt as context |
 | skill `genclass` | `skills/genclass/SKILL.md` | tells Claude when to use the tools (an intermittent frontend bug; after changing code that fetches, submits, autosaves, polls or debounces) and how to confirm a fix |
 
 The launcher is pinned to the plugin's version, so the plugin runs the exact release it was reviewed with.
@@ -40,7 +40,9 @@ of a session only sets the cursor (`genclass_findings` has the backlog).
 
 The server listens on 127.0.0.1 only and accepts pages from this machine (`localhost`, `127.0.0.1`, `*.localhost`)
 or origins you list in `GENCLASS_AGENT_ORIGINS`. Nothing leaves your machine, except `genclass_analytics`
-`{source: "production"}`, which reads your own GenClass dashboard when you set `GENCLASS_DASHBOARD` to its link.
+`{source: "production"}`, which reads your own GenClass dashboard when you set `GENCLASS_DASHBOARD` to its link, and
+`genclass_scan` with `hosted: true`, which sends the URL to the genclass.dev page check (without it, the page loads
+in a local headless browser).
 Details: [AGENT.md section 6](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/AGENT.md#6-untrusted-input-and-security).
 
 ## Privacy
@@ -53,7 +55,7 @@ diagnostics, which `GenClass.init({ telemetry: false })` turns off ([PRIVACY.md]
 
 - Everything: `/plugin disable genclass@genclass` (or `/plugin uninstall genclass@genclass`).
 - Only the hook: Claude Code has no switch for one plugin hook; uninstall the plugin and add the server alone
-  (`claude mcp add genclass -- npx -y @genclass/mcp@0.1.0`), or set `"disableAllHooks": true` in your settings, which
+  (`claude mcp add genclass -- npx -y @genclass/mcp@0.2.0`), or set `"disableAllHooks": true` in your settings, which
   turns off every hook.
 - In the app: remove the `connectAgent(rt)` line; the page then never talks to the bridge.
 

@@ -1,6 +1,42 @@
 # Changelog
 
-## 0.1.0 (unreleased)
+## 0.2.0 (2026-10-25)
+
+The `0.1.0` on npm (published 2026-10-25) is an earlier build: eight tools, no `genclass_scan`, no `GENCLASS_REPORT`.
+Everything below ships first in `0.2.0`.
+
+- **`genclass_setup` installs the newest runtime line.** It prints `npm install @genclass/runtime@beta` (the agent
+  entry and interaction analytics need 0.3.0-beta.1 or later) for a project on 0.2.x, on a range without a version
+  (`*`, `latest`: npm's `latest` is still 0.2.x) or with an older copy in `node_modules`, and says what the project
+  has. The README's connect step names `@beta` first.
+- **`genclass_scan {url, phone?, hosted?}`: audit any page in one step** ([docs/runtime/AGENT.md](../../docs/runtime/AGENT.md)
+  section 4.2). It runs `@genclass/runtime`'s `scan --json` (the project's own runtime when it has the command, else
+  `npx -y @genclass/runtime@beta`) in the project's folder: headless Chromium at desktop and phone sizes with the 23
+  measured visual checks, and returns a score and each problem with its element, selector and suggested CSS fix (page
+  text cleaned and labelled as data), plus the report as JSON (a second text block and `structuredContent`). It passes
+  `--local` unless the agent sets `hosted: true`, so without Playwright's Chromium it says how to install it instead
+  of sending the URL anywhere; `hosted: true` uses the genclass.dev page check (public pages only). The server's
+  instructions and the plugin skill say to scan a page before calling a UI change done. Nine tools.
+
+- **Fixed: a race replay counts page lines.** Explore compares page text as counts, so a product name the page
+  always shows once and a stale result showed a second time was "only in the failing run"; the replay verdict then
+  checked presence only, and the card alone made every replay "reproduced", including after the fix. The finding's
+  evidence now keeps the counts (`textCounts`) and the verdict needs the line as many times as the failing run showed
+  it. Found by the end-to-end walkthrough, covered by a test.
+- **Fixed: with `GENCLASS_REPORT` set, the tools' own calls are mirrored too.** The server's in-process API (what
+  `genclass_explain`, `genclass_replay`, `genclass_explore` and `genclass_clear` call when this session owns the
+  bridge) bypassed the reporting wrapper, so a dashboard only ever received the findings; the evidence read, the test,
+  replays armed and their verdicts, explore reports and clears reached it only through the bridge's HTTP path. Found
+  by the end-to-end walkthrough (`docs/evidence/e2e-walkthrough`), covered by a test.
+- **Opt-in reporting to the app's dashboard** (`GENCLASS_REPORT`; [docs/runtime/AGENT.md](../../docs/runtime/AGENT.md)
+  section 4.5). Set to `on` (with `GENCLASS_DASHBOARD`) or to a dashboard link, the server mirrors its log of the loop
+  to that dashboard: each finding the bridge makes, each time the agent reads its evidence (`genclass_explain`), each
+  replay armed and each replay verdict, each regression test written, each explore report (page loads compared, races
+  found) and each clear: `POST /api/projects/<secret>/agent`, batched, best effort, ids, kinds, page paths, verdicts,
+  counts and times only, never page text. The dashboard's Closed-loop development view then draws every issue's path
+  (found, reproduced, fix proven, closed, or round again when a replay after a fix still reproduces it) with the
+  period's counts, lists the log newest first, and shows per production problem what the agent reproduced, tested and
+  proved fixed. Off unless set; nothing sent feeds a decision, a finding or a tool result.
 
 - **Explore stops reporting order-dependent bookkeeping as races** ([docs/runtime/AGENT.md](../../docs/runtime/AGENT.md)
   section 5.1, [RESULTS.md](../../docs/runtime/RESULTS.md) section 22). A reordered run is a race only when what the

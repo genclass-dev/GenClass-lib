@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en-CA">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <title>Methodology | Snow Day Predictor</title>
+    <meta name="description"
+        content="How the Snow Day Predictor calculates probability scores using forecast snowfall, temperature, wind, and visibility data.">
+    <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
+    <link rel="canonical" href="https://snowday-predictor.ca/methodology.html">
+    <link rel="stylesheet" href="/articles/style.css">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+</head>
+
+<body>
+    <nav class="nav-header">
+        <div class="container nav-content">
+            <a href="/" class="logo">❄️ Snow Day Predictor</a>
+            <a href="/" class="cta-button">Check Prediction</a>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="breadcrumb">
+            <a href="/">Home</a> > Methodology
+        </div>
+
+        <article class="article-content">
+            <h1>Snow Day Predictor Methodology</h1>
+
+            <div class="meta">
+                <span class="meta-item">📅 February 15, 2026</span>
+                <span class="meta-item">✍️ Snow Day Predictor Team</span>
+                <span class="meta-item">⏱️ 6 min read</span>
+            </div>
+
+            <p>This page documents how the current prediction score is produced. The model is a <strong>rule-based weather
+                    score</strong> that converts forecast conditions into a probability estimate. It is intended as an
+                early planning signal and not as an official closure decision.</p>
+
+            <h2>1. Data Inputs</h2>
+            <p>Predictions are built from forecast data returned by the Open-Meteo API, including hourly and daily fields
+                for:</p>
+            <ul>
+                <li>Snowfall accumulation</li>
+                <li>Snowfall intensity (peak hourly and 3-hour windows)</li>
+                <li>Morning commute snowfall timing</li>
+                <li>Temperature and wind chill</li>
+                <li>Wind speed</li>
+                <li>Visibility</li>
+            </ul>
+
+            <h2>2. Location Resolution</h2>
+            <p>When a postal code or ZIP code is entered, the site resolves the location using:</p>
+            <ul>
+                <li>Known Canadian FSA coordinate mappings (for common supported regions)</li>
+                <li>OpenStreetMap Nominatim geocoding</li>
+                <li>Regional fallback coordinates when external geocoding is unavailable</li>
+            </ul>
+
+            <h2>3. Scoring Framework</h2>
+            <p>The app computes a weighted score by combining weather risk factors. Factors that generally raise the score
+                include heavier snowfall totals, fast snowfall rates, strong morning accumulation, low visibility, severe
+                cold, and blowing snow conditions.</p>
+
+            <div class="highlight-box">
+                <strong>Important:</strong> Probability is capped below 100% because forecast and operational uncertainty
+                always remain.
+            </div>
+
+            <h2>4. Time Context Logic</h2>
+            <p>The calculation uses a day-selection rule to decide whether to score today or tomorrow morning based on
+                current time. Morning commute windows receive additional weight because that period is often most relevant
+                to transportation safety decisions.</p>
+
+            <h2>5. What This Model Does Not Include</h2>
+            <ul>
+                <li>Real-time district operations calls or staffing status</li>
+                <li>Road treatment execution data by municipality</li>
+                <li>District-specific internal policy thresholds that are not public</li>
+                <li>Emergency management directives that may override weather-only expectations</li>
+            </ul>
+
+            <h2>6. How To Use The Estimate Responsibly</h2>
+            <p>Use this score for planning (wake-up alarms, childcare backup, commute prep), then confirm the final status
+                through official school board and transportation channels. A high score is not a guarantee. A low score
+                does not eliminate late changes.</p>
+
+            <h2>7. Change Log</h2>
+            <ul>
+                <li><strong>February 15, 2026:</strong> Public methodology page published and linked site-wide.</li>
+                <li><strong>January 2026:</strong> Current weighted scoring logic introduced in the production calculator.
+                </li>
+            </ul>
+
+            <p>Related pages: <a href="/sources.html">Official Sources</a> and <a href="/editorial-policy.html">Editorial
+                    Policy</a>.</p>
+        </article>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>© 2026 Snow Day Predictor. All rights reserved.</p>
+            <p><a href="/privacy.html" style="color: #64748b;">Privacy Policy</a> | <a href="/"
+                    style="color: #64748b;">Back to Calculator</a></p>
+        </div>
+    </footer>
+</body>
+
+</html>

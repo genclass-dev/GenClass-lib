@@ -131,6 +131,18 @@ const FILTERS: [Group, string][] = [
   ["other", "Other"],
 ];
 const QLABEL: Record<string, string> = { diagnosis: "Diagnosis", action: "Action" };
+// a measured check's kind in words, on its card and in the pill's label (the kind itself stays on the card)
+const CHECK_TITLE: Record<string, string> = {
+  "text-invisible": "Invisible text",
+  "text-low-contrast": "Hard-to-read text",
+  "scroll-lock-stuck": "Page cannot scroll",
+  "pointer-events-leak": "Page stopped taking clicks",
+  "click-blocked": "Clicks blocked by an invisible layer",
+  "dialog-covered": "Dialog covered",
+  "focus-obscured": "Focused control hidden",
+  "ad-heavy": "Ads covering content",
+  "page-blank": "Blank page",
+};
 const qrank = (q: string): number => (q === "diagnosis" ? 0 : q === "action" ? 1 : 2);
 
 const MAX_CARDS = 200;
@@ -204,6 +216,7 @@ class Devtools {
   private readonly pm: HTMLElement;
   private readonly pcA: HTMLElement;
   private readonly pcD: HTMLElement;
+  private readonly pcC: HTMLElement;
   private readonly nA: HTMLElement;
   private readonly nD: HTMLElement;
   private readonly pauseBtn: HTMLElement;
@@ -287,11 +300,12 @@ class Devtools {
       h("span", { class: "vs" }),
       (this.pcA = h("span", { class: "pc a", title: "Interventions" }, icon("shield"), h("b", { text: "0" }))),
       (this.pcD = h("span", { class: "pc d", title: "Detections" }, icon("eye"), h("b", { text: "0" }))),
+      (this.pcC = h("span", { class: "pc c", title: "Measured checks" }, icon("scan"), h("b", { text: "0" }))),
       h("span", { class: "pd" }),
       (this.pb = h("span", { class: "pb", hidden: true }, (this.pbi = h("i")))),
     );
     this.pill.addEventListener("animationend", (e) => {
-      if ((e as AnimationEvent).animationName === "ring") this.pill.classList.remove("pa", "pdd");
+      if ((e as AnimationEvent).animationName === "ring") this.pill.classList.remove("pa", "pdd", "pck");
     });
 
     // header
@@ -460,7 +474,7 @@ class Devtools {
     on("report", (r) => this.addReport(r));
     on("event", (e) => this.addEvent(e));
     on("status", () => this.mark(STATUS | MODE)); // setMode() is announced as a status change too
-    on("check", (f) => this.addCheck(f));
+    on("check", (f) => this.addCheck(f, true));
     on("report", (r) => {
       // a fix line (applied, undone, dropped) changes that finding's card
       const c = r.kind === "check" && r.check ? this.chks.get(r.check.id) : undefined;
@@ -501,11 +515,12 @@ class Devtools {
     safe(() => (this.rt as { vis?: { start(): void } | null }).vis?.start(), undefined);
   }
 
-  private addCheck(f: CheckFinding): void {
+  private addCheck(f: CheckFinding, live = false): void {
     if (!f || this.chks.has(f.id)) return;
     this.chks.set(f.id, { f, dirty: false });
     bound(this.chks, MAX_CARDS, (c) => c.el?.remove());
     this.mark(LISTS);
+    if (live) this.notify("c");
   }
 
   // -------------------------------------------------------------------------------------- data intake
@@ -626,12 +641,12 @@ class Devtools {
     this.mark(EVENTS);
   }
 
-  private notify(kind: "a" | "d"): void {
+  private notify(kind: "a" | "d" | "c"): void {
     if (this.paused) this.unseen++;
     const p = this.pill;
-    p.classList.remove("pa", "pdd");
+    p.classList.remove("pa", "pdd", "pck");
     void p.offsetWidth; // restart the animation
-    p.classList.add(kind === "a" ? "pa" : "pdd");
+    p.classList.add(kind === "a" ? "pa" : kind === "d" ? "pdd" : "pck");
   }
 
   // ------------------------------------------------------------------------------------------ render
@@ -684,10 +699,17 @@ class Devtools {
     this.nA.classList.toggle("on", na > 0);
     this.nD.classList.toggle("on", nd > 0);
     this.nD.title = np ? `${nd} likely, ${np} possible` : "";
-    this.nC.textContent = String(this.chks.size);
-    this.nC.classList.toggle("on", this.chks.size > 0);
+    // measured checks count in the pill too: a page GenClass fixed on screen must not read "0 · 0"
+    const nc = this.chks.size;
+    let nf = 0;
+    for (const c of this.chks.values()) if (c.f.fix?.applied) nf++;
+    (this.pcC.lastElementChild as HTMLElement).textContent = String(nc);
+    this.pcC.classList.toggle("on", nc > 0);
+    this.pcC.title = nc ? `${nc} measured ${nc === 1 ? "check" : "checks"}, ${nf} fixed on screen` : "Measured checks";
+    this.nC.textContent = String(nc);
+    this.nC.classList.toggle("on", nc > 0);
     const s = safe(() => this.rt.status.state, "off");
-    this.pill.setAttribute("aria-label", `Open GenClass devtools: ${na} interventions, ${nd} detections, model ${s}`);
+    this.pill.setAttribute("aria-label", `Open GenClass devtools: ${na} interventions, ${nd} detections, ${nc} checks (${nf} fixed), model ${s}`);
     this.pz.hidden = !this.paused;
     this.pzT.textContent = this.unseen ? `Feed paused · ${this.unseen} new` : "Feed paused";
   }
@@ -814,6 +836,7 @@ class Devtools {
         h(
           "div",
           { class: "ch" },
+          h("span", { class: "cl", text: CHECK_TITLE[f.kind] ?? f.kind }),
           h("span", { class: "ct", text: f.kind }),
           h("span", { class: "badge", text: "measured", title: "A deterministic measurement against a fixed threshold, not a model finding" }),
           h("time", { class: "ago", "data-at": String(f.at), text: ago(this.now() - f.at), title: `runtime clock ${clockT(f.at)}` }),
@@ -1372,6 +1395,8 @@ class Devtools {
     this.pill.setAttribute("aria-expanded", "true");
     this.bits |= ALL;
     this.flush();
+    // with only measured checks so far, open on them rather than on an empty Interventions tab
+    if (this.tab === "interventions" && !this.acts.size && !this.dets.size && this.chks.size) this.tab = "checks";
     this.setTab(this.tab, user);
     this.startTicking();
   }

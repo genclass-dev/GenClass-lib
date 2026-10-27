@@ -1,0 +1,11 @@
+agent % genclass_explore {"action":"start","runs":3,"route":"/"}
+Explore x1 armed: the next 5 page loads of "/" get these delivery schedules, in order:
+  1. baseline 1 (responses in request order)
+  2. baseline 2 (responses in request order)
+  3. seed 1
+  4. seed 2
+  5. seed 3
+
+Now run the same scenario 5 times, one page load each (reload or navigate fresh every time): load the page, do the user steps, then wait for `await page.evaluate(() => window.__GENCLASS_AGENT__.whenSettled(15000))`.
+With Playwright: `npx playwright test <spec> --repeat-each 5 --workers 1`. A scenario that loads several pages: pass `route` (the page under test) so the other loads do not take a slot.
+Then: genclass_explore {action:"report", id:"x1"}.

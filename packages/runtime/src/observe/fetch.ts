@@ -306,7 +306,9 @@ export function instrumentResponse(host: NetHost, res: Response, op: OpRec): Res
       Object.defineProperty(res, m, {
         configurable: true,
         writable: true,
-        value: (...args: unknown[]) =>
+        // rt.summary().requests: the app reads this answer as JSON; its Content-Type says whether it is (no parsing)
+        value: (...args: unknown[]) => (
+          m == "json" && !/json/i.test(res.headers?.get?.("content-type") ?? "") && (op.nj = 1),
           (orig as (...a: unknown[]) => Promise<unknown>).apply(res, args).then(
             (v) => {
               host.ctx.stick(op);
@@ -316,7 +318,8 @@ export function instrumentResponse(host: NetHost, res: Response, op: OpRec): Res
               host.ctx.stick(op);
               throw e;
             },
-          ),
+          )
+        ),
       });
     } catch {
       /* frozen or exotic response: no propagation */

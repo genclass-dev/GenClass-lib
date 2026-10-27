@@ -16,7 +16,22 @@
 //   page views, engaged time, scroll milestones, and clicks, rage clicks and dead clicks per page and element key, as
 //   ix_* counters with their own per-batch budget (MAX_IX_COUNTERS), so they never crowd out the diagnostics counters.
 //   The runtime sends deltas, so they are plain counters like routes: a repeated batch is skipped as a whole.
-// - Retention (daily cron): daily counters and recent rows 90 days, hourly counters 48 hours, summary state 2 days.
+//   Visits (ANALYTICS.md section 1.2): the view that opens a visit adds per visit counters (where it came from: the
+//   referring host and utm values; device class, browser and OS families; the country from request.cf; new or
+//   returning) and every view's route goes into the visit's row (`visits`, keyed by a hash of the token and the
+//   visit id), which entry and exit pages, pages per visit and funnels are counted from. Every value is checked
+//   against an allowlist or a pattern here, whatever the client sent.
+//   Navigation paths (ANALYTICS.md section 11): within one page load, route-to-route steps with the time between, how
+//   each view was reached, the first element interacted with per page, where page loads started and ended, and the
+//   first 5 routes of each page load's path, all as counters per route or element key.
+// - Funnels: up to MAX_FUNNELS per app (projects.funnels), each 2 to MAX_STEPS routes; a step is counted for the visits
+//   whose routes include every step up to it in order (GLOB on the visit's route list), so a funnel defined today
+//   counts the visits already stored.
+// - Retention (daily cron): daily counters and recent rows 90 days, hourly counters 48 hours, summary state 2 days,
+//   visits 90 days (on every plan).
+
+import { applyDemo, demoData } from "./demo.js";
+import { json, readCapped } from "./http.js";
 
 export const TOKEN_RE = /^gc_[A-Za-z0-9]{22}$/;
 export const SECRET_RE = /^[A-Za-z0-9]{32}$/;
@@ -185,6 +200,8 @@ export interface AggBatch {
   runtime: string;
   model: string | null;
   events: Ev[];
+  /** The collector's coarse country for this request (request.cf.country), counted once per visit. */
+  country?: string | null;
 }
 
 const str = (v: unknown): string | undefined => (typeof v === "string" && v.trim() ? [...v.trim()].slice(0, KEY_MAX).join("") : undefined);
@@ -343,17 +360,56 @@ const IX_FIELDS: [string, string][] = [
   ["dead", "ix_dead"],
 ];
 const chars = (s: string, n: number): string => [...s].slice(0, n).join("");
+const IX_NAV = new Set(["load", "reload", "back_forward", "push", "back", "forward", "pop"]);
+/** Routes of a path the collector keeps, and the key's length. */
+const IX_PATH_STEPS = 5;
+const IX_PATH_MAX = 240;
+const ixRoute = (v: unknown): string | undefined => {
+  const r = str(v);
+  return r ? chars(r, 100) : undefined;
+};
+
+// Visits: what the view opening one may say (the runtime's buckets, src/analytics/index.ts deviceOf), and bounds.
+export const VISIT_RE = /^[0-9a-f]{16}$/;
+const DEVICES = new Set(["desktop", "mobile", "tablet"]);
+const BROWSERS = new Set(["Chrome", "Safari", "Firefox", "Edge", "Opera", "Samsung Internet", "Other"]);
+const OSES = new Set(["Windows", "macOS", "iOS", "Android", "Linux", "ChromeOS", "Other"]);
+const REF_RE = /^[a-z0-9][a-z0-9.-]{0,79}$/;
+const UTM_RE = /^[a-z0-9][a-z0-9 ._+-]{0,39}$/;
+/** Distinct visits one batch may add to (a page load names one, rarely two), and routes per visit per batch. */
+const VISITS_PER_BATCH = 5;
+/** A visit's row keeps the routes of about its first this many page views (funnels look no further). */
+export const VISIT_ROUTES = 50;
+/** One batch's page views for one visit, in order; `entry` when one of them opened the visit. */
+export interface VisitPart {
+  routes: string[];
+  entry: boolean;
+}
+/** A route as it goes into a visit's route list: no tabs (the separator), at most 100 characters. */
+const visitRoute = (r: string): string => chars(r.replace(/\t/g, " "), 100);
 
 /**
  * One `interactions` event into ix_* counters (key "" is the total; the route, or route TAB element key, the
  * breakdown): ix_views (a view's first event), ix_engaged_ms, ix_scroll (route TAB milestone), ix_click, ix_rage,
- * ix_dead. Element keys are selectors and names from the page's markup, never its text (the runtime builds them).
+ * ix_dead; and the navigation counters of ANALYTICS.md 11.2: ix_entry, ix_nav and ix_nav_ms (from TAB to), ix_arrive
+ * (nav, and route TAB nav), ix_first (route TAB element key), ix_first_n and ix_first_ms (route), ix_exit, ix_path.
+ * Element keys are selectors and names from the page's markup, never its text (the runtime builds them).
  */
-function interactions(ix: Counters, e: Ev): void {
+function interactions(ix: Counters, e: Ev, visits: Map<string, VisitPart>, country: string | null | undefined): void {
   const route = chars(str(e.route) ?? "(unknown)", 100);
   if (e.start === true) {
     ix.add("ix_views");
     ix.add("ix_views", route);
+    const v = typeof e.visit === "string" && VISIT_RE.test(e.visit) ? e.visit : null;
+    if (v && (visits.has(v) || visits.size < VISITS_PER_BATCH)) {
+      const part = visits.get(v) ?? { routes: [], entry: false };
+      visits.set(v, part);
+      if (part.routes.length < VISIT_ROUTES) part.routes.push(visitRoute(route));
+      if (e.entry === true && !part.entry) {
+        part.entry = true;
+        visitCounters(ix, e, country);
+      }
+    }
   }
   const ms = num(e.engagedMs);
   if (ms !== undefined && ms > 0 && ms <= IX_MAX_MS) {
@@ -361,6 +417,37 @@ function interactions(ix: Counters, e: Ev): void {
     ix.add("ix_engaged_ms", route, ms);
   }
   if (Array.isArray(e.scroll)) for (const m of new Set(e.scroll)) if (IX_MILESTONES.has(m as number)) ix.add("ix_scroll", `${route}\t${m}`);
+  if (e.start === true) {
+    const nav = typeof e.nav === "string" ? (IX_NAV.has(e.nav) ? e.nav : "(other)") : undefined;
+    if (nav) {
+      ix.add("ix_arrive", nav);
+      ix.add("ix_arrive", `${route}\t${nav}`);
+    }
+    const from = ixRoute(e.from);
+    if (from) {
+      ix.add("ix_nav", `${from}\t${route}`);
+      const gap = num(e.fromMs);
+      if (gap !== undefined && gap >= 0 && gap <= IX_MAX_MS) ix.add("ix_nav_ms", `${from}\t${route}`, gap);
+    } else {
+      ix.add("ix_entry");
+      ix.add("ix_entry", route);
+    }
+  }
+  const first = str(e.first);
+  if (first && first.trim()) {
+    ix.add("ix_first", `${route}\t${chars(first.trim(), KEY_MAX)}`);
+    ix.add("ix_first_n", route);
+    const ms = num(e.firstMs);
+    if (ms !== undefined && ms >= 0 && ms <= IX_MAX_MS) ix.add("ix_first_ms", route, ms);
+  }
+  if (e.exit === true) {
+    ix.add("ix_exit");
+    ix.add("ix_exit", route);
+    if (Array.isArray(e.path)) {
+      const steps = e.path.slice(0, IX_PATH_STEPS).map(ixRoute);
+      if (steps.length && steps.every((x) => x)) ix.add("ix_path", chars(steps.join(" > ") + (e.path.length > IX_PATH_STEPS ? " > …" : ""), IX_PATH_MAX));
+    }
+  }
   for (const [field, metric] of IX_FIELDS) {
     for (const [k, v] of Object.entries(obj(e[field])).slice(0, IX_KEYS)) {
       const n = num(v);
@@ -372,10 +459,45 @@ function interactions(ix: Counters, e: Ev): void {
   }
 }
 
+/**
+ * The counters of a view that opened a visit, one each: ix_sessions, ix_ref (the referring host, or "(direct)"),
+ * ix_utm_source / ix_utm_medium / ix_utm_campaign (when sent), ix_device, ix_browser, ix_os, ix_country,
+ * ix_returning ("new" or "returning", when the runtime could tell). Values outside the allowlists are not counted.
+ */
+function visitCounters(ix: Counters, e: Ev, country: string | null | undefined): void {
+  ix.add("ix_sessions");
+  const ref = typeof e.ref === "string" ? e.ref : undefined;
+  ix.add("ix_ref", ref === undefined ? "(direct)" : ref === "(other)" || REF_RE.test(ref) ? ref : "(other)");
+  const utm = obj(e.utm);
+  for (const f of ["source", "medium", "campaign"]) {
+    const v = utm[f];
+    if (typeof v === "string" && UTM_RE.test(v)) ix.add(`ix_utm_${f}`, v);
+  }
+  for (const [field, metric, ok] of [
+    ["device", "ix_device", DEVICES],
+    ["browser", "ix_browser", BROWSERS],
+    ["os", "ix_os", OSES],
+  ] as const) {
+    const v = e[field];
+    ix.add(metric, typeof v === "string" && ok.has(v) ? v : field === "device" ? "(unknown)" : "Other");
+  }
+  ix.add("ix_country", country && /^[A-Z0-9]{2}$/.test(country) ? country : "(unknown)");
+  if (typeof e.returning === "boolean") ix.add("ix_returning", e.returning ? "returning" : "new");
+}
+
 /** Pure part of the aggregation: event counters, recent rows and exact-metric contributions for one batch (exported for tests). */
-export function summarize(batch: AggBatch): { counters: Counters; ix: Counters; recent: RecentRow[]; exact: Contribution[]; seqs: number[]; summary?: SummaryValues } {
+export function summarize(batch: AggBatch): {
+  counters: Counters;
+  ix: Counters;
+  recent: RecentRow[];
+  exact: Contribution[];
+  seqs: number[];
+  summary?: SummaryValues;
+  visits: Map<string, VisitPart>;
+} {
   const c = new Counters();
   const ix = new Counters(MAX_IX_COUNTERS);
+  const visits = new Map<string, VisitPart>();
   const recent: RecentRow[] = [];
   const exact: Contribution[] = [];
   const seqs: number[] = [];
@@ -492,7 +614,7 @@ export function summarize(batch: AggBatch): { counters: Counters; ix: Counters; 
         break;
       }
       case "interactions":
-        interactions(ix, e);
+        interactions(ix, e, visits, batch.country);
         break;
     }
   }
@@ -515,7 +637,7 @@ export function summarize(batch: AggBatch): { counters: Counters; ix: Counters; 
       acted,
     });
   }
-  return { counters: c, ix, recent: recent.slice(-100), exact, seqs, summary: summary ? summaryValues(summary) : undefined };
+  return { counters: c, ix, recent: recent.slice(-100), exact, seqs, summary: summary ? summaryValues(summary) : undefined, visits };
 }
 
 /**
@@ -689,7 +811,7 @@ function upserts(db: D1Like, table: "daily" | "hourly", col: "day" | "hour", tok
  * nothing: read the state again and retry that part alone (the event counters are never written twice).
  */
 export async function aggregate(db: D1Like, token: string, batch: AggBatch, now: Date): Promise<void> {
-  const { counters, ix, recent, exact, seqs, summary } = summarize(batch);
+  const { counters, ix, recent, exact, seqs, summary, visits } = summarize(batch);
   const iso = now.toISOString();
   const day = dayKey(now);
   const hour = hourKey(now);
@@ -713,6 +835,28 @@ export async function aggregate(db: D1Like, token: string, batch: AggBatch, now:
       db
         .prepare("DELETE FROM recent WHERE token = ?1 AND id < (SELECT id FROM recent WHERE token = ?1 ORDER BY id DESC LIMIT 1 OFFSET ?2)")
         .bind(token, RECENT_CAP - 1),
+    );
+  }
+  // each visit's row: created by its first batch, then its exit page, page count and (up to VISIT_ROUTES) routes
+  for (const [v, part] of visits) {
+    plain.push(
+      db
+        .prepare(
+          "INSERT INTO visits (visit_hash, token, started, updated, entry, exit, pages, routes) VALUES (?, ?, ?, ?, ?, ?, ?, ?) " +
+            "ON CONFLICT (visit_hash) DO UPDATE SET updated = excluded.updated, exit = excluded.exit, pages = visits.pages + excluded.pages, " +
+            "routes = CASE WHEN visits.pages >= ? THEN visits.routes ELSE visits.routes || excluded.routes END",
+        )
+        .bind(
+          (await sha256Hex(`${token}:visit:${v}`)).slice(0, 32),
+          token,
+          iso,
+          iso,
+          part.routes[0],
+          part.routes[part.routes.length - 1],
+          part.routes.length,
+          part.routes.map((r) => `\t${r}\t`).join(""),
+          VISIT_ROUTES,
+        ),
     );
   }
 
@@ -747,7 +891,7 @@ export async function aggregate(db: D1Like, token: string, batch: AggBatch, now:
 /** 90d and 1y: account dashboards on a plan with that much history (src/plans.ts); link dashboards use RANGES. */
 export type Range = "24h" | "7d" | "30d" | "90d" | "1y";
 export const RANGES: Range[] = ["24h", "7d", "30d"];
-const SERIES_METRICS = ["sessions", "decisions", "detections", "acted", "possible", "ix_views"];
+const SERIES_METRICS = ["sessions", "decisions", "detections", "acted", "possible", "ix_views", "ix_sessions"];
 
 export interface Stats {
   name: string;
@@ -762,13 +906,377 @@ export interface Stats {
   breakdowns: Record<string, { key: string; count: number }[]>;
   /** Distinct keys per metric in the period, before the top-N cut (e.g. how many pages had a problem). */
   distinct: Record<string, number>;
-  /** Per bucket; `possible` is the lower-confidence tier, never part of `detections`; `ix_views` the page views counted by interaction analytics. */
-  series: { bucket: string; sessions: number; decisions: number; detections: number; acted: number; possible: number; ix_views: number }[];
+  /** Per bucket; `possible` is the lower-confidence tier, never part of `detections`; `ix_views` the page views and `ix_sessions` the visits counted by interaction analytics. */
+  series: { bucket: string; sessions: number; decisions: number; detections: number; acted: number; possible: number; ix_views: number; ix_sessions: number }[];
   /** Detections per bucket by diagnosis (the dashboard's stacked timeline). */
   typeSeries: { bucket: string; counts: Record<string, number> }[];
   /** The same totals over the period just before this one (deltas). */
-  previous: { sessions: number; detections: number; acted: number; ix_views: number };
+  previous: { sessions: number; detections: number; acted: number; ix_views: number; ix_sessions: number };
   recent: Record<string, unknown>[];
+  /** Interaction analytics: the visits that started in the period (visits are kept 90 days whatever the plan). */
+  visits: VisitStats;
+  /** The app's funnels and, per step, the visits that started in the period and reached it in order. */
+  funnels: FunnelStats[];
+  /** What the developer's coding agent reported through @genclass/mcp in the period (agentStats); off unless the developer turned reporting on. */
+  agent: AgentStats;
+}
+
+// --------------------------------------------------------------------------------------------- visits and funnels
+
+export interface VisitStats {
+  /** Visits that started in the period, their page views, and those with one page view only. */
+  sessions: number;
+  pages: number;
+  bounces: number;
+  /** Top 25 entry and exit pages of those visits. */
+  entry: { key: string; count: number }[];
+  exit: { key: string; count: number }[];
+}
+export interface Funnel {
+  name: string;
+  /** Routes as the dashboard keys them; one ending in "*" matches every route that starts with what comes before it. */
+  steps: string[];
+}
+export interface FunnelStats extends Funnel {
+  /** Per step, the visits whose routes include every step up to this one, in that order. */
+  counts: number[];
+}
+export const MAX_FUNNELS = 5;
+export const MIN_STEPS = 2;
+export const MAX_STEPS = 6;
+const FUNNEL_NAME_MAX = 60;
+
+/** A funnel step: a route (normalised like the runtime's), or a route prefix ending in "*". Null when it is not one. */
+export function funnelStep(v: unknown): string | null {
+  if (typeof v !== "string") return null;
+  const s = v.trim();
+  const prefix = s.endsWith("*");
+  const r = normalizeRoute(prefix ? s.slice(0, -1) : s);
+  if (!r || r.includes("*") || r.includes("\t")) return null;
+  return prefix ? `${r}*` : r;
+}
+
+/** Check funnels sent by the dashboard: the cleaned list, or why it was refused. */
+export function cleanFunnels(v: unknown): Funnel[] | { error: string } {
+  if (!Array.isArray(v)) return { error: "funnels must be an array" };
+  if (v.length > MAX_FUNNELS) return { error: `at most ${MAX_FUNNELS} funnels` };
+  const out: Funnel[] = [];
+  for (const [i, f] of v.entries()) {
+    const o = obj(f);
+    if (!Array.isArray(o.steps) || o.steps.length < MIN_STEPS || o.steps.length > MAX_STEPS) return { error: `a funnel has ${MIN_STEPS} to ${MAX_STEPS} steps` };
+    const steps: string[] = [];
+    for (const raw of o.steps) {
+      const st = funnelStep(raw);
+      if (!st) return { error: `not a page route: ${chars(String(raw), 60)} (a step starts with /)` };
+      steps.push(st);
+    }
+    const name = typeof o.name === "string" ? sanitizeName(o.name).slice(0, FUNNEL_NAME_MAX).trim() : "";
+    out.push({ name: name && name !== "Untitled app" ? name : `Funnel ${i + 1}`, steps });
+  }
+  return out;
+}
+
+/** The funnels stored for an app (projects.funnels); [] when none or unreadable. */
+export function parseFunnels(raw: unknown): Funnel[] {
+  if (typeof raw !== "string" || !raw) return [];
+  try {
+    const f = cleanFunnels(JSON.parse(raw));
+    return Array.isArray(f) ? f : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Save an app's funnels (the whole list). */
+export async function saveFunnels(db: D1Like, token: string, funnels: Funnel[]): Promise<void> {
+  await db.prepare("UPDATE projects SET funnels = ? WHERE token = ?").bind(funnels.length ? JSON.stringify(funnels) : null, token).run();
+}
+
+/**
+ * PUT .../funnels with `{ funnels: [{ name, steps }] }` (application/json, at most 4 KB): replace the app's funnels.
+ * Shared by the private link (above) and account mode (src/auth.ts), which authenticate first.
+ */
+export async function putFunnels(request: Request, db: D1Like, token: string): Promise<Response> {
+  const ct = (request.headers.get("content-type") ?? "").split(";")[0]!.trim().toLowerCase();
+  if (ct !== "application/json") return json(415, { ok: false, error: "content-type must be application/json" });
+  const raw = await readCapped(request, 4096);
+  if (raw === null) return json(413, { ok: false, error: "body too large" });
+  let body: unknown;
+  try {
+    body = JSON.parse(new TextDecoder().decode(raw));
+  } catch {
+    return json(400, { ok: false, error: "invalid JSON" });
+  }
+  const f = cleanFunnels((body as { funnels?: unknown } | null)?.funnels);
+  if (!Array.isArray(f)) return json(400, { ok: false, error: f.error });
+  await saveFunnels(db, token, f);
+  return json(200, { ok: true, funnels: f });
+}
+
+/** A GLOB pattern matching a visit's route list ("\t/a\t\t/b\t") when it includes `steps` in order. */
+export function funnelGlob(steps: string[]): string {
+  const lit = (s: string) => s.replace(/[*?[]/g, (c) => `[${c}]`);
+  return `*${steps.map((s) => `\t${s.endsWith("*") ? `${lit(s.slice(0, -1))}*` : lit(s)}\t`).join("*")}*`;
+}
+
+async function visitStats(db: D1Like, token: string, fromIso: string, funnels: Funnel[]): Promise<{ visits: VisitStats; funnels: FunnelStats[] }> {
+  const globs = funnels.flatMap((f) => f.steps.map((_, i) => funnelGlob(f.steps.slice(0, i + 1))));
+  const sums = globs.length ? globs.map((_, i) => `SUM(routes GLOB ?) AS g${i}`).join(", ") : "0 AS g";
+  const [tot, entry, exit, fun] = await db.batch([
+    db.prepare("SELECT COUNT(*) AS n, SUM(pages) AS p, SUM(pages = 1) AS b FROM visits WHERE token = ? AND started >= ?").bind(token, fromIso),
+    db.prepare("SELECT entry AS k, COUNT(*) AS c FROM visits WHERE token = ? AND started >= ? GROUP BY entry ORDER BY c DESC, entry LIMIT 25").bind(token, fromIso),
+    db.prepare("SELECT exit AS k, COUNT(*) AS c FROM visits WHERE token = ? AND started >= ? GROUP BY exit ORDER BY c DESC, exit LIMIT 25").bind(token, fromIso),
+    db.prepare(`SELECT ${sums} FROM visits WHERE token = ? AND started >= ?`).bind(...globs, token, fromIso),
+  ]);
+  const rows = (r: unknown) => ((r as { results?: Record<string, unknown>[] })?.results ?? []) as Record<string, unknown>[];
+  const t = rows(tot)[0] ?? {};
+  const list = (r: unknown) => rows(r).map((x) => ({ key: String(x.k), count: Number(x.c) || 0 }));
+  const f = rows(fun)[0] ?? {};
+  let g = 0;
+  return {
+    visits: { sessions: Number(t.n) || 0, pages: Number(t.p) || 0, bounces: Number(t.b) || 0, entry: list(entry), exit: list(exit) },
+    funnels: funnels.map((x) => ({ ...x, counts: x.steps.map(() => Number(f[`g${g++}`]) || 0) })),
+  };
+}
+
+// --------------------------------------------------------------------------------------------- agent reports
+
+/** The finding kinds @genclass/mcp makes (packages/mcp/src/types.ts FindingKind). */
+export const AGENT_KINDS = ["race", "stale-write", "error", "duplicate-request", "detection", "check", "expectation", "intervention"];
+export const AGENT_SCHEMA = "genclass-agent/1";
+export const AGENT_MAX_EVENTS = 50;
+export const AGENT_MAX_BODY = 16 * 1024;
+/** Log rows kept per app (the oldest go first). */
+export const AGENT_LOG_CAP = 500;
+/** Log rows the stats carry. */
+export const AGENT_LOG_SHOWN = 50;
+/** The steps of the loop the MCP server mirrors (packages/mcp/src/report.ts ReportKind); anything else is dropped. */
+export const AGENT_EVENTS = ["found", "explain", "armed", "replay", "test", "explore", "cleared"];
+const AGENT_ID_RE = /^f[0-9]{1,9}$/;
+
+export interface AgentFinding {
+  id: string;
+  kind: string;
+  route: string;
+  found: string | null;
+  /** When the agent first read its evidence (genclass_explain). */
+  explained: string | null;
+  replayed: string | null;
+  reproduced: boolean | null;
+  /** How many replays reproduced it; more than one means a fix was tried and the bug was still there. */
+  reproducedN: number;
+  tested: string | null;
+  proven: string | null;
+  /** Closed: the fix is proven and a regression test guards it. */
+  closed: boolean;
+  updated: string;
+}
+/** One step of the loop as the MCP server logged it, mirrored (docs/runtime/AGENT.md section 4.5). */
+export interface AgentLogEntry {
+  at: string;
+  t: string;
+  id: string | null;
+  kind: string | null;
+  route: string | null;
+  reproduced: boolean | null;
+  runs: number | null;
+  races: number | null;
+  what: string | null;
+}
+/** How many of the period's findings reached each stage of the loop (every finding changed in the period, not only the listed ones). */
+export interface AgentStages {
+  found: number;
+  explained: number;
+  reproduced: number;
+  /** A replay no longer reproduces it after one that did. */
+  fixed: number;
+  /** Fixed and a regression test written. */
+  closed: number;
+  /** Found and not closed. */
+  open: number;
+  /** Replays that still reproduced a finding already reproduced once: a fix tried, the loop went round again. */
+  continued: number;
+}
+export interface AgentStats {
+  /** The findings reported in the period, newest change first (at most 25). */
+  findings: AgentFinding[];
+  counts: { found: number; reproduced: number; tested: number; proven: number };
+  stages: AgentStages;
+  /** The agent's log in the period, newest first (at most AGENT_LOG_SHOWN). */
+  log: AgentLogEntry[];
+  /** When the agent last reported anything for this app, in the period. */
+  last: string | null;
+}
+
+/** A page route as the dashboard keys it: path only, capped, with id-like segments replaced by :id (as the runtime does). */
+export function normalizeRoute(v: unknown): string | null {
+  if (typeof v !== "string") return null;
+  let r = v.trim();
+  const q = r.search(/[?#]/);
+  if (q >= 0) r = r.slice(0, q);
+  if (!r.startsWith("/")) return null;
+  r = r
+    .split("/")
+    .map((seg) => (/^(\d+|[0-9a-f]{8,}|[0-9a-f-]{32,}|[A-Za-z0-9_-]{20,}|[^@]*@[^@]*)$/i.test(seg) ? ":id" : seg))
+    .join("/");
+  // eslint-disable-next-line no-control-regex
+  r = r.replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2060-\u206f\ufeff]/g, "");
+  if (r.length > 200) r = r.slice(0, 200);
+  return r || "/";
+}
+
+/**
+ * Store what an agent reported (POST /api/projects/<secret>/agent), the MCP server's log of the loop mirrored: `found`
+ * (kind, route), `explain` (the evidence was read), `armed` (a replay was armed), `replay` (reproduced true or false; a
+ * false after a true marks the fix proven, a second true marks the loop going round again), `test` (a regression test
+ * was written), `explore` (an explore report: page loads and race findings, counts only) and `cleared` (what the
+ * developer cleared on their machine). Every accepted event is one log row (AGENT_LOG_CAP per app); the ones about a
+ * finding also update its row in agent_reports. Anything else in an event is dropped. Returns how many events were
+ * stored, or the reason none were.
+ */
+export async function agentReport(db: D1Like, token: string, body: unknown, now: Date): Promise<{ stored: number } | { error: string }> {
+  if (body === null || typeof body !== "object" || Array.isArray(body)) return { error: "body must be a JSON object" };
+  const b = body as Record<string, unknown>;
+  if (b.schema !== AGENT_SCHEMA) return { error: `schema must be ${AGENT_SCHEMA}` };
+  if (!Array.isArray(b.events)) return { error: "events must be an array" };
+  if (b.events.length > AGENT_MAX_EVENTS) return { error: `at most ${AGENT_MAX_EVENTS} events per request` };
+  const nowMs = now.getTime();
+  const iso = now.toISOString();
+  const stmts: D1Stmt[] = [];
+  let stored = 0;
+  const count = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) && v >= 0 ? Math.min(1_000_000, Math.floor(v)) : null);
+  const log = (at: string, t: string, f: { id: string | null; kind: string | null; route: string | null }, x: { reproduced?: number | null; runs?: number | null; races?: number | null; what?: string | null } = {}) => {
+    stmts.push(
+      db
+        .prepare("INSERT INTO agent_log (token, at, t, finding, kind, route, reproduced, runs, races, what, received) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+        .bind(token, at, t, f.id, f.kind, f.route, x.reproduced ?? null, x.runs ?? null, x.races ?? null, x.what ?? null, iso),
+    );
+    stored++;
+  };
+  for (const raw of b.events) {
+    if (raw === null || typeof raw !== "object" || Array.isArray(raw)) continue;
+    const e = raw as Record<string, unknown>;
+    const t = typeof e.t === "string" && AGENT_EVENTS.includes(e.t) ? e.t : null;
+    if (!t) continue;
+    const atMs = typeof e.at === "number" && Number.isFinite(e.at) && Math.abs(e.at - nowMs) < 86_400_000 ? e.at : nowMs;
+    const at = new Date(atMs).toISOString();
+    if (t === "explore") {
+      const runs = count(e.runs);
+      const races = count(e.races);
+      if (runs === null || races === null) continue;
+      log(at, t, { id: null, kind: null, route: normalizeRoute(e.route) }, { runs, races });
+      continue;
+    }
+    if (t === "cleared") {
+      if (e.what !== "all" && e.what !== "findings" && e.what !== "runs") continue;
+      log(at, t, { id: null, kind: null, route: null }, { what: e.what });
+      continue;
+    }
+    const id = typeof e.id === "string" && AGENT_ID_RE.test(e.id) ? e.id : null;
+    const kind = typeof e.kind === "string" && AGENT_KINDS.includes(e.kind) ? e.kind : null;
+    const route = normalizeRoute(e.route);
+    if (!id || !kind || !route) continue;
+    const f = { id, kind, route };
+    if (t === "found") {
+      stmts.push(
+        db
+          .prepare(
+            "INSERT INTO agent_reports (token, finding, kind, route, found, updated) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (token, finding) DO UPDATE SET kind = excluded.kind, route = excluded.route, found = COALESCE(agent_reports.found, excluded.found), updated = excluded.updated",
+          )
+          .bind(token, id, kind, route, at, iso),
+      );
+      log(at, t, f);
+    } else if (t === "explain") {
+      stmts.push(
+        db
+          .prepare(
+            "INSERT INTO agent_reports (token, finding, kind, route, explained, updated) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (token, finding) DO UPDATE SET kind = excluded.kind, route = excluded.route, explained = COALESCE(agent_reports.explained, excluded.explained), updated = excluded.updated",
+          )
+          .bind(token, id, kind, route, at, iso),
+      );
+      log(at, t, f);
+    } else if (t === "armed") {
+      log(at, t, f);
+    } else if (t === "replay") {
+      if (typeof e.reproduced !== "boolean") continue;
+      const r = e.reproduced ? 1 : 0;
+      stmts.push(
+        db
+          .prepare(
+            "INSERT INTO agent_reports (token, finding, kind, route, replayed, reproduced, reproduced_once, reproduced_n, proven, updated) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?) ON CONFLICT (token, finding) DO UPDATE SET kind = excluded.kind, route = excluded.route, replayed = excluded.replayed, reproduced = excluded.reproduced, reproduced_once = MAX(agent_reports.reproduced_once, excluded.reproduced_once), reproduced_n = agent_reports.reproduced_n + excluded.reproduced_n, proven = CASE WHEN excluded.reproduced = 0 AND agent_reports.reproduced_once = 1 THEN excluded.replayed ELSE agent_reports.proven END, updated = excluded.updated",
+          )
+          .bind(token, id, kind, route, at, r, r, r, iso),
+      );
+      log(at, t, f, { reproduced: r });
+    } else if (t === "test") {
+      stmts.push(
+        db
+          .prepare(
+            "INSERT INTO agent_reports (token, finding, kind, route, tested, updated) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (token, finding) DO UPDATE SET kind = excluded.kind, route = excluded.route, tested = excluded.tested, updated = excluded.updated",
+          )
+          .bind(token, id, kind, route, at, iso),
+      );
+      log(at, t, f);
+    }
+  }
+  if (stored) {
+    // the oldest rows past the cap go, like `recent`
+    stmts.push(db.prepare("DELETE FROM agent_log WHERE token = ?1 AND id < (SELECT id FROM agent_log WHERE token = ?1 ORDER BY id DESC LIMIT 1 OFFSET ?2)").bind(token, AGENT_LOG_CAP - 1));
+    await db.batch(stmts);
+  }
+  return { stored };
+}
+
+/** The agent's reports for the dashboard: the findings changed in the period, the counts, the stages and the log. */
+export async function agentStats(db: D1Like, token: string, fromIso: string): Promise<AgentStats> {
+  const [r, st, lg] = (await db.batch([
+    db
+      .prepare("SELECT finding, kind, route, found, explained, replayed, reproduced, reproduced_once, reproduced_n, tested, proven, updated FROM agent_reports WHERE token = ? AND updated >= ? ORDER BY updated DESC LIMIT 25")
+      .bind(token, fromIso),
+    db
+      .prepare(
+        "SELECT COUNT(*) AS found, SUM(explained IS NOT NULL) AS explained, SUM(reproduced_once) AS reproduced, SUM(proven IS NOT NULL) AS fixed, SUM(proven IS NOT NULL AND tested IS NOT NULL) AS closed, SUM(CASE WHEN reproduced_n > 1 THEN reproduced_n - 1 ELSE 0 END) AS continued FROM agent_reports WHERE token = ? AND updated >= ?",
+      )
+      .bind(token, fromIso),
+    db.prepare("SELECT at, t, finding, kind, route, reproduced, runs, races, what FROM agent_log WHERE token = ? AND at >= ? ORDER BY id DESC LIMIT ?").bind(token, fromIso, AGENT_LOG_SHOWN),
+  ])) as { results?: unknown[] }[];
+  const findings: AgentFinding[] = ((r!.results ?? []) as Record<string, unknown>[]).map((x) => ({
+    id: String(x.finding),
+    kind: String(x.kind),
+    route: String(x.route),
+    found: x.found == null ? null : String(x.found),
+    explained: x.explained == null ? null : String(x.explained),
+    replayed: x.replayed == null ? null : String(x.replayed),
+    reproduced: x.reproduced == null ? null : !!x.reproduced,
+    reproducedN: Number(x.reproduced_n) || 0,
+    tested: x.tested == null ? null : String(x.tested),
+    proven: x.proven == null ? null : String(x.proven),
+    closed: x.proven != null && x.tested != null,
+    updated: String(x.updated),
+  }));
+  const counts = { found: 0, reproduced: 0, tested: 0, proven: 0 };
+  for (const f of findings) {
+    if (f.found) counts.found++;
+    if (f.reproduced === true || (f.proven && f.replayed)) counts.reproduced++;
+    if (f.tested) counts.tested++;
+    if (f.proven) counts.proven++;
+  }
+  const a = ((st!.results ?? [])[0] ?? {}) as Record<string, unknown>;
+  const n = (k: string) => Number(a[k]) || 0;
+  const stages: AgentStages = { found: n("found"), explained: n("explained"), reproduced: n("reproduced"), fixed: n("fixed"), closed: n("closed"), open: Math.max(0, n("found") - n("closed")), continued: n("continued") };
+  const log: AgentLogEntry[] = ((lg!.results ?? []) as Record<string, unknown>[]).map((x) => ({
+    at: String(x.at),
+    t: String(x.t),
+    id: x.finding == null ? null : String(x.finding),
+    kind: x.kind == null ? null : String(x.kind),
+    route: x.route == null ? null : String(x.route),
+    reproduced: x.reproduced == null ? null : !!x.reproduced,
+    runs: x.runs == null ? null : Number(x.runs),
+    races: x.races == null ? null : Number(x.races),
+    what: x.what == null ? null : String(x.what),
+  }));
+  const last = [findings[0]?.updated, log[0]?.at].filter((v): v is string => !!v).sort().pop() ?? null;
+  return { findings, counts, stages, log, last };
 }
 
 export async function stats(db: D1Like, p: Project, range: Range, now: Date): Promise<Stats> {
@@ -785,7 +1293,7 @@ export async function stats(db: D1Like, p: Project, range: Range, now: Date): Pr
   const prevStart = new Date(Date.parse(hourly ? `${from}:00:00.000Z` : `${from}T00:00:00.000Z`) - span * (hourly ? 3_600_000 : 86_400_000));
   const prevFrom = hourly ? hourKey(prevStart) : dayKey(prevStart);
 
-  const [agg, series, recent, types, prev] = await db.batch([
+  const [agg, series, recent, types, prev, fun] = await db.batch([
     db.prepare(`SELECT metric, key, SUM(count) AS c FROM ${table} WHERE token = ? AND ${col} >= ? GROUP BY metric, key`).bind(p.token, from),
     db
       .prepare(`SELECT ${col} AS b, metric, SUM(count) AS c FROM ${table} WHERE token = ? AND ${col} >= ? AND key = '' AND metric IN (${SERIES_METRICS.map(() => "?").join(", ")}) GROUP BY ${col}, metric`)
@@ -795,8 +1303,9 @@ export async function stats(db: D1Like, p: Project, range: Range, now: Date): Pr
       .bind(p.token, hourly ? new Date(now.getTime() - 86_400_000).toISOString() : `${from}T00:00:00.000Z`),
     db.prepare(`SELECT ${col} AS b, key, SUM(count) AS c FROM ${table} WHERE token = ? AND ${col} >= ? AND metric = 'detect_diagnosis' GROUP BY ${col}, key`).bind(p.token, from),
     db
-      .prepare(`SELECT metric, SUM(count) AS c FROM ${table} WHERE token = ? AND ${col} >= ? AND ${col} < ? AND key = '' AND metric IN ('sessions', 'detections', 'acted', 'ix_views') GROUP BY metric`)
+      .prepare(`SELECT metric, SUM(count) AS c FROM ${table} WHERE token = ? AND ${col} >= ? AND ${col} < ? AND key = '' AND metric IN ('sessions', 'detections', 'acted', 'ix_views', 'ix_sessions') GROUP BY metric`)
       .bind(p.token, prevFrom, from),
+    db.prepare("SELECT funnels FROM projects WHERE token = ?").bind(p.token),
   ]);
   const rows = (r: unknown) => ((r as { results?: Record<string, unknown>[] })?.results ?? []) as Record<string, unknown>[];
 
@@ -832,7 +1341,7 @@ export async function stats(db: D1Like, p: Project, range: Range, now: Date): Pr
     breakdowns.latency_bucket.sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key));
   }
 
-  const byBucket = new Map(buckets.map((b) => [b, { bucket: b, sessions: 0, decisions: 0, detections: 0, acted: 0, possible: 0, ix_views: 0 }]));
+  const byBucket = new Map(buckets.map((b) => [b, { bucket: b, sessions: 0, decisions: 0, detections: 0, acted: 0, possible: 0, ix_views: 0, ix_sessions: 0 }]));
   for (const r of rows(series)) {
     const s = byBucket.get(String(r.b));
     if (s && SERIES_METRICS.includes(String(r.metric))) (s as Record<string, unknown>)[String(r.metric)] = Number(r.c) || 0;
@@ -843,19 +1352,21 @@ export async function stats(db: D1Like, p: Project, range: Range, now: Date): Pr
     const s = byType.get(String(r.b));
     if (s) s.counts[String(r.key ?? "")] = (s.counts[String(r.key ?? "")] ?? 0) + (Number(r.c) || 0);
   }
-  const previous = { sessions: 0, detections: 0, acted: 0, ix_views: 0 };
+  const previous = { sessions: 0, detections: 0, acted: 0, ix_views: 0, ix_sessions: 0 };
   for (const r of rows(prev)) {
     const m = String(r.metric) as keyof typeof previous;
     if (m in previous) previous[m] = Number(r.c) || 0;
   }
 
-  return {
+  const fromIso = hourly ? `${from}:00:00.000Z` : `${from}T00:00:00.000Z`;
+  const vs = await visitStats(db, p.token, fromIso, parseFunnels(rows(fun)[0]?.funnels));
+  const out: Stats = {
     name: p.name,
     token: p.token,
     created: p.created,
     lastEvent: p.last_event,
     range,
-    from: hourly ? `${from}:00:00.000Z` : `${from}T00:00:00.000Z`,
+    from: fromIso,
     generated: now.toISOString(),
     totals,
     breakdowns,
@@ -864,7 +1375,13 @@ export async function stats(db: D1Like, p: Project, range: Range, now: Date): Pr
     typeSeries: [...byType.values()],
     previous,
     recent: rows(recent).map((r) => ({ ...r, executed: r.executed === null ? null : !!r.executed, acted: r.acted === null ? null : !!r.acted })),
+    agent: await agentStats(db, p.token, fromIso),
+    visits: vs.visits,
+    funnels: vs.funnels,
   };
+  // the recorded demo's estimate for its project (src/demo.ts); every other project gets its measured counts
+  const demo = demoData(p.name);
+  return demo && p.last_event ? applyDemo(out, demo, now) : out;
 }
 
 // --------------------------------------------------------------------------------------------- retention
@@ -882,6 +1399,9 @@ export async function retention(db: D1Like, now: Date, longer?: { tokens: string
     db.prepare("DELETE FROM hourly WHERE hour < ?").bind(hourKey(new Date(now.getTime() - 48 * 3_600_000))),
     db.prepare(`DELETE FROM recent WHERE t < ?${keep}`).bind(cutoff.toISOString(), ...p),
     db.prepare("DELETE FROM sessions WHERE day < ?").bind(dayKey(new Date(now.getTime() - 2 * 86_400_000))),
+    db.prepare("DELETE FROM agent_reports WHERE updated < ?").bind(cutoff.toISOString()),
+    db.prepare("DELETE FROM agent_log WHERE at < ?").bind(cutoff.toISOString()),
+    db.prepare("DELETE FROM visits WHERE started < ?").bind(cutoff.toISOString()),
   ];
   if (longer) {
     const far = new Date(now.getTime() - Math.max(longer.days, RETENTION_DAYS) * 86_400_000);

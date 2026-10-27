@@ -22,6 +22,8 @@
 
 import { lockedError, routeAuth, runtimeHasTokens } from "./auth.js";
 import {
+  AGENT_MAX_BODY,
+  agentReport,
   aggregate,
   createProject,
   knownToken,
@@ -29,6 +31,7 @@ import {
   projectsCreatedSince,
   randomBase62,
   RANGES,
+  putFunnels,
   sanitizeName,
   sha256Hex,
   stats,
@@ -289,7 +292,7 @@ async function ingest(request: Request, env: Env, opts: HandleOptions): Promise<
     const token = batch.token;
     const task = (async () => {
       if (!(await knownToken(db, token, now.getTime()))) return;
-      await aggregate(db, token, batch, now).catch(() => undefined);
+      await aggregate(db, token, { ...batch, country }, now).catch(() => undefined);
       // export index, and forwarding for apps on a paid plan (src/paid.ts)
       const f = opts.fetch ?? ((u: string, i?: RequestInit) => fetch(u, i));
       await afterBatch(env, db, { token, runtime: batch.runtime, model: batch.model, events: batch.events, key, gz, received: receivedAt, id }, now, f);
@@ -301,6 +304,7 @@ async function ingest(request: Request, env: Env, opts: HandleOptions): Promise<
 }
 
 // ------------------------------------------------------------------------------------------ tokens and dashboards
+
 
 /** Global ceiling on anonymous project creation (all clients together; apps created in accounts count separately). */
 export const MAX_PROJECTS_PER_MINUTE = 60;
@@ -350,6 +354,38 @@ async function routeSite(request: Request, url: URL, path: string, env: Env, opt
     const p = await createProject(env.DB, name, now);
     const origin = (env.DASHBOARD_ORIGIN ?? "https://genclass.dev").replace(/\/+$/, "");
     return json(201, { token: p.token, dashboardUrl: `${origin}/dashboard/${p.secret}`, name: p.name, created: p.created }, PROJECT_CORS);
+  }
+
+  // What a developer's coding agent reports about this app's problems (docs/runtime/AGENT.md section 4.5): opt-in on
+  // the developer's side, authenticated by the dashboard's private link, ids, kinds, routes, verdicts and times only.
+  const agentApi = /^\/api\/projects\/([^/]+)\/agent$/.exec(path);
+  if (agentApi) {
+    if (m !== "POST") return json(405, { ok: false, error: "method not allowed" });
+    if (!env.DB || agentApi[1] === SAMPLE_SECRET) return json(404, { ok: false, error: "not found" });
+    const p = await projectBySecret(env.DB, agentApi[1]!);
+    if (!p) return json(404, { ok: false, error: "not found" });
+    if (!(await allowed(env.SESSION_LIMIT, `agent:${p.token}`))) return json(429, { ok: false, error: "too many reports; slow down" }, { "retry-after": "60" });
+    const raw = await readCapped(request, AGENT_MAX_BODY);
+    if (raw === null) return json(413, { ok: false, error: "body too large" });
+    let body: unknown;
+    try {
+      body = JSON.parse(new TextDecoder().decode(raw));
+    } catch {
+      return json(400, { ok: false, error: "invalid JSON" });
+    }
+    const r = await agentReport(env.DB, p.token, body, now);
+    return "error" in r ? json(400, { ok: false, error: r.error }) : json(200, { ok: true, stored: r.stored });
+  }
+
+  // The app's funnels (interaction analytics), the whole list at once, from its dashboard (src/pages.ts).
+  const funnelApi = /^\/api\/projects\/([^/]+)\/funnels$/.exec(path);
+  if (funnelApi) {
+    if (m !== "PUT") return json(405, { ok: false, error: "method not allowed" });
+    if (funnelApi[1] === SAMPLE_SECRET) return json(403, { ok: false, error: "the sample dashboard's funnels cannot be changed" });
+    const p = env.DB ? await projectBySecret(env.DB, funnelApi[1]!) : null;
+    if (!p || !env.DB) return json(404, { ok: false, error: "not found" });
+    if (!hasDashboard(await projectAccess(env.DB, p, env, now))) return json(402, { ok: false, error: lockedError(env), locked: true });
+    return putFunnels(request, env.DB, p.token);
   }
 
   const api = /^\/api\/projects\/([^/]+)$/.exec(path);

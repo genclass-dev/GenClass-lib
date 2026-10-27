@@ -9,7 +9,8 @@
 // form-action 'self' (for the sign-out form).
 // Copy buttons use gcCopy (pages.ts): the Clipboard API, else the text is selected for the person to copy.
 
-import { DASH_CSS, embed, esc, LOGO, RUNTIME_PKG, shell, SIGNED_IN_NAV } from "./pages.js";
+import { DASH_CSS, embed, esc, LOGO, orgName, RUNTIME_PKG, shell, SIGNED_IN_NAV } from "./pages.js";
+import { icon, studioPage, type ProductMenu, type RailItem } from "./studio.js";
 import { entitled, FREE } from "./plans.js";
 
 // --------------------------------------------------------------------------------------------- styles, icons
@@ -259,7 +260,7 @@ ${form}
 
 /** A sign-in column on genclass.dev's self-healing sphere (the shell's mesh option, as on /admin's sign-in). */
 function authPage(nonce: string, title: string, inner: string, script: string): string {
-  return shell(nonce, title, `<style nonce="${nonce}">${DASH_CSS}${ACCOUNT_CSS}</style><div class="auth">${LOGO}${inner}</div>`, CLIENT_JS + script, { bare: true, account: true, mesh: true });
+  return shell(nonce, title, `<style nonce="${nonce}">${ACCOUNT_CSS}</style><div class="auth">${LOGO}${inner}</div>`, CLIENT_JS + script, { bare: true, account: true, mesh: true });
 }
 
 export interface AuthPageOptions {
@@ -523,7 +524,7 @@ ${signInWays({ ...v.providers, next: v.next })}
   no.addEventListener("click", function(){ answer(false); });
 })();`;
   if (v.signedIn) {
-    return shell(nonce, "Command line sign-in | GenClass", `<style nonce="${nonce}">${DASH_CSS}${ACCOUNT_CSS}</style><div class="auth">${inner}</div>`, CLIENT_JS + script, { nav: SIGNED_IN_NAV, account: true, mesh: true });
+    return shell(nonce, "Command line sign-in | GenClass", `<style nonce="${nonce}">${ACCOUNT_CSS}</style><div class="auth">${inner}</div>`, CLIENT_JS + script, { nav: SIGNED_IN_NAV, account: true, mesh: true });
   }
   return authPage(nonce, "Command line sign-in | GenClass", inner, script);
 }
@@ -557,6 +558,8 @@ export interface AccountView {
   pick?: { claim: boolean };
   /** Where to write when every passkey is lost. */
   recovery?: string;
+  /** The plan's name (the organization's badge in the header); default Free. */
+  plan?: string;
 }
 
 const TRANSPORT_WORDS: Record<string, string> = {
@@ -568,24 +571,128 @@ const TRANSPORT_WORDS: Record<string, string> = {
   "smart-card": "a smart card",
 };
 
+/**
+ * The organization pages' CSS in the Studio frame (/account, /account/new, /account/billing): the project cards and
+ * their toolbar, the new-project form, and the account forms and tables (the sign-in pages keep ACCOUNT_CSS).
+ */
+export const ORG_CSS = `
+.ptool{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;margin-bottom:16px}
+.psearch{position:relative;flex:0 1 300px;min-width:180px}
+.psearch .ic{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--ink3);pointer-events:none}
+.psearch input{min-height:32px;padding-left:32px;font-size:13px}
+.pgrid{list-style:none;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(320px,100%),1fr));gap:16px}
+.pcard{position:relative;display:flex;flex-direction:column;gap:14px;min-height:176px;padding:20px 20px 16px;background:var(--panel);border:1px solid var(--rule);border-radius:6px;transition:border-color .15s,background .15s;min-width:0}
+.pcard:hover{border-color:var(--rule3);background:#232323}
+.pcard h2{font-size:14px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:16px}
+.pcard h2 a{text-decoration:none;color:inherit}
+.pcard h2 a::after{content:"";position:absolute;inset:0;border-radius:6px}
+.pcard .pk{font:12px var(--mono);color:var(--ink3);margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pcard .meta{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:12.5px;color:var(--ink3);margin-top:auto}
+.pcard .acts{position:relative;z-index:1;display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12px;color:var(--ink3)}
+.pnew{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:176px;border:1px dashed var(--rule2);border-radius:6px;color:var(--ink3);text-decoration:none;font-size:13px}
+.pnew:hover{border-color:var(--rule3);color:var(--ink);background:var(--s75)}
+.empty-p{grid-column:1/-1;display:flex;flex-direction:column;align-items:center;gap:12px;padding:56px 16px;border:1px dashed var(--rule2);border-radius:6px;text-align:center}
+.empty-p h2{font-size:16px}
+.empty-p p{font-size:13px;color:var(--ink3);max-width:52ch}
+.acct-form{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-top:16px;max-width:720px}
+.acct-form .f{flex:1 1 260px;min-width:0}
+.acct-form label{display:block;font-size:13px;color:var(--ink2);margin-bottom:6px}
+.err{font-size:13px;color:var(--warn);margin-top:8px}
+.err:empty{display:none}
+.notice{margin:0 0 20px;padding:10px 14px;border:1px solid var(--rule);border-radius:6px;background:var(--s75);font-size:13.5px;color:var(--ink2)}
+.notice b{font-weight:500;color:var(--ink)}
+.notice.n-ok{border-color:#0f5a37;background:var(--accent-t)}.notice.n-ok b{color:var(--accent)}
+.notice.n-bad{border-color:#5c2018;background:var(--warn-t)}.notice.n-bad b{color:var(--warn)}
+.blk p.intro,p.intro{font-size:13px;color:var(--ink3);margin-top:12px;max-width:80ch;line-height:1.55}
+p.intro a{color:var(--ink2)}
+.blk-h .sub{display:block;margin-top:2px}
+table.dt td.name{white-space:normal;max-width:28ch;overflow-wrap:anywhere}
+table.dt td.pkey{font:12.5px var(--mono)}
+table.dt td.act{text-align:right}
+table.dt td a{color:var(--ink)}
+table.dt td .tag{display:inline-flex;align-items:center;height:18px;padding:0 7px;border-radius:999px;font:500 10px/1 var(--mono);text-transform:uppercase;letter-spacing:.05em;margin-left:8px;color:var(--accent);background:var(--accent-t);border:1px solid #0f5a37}
+table.dt td form{display:inline}
+.who{font-size:13px;color:var(--ink3);margin-top:4px;overflow-wrap:anywhere}
+.sect{margin-top:28px}
+.sect>h2{font-size:14px;margin-bottom:4px}
+/* the new-project form: Studio's horizontal form rows, a label on the left, the field and its hint on the right */
+.newp{max-width:760px;margin:0 auto}
+.newp .pnl-h{display:block;padding:20px 24px}
+.newp .pnl-h h1{font-size:18px}
+.newp .pnl-h p{font-size:13px;color:var(--ink3);margin-top:4px;max-width:70ch;line-height:1.5}
+.frow{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:8px 24px;padding:20px 24px;border-bottom:1px solid var(--rule)}
+.frow>label,.frow>.l{font-size:14px;color:var(--ink2);padding-top:7px}
+.frow .hint{font-size:12.5px;color:var(--ink3);margin-top:6px;line-height:1.5}
+.frow ul.gets{list-style:none;display:grid;gap:8px;font-size:13.5px;color:var(--ink2)}
+.frow ul.gets li{display:flex;gap:10px;align-items:flex-start}
+.frow ul.gets .ic{color:var(--accent);margin-top:2px}
+.newp .pnl-f{justify-content:space-between}
+.newp .pnl-f .row{margin-left:auto}
+.newp .pnl-f .err{margin:0}
+@media (max-width:640px){.frow{grid-template-columns:1fr}.frow>label,.frow>.l{padding-top:0}}
+@media (max-width:600px){
+  table.dt.rows thead{display:none}
+  table.dt.rows tr{display:block;padding:12px 0;border-bottom:1px solid var(--rule)}
+  table.dt.rows td{display:block;border:0;padding:3px 20px;white-space:normal;overflow-wrap:anywhere;max-width:none}
+  table.dt.rows td:first-child{font-weight:500}
+  table.dt.rows td:empty{display:none}
+  table.dt.rows td[data-l]::before{content:attr(data-l) " ";font-size:12px;color:var(--ink3)}
+  table.dt.rows td.act{text-align:left;padding-top:8px}
+}
+`;
+
+/** The organization's rail (Studio's: Projects, Billing, and its settings at the foot). */
+export function orgRail(current: "projects" | "billing" | "settings"): { rail: RailItem[][]; railEnd: RailItem[] } {
+  return {
+    rail: [
+      [{ href: "/account#projects", label: "Projects", icon: "box", current: current === "projects" }],
+      [{ href: "/account/billing", label: "Billing", icon: "receipt", current: current === "billing" }],
+    ],
+    railEnd: [{ href: "/account#settings", label: "Account settings", icon: "settings", current: current === "settings" }],
+  };
+}
+
+/** The Account settings product menu (security, sessions, the account's deletion), each a part of /account#settings. */
+const SETTINGS_MENU: ProductMenu = {
+  title: "Account settings",
+  view: "settings",
+  groups: [
+    { label: "Security", items: [{ href: "#security", label: "Ways in", icon: "shield" }, { href: "#password", label: "Password", icon: "key" }, { href: "#passkeys", label: "Passkeys", icon: "key" }] },
+    { label: "Access", items: [{ href: "#sessions", label: "Sessions", icon: "monitor" }, { href: "#cli", label: "Terminals", icon: "terminal" }] },
+    { label: "Danger zone", items: [{ href: "#delete", label: "Delete account", icon: "x" }] },
+  ],
+};
+
+/** Who the signed-in person is, in one line: their email (and whether Google verified it), else their GitHub login. */
+function whoOf(a: AccountView["account"]): string {
+  return a.email ? `${esc(a.email)}${a.emailVerified ? " (verified by Google)" : ""}` : a.githubLogin ? `@${esc(a.githubLogin)} on GitHub` : "No email";
+}
+const labelOf = (a: AccountView["account"]): string => a.email ?? (a.githubLogin ? `@${a.githubLogin}` : "Your account");
+
 export function accountPage(nonce: string, v: AccountView): string {
   const a = v.account;
-  const who = a.email ? `${esc(a.email)}${a.emailVerified ? " (verified by Google)" : ""}` : a.githubLogin ? `@${esc(a.githubLogin)} on GitHub` : "No email";
-  const appsNav = v.projects.map((p) => `<a href="/account/apps/${esc(p.id)}">${esc(p.name)}</a>`).join("");
-  const apps = v.projects.length
-    ? `<div class="tablewrap"><table class="dt rows"><thead><tr><th>Name</th><th>Project API key</th><th>Last event</th><th>Private link</th><th></th></tr></thead><tbody>
-${v.projects
-  .map(
-    (p) =>
-      `<tr><td class="name"><a href="/account/apps/${esc(p.id)}">${esc(p.name)}</a></td>` +
-      `<td class="pkey"><code>${esc(p.token)}</code><button class="btn sm ghost" type="button" data-copy="${esc(p.token)}" aria-label="Copy the project API key of ${esc(p.name)}">Copy</button></td>` +
-      `<td data-l="Last event">${time(p.last_event, "ago", "waiting for the first event")}</td>` +
-      `<td data-l="Private link">${p.privateLink ? `opens it <button class="btn sm ghost" type="button" data-linkoff="${esc(p.id)}" aria-label="Turn off the private dashboard link of ${esc(p.name)}">Turn off</button>` : '<span class="muted">none</span>'}</td>` +
-      `<td class="act"><a href="/account/apps/${esc(p.id)}">Open dashboard →</a></td></tr>`,
-  )
-  .join("\n")}
-</tbody></table></div>`
-    : '<p class="quiet">No apps yet. Create one below, or add a dashboard you already have.</p>';
+  const who = whoOf(a);
+  // Studio's organization home: a search box, New project, a grid of project cards (each opens its project; the key
+  // can be copied and a private link turned off from the card)
+  const cards = v.projects
+    .map((p) => {
+      const live = !!p.last_event;
+      return `<li class="pcard" data-name="${esc(p.name.toLowerCase())}">
+  <div><h2><a href="/account/apps/${esc(p.id)}">${esc(p.name)}</a></h2><p class="pk">${esc(p.token)}</p></div>
+  <div class="meta"><span class="bdg ${live ? "brand" : "warning"}"><i></i>${live ? "Live" : "Waiting"}</span><span>${live ? `Last event ${time(p.last_event, "ago")}` : "Waiting for the first event"}</span></div>
+  <div class="acts"><button class="btn sm ghost" type="button" data-copy="${esc(p.token)}" aria-label="Copy the project API key of ${esc(p.name)}">Copy key</button>${
+    p.privateLink
+      ? `<span>Private link on</span><button class="btn sm ghost" type="button" data-linkoff="${esc(p.id)}" aria-label="Turn off the private dashboard link of ${esc(p.name)}">Turn off</button>`
+      : ""
+  }</div>
+</li>`;
+    })
+    .join("\n");
+  const grid = v.projects.length
+    ? `<ul class="pgrid" id="pgrid">${cards}
+<li><a class="pnew" href="/account/new">${icon("plus", 18)}New project</a></li></ul>
+<p class="quiet hidden" id="pnone">No project matches your search.</p>`
+    : `<div class="pgrid"><div class="empty-p"><h2>Create your first project</h2><p>A project is one web app: its key, its dashboard, and access for your coding agent. The dashboard is free.</p><a class="btn" href="/account/new">${icon("plus", 14)}<span>New project</span></a></div></div>`;
 
   const keyRows = v.passkeys
     .map((k, i) => {
@@ -648,42 +755,28 @@ ${rows.map((s, i) => sessionRow(s, kind, i)).join("\n")}
   const others = v.web.filter((s) => !s.current).length + v.cli.length;
 
   const body = `
-<style nonce="${nonce}">${DASH_CSS}${ACCOUNT_CSS}</style>
-<div class="app">
-<aside class="side acct" aria-label="Account">
-  <div class="proj">Account<small>${who}</small></div>
-  <div class="grp">Your apps</div>
-  <nav class="apps" aria-label="Your apps">${appsNav}<a class="new" href="#new-app">New app</a></nav>
-  <div class="grp">Account</div>
-  <div class="out"><a href="/account/billing">Plan and billing</a><a href="#security">Security</a><a href="#sessions">Sessions</a><a href="#delete">Delete account</a><form method="post" action="/logout"><button class="lnk" type="submit">Sign out</button></form></div>
-</aside>
-<div class="mainc" id="mc" tabindex="-1">
-<section class="dh" id="top">
-  <div class="eb">Account</div>
-  <h1>Your apps</h1>
-  <p class="who">Signed in as ${who} · account since ${time(a.created)} · id ${esc(a.id)}</p>
-</section>
+<div class="sb-page" id="mc" tabindex="-1">
 ${v.notice ? `<p class="notice n-${v.notice.kind}" role="status"><b>${v.notice.kind === "ok" ? "Done." : "Not changed."}</b> ${esc(v.notice.text)}</p>` : ""}
+<div id="projects" data-v="projects">
+<header class="sb-ph"><div><h1>Projects</h1><p class="who">${who} · account since ${time(a.created)} · id ${esc(a.id)}</p></div></header>
 ${planBlock}
-<section class="blk" id="apps">
-  <div class="blk-h"><h2>Apps</h2><span class="aside">Table 1. Apps in this account</span></div>
-  ${apps}
-  <form class="acct-form" id="new-app" novalidate>
-    <div class="f"><label for="appname">New app</label><input id="appname" type="text" maxlength="80" autocomplete="off" placeholder="App name, e.g. Acme checkout"></div>
-    <button class="btn green" type="submit" id="newgo"><span>Create app</span></button>
-  </form>
-  <p class="err" id="newerr" role="alert"></p>
+<section id="apps">
+  <div class="ptool"><div class="psearch">${icon("search", 14)}<input type="search" id="psearch" placeholder="Search for a project" aria-label="Search for a project" autocomplete="off"></div><a class="btn sm" href="/account/new" id="newproj">${icon("plus", 14)}<span>New project</span></a></div>
+  ${grid}
   <p class="err" id="linkerr" role="alert"></p>
 </section>
-<section class="blk" id="claim">
-  <div class="blk-h"><h2>Add an existing dashboard</h2><span class="aside">From genclass.dev/start or <code>npx ${RUNTIME_PKG} init</code></span></div>
-  <p class="intro">Paste the app's private dashboard link. The app joins this account and keeps its key, so nothing changes in its code. The link keeps working for anyone who already has it until you turn it off in the table above.</p>
+<section class="blk mt-xl" id="claim">
+  <div class="blk-h"><h2>Import a dashboard you already have</h2><span class="aside">From genclass.dev/start or <code>npx ${RUNTIME_PKG} init</code></span></div>
+  <p class="intro">Paste the app's private dashboard link. The app joins this account as a project and keeps its key, so nothing changes in its code. The link keeps working for anyone who already has it until you turn it off on its card.</p>
   <form class="acct-form" id="claimf" novalidate>
     <div class="f"><label for="link">Dashboard link</label><input id="link" type="text" autocomplete="off" spellcheck="false" placeholder="https://genclass.dev/dashboard/..."></div>
     <button class="btn ghost" type="submit" id="claimgo"><span>Add to account</span></button>
   </form>
   <p class="err" id="claimerr" role="alert"></p>
 </section>
+</div>
+<div id="settings" data-v="settings">
+<header class="sb-ph"><div><h1>Account settings</h1><p class="who">Signed in as ${who} · account since ${time(a.created)} · id ${esc(a.id)}</p></div></header>
 <section class="blk" id="security">
   <div class="blk-h"><h2>Security</h2><span class="aside">Table 2. Ways into this account</span></div>
   <div class="tablewrap"><table class="dt rows"><thead><tr><th>Method</th><th>Details</th><th>Added</th><th>Last used</th><th></th></tr></thead><tbody>
@@ -692,51 +785,74 @@ ${planBlock}
   ${github}
   ${keyRows}
   </tbody></table></div>
-  <div class="blk-h mt-l" id="password"><h2>${pw ? "Change password" : "Add a password"}</h2></div>
+  <div class="sect" id="password"><h2>${pw ? "Change password" : "Add a password"}</h2>
   ${pwForm}
-  <div class="blk-h mt-l" id="passkeys"><h2>Passkeys</h2></div>
+  </div>
+  <div class="sect" id="passkeys"><h2>Passkeys</h2>
   <p class="intro" id="pkrule">${passkeyRule}</p>
   <div class="acct-form"><button class="btn ghost" type="button" id="addpk"><span>Add a passkey</span></button></div>
   <p class="err" id="pkerr" role="alert"></p>
   <p class="intro">Adding another passkey, or removing one, asks for one of your passkeys first; removing one also signs out every other browser and terminal. Lost all your passkeys? Email <a href="mailto:${recovery}?subject=GenClass%20passkeys">${recovery}</a>.</p>
+  </div>
 </section>
 <section class="blk" id="sessions">
   <div class="blk-h"><h2>Sessions</h2><span class="aside">Table 3. Browsers signed in to this account</span></div>
   ${sessions(v.web, "web")}
-  <div class="blk-h mt-l" id="cli"><h2>Terminals</h2><span class="aside">Table 4. Signed in with <code>npx ${RUNTIME_PKG} login</code></span></div>
+  <div class="sect" id="cli"><h2>Terminals</h2><p class="intro">Table 4. Signed in with <code>npx ${RUNTIME_PKG} login</code></p>
   ${cli}
+  </div>
   ${others ? '<div class="acct-form"><button class="btn ghost" type="button" id="others"><span>Sign out everywhere else</span></button></div>' : ""}
   <p class="err" id="clierr" role="alert"></p>
 </section>
 <section class="blk" id="delete">
   <div class="blk-h"><h2>Delete account</h2><span class="aside">Cannot be undone</span></div>
-  <p class="intro">Deletes this account, its passkeys and its sessions. Apps created in the account are deleted with their stats. Apps that still have a private dashboard link leave the account and keep working through that link. A paid plan is cancelled at once; for a refund of the unused time, email mehar@daybot.ca.</p>
+  <p class="intro">Deletes this account, its passkeys and its sessions. Projects created in the account are deleted with their stats. Projects that still have a private dashboard link leave the account and keep working through that link. A paid plan is cancelled at once; for a refund of the unused time, email mehar@daybot.ca.</p>
   <div class="acct-form"><button class="btn danger" type="button" id="del"><span>Delete account</span></button></div>
   <p class="err" id="delerr" role="alert"></p>
 </section>
+</div>
 <footer class="dfoot">Your account stores your email (as you typed it, or as Google returned it) and whether it is verified, a salted
 hash of your password if you set one (never the password), your passkeys' public keys, your Google account id and your GitHub id and login if
-you link them, your sign-in sessions and the browsers where your password was right, and the apps you own. Nothing else. <a href="https://genclass.dev/privacy">Privacy</a> · <a href="https://genclass.dev/terms">Terms</a></footer>
-</div>
+you link them, your sign-in sessions and the browsers where your password was right, and the projects you own. Nothing else. <a href="/account/billing">Plan and billing</a> · <a href="https://genclass.dev/privacy">Privacy</a> · <a href="https://genclass.dev/terms">Terms</a></footer>
 </div>
 <script type="application/json" id="acfg">${embed({ claim: !!v.pick?.claim })}</script>`;
 
   const script = `
 (function(){
   gcDropQuery([]);
-  function form(id, btnId, errId, url, field, key){
-    var f = document.getElementById(id), b = document.getElementById(btnId), err = document.getElementById(errId);
-    f.addEventListener("submit", function(ev){
-      ev.preventDefault(); err.textContent = "";
-      var body = {}; body[key] = document.getElementById(field).value;
-      gcBusy(b, true, "Working...");
-      gcPost(url, body).then(function(j){ location.href = "/account/apps/" + encodeURIComponent(j.project.id); }, function(e){ err.textContent = gcWhy(e); gcBusy(b, false); });
-    });
+  // views: Projects (the default) and Account settings; the hash names the part, so links and the back button work
+  var VIEW = { projects: "projects", apps: "projects", claim: "projects", "new-app": "projects", settings: "settings", security: "settings", password: "settings", passkeys: "settings", sessions: "settings", cli: "settings", "delete": "settings" };
+  var parts = [].slice.call(document.querySelectorAll("[data-v]"));
+  function show(id, jump){
+    if (id === "new-app") { location.replace("/account/new"); return true; }
+    var v = VIEW[id]; if (!v) return false;
+    parts.forEach(function(p){ p.classList.toggle("vh", (" " + p.getAttribute("data-v") + " ").indexOf(" " + v + " ") < 0); });
+    [].slice.call(document.querySelectorAll(".snav a")).forEach(function(a){ var h = a.getAttribute("href") || ""; a.setAttribute("aria-current", String(h === "/account#" + v)); });
+    [].slice.call(document.querySelectorAll(".sb-pm a")).forEach(function(a){ a.setAttribute("aria-current", String(a.getAttribute("href") === "#" + id)); });
+    document.title = (v === "settings" ? "Account settings" : "Projects") + " | GenClass";
+    if (jump) { var t = document.getElementById(id); if (t && id !== v && t.scrollIntoView) t.scrollIntoView(); else if (window.scrollTo) window.scrollTo(0, 0); }
+    if (document.body) document.body.classList.remove("sb-open");
+    return true;
   }
-  form("new-app", "newgo", "newerr", "/api/account/projects", "appname", "name");
-  form("claimf", "claimgo", "claimerr", "/api/account/projects/claim", "link", "dashboard_url");
-  document.querySelectorAll("[data-copy]").forEach(function(b){
-    b.addEventListener("click", function(){ gcCopy(b, b.getAttribute("data-copy"), b.previousElementSibling); });
+  document.addEventListener("click", function(e){
+    var a = e.target && e.target.closest ? e.target.closest(".snav a, .sb-pm a") : null; if (!a) return;
+    var h = a.getAttribute("href") || "", i = h.indexOf("#"), id = i >= 0 && (i === 0 || h.slice(0, i) === "/account") ? h.slice(i + 1) : "";
+    if (id && show(id, true)) { e.preventDefault(); try { history.replaceState(null, "", "#" + id); } catch (x) {} }
+  });
+  window.addEventListener("hashchange", function(){ show(location.hash.slice(1), true); });
+  if (!show(location.hash.slice(1), true)) show("projects", false);
+  // the search box filters the project cards by name
+  var q = document.getElementById("psearch"), none = document.getElementById("pnone");
+  if (q) q.addEventListener("input", function(){
+    var s = q.value.trim().toLowerCase(), shown = 0;
+    [].slice.call(document.querySelectorAll(".pcard")).forEach(function(c){ var on = !s || (c.getAttribute("data-name") || "").indexOf(s) >= 0; c.classList.toggle("hidden", !on); if (on) shown++; });
+    if (none) none.classList.toggle("hidden", !s || shown > 0);
+  });
+  var cf = document.getElementById("claimf"), cb = document.getElementById("claimgo"), ce = document.getElementById("claimerr");
+  if (cf) cf.addEventListener("submit", function(ev){
+    ev.preventDefault(); ce.textContent = "";
+    gcBusy(cb, true, "Working...");
+    gcPost("/api/account/projects/claim", { dashboard_url: document.getElementById("link").value }).then(function(j){ location.href = "/account/apps/" + encodeURIComponent(j.project.id); }, function(e){ ce.textContent = gcWhy(e); gcBusy(cb, false); });
   });
   function del(sel, attr, url, errId, confirmLabel, after){
     document.querySelectorAll(sel).forEach(function(b){
@@ -781,7 +897,7 @@ you link them, your sign-in sessions and the browsers where your password was ri
     if (cur && cur.value) body.current = cur.value;
     if (em) body.email = em.value.trim();
     gcBusy(b, true, "Saving...");
-    gcFresh(function(){ return gcPost("/api/auth/password", body); }).then(function(){ location.href = "/account?password=" + (cur ? "changed" : "added"); }, function(e){ err.textContent = gcWhy(e); gcBusy(b, false); });
+    gcFresh(function(){ return gcPost("/api/auth/password", body); }).then(function(){ location.href = "/account?password=" + (cur ? "changed" : "added") + "#security"; }, function(e){ err.textContent = gcWhy(e); gcBusy(b, false); });
   });
   var add = document.getElementById("addpk"), pkerr = document.getElementById("pkerr");
   add.addEventListener("click", function(){
@@ -800,7 +916,77 @@ you link them, your sign-in sessions and the browsers where your password was ri
     var link = document.getElementById("link"); if (link) link.focus();
   }
 })();`;
-  return shell(nonce, "Account | GenClass", body, CLIENT_JS + script, { nav: SIGNED_IN_NAV, account: true, skip: "mc" });
+  return studioPage(nonce, {
+    title: "Projects | GenClass",
+    account: true,
+    org: { name: orgName(labelOf(a)), plan: v.plan ?? "Free", href: "/account" },
+    projects: v.projects.map((p) => ({ id: p.id, name: p.name })),
+    project: null,
+    user: { label: labelOf(a), sub: orgName(labelOf(a)) },
+    ...orgRail("projects"),
+    railLabel: "Organization",
+    menus: [SETTINGS_MENU],
+    commands: [
+      { group: "Actions", label: "New project", href: "/account/new", icon: "plus" },
+      { group: "Actions", label: "Import a dashboard from a private link", href: "/account#claim", icon: "link" },
+    ],
+    css: DASH_CSS + ORG_CSS,
+    body,
+    script: CLIENT_JS + script,
+  });
+}
+
+export interface NewProjectView {
+  account: AccountView["account"];
+  /** The account's projects (the header's switcher) and its plan's name (the organization's badge). */
+  projects: { id: string; name: string }[];
+  plan?: string;
+}
+
+/**
+ * /account/new: Studio's "Create a new project", one panel of form rows (the organization, the project's name, what
+ * it comes with), Cancel and Create new project. Creating goes to the new project with its Connect dialog open.
+ */
+export function newProjectPage(nonce: string, v: NewProjectView): string {
+  const org = orgName(labelOf(v.account));
+  const body = `
+<div class="sb-page" id="mc" tabindex="-1">
+<form class="pnl newp" id="new-app" novalidate>
+  <div class="pnl-h"><h1>Create a new project</h1><p>A project is one web app. It gets its own key, its own dashboard of what breaks for its users, and access for your coding agent through the MCP server. The dashboard is free.</p></div>
+  <div class="frow"><label for="org">Organization</label><div><select id="org" disabled><option>${esc(org)}</option></select><p class="hint">Your account. Every project in it is on the ${esc(v.plan ?? "Free")} plan.</p></div></div>
+  <div class="frow"><label for="appname">Project name</label><div><input id="appname" type="text" maxlength="80" autocomplete="off" placeholder="e.g. Acme checkout" required autofocus><p class="hint">Shown on the dashboard and in the project switcher. Up to 80 characters.</p></div></div>
+  <div class="frow"><span class="l">Comes with</span><ul class="gets">
+    <li>${icon("key", 15)}<span>A public project key for the app's code (the runtime's <code>token</code>)</span></li>
+    <li>${icon("chart", 15)}<span>Project overview, problems, pages, activity, visitors and health</span></li>
+    <li>${icon("bot", 15)}<span>An MCP setup and an agent link, so your coding agent can read it</span></li>
+  </ul></div>
+  <div class="pnl-f"><p class="err" id="newerr" role="alert"></p><div class="row"><a class="btn ghost" href="/account">Cancel</a><button class="btn" type="submit" id="newgo"><span>Create new project</span></button></div></div>
+</form>
+<p class="intro newp">Already have a dashboard from genclass.dev/start or <code>npx ${RUNTIME_PKG} init</code>? <a href="/account#claim">Import it from its private link</a>.</p>
+</div>`;
+  const script = `
+(function(){
+  var f = document.getElementById("new-app"), b = document.getElementById("newgo"), err = document.getElementById("newerr"), name = document.getElementById("appname");
+  f.addEventListener("submit", function(ev){
+    ev.preventDefault(); err.textContent = "";
+    if (!name.value.trim()) { err.textContent = "Give the project a name."; name.focus(); return; }
+    gcBusy(b, true, "Creating...");
+    gcPost("/api/account/projects", { name: name.value }).then(function(j){ location.href = "/account/apps/" + encodeURIComponent(j.project.id) + "#connect"; }, function(e){ err.textContent = gcWhy(e); gcBusy(b, false); });
+  });
+})();`;
+  return studioPage(nonce, {
+    title: "New project | GenClass",
+    account: true,
+    org: { name: org, plan: v.plan ?? "Free", href: "/account" },
+    projects: v.projects,
+    project: null,
+    user: { label: labelOf(v.account), sub: org },
+    ...orgRail("projects"),
+    railLabel: "Organization",
+    css: DASH_CSS + ORG_CSS,
+    body,
+    script: CLIENT_JS + script,
+  });
 }
 
 // --------------------------------------------------------------------------------------------- a locked private link
@@ -864,5 +1050,5 @@ ${acts}
     }, function(e){ err.textContent = gcWhy(e); gcBusy(claim, false); });
   });
 })();`;
-  return shell(nonce, `${v.name} | GenClass`, `<style nonce="${nonce}">${DASH_CSS}${ACCOUNT_CSS}</style><div class="auth">${LOGO}${inner}</div>`, CLIENT_JS + script, { bare: true, mesh: true });
+  return shell(nonce, `${v.name} | GenClass`, `<style nonce="${nonce}">${ACCOUNT_CSS}</style><div class="auth">${LOGO}${inner}</div>`, CLIENT_JS + script, { bare: true, mesh: true });
 }

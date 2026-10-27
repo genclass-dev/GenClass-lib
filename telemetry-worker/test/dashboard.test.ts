@@ -261,13 +261,13 @@ describe("token on telemetry batches", () => {
     expect(bd("model_errors")).toEqual({ inference_failed: 1 });
     expect(bd("latency_bucket")).toEqual({ "<50 ms": 1, "100-250 ms": 1 });
     expect(s.series).toHaveLength(7);
-    expect(s.series.at(-1)).toEqual({ bucket: "2026-10-08", sessions: 1, decisions: 2, detections: 1, acted: 1, possible: 0, ix_views: 0 });
+    expect(s.series.at(-1)).toEqual({ bucket: "2026-10-08", sessions: 1, decisions: 2, detections: 1, acted: 1, possible: 0, ix_views: 0, ix_sessions: 0 });
     // the dashboard's type x page view and per-type timeline, and the period before for deltas
     expect(bd("detect_issue")).toEqual({ "stale\t/cart/:id": 1 });
     expect(s.typeSeries).toHaveLength(7);
     expect(s.typeSeries.at(-1)).toEqual({ bucket: "2026-10-08", counts: { stale: 1 } });
     expect(s.typeSeries[0]).toEqual({ bucket: "2026-10-02", counts: {} });
-    expect(s.previous).toEqual({ sessions: 0, detections: 0, acted: 0, ix_views: 0 });
+    expect(s.previous).toEqual({ sessions: 0, detections: 0, acted: 0, ix_views: 0, ix_sessions: 0 });
     expect(s.recent).toEqual([
       // the diagnosis confidence (0.97), not p(action) (0.95)
       { t: NOW.toISOString(), route: "/cart/:id", fn: "saveCart", trigger: "mutation", diagnosis: "stale", action: "discard", ran: "discard", confidence: 0.97, mode: "heal", executed: true, acted: true, kind: "detect" },
@@ -283,7 +283,7 @@ describe("token on telemetry batches", () => {
     expect(h.typeSeries.at(-1)).toEqual({ bucket: "2026-10-08T12", counts: { stale: 1 } });
     // a later 7 d window sees this week as the previous period
     const later = (await (await handle(new Request(`https://genclass.dev/api/projects/${secretOf(json.dashboardUrl)}?range=7d`), env, { ...opts, now: () => new Date(NOW.getTime() + 7 * 86_400_000) })).json()) as any;
-    expect(later.previous).toEqual({ sessions: 1, detections: 1, acted: 1, ix_views: 0 });
+    expect(later.previous).toEqual({ sessions: 1, detections: 1, acted: 1, ix_views: 0, ix_sessions: 0 });
     expect(later.totals.detections ?? 0).toBe(0);
     const m = (await (await handle(new Request(`https://genclass.dev/api/projects/${secretOf(json.dashboardUrl)}?range=30d`), env, opts)).json()) as any;
     expect(m.series).toHaveLength(30);
@@ -853,10 +853,37 @@ describe("interaction analytics: runtime `interactions` events (docs/runtime/ANA
     );
   });
 
+  it("navigation paths (ANALYTICS.md section 11): entries, steps with time, arrivals, first interactions, exits, paths", async () => {
+    const { sql } = setup();
+    const events = [
+      sess(),
+      ixe(1, { route: "/", start: true, nav: "load", first: 'a[href="/pricing"]', firstMs: 2_000 }),
+      ixe(2, { route: "/", end: true }),
+      ixe(3, { view: 2, start: true, nav: "push", from: "/", fromMs: 4_000, first: "button.buy", firstMs: 1_500 }),
+      ixe(4, { view: 3, route: "/", start: true, nav: "back", from: "/pricing", fromMs: 9_000, exit: true, end: true, path: ["/", "/pricing", "/"] }),
+      // another page load: one view, an unknown nav value, a long path, bad times
+      ixe(5, { view: 1, route: "/docs", start: true, nav: "teleport", first: "  ", firstMs: -1, exit: true, path: ["/docs", "/a", "/b", "/c", "/d", "/e", "/f"] }),
+      ixe(6, { view: 2, route: "/a", start: true, nav: "push", from: "/docs", fromMs: 1e12 }),
+    ];
+    await aggregate(sql.api, TOK, batchOf(events), NOW);
+    const s = await statsOf(sql);
+    expect(s.totals).toMatchObject({ ix_views: 5, ix_entry: 2, ix_exit: 2 });
+    expect(bdOf(s, "ix_entry")).toEqual({ "/": 1, "/docs": 1 });
+    expect(bdOf(s, "ix_nav")).toEqual({ "/\t/pricing": 1, "/pricing\t/": 1, "/docs\t/a": 1 });
+    expect(bdOf(s, "ix_nav_ms")).toEqual({ "/\t/pricing": 4_000, "/pricing\t/": 9_000 });
+    expect(bdOf(s, "ix_arrive")).toEqual({ load: 1, push: 2, back: 1, "(other)": 1, "/\tload": 1, "/pricing\tpush": 1, "/\tback": 1, "/docs\t(other)": 1, "/a\tpush": 1 });
+    expect(bdOf(s, "ix_first")).toEqual({ '/\ta[href="/pricing"]': 1, "/pricing\tbutton.buy": 1 });
+    expect(bdOf(s, "ix_first_n")).toEqual({ "/": 1, "/pricing": 1 });
+    expect(bdOf(s, "ix_first_ms")).toEqual({ "/": 2_000, "/pricing": 1_500 });
+    expect(bdOf(s, "ix_exit")).toEqual({ "/": 1, "/docs": 1 });
+    expect(bdOf(s, "ix_path")).toEqual({ "/ > /pricing > /": 1, "/docs > /a > /b > /c > /d > …": 1 });
+  });
+
   it("the sample dashboard shows simulated interaction analytics too", () => {
     const st = sampleStats("7d", NOW);
     expect(st.totals.ix_views).toBeGreaterThan(0);
     expect(st.breakdowns.ix_click!.length).toBeGreaterThan(0);
     expect(st.series.every((b) => b.ix_views > 0)).toBe(true);
+    for (const m of ["ix_entry", "ix_exit", "ix_nav", "ix_nav_ms", "ix_arrive", "ix_first", "ix_path"]) expect(st.breakdowns[m]!.length, m).toBeGreaterThan(0);
   });
 });

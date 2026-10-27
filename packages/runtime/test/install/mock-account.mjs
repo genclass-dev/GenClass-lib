@@ -17,6 +17,9 @@
 
 import { appendFileSync } from "node:fs";
 
+// and no npm call: the dist-tags lookup (bin/lib/version.mjs) answers "unknown" unless a test sets them
+process.env.GENCLASS_TEST_DIST_TAGS ??= "fail";
+
 const env = process.env;
 const log = env.GENCLASS_TEST_FETCH_LOG;
 const script = (env.GENCLASS_TEST_DEVICE || "pending,ok").split(",");

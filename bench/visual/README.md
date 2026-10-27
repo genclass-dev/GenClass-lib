@@ -16,7 +16,9 @@ It measures:
   (desktop and phone, light, and dark where the site has a dark design), no clicks, no forms, no crawling. Bot
   challenges and failed loads are "not measured", never clean;
 - **recall on planted faults**: faults applied from the harness (`faults.ts`) to the demos, templates and compat apps,
-  one group per load, with a check afterwards that each fault really took;
+  one group per load, with a check afterwards that each fault really took (since 2026-10-25 also `T1`, seven
+  `text-warped` faults on distinct text elements, and `ad-heavy`, full-width ad slots at the top of the page until they
+  are 40% of it; `--faults T1,ad-heavy` runs only the groups named);
 - **cost**: check time, longest slice and elements read for the first pass, at 1x and at 4x CPU throttling;
 - **the real integration**: on the compat apps, `window.GENCLASS_CONFIG = { visual: true }` with no harness, for the
   stub's timing (the chunk's size is not measured here: resource timing reports it as 0 in these loads, so
@@ -85,5 +87,8 @@ gh run download <id> --repo genclass-dev/GenClass-lib --name visual-summary
 ```
 
 On the visual branch, a push that changes `bench/visual/` starts it (`[smoke]` in the commit message: two pages per
-group). Locally, only `summarize.mjs` runs: `node bench/visual/summarize.mjs <downloaded artifacts> --labels
-bench/visual/labels.json`.
+group). Locally, `summarize.mjs` runs on downloaded artifacts: `node bench/visual/summarize.mjs <downloaded artifacts>
+--labels bench/visual/labels.json`. The demos and templates groups also run on a machine with Chromium and 16 GB
+(2026-10-25, RESULTS.md section 24): `node bench/visual/build.mjs`, `node bench/visual/corpus.mjs prepare demos`
+(templates: with `VISUAL_BENCH_WORK=<dir>`, which `npm install`s each starter), then `node bench/visual/run.mjs
+--group demos --parts clean,cost,faults`. The public sites run only in the workflow.

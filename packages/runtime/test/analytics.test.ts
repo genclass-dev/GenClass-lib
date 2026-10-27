@@ -8,7 +8,11 @@ import { createRuntime } from "../src/index.js";
 import type { RuntimeImpl } from "../src/runtime.js";
 import { DATA_LIKE, type TelemetryClient } from "../src/telemetry/client.js";
 import { fromPairs, readMetaConfig } from "../src/cdn/config.js";
-import { ANALYTICS_NOTICE, IDLE_MS, KEY_MAX, keyOf, type KeyContext } from "../src/analytics/index.js";
+import { ANALYTICS_NOTICE, ANALYTICS_SINCE, deviceOf, IDLE_MS, KEY_MAX, keyOf, loadNav, PATH_MAX, popNav, refHost, utmValue, versionMismatch, VISIT_IDLE_MS, VISIT_KEY, type KeyContext } from "../src/analytics/index.js";
+import { analyticsRegistry } from "../src/analytics/start.js";
+import type { AnalyticsChunk } from "../src/analytics/index.js";
+import { analyticsLoader } from "../src/cdn/analytics-loader.js";
+import { RUNTIME_VERSION } from "../src/version.js";
 import { normalizePath } from "../src/util.js";
 import type { TelemetryTransport } from "../src/types.js";
 import { FakeClock, ScriptedDecider } from "./helpers.js";
@@ -59,7 +63,7 @@ let rt: RuntimeImpl | null = null;
 const w = window as unknown as { crypto?: { getRandomValues?: unknown } };
 if (typeof w.crypto?.getRandomValues !== "function") Object.defineProperty(window, "crypto", { value: globalThis.crypto, configurable: true });
 
-async function arun(o: { analytics?: boolean; token?: string | null; telemetry?: Record<string, unknown> | false; nav?: boolean; user?: boolean } = {}) {
+async function arun(o: { analytics?: boolean; token?: string | null; telemetry?: Record<string, unknown> | false; nav?: boolean; user?: boolean; storage?: boolean; noWait?: boolean } = {}) {
   const clock = new FakeClock();
   const transport = recorder();
   rt = createRuntime({
@@ -67,13 +71,13 @@ async function arun(o: { analytics?: boolean; token?: string | null; telemetry?:
     global: window,
     decider: new ScriptedDecider(),
     report: "silent",
-    observe: { ...OFF, nav: !!o.nav, user: !!o.user },
+    observe: { ...OFF, nav: !!o.nav, user: !!o.user, storage: !!o.storage },
     telemetry: o.telemetry === false ? false : { transport, ...(o.telemetry ?? {}) },
     ...(o.token === null ? {} : { token: o.token ?? TOKEN }),
     ...(o.analytics === undefined ? { analytics: true } : { analytics: o.analytics }),
   }) as RuntimeImpl;
   const client = rt.telemetry as unknown as TelemetryClient;
-  if (rt.analytics?.enabled) await vi.waitFor(() => expect(client.pre).toBeTypeOf("function"));
+  if (rt.analytics?.enabled && !o.noWait) await vi.waitFor(() => expect(client.pre).toBeTypeOf("function"));
   return { clock, transport, rt, client };
 }
 
@@ -88,9 +92,11 @@ afterEach(() => {
     [window, "innerHeight"],
     [window, "scrollY"],
     [window.navigator, "globalPrivacyControl"],
+    [document, "referrer"],
   ] as const)
     delete (o as unknown as Record<string, unknown>)[p];
   window.localStorage.removeItem("genclass.telemetry");
+  for (const k of Object.keys(window.localStorage)) if (k.startsWith(VISIT_KEY)) window.localStorage.removeItem(k);
   vi.restoreAllMocks();
 });
 
@@ -161,6 +167,54 @@ describe("interaction analytics: off by default, telemetry and token required, e
     expect(ANALYTICS_NOTICE).toContain("never page text");
     // shown once per page: by this test or an earlier one in the file
     expect(info.mock.calls.flat().filter((m) => m === ANALYTICS_NOTICE).length).toBeLessThanOrEqual(1);
+  });
+});
+
+describe("interaction analytics: loud when the code is missing or from another version (ANALYTICS.md section 4.1)", () => {
+  afterEach(() => {
+    delete analyticsRegistry.loader;
+  });
+  const URL0 = "https://cdn.example/npm/@genclass/runtime@9.9.9/dist/analytics/index.js";
+  const chunk = () => import("../src/analytics/index.js") as Promise<AnalyticsChunk>;
+
+  it("the script tag's loader: a chunk that does not load warns (once per load) naming the URL and version; reason error", async () => {
+    const said: string[] = [];
+    analyticsRegistry.loader = analyticsLoader(() => Promise.reject(new Error("404")), "9.9.9", URL0, (m) => said.push(m));
+    const { rt: r } = await arun({ noWait: true });
+    await vi.waitFor(() => expect(r.analytics).toMatchObject({ enabled: false, reason: "error" }));
+    expect(said).toEqual([`[GenClass] analytics: ${URL0} (@genclass/runtime 9.9.9) did not load; nothing is recorded. Serve every file of this version's dist/.`]);
+    expect(r.analytics!.start()).toBe(true);
+    await vi.waitFor(() => expect(said).toHaveLength(2));
+  });
+
+  it("the script tag's loader passes its version; the same release says nothing", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const seen: unknown[] = [];
+    analyticsRegistry.loader = analyticsLoader(
+      () => chunk().then((m) => ({ startAnalytics: (...a: Parameters<AnalyticsChunk["startAnalytics"]>) => (seen.push(a[4]), m.startAnalytics(...a)) })),
+      RUNTIME_VERSION,
+      URL0,
+      () => undefined,
+    );
+    const a = await arun();
+    expect(a.rt.analytics).toMatchObject({ enabled: true });
+    expect(seen).toEqual([RUNTIME_VERSION]);
+    expect(warn.mock.calls.flat().filter((m) => String(m).includes("script tag that loaded it"))).toEqual([]);
+  });
+
+  it("a chunk from another release than the script tag warns once per page and still records; the ESM entries pass no version", async () => {
+    expect(versionMismatch(undefined)).toBeNull();
+    expect(versionMismatch(RUNTIME_VERSION)).toBeNull();
+    expect(versionMismatch("0.3.0-beta.9")).toContain(`is @genclass/runtime ${RUNTIME_VERSION} but the script tag that loaded it is 0.3.0-beta.9`);
+    expect(versionMismatch("0.3.0-beta.9")).toContain(`need ${ANALYTICS_SINCE} or later: npm install @genclass/runtime@beta`);
+    expect(ANALYTICS_SINCE).toBe("0.3.0-beta.1");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    analyticsRegistry.loader = analyticsLoader(chunk, "0.3.0-beta.9", URL0, () => undefined);
+    const a = await arun();
+    expect(a.rt.analytics).toMatchObject({ enabled: true });
+    a.rt.destroy();
+    await arun();
+    expect(warn.mock.calls.flat().filter((m) => String(m).includes("but the script tag that loaded it is 0.3.0-beta.9")).length).toBe(1);
   });
 });
 
@@ -338,6 +392,132 @@ describe("interaction analytics: what a page view records (ANALYTICS.md section 
   });
 });
 
+describe("interaction analytics: navigation paths (ANALYTICS.md section 11)", () => {
+  /** A history traversal as the browser reports it: the URL is already the new one when popstate fires. */
+  function traverse(path: string, index?: number) {
+    window.history.replaceState({}, "", path);
+    if (index !== undefined) (window as unknown as { navigation: { currentEntry: { index: number } } }).navigation.currentEntry.index = index;
+    window.dispatchEvent(new Event("popstate"));
+  }
+  const pagehide = () => window.dispatchEvent(new Event("pagehide"));
+  afterEach(() => {
+    delete (window as unknown as Record<string, unknown>).navigation;
+  });
+
+  it("how each view was reached, the previous route with the time between, and at pagehide the exit and the path", async () => {
+    document.body.innerHTML = `<button id="b">B</button>`;
+    Object.defineProperty(window, "navigation", { value: { currentEntry: { index: 0 } }, configurable: true, writable: true });
+    for (const nav of [true, false]) {
+      (window as unknown as { navigation: { currentEntry: { index: number } } }).navigation.currentEntry.index = 0;
+      const { clock, transport, rt: r } = await arun({ nav });
+      await clock.advance(1500);
+      window.history.pushState({}, "", "/pricing");
+      (window as unknown as { navigation: { currentEntry: { index: number } } }).navigation.currentEntry.index = 1;
+      if (!nav) fire($("b"), "click"); // without the nav observer the route change is seen at the next input
+      await clock.advance(2500);
+      traverse("/", 0);
+      if (!nav) fire($("b"), "click");
+      await clock.advance(500);
+      pagehide();
+      const evs = ix(transport);
+      const starts = evs.filter((e) => e.start).map((e) => [e.route, e.nav, e.from, e.fromMs]);
+      expect(starts, `nav ${nav}`).toEqual([
+        ["/", "load", undefined, undefined],
+        ["/pricing", "push", "/", 1500],
+        ["/", "back", "/pricing", 2500],
+      ]);
+      const last = evs[evs.length - 1];
+      expect(last, `nav ${nav}`).toMatchObject({ route: "/", exit: true, end: true, path: ["/", "/pricing", "/"] });
+      expect(evs.filter((e) => e.exit)).toHaveLength(1);
+      r.destroy();
+      window.history.replaceState({}, "", "/");
+    }
+  });
+
+  it("forward, and a traversal whose direction the browser does not expose", async () => {
+    expect(popNav(2, 1)).toBe("back");
+    expect(popNav(1, 2)).toBe("forward");
+    expect(popNav(undefined, 2)).toBe("pop");
+    expect(popNav(2, 2)).toBe("pop");
+    const { clock, transport } = await arun({ nav: true });
+    window.history.pushState({}, "", "/a");
+    await clock.advance(100);
+    traverse("/"); // no Navigation API in this environment
+    await clock.advance(100);
+    setVisibility("hidden");
+    expect(ix(transport).filter((e) => e.start).map((e) => e.nav)).toEqual(["load", "push", "pop"]);
+  });
+
+  it("the page load's own type: reload and back_forward from Navigation Timing; load otherwise", () => {
+    const g = (type?: string) => ({ performance: { getEntriesByType: () => (type ? [{ type }] : []) } });
+    expect(loadNav(g("reload"))).toBe("reload");
+    expect(loadNav(g("back_forward"))).toBe("back_forward");
+    expect(loadNav(g("navigate"))).toBe("load");
+    expect(loadNav(g("prerender"))).toBe("load");
+    expect(loadNav(g())).toBe("load");
+    expect(loadNav({})).toBe("load");
+  });
+
+  it("the first interaction per view: a click, or a focus on a form field after a key press; once per view, never text", async () => {
+    document.body.innerHTML = `<input id="email" type="email" value="alice@example.com"><a id="docs" href="/docs">Read the docs</a>`;
+    const { clock, transport } = await arun({ nav: true });
+    $("email").focus(); // the page moving focus is not the visitor's interaction
+    await clock.advance(1200);
+    key(document.body, "Tab");
+    $("email").blur();
+    const ev = new FocusEvent("focusin", { bubbles: true, composed: true });
+    Object.defineProperty(ev, "isTrusted", { value: true });
+    $("email").dispatchEvent(ev);
+    await clock.advance(800);
+    fire($("docs"), "click");
+    window.history.pushState({}, "", "/docs");
+    await clock.advance(3000);
+    fire(document.body, "click");
+    setVisibility("hidden");
+    const evs = ix(transport);
+    const firsts = evs.filter((e) => e.first).map((e) => [e.route, e.first, e.firstMs]);
+    expect(firsts).toEqual([
+      ["/", "input#email", 1200],
+      ["/docs", "body", 3000],
+    ]);
+    const text = JSON.stringify(transport.sent);
+    for (const t of ["alice", "Read the docs"]) expect(text).not.toContain(t);
+  });
+
+  it("a restore from the back/forward cache starts a new path, reached by back_forward", async () => {
+    const { clock, transport } = await arun({ nav: true });
+    window.history.pushState({}, "", "/a");
+    await clock.advance(100);
+    pagehide();
+    const show = new Event("pageshow");
+    Object.defineProperty(show, "persisted", { value: true });
+    window.dispatchEvent(show);
+    setVisibility("hidden");
+    setVisibility("visible");
+    await clock.advance(100);
+    setVisibility("hidden");
+    const evs = ix(transport);
+    expect(evs.filter((e) => e.exit).map((e) => e.path)).toEqual([["/", "/a"]]);
+    expect(evs.filter((e) => e.start).map((e) => [e.route, e.nav, e.from])).toEqual([
+      ["/", "load", undefined],
+      ["/a", "push", "/"],
+      ["/a", "back_forward", undefined],
+    ]);
+  });
+
+  it(`a path holds at most PATH_MAX (${PATH_MAX}) routes, then "(more)"`, async () => {
+    const { clock, transport } = await arun({ nav: true });
+    for (let i = 1; i <= PATH_MAX + 3; i++) {
+      window.history.pushState({}, "", `/p${i}`);
+      await clock.advance(10);
+    }
+    pagehide();
+    const exit = ix(transport).find((e) => e.exit)!;
+    expect((exit.path as string[]).length).toBe(PATH_MAX + 1);
+    expect((exit.path as string[]).at(-1)).toBe("(more)");
+  });
+});
+
 describe("interaction analytics: element keys from markup only (ANALYTICS.md section 1)", () => {
   const k: KeyContext = { route: (p) => normalizePath(p), loc: { href: "https://shop.example/pricing", origin: "https://shop.example" }, url: URL, data: DATA_LIKE };
   const keyFor = (html: string, sel = "#t") => {
@@ -391,5 +571,125 @@ describe("interaction analytics: never model input (AGENTS.md rules 1 to 3)", ()
     const on = await run(true);
     expect(on).toBe(off);
     expect(off).not.toContain("interactions");
+  });
+});
+
+describe("interaction analytics: visits, where they come from, devices (ANALYTICS.md section 1.2)", () => {
+  const stored = () => JSON.parse(window.localStorage.getItem(VISIT_KEY + TOKEN) ?? "null") as { v: string; t: number; r: number } | null;
+  const pageLoad = async (o: { nav?: boolean } = {}) => {
+    const a = await arun(o);
+    setVisibility("hidden");
+    const evs = ix(a.transport);
+    a.rt.destroy();
+    rt = null;
+    setVisibility("visible");
+    return evs;
+  };
+
+  it("the first view opens a visit (a random id, entry, device buckets, not returning); later views name the same visit", async () => {
+    document.body.innerHTML = `<button id="b">B</button>`;
+    const { clock, transport } = await arun({ nav: true });
+    fire($("b"), "click");
+    await clock.advance(1000);
+    window.history.pushState({}, "", "/pricing");
+    await clock.advance(1000);
+    setVisibility("hidden");
+    const [first, second] = ix(transport);
+    expect(first).toMatchObject({ route: "/", start: true, entry: true, device: "desktop", returning: false });
+    expect(first.visit).toMatch(/^[0-9a-f]{16}$/);
+    expect(typeof first.browser).toBe("string");
+    expect(typeof first.os).toBe("string");
+    expect(first.ref).toBeUndefined();
+    expect(first.utm).toBeUndefined();
+    expect(second).toMatchObject({ route: "/pricing", start: true, visit: first.visit });
+    for (const f of ["entry", "device", "browser", "os", "returning"]) expect(second[f], f).toBeUndefined();
+    expect(stored()).toMatchObject({ v: first.visit, r: 1 });
+    // the user agent string itself is never sent
+    expect(JSON.stringify(transport.sent)).not.toContain(window.navigator.userAgent);
+  });
+
+  it("the next page load within 30 minutes continues the visit; after 30 idle minutes a new one starts, returning", async () => {
+    const [a] = await pageLoad();
+    const [b] = await pageLoad();
+    expect(b.visit).toBe(a.visit);
+    expect(b.entry).toBeUndefined();
+    const s = stored()!;
+    window.localStorage.setItem(VISIT_KEY + TOKEN, JSON.stringify({ ...s, t: s.t - VISIT_IDLE_MS - 1 }));
+    const [c] = await pageLoad();
+    expect(c.visit).not.toBe(a.visit);
+    expect(c).toMatchObject({ entry: true, returning: true });
+  });
+
+  it("a page load from another site starts a visit: the referring host only, never its path or query", async () => {
+    await pageLoad();
+    const before = stored()!.v;
+    Object.defineProperty(document, "referrer", { value: "https://www.google.com/search?q=alice+smith", configurable: true });
+    const [e] = await pageLoad();
+    expect(e).toMatchObject({ entry: true, ref: "google.com", returning: true });
+    expect(e.visit).not.toBe(before);
+    expect(JSON.stringify(e)).not.toContain("alice");
+    // this site's own pages are not a source
+    Object.defineProperty(document, "referrer", { value: `${location.origin}/blog`, configurable: true });
+    const [f] = await pageLoad();
+    expect(f.entry).toBeUndefined();
+  });
+
+  it("utm values: three of them, lower case, ids stripped, capped; nothing else from the query string", async () => {
+    window.history.replaceState({}, "", "/?utm_source=Newsletter&utm_medium=email&utm_campaign=spring_sale_2026_a1b2c3d4e5f6&utm_term=alice&email=alice@example.com&gclid=Cj0KCQ");
+    const [e] = await pageLoad();
+    expect(e).toMatchObject({ entry: true, utm: { source: "newsletter", medium: "email", campaign: "spring_sale" } });
+    const text = JSON.stringify(e);
+    for (const s of ["alice", "Cj0KCQ", "gclid", "term"]) expect(text).not.toContain(s);
+    expect(utmValue("x".repeat(30) + "-" + "y".repeat(30), DATA_LIKE)).toBeUndefined(); // both words are id-like (20+)
+    expect(utmValue("Black Friday!! Promo", DATA_LIKE)).toBe("black friday promo");
+    expect(utmValue("q".repeat(15) + " " + "r".repeat(15) + " " + "s".repeat(15), DATA_LIKE)).toHaveLength(40);
+    expect(utmValue("partner.example.com", DATA_LIKE)).toBe("partner.example.com");
+    expect(utmValue("12345", DATA_LIKE)).toBeUndefined();
+    expect(utmValue("", DATA_LIKE)).toBeUndefined();
+  });
+
+  it("device class, browser and OS families from the user agent; the referring host's buckets", () => {
+    const cases: [string, { mobile?: boolean; touch?: number }, [string, string, string]][] = [
+      ["Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36", {}, ["desktop", "Chrome", "Windows"]],
+      ["Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 Edg/130.0.0.0", {}, ["desktop", "Edge", "Windows"]],
+      ["Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15", {}, ["desktop", "Safari", "macOS"]],
+      ["Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15", { touch: 5 }, ["tablet", "Safari", "iOS"]],
+      ["Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/130.0 Mobile/15E148 Safari/604.1", {}, ["mobile", "Chrome", "iOS"]],
+      ["Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36", {}, ["mobile", "Chrome", "Android"]],
+      ["Mozilla/5.0 (Linux; Android 14; SM-X710) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/26.0 Chrome/122.0.0.0 Safari/537.36", {}, ["tablet", "Samsung Internet", "Android"]],
+      ["Mozilla/5.0 (X11; Linux x86_64; rv:131.0) Gecko/20100101 Firefox/131.0", {}, ["desktop", "Firefox", "Linux"]],
+      ["Mozilla/5.0 (X11; CrOS x86_64 14541.0.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36", {}, ["desktop", "Chrome", "ChromeOS"]],
+      ["Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)", {}, ["desktop", "Other", "Other"]],
+      ["", { mobile: true }, ["mobile", "Other", "Other"]],
+    ];
+    for (const [ua, hint, want] of cases) expect(Object.values(deviceOf(ua, hint)), ua).toEqual(want);
+    expect(refHost("https://news.ycombinator.com/item?id=4242", "shop.example", URL, DATA_LIKE)).toBe("news.ycombinator.com");
+    expect(refHost("https://www.shop.example/a", "shop.example", URL, DATA_LIKE)).toBeUndefined();
+    expect(refHost("android-app://com.google.android.gm/", "shop.example", URL, DATA_LIKE)).toBe("com.google.android.gm");
+    expect(refHost("https://12345678.cdn.example/x", "shop.example", URL, DATA_LIKE)).toBe("(other)");
+    expect(refHost("javascript:alert(1)", "shop.example", URL, DATA_LIKE)).toBeUndefined();
+    expect(refHost("", "shop.example", URL, DATA_LIKE)).toBeUndefined();
+  });
+
+  it("stop() removes the visit flag; the storage observer never records the flag's writes", async () => {
+    const { rt: r } = await arun({ storage: true });
+    expect(stored()).not.toBeNull();
+    setVisibility("hidden");
+    expect(JSON.stringify(r.history())).not.toContain(VISIT_KEY);
+    r.analytics!.stop();
+    expect(stored()).toBeNull();
+  });
+
+  it("without working storage a visit lasts the page load, and nothing says whether the visitor returns", async () => {
+    const ls = window.localStorage;
+    Object.defineProperty(window, "localStorage", { configurable: true, get: () => { throw new Error("blocked"); } });
+    try {
+      const [e] = await pageLoad();
+      expect(e).toMatchObject({ entry: true });
+      expect(e.visit).toMatch(/^[0-9a-f]{16}$/);
+      expect(e.returning).toBeUndefined();
+    } finally {
+      Object.defineProperty(window, "localStorage", { configurable: true, value: ls });
+    }
   });
 });

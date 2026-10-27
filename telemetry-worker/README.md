@@ -3,7 +3,7 @@
 Cloudflare Worker that receives the default-on diagnostics batches from `@genclass/runtime` (see
 [`packages/runtime/TELEMETRY.md`](../packages/runtime/TELEMETRY.md)) and stores them in R2, that gives every web app
 a token and a private dashboard on genclass.dev, and that holds the optional accounts (Google, an email and a
-password, or GitHub, with passkeys as extra security) which keep several apps in one place and let `npx @genclass/runtime login` connect an app
+password, or GitHub, with passkeys as extra security) which keep several apps in one place and let `npx @genclass/runtime@beta login` connect an app
 ([Accounts](#accounts)). There are two plans, Free and Enterprise, and nothing is sold on the site: every plan
 includes the dashboard, analytics, export, forwarding and your own classifier, which GenClass trains on request
 ([Paid plans](#paid-plans)). There is no trial.
@@ -48,13 +48,15 @@ genclass.dev/dashboard/<secret> --> dashboard page --GET /api/projects/<secret>?
 | `src/index.ts` | entry point: default export only (`fetch`, `scheduled`). The Workers runtime treats every named export of the main module as an entrypoint, so nothing else is exported here. |
 | `src/collector.ts` | ingest (`POST /v1/events`), envelope validation (incl. optional `token`), routing for `/api/*`, `/start`, `/dashboard*`; hands account paths to `src/auth.ts` |
 | `src/dashboard.ts` | ids and hashing, project creation and lookup, token cache, aggregation of a batch into counters, stats for the dashboard, retention |
-| `src/pages.ts` | HTML/CSS/JS for `/start` and `/dashboard/<secret>`, and the shell and dashboard the account pages reuse (`/account/apps/<id>` is the dashboard in its account mode, with the Connect panel); inline, per-response CSP nonce, fonts from Google Fonts only |
+| `src/pages.ts` | HTML/CSS/JS for `/start` and `/dashboard/<secret>`, and the shell and dashboard the account pages reuse (`/account/apps/<id>` is the dashboard in its account mode); the dashboard's views, its Connect dialog (Framework, API Keys, MCP, Analytics), the MCP view and the agent link box, Copy prompt and Copy as Markdown; inline, per-response CSP nonce, fonts from Google Fonts only |
+| `src/studio.ts` | the Supabase Studio frame the dashboards and the organization pages use: the 48px header (organization and project switchers, Connect, Feedback, search, help, the account menu), the icon rail that widens on hover, product menus, the dialog and tabs, the command menu (Ctrl/Cmd K), Studio's dark tokens and icons; the copy helpers every page shares |
+| `src/escape.ts` | `esc` and `embed`, for every page module |
 | `src/auth.ts` | accounts: Google, email and password, GitHub, passkeys (sign-in, the passkey step, fresh confirmations), sessions, CSRF, the device flow, owned apps, their routes and their retention |
 | `src/password.ts` | passwords: the PBKDF2 hash string, the rules for a new password, the schedule of the delay after wrong ones |
 | `scripts/password-hash.mjs` | for the owner: a hash string for a manual password reset ([Owner steps: a forgotten password](#owner-steps-a-forgotten-password)) |
 | `src/locked.ts` | the locked private-link page, for a plan file whose plan leaves the dashboard out (none today; the tests run it on a fixture) |
 | `src/webauthn.ts`, `src/cbor.ts` | WebAuthn verification with WebCrypto and a minimal CBOR decoder (no dependencies) |
-| `src/account-pages.ts` | HTML for `/signup`, `/login`, `/login/forgot`, `/login/passkey`, `/login/device`, `/account`, the locked private-link page and the account message pages |
+| `src/account-pages.ts` | HTML for `/signup`, `/login`, `/login/forgot`, `/login/passkey`, `/login/device`, the locked private-link page and the account message pages (genclass.dev's look), and in the Studio frame `/account` (the organization's Projects and Account settings) and `/account/new` (Create a new project) |
 | `src/http.ts` | shared JSON response and capped body reader |
 | `../billing/plans.json` | the plans (prices, Stripe lookup keys, limits, entitlements, pricing-page lines); the site's build reads it too |
 | `src/plans.ts` | plans from `plans.json`, what an account may use now (paid plan, grant or Free: `accountAccess`), the Free plan's limits, dashboard ranges per plan, the plan-aware retention sweep |
@@ -75,9 +77,11 @@ genclass.dev/dashboard/<secret> --> dashboard page --GET /api/projects/<secret>?
 | `OPTIONS /v1/events` | CORS preflight (`access-control-allow-origin: *`) |
 | `GET /v1/health` | `{ ok: true, schema }` |
 | `POST /api/projects` | body `{ name? }` (JSON object or empty; name sanitised, at most 80 chars, default "Untitled app"). 201 `{ token, dashboardUrl, name, created }`, `dashboardUrl` = `https://genclass.dev/dashboard/<32 base62>`. CORS `*`, no credentials. 429 JSON when rate-limited, 400 bad JSON, 413 over 4 KB. |
-| `GET /api/projects/<secret>?range=24h\|7d\|30d` | dashboard stats JSON (every plan includes the dashboard; a plan file that left it out would answer 402 `{ ok:false, error, locked:true }`) (default `7d`): `name, token, created, lastEvent, range, from, generated, totals, breakdowns{metric: [{key,count}]}` (top 25 each; 200 for `detect_issue` and `possible_issue`), `distinct{metric: n}` (distinct keys before that cut, e.g. pages with a problem), `series` (24 hourly or 7/30 daily buckets: sessions, decisions, detections, acted, possible, ix_views), `recent` (last 50 detections/interventions in the window; possible ones are not listed). `totals` also has `latencyAvgMs`, `modelLoadAvgMs`, `failOpens`, `modelErrors`, `interventions`, `actionLimits`, `detectionsWithPage` and `possibleWithPage`. Apps that turned on interaction analytics (runtime `interactions` events, [docs/runtime/ANALYTICS.md](../docs/runtime/ANALYTICS.md)) also get `ix_views`, `ix_engaged_ms`, `ix_click`, `ix_rage` and `ix_dead` totals and breakdowns (by route, or route TAB element key; `ix_scroll` by route TAB milestone; top 200 each), counted with their own per-batch budget. 404 `{ ok:false, error:"not found" }` for an unknown or malformed secret. Same-origin only (no CORS). |
+| `GET /api/projects/<secret>?range=24h\|7d\|30d` | dashboard stats JSON (every plan includes the dashboard; a plan file that left it out would answer 402 `{ ok:false, error, locked:true }`) (default `7d`): `name, token, created, lastEvent, range, from, generated, totals, breakdowns{metric: [{key,count}]}` (top 25 each; 200 for `detect_issue` and `possible_issue`), `distinct{metric: n}` (distinct keys before that cut, e.g. pages with a problem), `series` (24 hourly or 7/30 daily buckets: sessions, decisions, detections, acted, possible, ix_views, ix_sessions), `recent` (last 50 detections/interventions in the window; possible ones are not listed). `totals` also has `latencyAvgMs`, `modelLoadAvgMs`, `failOpens`, `modelErrors`, `interventions`, `actionLimits`, `detectionsWithPage` and `possibleWithPage`. Apps that turned on interaction analytics (runtime `interactions` events, [docs/runtime/ANALYTICS.md](../docs/runtime/ANALYTICS.md)) also get `ix_views`, `ix_engaged_ms`, `ix_click`, `ix_rage` and `ix_dead` totals and breakdowns (by route, or route TAB element key; `ix_scroll` by route TAB milestone; top 200 each), counted with their own per-batch budget; and per visit `ix_sessions`, `ix_ref`, `ix_utm_source`, `ix_utm_medium`, `ix_utm_campaign`, `ix_device`, `ix_browser`, `ix_os`, `ix_country`, `ix_returning`, plus `visits` (`sessions, pages, bounces, entry[], exit[]` over the visits that started in the period) and `funnels` (`[{ name, steps, counts }]`; docs/runtime/ANALYTICS.md section 3.1); with navigation paths (ANALYTICS.md section 11) also `ix_entry` and `ix_exit` (totals and by route), `ix_nav` and `ix_nav_ms` (from TAB to), `ix_arrive` (by `nav`, and route TAB `nav`), `ix_first` (route TAB element key), `ix_first_n` and `ix_first_ms` (by route) and `ix_path` (the first 5 routes of a page load, joined with ` > `). 404 `{ ok:false, error:"not found" }` for an unknown or malformed secret. Same-origin only (no CORS). |
+| `PUT /api/projects/<secret>/funnels` | body `{ funnels: [{ name, steps }] }` (application/json, at most 4 KB): replaces the app's funnels (at most 5, 2 to 6 routes each; a step ending in `*` matches every route under it). 200 `{ ok, funnels }`, 400 with the reason, 403 for the sample. Account mode: `PUT /api/account/projects/<id>/funnels` with the browser session and the site's Origin |
 | `GET /start` | "Get a token" page |
-| `GET /dashboard/<secret>` | the dashboard (for an app with no account too: it is on Free), in views a sidebar switches between: Overview (the summary, the tiles, the trend), Problems, Pages and Actions, Activity, Visitors, Health, and Setup on a private link (Connect, Forwarding and Export in account mode); the hash names the view (`#found`, `#recent-s`), the header has a breadcrumb and the Dashboard guide (genclass.dev/docs/dashboard), and without the script every section shows. With a plan file that left the dashboard out, the locked page (sign in, add the app to the account, see the plans; `src/locked.ts`). 404 page for an unknown secret; `GET /dashboard` redirects to `/start`. `/dashboard/sample` stays open |
+| `POST /api/projects/<secret>/agent` | the MCP server's log of the closed loop, mirrored, when the developer sets `GENCLASS_REPORT` for `@genclass/mcp` (docs/runtime/AGENT.md section 4.5): `{ schema: "genclass-agent/1", events: [{ t: "found" \| "explain" \| "armed" \| "replay" \| "test" \| "explore" \| "cleared", at, id?, kind?, route?, reproduced?, runs?, races?, what? }] }`, at most 50 events and 16 KB a request, rate limited per token (`SESSION_LIMIT`). Every accepted event is one row of `agent_log` (at most 500 per app, the oldest go first; unknown types are dropped); the ones about a finding also update `agent_reports` (kind, normalised route, found, explained, last replay and verdict, how many replays reproduced it, tested, proven: a replay that stops reproducing after one that did). 90 days; the stats carry them as `agent` (`findings`, `counts`, `stages`: found, explained, reproduced, fixed, closed, open, continued; `log`, the last 50) and the dashboard's Closed-loop development view shows them. The sample and unknown secrets 404; other methods 405. Ids, kinds, routes, verdicts, counts and times only, never page text |
+| `GET /dashboard/<secret>` | the dashboard (for an app with no account too: it is on Free), in the Supabase Studio frame (`src/studio.ts`), in views the rail switches between: Project overview (the name and status, the summary, four stats, the problems chart, usage cards per hour or day, Get connected, the problems that need attention with a Copy prompt each, and Getting started until the first event), Problems (each kind with its pages, its fix and a Copy prompt for a coding agent), Pages and Actions, Activity, Visitors (without interaction data, under the copy-prompt button, the runtime analytics need, `ANALYTICS_RUNTIME` 0.3.0-beta.1, with the install line and the app's older versions from the `runtime` breakdown; the Connect dialog says the same), Health, MCP (the @genclass/mcp setup per coding agent, with GENCLASS_DASHBOARD set to the agent link, a Copy prompt, the tools, the JSON address), Closed loop (Closed-loop development: Fig. 3, every issue's path, found, reproduced, fix proven, closed, or round again, with the period's counts from the agent's reports; Table 15, the agent's log mirrored from `@genclass/mcp`; Fig. 6, the app's problems and what the agent does with each), Integrations (forwarding, account mode) and Project Settings (general, the key, agent access; Export in account mode). Problems, Visitors and Project Settings have Studio's product menu. The header's Connect opens the Connect dialog (also `#connect`); the hash names the view (`#found`, `#recent-s`, `#mcp`); every data view copies as Markdown; and without the script every section shows. On a private link the page's own address is the agent link. With a plan file that left the dashboard out, the locked page (sign in, add the app to the account, see the plans; `src/locked.ts`). 404 page for an unknown secret; `GET /dashboard` redirects to `/start`. `/dashboard/sample` stays open |
 
 Rate limits on batches: `LIMIT`, 1200 per 60 s per client IP (a ceiling for offices and campuses behind one address;
 since runtime 0.2.2 a page stops sending after 3 failed requests in a row, so a low per-IP limit would silence every
@@ -184,7 +188,7 @@ rate-limit key.
 ## Accounts
 
 Optional for the runtime and for collection: `/start`, secret dashboard links and ingest keep working without
-one. An account keeps several apps in one place, holds its plan, and lets the CLI (`npx @genclass/runtime login`, in `packages/runtime/bin/lib/login.mjs`
+one. An account keeps several apps in one place, holds its plan, and lets the CLI (`npx @genclass/runtime@beta login`, in `packages/runtime/bin/lib/login.mjs`
 and `account.mjs`, from `@genclass/runtime` 0.3.0) connect an app without copying keys around. Code: `src/auth.ts`
 (routes and rules), `src/password.ts` (passwords), `src/webauthn.ts` + `src/cbor.ts` (passkeys),
 `src/account-pages.ts` (pages); tests in
@@ -243,7 +247,7 @@ the assertion must be of that account's passkey, with the checks of a passkey si
 consumed and the web session created, marked as proven with a passkey (`auth_sessions.passkey_at`), and the browser
 goes on to the `next` the sign-in started with. The pending step is never a session: `/api/me`, `/account` and the
 device approval treat it as signed out. The CLI's device flow rides on the web session (`/login/device` approves only
-with a session), so `npx @genclass/runtime login` gets the same step. The email-collision choice
+with a session), so `npx @genclass/runtime@beta login` gets the same step. The email-collision choice
 (`POST /api/auth/pending`) also goes through the step when the identity's account appeared meanwhile and has a
 passkey.
 
@@ -343,8 +347,9 @@ minutes in a single-use row named by the `gc_pending` cookie).
 | `POST /api/auth/password` | cookie + Origin | change (`{ current, password }`, or `{ password }` after a fresh passkey) or add (`{ email?, password }`) the account's password → `{ ok, changed \| added }`; 403 `{ confirm: true }` when a passkey must answer first; 403 for a bearer token |
 | `GET /login/passkey` | `__Host-gc_mfa` | the passkey step after a password, Google or GitHub for an account with a passkey; 400 page when the step expired or is missing |
 | `POST /logout` | cookie + Origin | revokes the session, clears the cookie, 303 to `/login?signed_out=1` |
-| `GET /account` | cookie | the account page (302 to `/login?next=/account` without one): apps (and "Your plan has no dashboard" with See plans, for a plan file that left it out), Security (sign-in methods, "Require a passkey at sign-in", Add a passkey), sessions. `?claim=1` returns to a locked private link this tab kept |
-| `GET /account/apps/<id>` | cookie | an owned app's dashboard with the Connect panel; for a plan without the dashboard (none today), the locked page (the key, the Connect panel, See plans, no stats); 404 for an app of another account |
+| `GET /account` | cookie | the organization's Projects page in the Studio frame (302 to `/login?next=/account` without one): a search box, New project, a card per project (its key, its status, Copy key, Turn off its private link), Import a dashboard from a private link (and "Your plan has no dashboard" with See plans, for a plan file that left it out); `#settings`: Account settings, with Security (sign-in methods, "Require a passkey at sign-in", Add a passkey), sessions and Delete account. `?claim=1` returns to a locked private link this tab kept |
+| `GET /account/new` | cookie | Create a new project (Studio's form: the organization, the project's name, what it comes with); it posts to `POST /api/account/projects` and opens the new project with its Connect dialog (302 to `/login?next=/account/new` without a session) |
+| `GET /account/apps/<id>` | cookie | an owned app's dashboard (the project switcher lists the account's projects; the Connect dialog has the terminal's login); for a plan without the dashboard (none today), the locked page (the key, the Connect section, See plans, no stats); 404 for an app of another account |
 | `GET /login/device?code=ABCD-EFGH` | cookie optional | signed in: the code and the request, Approve and Deny; signed out: the code and the ways to sign in, whether or not the code is live |
 | `GET /auth/google`, `GET /auth/google/callback` | - | Google sign-in (404 page when not configured); `?link=1` needs a session |
 | `GET /auth/github`, `GET /auth/github/callback` | - | GitHub sign-in, same rules |
@@ -359,10 +364,11 @@ minutes in a single-use row named by the `gc_pending` cookie).
 | `POST /api/device/token` | - | `{ device_code }` (JSON or a form) → 200 `{ access_token: "gcs_...", token_type: "Bearer", expires_in: 7776000, account: { id, email, github_login } }` or 400 `{ error: authorization_pending \| slow_down (with the new interval) \| expired_token \| access_denied \| invalid_request, error_description }` |
 | `POST /api/device/approve` | cookie + Origin | `{ user_code, approve: true \| false }` → `{ ok, status }`; 404 for an unknown, expired or used code |
 | `GET /api/me` | bearer or cookie | `{ account: { id, email, github_login }, projects: [project] }` |
-| `GET /api/account/projects` | bearer or cookie | `{ projects: [project] }` (the Connect panel polls this every 5 s) |
+| `GET /api/account/projects` | bearer or cookie | `{ projects: [project] }` (the Connect dialog polls this every 5 s) |
 | `POST /api/account/projects` | bearer, or cookie + Origin | `{ name }` → 201 `{ project }`; at most 200 apps per account |
 | `POST /api/account/projects/claim` | bearer, or cookie + Origin | `{ dashboard_url }` or `{ secret }` → 200 `{ project }`: the secret-link app joins the account and its link keeps working; 409 when another account owns it or the account holds 200 apps, 404 for an unknown link |
 | `GET /api/account/projects/<id>/stats?range=` | cookie | the dashboard stats (same shape as `/api/projects/<secret>`), owned apps only; 402 `{ locked: true, upgrade_url }` for a plan without the dashboard (none today); 403 for a bearer token |
+| `POST /api/account/projects/<id>/link` | cookie + Origin | a new private dashboard link for an owned app, the MCP view's agent link (what @genclass/mcp reads as `GENCLASS_DASHBOARD`): 201 `{ dashboardUrl }`, shown once (only its hash is stored, so any earlier link stops working); 403 for a bearer token, 404 for an app of another account |
 | `DELETE /api/account/projects/<id>/link` | cookie + Origin | turn off the app's private dashboard link (its hash is replaced by one nobody holds); 204 |
 | `DELETE /api/account/sessions/current` | bearer (CLI logout) or cookie + Origin | 204 |
 | `DELETE /api/account/sessions/<id>` | cookie + Origin | revoke one of this account's sessions; 204, 404 otherwise (403 for a bearer token) |
@@ -400,7 +406,7 @@ The daily cron also deletes expired challenges and device codes and expired or r
 |---|---|---|---|
 | `AUTH_ORIGIN` | var | `https://genclass.dev` | expected `Origin`, WebAuthn origin, OAuth redirect URIs, cookie `Secure` |
 | `AUTH_RP_ID` | var | `genclass.dev` | WebAuthn RP ID |
-| `RUNTIME_ON_NPM` | var (wrangler.toml) | `0.2.2` | the newest `@genclass/runtime` on npm, on any dist-tag; below `0.3.0-beta.0` the Connect panel, `/start` and private dashboards say first that keys and `login` are not published yet. Set it to `0.3.0-beta.0` once release.yml has published the beta and jsDelivr serves it, then deploy; at `0.3.0`, set it with `src/pages.ts` `SNIPPET_RUNTIME` and `RUNTIME_PKG` (the snippets pin the script tag to `SNIPPET_RUNTIME` and name the `@beta` dist-tag in their commands while it is a prerelease) |
+| `RUNTIME_ON_NPM` | var (wrangler.toml) | `0.3.0-beta.3` | the newest `@genclass/runtime` on npm, on any dist-tag; below `0.3.0-beta.0` the Connect dialog, `/start` and private dashboards say first that keys and `login` are not published yet. Set it with `src/pages.ts` `SNIPPET_RUNTIME` to every release once release.yml has published it and jsDelivr serves it, then deploy; at `0.3.0` also set `RUNTIME_PKG` (the snippets pin the script tag to `SNIPPET_RUNTIME` and name the `@beta` dist-tag in their commands while it is a prerelease) |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | secret | unset | Google sign-in, the first way in; both needed. An email and a password are offered either way |
 | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | secret | unset | GitHub sign-in; both needed |
 
@@ -459,6 +465,18 @@ npx --yes wrangler@4 d1 migrations apply genclass-dashboard --remote
 npx --yes wrangler@4 deploy
 ```
 
+### Migration 0010 (`migrations/0010_visits_funnels.sql`)
+
+Additive: a new table `visits` (one row per visit of an app with interaction analytics on: a hash of the token and
+the runtime's visit id as the key, `token`, `started`, `updated`, `entry`, `exit`, `pages`, `routes`; indexes on
+`(token, started)` and `started`) and a nullable column `projects.funnels` (the app's funnels as JSON). No existing row
+or column changes. The code writes and reads both, so apply it before deploying:
+
+```sh
+npx --yes wrangler@4 d1 migrations apply genclass-dashboard --remote
+npx --yes wrangler@4 deploy
+```
+
 ### Owner steps: a forgotten password
 
 GenClass cannot email a reset link yet, so `/login/forgot` asks the person to write to mehar@daybot.ca from the
@@ -497,14 +515,19 @@ npx --yes wrangler@4 d1 execute genclass-dashboard --remote --command "
 
 ## Paid plans
 
-The plans live in [`billing/plans.json`](../billing/plans.json) (version 2, 2026-10-22):
+The plans live in [`billing/plans.json`](../billing/plans.json) (version 2, 2026-10-22). Neither is paid by card
+today; this section keeps its name for the Stripe code and the owner steps below, which sold Individual until
+2026-10-22 and sell any plan the file prices above 0:
 
 - **Free** (US$0): the open-source runtime and its on-device model, the dashboard for every app, with 90 days of
   history, export and forwarding, and your own classifier (`custom_model`): a person from GenClass trains a model on
   the app's traffic, bug reports or labelled examples when its owner emails the contact address, and ships it as
-  private model files. Interaction analytics is listed as coming next.
+  private model files, and the `@genclass/mcp` server for coding agents, free on the developer's machine.
+  Interaction analytics is listed as coming next.
 - **Enterprise** (no price: agreed by email with the contact address): everything in Free, a year of history, and
-  GenClass's models run in GenClass's cloud for the buyer's apps, on terms agreed together. It has no Stripe product;
+  GenClass's models run in GenClass's cloud for the buyer's apps, and closed-loop development as a service (the MCP
+  server, collector and dashboard run for the buyer's developers, hosted by GenClass or inside their network), on
+  terms agreed together. It has no Stripe product;
   an account gets it from GenClass's own grant (below).
 
 No plan is sold on Stripe Checkout today. Individual (US$29 a month, lookup key `genclass_individual_monthly`, a year
@@ -910,7 +933,7 @@ test-mode and a live copy unless the dashboard says it is shared):
     goes into `STRIPE_PORTAL_CONFIGURATION_TEST`). Running it again changes only what differs. Then
     `npx --yes wrangler@4 secret put STRIPE_SECRET_KEY` with the test key. Only your account can buy.
 12. **The test card**: on `https://genclass.dev/account/billing` (only `STRIPE_TEST_ACCOUNTS` can buy while the key
-    is a test key) choose Upgrade to Individual and pay with `4242 4242 4242 4242`, any future expiry date and any CVC.
+    is a test key) choose Upgrade to the plan on sale (it read Upgrade to Individual) and pay with `4242 4242 4242 4242`, any future expiry date and any CVC.
     Confirm that Stripe accepted the Checkout Session with `subscription_data[billing_mode][type]=flexible` and
     `payment_method_collection=always` (Developers, Logs: the `POST /v1/checkout/sessions` request answered 200, and
     the subscription shows billing mode flexible). The page shows Individual within a minute, and a `custom_requests`
@@ -953,7 +976,7 @@ curl https://genclass-collector.<your-subdomain>.workers.dev/v1/health
 Then open `https://<your worker>/start`: it gives an app a token and a private dashboard link, and its snippets
 already send to your worker. A collector whose origin is not genclass.dev names its own endpoint in every snippet it
 shows (`src/pages.ts` ownEndpoint), through `GenClass.init` or `window.GENCLASS_CONFIG` (a meta tag may only name
-same-origin URLs), and leaves out `npx @genclass/runtime init` and `login`, which make their token at genclass.dev. In
+same-origin URLs), and leaves out `npx @genclass/runtime@beta init` and `login`, which make their token at genclass.dev. In
 an app wired by hand:
 
 ```ts
@@ -962,7 +985,7 @@ GenClass.init({ token: "gc_...", telemetry: { endpoint: "https://<your worker>/v
 
 ```html
 <script>window.GENCLASS_CONFIG = { telemetry: { endpoint: "https://<your worker>/v1/events" } };</script>
-<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@beta" data-token="gc_..."></script>
+<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@0.3.0-beta.1" data-token="gc_..."></script>
 ```
 
 Accounts work on it as on genclass.dev (an email and a password, and passkeys; Google and GitHub with your own OAuth

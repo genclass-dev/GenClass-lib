@@ -1,0 +1,17 @@
+{
+  "name": "tiny-shop",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node dev.mjs",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@genclass/runtime": "^0.3.0-beta.2"
+  },
+  "devDependencies": {
+    "vite": "^6.3.5"
+  }
+}

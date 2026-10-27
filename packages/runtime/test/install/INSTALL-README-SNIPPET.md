@@ -5,7 +5,7 @@ Pick one. All three start the same runtime.
 **1. One command** (Vite, Next.js, Create React App, Remix / React Router, Nuxt, SvelteKit, Astro, Angular, plain HTML)
 
 ```bash
-npx @genclass/runtime init
+npx @genclass/runtime@beta init
 ```
 
 It finds your framework and package manager, installs `@genclass/runtime`, and adds one import as the first line of
@@ -14,14 +14,14 @@ writing anything. Running it again changes nothing; running it with another `--m
 that mode. It sets up observe mode (reports only, never changes anything) unless you pass `--mode guard` or `--mode heal`.
 
 ```bash
-npx @genclass/runtime init --yes            # no questions
-npx @genclass/runtime init --mode guard     # let GenClass act (also: --mode heal); again later to switch
-npx @genclass/runtime init --dry-run        # show the diff, write nothing
-npx @genclass/runtime remove                # undo exactly what init added (refuses if you edited those lines)
+npx @genclass/runtime@beta init --yes            # no questions
+npx @genclass/runtime@beta init --mode guard     # let GenClass act (also: --mode heal); again later to switch
+npx @genclass/runtime@beta init --dry-run        # show the diff, write nothing
+npx @genclass/runtime@beta remove                # undo exactly what init added (refuses if you edited those lines)
 ```
 
 Other flags: `--no-install` (don't run the package manager), `--no-devtools`, `--cwd <dir>`, `--cdn <url>` and
-`--no-sri` (plain HTML), `remove --keep-package`.
+`--no-sri` and `--sync` (plain HTML: the tag is written with `defer` unless `--sync`), `remove --keep-package`.
 
 `init` only edits browser apps: a project whose only build tool is esbuild, rollup, parcel or webpack needs an
 `index.html`, a UI framework such as `react-dom` or `vue`, or an HTML plugin / dev server, else `init` stops and says
@@ -76,7 +76,7 @@ like:
 **3. One script tag** (no build step)
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime/dist/genclass.global.min.js" data-mode="observe" data-devtools="local"></script>
+<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@0.3.0-beta.1/dist/genclass.global.min.js" data-mode="observe" data-devtools="local"></script>
 ```
 
 Put it first in `<head>` so it sees the page's first requests. It sets `window.GenClass` (`GenClass.runtime`,
@@ -87,7 +87,7 @@ demand from the same CDN, at the same version as the tag, also when the URL has 
 |---|---|
 | `data-mode` | `observe` (default), `guard` or `heal` |
 | `data-devtools` | show the overlay; `="local"`: only on localhost, `*.localhost`, `*.local`, `*.test` |
-| `data-model` | your model directory (`npx @genclass/runtime fetch-model public/genclass-model`), or `off` |
+| `data-model` | your model directory (`npx @genclass/runtime@beta fetch-model public/genclass-model`), or `off` |
 | `data-ort` | onnxruntime-web's `dist/` directory, if you self-host its wasm |
 | `data-manual` | only define `window.GenClass`; call `GenClass.init({...})` yourself |
 | `data-base` | where the package's `dist/` is, if you self-host this file |

@@ -147,6 +147,12 @@ export interface RunDiff {
   /** Page text lines only the baseline shows, and only this run shows (announcements apart, below). */
   textOnlyBaseline: string[];
   textOnlyRun: string[];
+  /**
+   * How many times each of those lines appeared in the baseline and in this run: lines are compared as counts (a
+   * product name the page always shows once, and a stale result shows a second time, is "only in the run"), so a
+   * replay's verdict counts too (store.ts raceVerdict).
+   */
+  textCounts?: Record<string, { baseline: number; run: number }>;
   /** Lines of live regions (status messages, alerts, toasts) only the baseline, or only this run, showed. */
   announced?: string[];
   /** Errors this run had and the baselines did not (by message). */
@@ -222,7 +228,7 @@ export interface GroupReport {
   truncated?: { runs: number; left: number; total: number };
 }
 
-function multiset(lines: Iterable<string>): Map<string, number> {
+export function multiset(lines: Iterable<string>): Map<string, number> {
   const m = new Map<string, number>();
   for (const l of lines) m.set(l, (m.get(l) ?? 0) + 1);
   return m;
@@ -406,7 +412,9 @@ export function compareRuns(runs: Run[]): GroupReport[] {
       if (fields.length || textOnlyBaseline.length || textOnlyRun.length || announced.length || errors.length || witnesses.length) {
         const parts = { fields, textOnlyBaseline, textOnlyRun, errors };
         const tier: Tier = visibleDiff(parts) ? "visible" : fields.length || announced.length ? "internal" : "transient";
-        const d: RunDiff = { run: r.id, label: r.assignment?.label ?? r.schedule?.label ?? r.id, tier, fields: fields.slice(0, 30), textOnlyBaseline: textOnlyBaseline.slice(0, 15), textOnlyRun: textOnlyRun.slice(0, 15), ...(announced.length ? { announced: announced.slice(0, 10) } : {}), errors: errors.slice(0, 10), witnesses: witnesses.slice(0, 10), forced: r.forced };
+        const textCounts: Record<string, { baseline: number; run: number }> = {};
+        for (const l of [...textOnlyBaseline.slice(0, 15), ...textOnlyRun.slice(0, 15)]) textCounts[l] = { baseline: bt.get(l) ?? 0, run: rt.get(l) ?? 0 };
+        const d: RunDiff = { run: r.id, label: r.assignment?.label ?? r.schedule?.label ?? r.id, tier, fields: fields.slice(0, 30), textOnlyBaseline: textOnlyBaseline.slice(0, 15), textOnlyRun: textOnlyRun.slice(0, 15), ...(Object.keys(textCounts).length ? { textCounts } : {}), ...(announced.length ? { announced: announced.slice(0, 10) } : {}), errors: errors.slice(0, 10), witnesses: witnesses.slice(0, 10), forced: r.forced };
         (rep.insufficientBaselines ? rep.unfiltered : rep.diffs).push(d);
       }
     }

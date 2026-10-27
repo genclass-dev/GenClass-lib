@@ -1,0 +1,5 @@
+.wrangler/
+node_modules/
+test/
+.mcp.json
+.genclass/

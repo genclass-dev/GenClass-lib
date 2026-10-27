@@ -1,10 +1,13 @@
 // The MCP server (AGENT.md §4.2): the protocol over stdio, the tools end to end against a live bridge, channel pushes.
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import { afterEach, describe, expect, it } from "vitest";
 import { McpServer, PROTOCOL_VERSIONS } from "../src/mcp.js";
 import { serve, channelEvent, type Served } from "../src/server.js";
 import { VERSION } from "../src/http.js";
-import { INSTRUCTIONS, TOOLS } from "../src/tools.js";
+import { INSTRUCTIONS, TOOLS, setupText } from "../src/tools.js";
 import { act, page, snap, tokenDir } from "./helpers.js";
 
 /** A client on in-memory streams: send requests, read replies and notifications. */
@@ -77,6 +80,36 @@ describe("mcp: genclass_setup and the client named at initialize (README Install
     const r = await call(c, "genclass_setup");
     expect(r.text).toContain(`npx -y @genclass/mcp@${VERSION} config <client>`);
     expect(r.text).not.toContain("/plugin install");
+  });
+});
+
+describe("mcp: genclass_setup installs the newest runtime line (README Install)", () => {
+  const app = (deps: Record<string, string>, installed?: string) => {
+    const dir = mkdtempSync(join(tmpdir(), "gc-setup-"));
+    writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "app", dependencies: { vite: "^7", ...deps } }));
+    if (installed) {
+      mkdirSync(join(dir, "node_modules", "@genclass", "runtime"), { recursive: true });
+      writeFileSync(join(dir, "node_modules", "@genclass", "runtime", "package.json"), JSON.stringify({ version: installed }));
+    }
+    return dir;
+  };
+  const INSTALL = "npm install @genclass/runtime@beta";
+
+  it("no runtime, 0.2.x, a range without a version, or an older installed copy: install @beta", () => {
+    expect(setupText(app({}))).toContain(INSTALL);
+    expect(setupText(app({ "@genclass/runtime": "^0.2.0" }))).toContain(`this project has "^0.2.0"): ${INSTALL}`);
+    for (const r of ["*", "latest", ""]) expect(setupText(app({ "@genclass/runtime": r }))).toContain(INSTALL);
+    expect(setupText(app({ "@genclass/runtime": "^0.3.0-beta.0" }))).toContain(INSTALL);
+    expect(setupText(app({ "@genclass/runtime": "^0.3.0-beta.1" }, "0.2.2"))).toContain(`this project has "^0.3.0-beta.1", installed 0.2.2): ${INSTALL}`);
+  });
+
+  it("0.3.0-beta.1 or later (or the beta tag) counts as installed", () => {
+    for (const r of ["^0.3.0-beta.1", "0.3.0-beta.2", "^0.3.0", "beta"]) {
+      const t = setupText(app({ "@genclass/runtime": r }));
+      expect(t).toContain("@genclass/runtime is installed.");
+      expect(t).not.toContain(INSTALL);
+    }
+    expect(setupText(app({ "@genclass/runtime": "*" }, "0.3.0-beta.1"))).toContain("@genclass/runtime is installed.");
   });
 });
 
@@ -273,5 +306,38 @@ describe("mcp: tools against a live bridge", () => {
   it("channelEvent meta keys are channel-safe", () => {
     const e = channelEvent({ id: "f3", kind: "duplicate-request", route: "/pay", title: "t", count: 2 });
     expect(e.meta.kind).toBe("duplicate_request");
+  });
+});
+
+describe("mcp: GENCLASS_REPORT mirrors the tools' own calls (AGENT.md section 4.5)", () => {
+  it("a clear, an explore report and a replay armed through the in-process API reach the dashboard reporter, not only the findings", async () => {
+    const bodies: { events: { t: string }[] }[] = [];
+    const real = globalThis.fetch;
+    globalThis.fetch = (async (url: unknown, init?: RequestInit) => {
+      if (String(url).endsWith("/agent")) {
+        bodies.push(JSON.parse(String(init?.body)));
+        return new Response('{"ok":true}', { status: 200, headers: { "content-type": "application/json" } });
+      }
+      return real(url as string, init);
+    }) as typeof fetch;
+    try {
+      const { c, port } = await start({ GENCLASS_REPORT: "on", GENCLASS_DASHBOARD: "https://genclass.dev/dashboard/abcdefghijklmnopqrstuvwxyz012345" });
+      // a page records a stale write: the finding is reported from the store
+      const r = await page(port, "/search");
+      await r.send([{ t: "steps", steps: [act(0, "type", 'searchbox "Search"', "react", { count: 5, dur: 400 })], order: ["GET /api/search#2", "GET /api/search#1"] }, { t: "witness", witness: { kind: "overwrote-newer", t: 900, subject: "search.results", by: "GET /api/search#1", over: "GET /api/search#2", overKind: "request", gapMs: 20 } }, { t: "snapshot", snapshot: snap({ "search.results": "x" }) }]);
+      const f = await call(c, "genclass_findings");
+      const id = /\b(f\d+)\b/.exec(f.text)![1]!;
+      // the tools' own calls, in process: explain (and its test), a replay armed, an explore report, a clear
+      await call(c, "genclass_explain", { id });
+      await call(c, "genclass_replay", { action: "arm", id });
+      await call(c, "genclass_explore", { action: "start", runs: 1 });
+      await call(c, "genclass_explore", { action: "report" });
+      await call(c, "genclass_clear", { what: "runs" });
+      await served!.close();
+      const types = bodies.flatMap((b) => b.events.map((e) => e.t));
+      expect(types).toEqual(expect.arrayContaining(["found", "explain", "test", "armed", "explore", "cleared"]));
+    } finally {
+      globalThis.fetch = real;
+    }
   });
 });

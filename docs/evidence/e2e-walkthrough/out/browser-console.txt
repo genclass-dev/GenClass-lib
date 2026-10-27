@@ -1,0 +1,1389 @@
+[debug] [vite] connecting...
+[info] [GenClass] Sends anonymous diagnostics (decisions and counts, no page text) to improve the model. Opt out: GenClass.init({ telemetry: false }) or ?genclass=no-telemetry. With this app's token they also feed its private GenClass dashboard.
+[warning] Failed to decode downloaded font: http://localhost:5173/fonts/shopsans-missing.woff2
+[warning] OTS parsing error: invalid sfntVersion: 1008821359
+[debug] [vite] connected.
+[warning] No available adapters.
+[info] [GenClass] Model ready (genclass-runtime-r17, wasm, q8, 0.48s; inline on the main thread). Mode: guard.
+[startGroupCollapsed] [GenClass] Check (measured): the web font "shopsans" failed to load from /fonts/shopsans-missing.woff2; 21 of 21 sampled text elements fall back to another font, for example div.banner "Free shipping on every order over 50 â‚…". Suggested CSS: @font-face { font-family: "shopsans"; src: url("/fonts/shopsans.woff2") format("woff2"); font-display: swap; }
+[log] Measured: family "shopsans", weight "normal", style "normal", src "/fonts/shopsans-missing.woff2", elements 21, sampled 21.
+Threshold: error FontFace.status (document.fonts after fonts.ready).
+Element: div.banner (div "Free shipping on every order over 50 â‚…").
+Suggested CSS: @font-face { font-family: "shopsans"; src: url("/fonts/shopsans.woff2") format("woff2"); font-display: swap; } With a size-adjusted fallback font the swap does not move the layout.
+Fix: fix the url() relative to the stylesheet, send Access-Control-Allow-Origin for fonts on another origin (fonts are fetched in CORS mode) and ship woff2.
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["div.banner"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the page scrolls sideways on a 1280 px viewport: div.wide "This promotional strip is wider than an…" ends at 2606 px (1326 px too wide, a width wider than the viewport). Suggested CSS: div.wide { max-width: 100%; }
+[log] Measured: scrollWidth 2606, clientWidth 1280, excess 1326, culprit "div.wide", edge 2606, cause "a width wider than the viewport".
+Threshold: 1 px of scroll width beyond the client width (documentElement.scrollWidth > clientWidth + 1, the viewport not clipping, 1 s apart).
+Element: div.wide (div "This promotional strip is wider than an…").
+Suggested CSS: div.wide { max-width: 100%; }
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["div.wide"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the page shows UTF-8 text decoded as Windows-1252 (mojibake) in div.banner "Free shipping on every order over 50 â‚…": "...y order over 50 â‚¬ â€” today only". Fix: serve Content-Type: text/html; charset=utf-8, put <meta charset="utf-8"> first in <head>, store text as utf8mb4 and escape once.
+[log] Measured: pattern "mojibake", excerpt "...y order over 50 â‚¬ â€” today only", count 1, charset "UTF-8".
+Threshold: UTF-8 text decoded as Windows-1252 (mojibake) pattern (rendered text, still present 2 s later after network quiet).
+Element: div.banner (div "Free shipping on every order over 50 â‚…").
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["div.banner"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the page shows an unrendered {{ }} placeholder in p.price "{{price}}": "{{price}}". Suggested CSS: [v-cloak] { display: none; }
+[log] Measured: pattern "mustache", excerpt "{{price}}", count 1.
+Threshold: an unrendered {{ }} placeholder pattern (rendered text, still present 2 s later after network quiet).
+Element: p.price (p "{{price}}").
+Suggested CSS: [v-cloak] { display: none; } Only for uncompiled Vue templates (Angular: ng-cloak); otherwise the template is not rendering on this route.
+Fix: the fix is in code: format values before rendering (for example {price != null ? formatPrice(price) : "-"}), never interpolate an object, and check the template engine runs on this route.
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["p.price"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the page shows placeholder text (lorem ipsum) in p.blurb "Lorem ipsum dolor sit amet, consectetur…": "Lorem ipsum dolor sit amet, co...". Fix: replace the placeholder copy and images; a CI grep for lorem ipsum and the placeholder hosts keeps them out.
+[log] Measured: pattern "lorem", excerpt "Lorem ipsum dolor sit amet, co...", count 1.
+Threshold: placeholder text (lorem ipsum) pattern (rendered text, still present 2 s later after network quiet).
+Element: p.blurb (p "Lorem ipsum dolor sit amet, consectetur…").
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["p.blurb"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): text contrast 1.26:1 on div.banner "Free shipping on every order over 50 â‚…", below 1.5:1 (WCAG 2.2 contrast formula; unreadable-text threshold): #888888 on #777777 from div.banner. Suggested CSS: div.banner { color: #060606; }
+[log] Measured: ratio 1.26, fg "#888888", bg "#777777", bgFrom "div.banner", fontPx 13, fontWeight 400, large false, text "Free shipping on every order over 50 â‚¬".
+Threshold: 1.5 :1 contrast (WCAG 2.2 contrast formula; unreadable-text threshold (VISUAL.md 3.8)).
+Element: div.banner (div "Free shipping on every order over 50 â‚…").
+Suggested CSS: div.banner { color: #060606; } Reaches 4.5:1. Set colour and background together on the same selector, add the dark-mode variant, or remove a prefers-color-scheme: dark block the site has no design for.
+Sample points: 2; scheme: light; state: rest.
+Runtime fix: applied (div.banner { color: rgb(6, 6, 6); }). Undo: GenClass.runtime.checks().find(c => c.id === "c6").fix.undo()
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["div.banner"] } }).
+[endGroup] console.groupEnd
+[info] [GenClass] Applied a CSS fix for check c6: div.banner { color: rgb(6, 6, 6); }. Undo: GenClass.runtime.checks().find(c => c.id === "c6").fix.undo()
+[startGroupCollapsed] [GenClass] Check (measured): the open dialog dialog.cookie "We use cookies." is covered by div.cover: 10 of 10 points, including #ok "OK" (dialog z-index 1, cover z-index 2). Fix: render the dialog in a portal at the end of body, or use <dialog> with showModal() (the top layer is above every z-index).
+[log] Measured: dialog "dialog.cookie", covered "10 of 10 points", cover "div.cover", dialogZ "1", coverZ "2", child "#ok \"OK\"".
+Threshold: 50 % of hit points, or any control's centre (a non-top-layer dialog, tested twice 500 ms apart).
+Element: dialog.cookie (dialog "We use cookies.").
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["dialog.cookie"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): an image failed to load on img.logo: the file is not a valid image for /logo-missing.png, shown at 120 x 40 px. Suggested CSS: img.logo { background-color: #f3f4f6; }
+[log] Measured: src "/logo-missing.png", width 120, height 40, naturalWidth 0, cause "the file is not a valid image", alt "Tiny Shop".
+Threshold: 0 px natural width (img complete with naturalWidth 0 and decode() rejected, 1 s apart).
+Element: img.logo (img).
+Suggested CSS: img.logo { background-color: #f3f4f6; } This only makes a failed image look neutral; add width and height attributes too.
+Fix: correct the image URL. Paths are case-sensitive on Linux hosts; check the base path or asset prefix (Vite base, Next.js basePath/assetPrefix), drop a public/ prefix from URLs, serve the right Content-Type, and send CORS headers when the img has crossorigin.
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["img.logo"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Flagged a stale response: search.query was written 4 times by other operations since its operation (#2) started (version 0 → 4), last 0.71s ago by GET /api/search?q=react (#10), which started 0.30s after #2, from a later user action (#9). Not acted on (would have done discard 0.96): gain 3.22 of discard over deliver is not above the guard margin 4. (stale, 0.99)
+[log] Facts:
+  search.query was written 4 times by other operations since its operation (#2) started (version 0 → 4), last 0.71s ago by GET /api/search?q=react (#10), which started 0.30s after #2, from a later user action (#9).
+  search.results changed since its operation (#2) started: 0 items → 2 items ["React handbook", …] (3 writes), last by GET /api/search?q=reac (#8) 0.43s after #2 started.
+  GET /api/search usually answers in 0.21s (p95 1.21s).
+  The response to GET /api/search?q=r (#2) arrived after 1.21s (200); the app has not seen it yet.
+  This request comes from user typed "r" into input "Search the shop" (#1), started 1.22s ago.
+[log] Timeline:
+  -0.71s end GET /api/search?q=react (#10): 200 in 0.21s
+  -0.71s write search.query: "reac" → "react" (by #10)
+  -0.00s end GET /api/search?q=r (#2): 200 in 1.21s
+[log] Situation sent to the model:
+app: Tiny Shop — /
+trigger: The response to GET /api/search?q=r (#2) arrived and is about to be delivered; its operation last wrote search.query.
+facts:
+  search.query was written 4 times by other operations since its operation (#2) started (version 0 → 4), last 0.71s ago by GET /api/search?q=react (#10), which started 0.30s after #2, from a later user action (#9).
+  search.results changed since its operation (#2) started: 0 items → 2 items ["React handbook", …] (3 writes), last by GET /api/search?q=reac (#8) 0.43s after #2 started.
+  GET /api/search usually answers in 0.21s (p95 1.21s).
+  The response to GET /api/search?q=r (#2) arrived after 1.21s (200); the app has not seen it yet.
+  This request comes from user typed "r" into input "Search the shop" (#1), started 1.22s ago.
+in_flight: none
+timeline: none
+state:
+  search.query = "react" (v4, by #10 0.71s ago)
+stats:
+  GET /api/search: 5 done, median 0.21s, p95 1.21s, 0 of last 5 failed, 5 in last 10s
+[log] Answers: {diagnosis: Object, action: Object}
+[log] explain: GenClass.runtime.explain("d1")
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Reverted a stale write: search.query was written 4 times by other operations since this write's cause (#2) started (version 0 → 4), last 0.83s ago by GET /api/search?q=react (#10), which started 0.30s after #2, from a later user action (#9). Reverted the write to search.query, search.results from GET /api/search?q=r (#2) (decided 0.10s after it applied); search.query is back to "react"; search.results is back to 2 items ["React handbook", "Reactive mug"]. (stale, 0.99; discard 1.00)
+[log] Facts:
+  search.query was written 4 times by other operations since this write's cause (#2) started (version 0 → 4), last 0.83s ago by GET /api/search?q=react (#10), which started 0.30s after #2, from a later user action (#9).
+  search.results was written 3 times by other operations since this write's cause (#2) started (version 0 → 3), last 0.91s ago by GET /api/search?q=reac (#8), which started 0.23s after #2, from a later user action (#7).
+  This write would replace text the user typed into search.query after #2 started (4 user writes, the last 0.83s ago): "react" → "r".
+  This write's cause (#2) took 1.21s, 5.9× its usual 0.21s (p95 1.21s).
+  This write has search.results = 8 items ["React handbook", …]: neither the current value 2 items ["React handbook", …], nor the value when #2 started.
+  This write comes from GET /api/search?q=r (#2), started 1.34s ago, ended 0.12s ago with 200; its chain began with user typed "r" into input "Search the shop" (#1).
+  This write would change search.query: "react" → "r".
+  This write would change search.results: 2 items ["React handbook", …] → 8 items ["React handbook", …].
+[log] Timeline:
+  -0.83s end GET /api/search?q=react (#10): 200 in 0.21s
+  -0.83s write search.query: "reac" → "react" (by #10)
+  -0.12s end GET /api/search?q=r (#2): 200 in 1.21s
+[log] Situation sent to the model:
+app: Tiny Shop — /
+trigger: A write to search.query, search.results from GET /api/search?q=r (#2) is about to be applied.
+facts:
+  search.query was written 4 times by other operations since this write's cause (#2) started (version 0 → 4), last 0.83s ago by GET /api/search?q=react (#10), which started 0.30s after #2, from a later user action (#9).
+  search.results was written 3 times by other operations since this write's cause (#2) started (version 0 → 3), last 0.91s ago by GET /api/search?q=reac (#8), which started 0.23s after #2, from a later user action (#7).
+  This write would replace text the user typed into search.query after #2 started (4 user writes, the last 0.83s ago): "react" → "r".
+  This write's cause (#2) took 1.21s, 5.9× its usual 0.21s (p95 1.21s).
+in_flight: none
+timeline: none
+state: none
+stats:
+  GET /api/search: 5 done, median 0.21s, p95 1.21s, 0 of last 5 failed, 5 in last 10s
+[log] Answers: {diagnosis: Object, action: Object}
+[log] Changed: Reverted the write to search.query, search.results from GET /api/search?q=r (#2) (decided 0.10s after it applied); search.query is back to "react"; search.results is back to 2 items ["React handbook", "Reactive mug"].
+[log] Undo: GenClass.runtime.interventions().find(a => a.id === "a1").undo()
+[log] Deny this action: GenClass.init({ policy: { deny: ["discard"] } })
+[log] explain: GenClass.runtime.explain("a1")
+[endGroup] console.groupEnd
+[debug] [vite] connecting...
+[info] [GenClass] Sends anonymous diagnostics (decisions and counts, no page text) to improve the model. Opt out: GenClass.init({ telemetry: false }) or ?genclass=no-telemetry. With this app's token they also feed its private GenClass dashboard.
+[warning] Failed to decode downloaded font: http://localhost:5173/fonts/shopsans-missing.woff2
+[warning] OTS parsing error: invalid sfntVersion: 1008821359
+[debug] [vite] connected.
+[warning] No available adapters.
+[info] [GenClass] Model ready (genclass-runtime-r17, wasm, q8, 0.57s; inline on the main thread). Mode: observe.
+[startGroupCollapsed] [GenClass] Check (measured): the web font "shopsans" failed to load from /fonts/shopsans-missing.woff2; 21 of 21 sampled text elements fall back to another font, for example div.banner "Free shipping on every order over 50 â‚…". Suggested CSS: @font-face { font-family: "shopsans"; src: url("/fonts/shopsans.woff2") format("woff2"); font-display: swap; }
+[log] Measured: family "shopsans", weight "normal", style "normal", src "/fonts/shopsans-missing.woff2", elements 21, sampled 21.
+Threshold: error FontFace.status (document.fonts after fonts.ready).
+Element: div.banner (div "Free shipping on every order over 50 â‚…").
+Suggested CSS: @font-face { font-family: "shopsans"; src: url("/fonts/shopsans.woff2") format("woff2"); font-display: swap; } With a size-adjusted fallback font the swap does not move the layout.
+Fix: fix the url() relative to the stylesheet, send Access-Control-Allow-Origin for fonts on another origin (fonts are fetched in CORS mode) and ship woff2.
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["div.banner"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the page scrolls sideways on a 1280 px viewport: div.wide "This promotional strip is wider than an…" ends at 2606 px (1326 px too wide, a width wider than the viewport). Suggested CSS: div.wide { max-width: 100%; }
+[log] Measured: scrollWidth 2606, clientWidth 1280, excess 1326, culprit "div.wide", edge 2606, cause "a width wider than the viewport".
+Threshold: 1 px of scroll width beyond the client width (documentElement.scrollWidth > clientWidth + 1, the viewport not clipping, 1 s apart).
+Element: div.wide (div "This promotional strip is wider than an…").
+Suggested CSS: div.wide { max-width: 100%; }
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["div.wide"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the page shows UTF-8 text decoded as Windows-1252 (mojibake) in div.banner "Free shipping on every order over 50 â‚…": "...y order over 50 â‚¬ â€” today only". Fix: serve Content-Type: text/html; charset=utf-8, put <meta charset="utf-8"> first in <head>, store text as utf8mb4 and escape once.
+[log] Measured: pattern "mojibake", excerpt "...y order over 50 â‚¬ â€” today only", count 1, charset "UTF-8".
+Threshold: UTF-8 text decoded as Windows-1252 (mojibake) pattern (rendered text, still present 2 s later after network quiet).
+Element: div.banner (div "Free shipping on every order over 50 â‚…").
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["div.banner"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the page shows an unrendered {{ }} placeholder in p.price "{{price}}": "{{price}}". Suggested CSS: [v-cloak] { display: none; }
+[log] Measured: pattern "mustache", excerpt "{{price}}", count 1.
+Threshold: an unrendered {{ }} placeholder pattern (rendered text, still present 2 s later after network quiet).
+Element: p.price (p "{{price}}").
+Suggested CSS: [v-cloak] { display: none; } Only for uncompiled Vue templates (Angular: ng-cloak); otherwise the template is not rendering on this route.
+Fix: the fix is in code: format values before rendering (for example {price != null ? formatPrice(price) : "-"}), never interpolate an object, and check the template engine runs on this route.
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["p.price"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the page shows placeholder text (lorem ipsum) in p.blurb "Lorem ipsum dolor sit amet, consectetur…": "Lorem ipsum dolor sit amet, co...". Fix: replace the placeholder copy and images; a CI grep for lorem ipsum and the placeholder hosts keeps them out.
+[log] Measured: pattern "lorem", excerpt "Lorem ipsum dolor sit amet, co...", count 1.
+Threshold: placeholder text (lorem ipsum) pattern (rendered text, still present 2 s later after network quiet).
+Element: p.blurb (p "Lorem ipsum dolor sit amet, consectetur…").
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["p.blurb"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): text contrast 1.26:1 on div.banner "Free shipping on every order over 50 â‚…", below 1.5:1 (WCAG 2.2 contrast formula; unreadable-text threshold): #888888 on #777777 from div.banner. Suggested CSS: div.banner { color: #060606; }
+[log] Measured: ratio 1.26, fg "#888888", bg "#777777", bgFrom "div.banner", fontPx 13, fontWeight 400, large false, text "Free shipping on every order over 50 â‚¬".
+Threshold: 1.5 :1 contrast (WCAG 2.2 contrast formula; unreadable-text threshold (VISUAL.md 3.8)).
+Element: div.banner (div "Free shipping on every order over 50 â‚…").
+Suggested CSS: div.banner { color: #060606; } Reaches 4.5:1. Set colour and background together on the same selector, add the dark-mode variant, or remove a prefers-color-scheme: dark block the site has no design for.
+Sample points: 2; scheme: light; state: rest.
+Runtime fix: available with GenClass.init({ mode: "guard", visual: { on: true, fix: true } }); observe mode never changes the page.
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["div.banner"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the open dialog dialog.cookie "We use cookies." is covered by div.cover: 10 of 10 points, including #ok "OK" (dialog z-index 1, cover z-index 2). Fix: render the dialog in a portal at the end of body, or use <dialog> with showModal() (the top layer is above every z-index).
+[log] Measured: dialog "dialog.cookie", covered "10 of 10 points", cover "div.cover", dialogZ "1", coverZ "2", child "#ok \"OK\"".
+Threshold: 50 % of hit points, or any control's centre (a non-top-layer dialog, tested twice 500 ms apart).
+Element: dialog.cookie (dialog "We use cookies.").
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["dialog.cookie"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): an image failed to load on img.logo: the file is not a valid image for /logo-missing.png, shown at 120 x 40 px. Suggested CSS: img.logo { background-color: #f3f4f6; }
+[log] Measured: src "/logo-missing.png", width 120, height 40, naturalWidth 0, cause "the file is not a valid image", alt "Tiny Shop".
+Threshold: 0 px natural width (img complete with naturalWidth 0 and decode() rejected, 1 s apart).
+Element: img.logo (img).
+Suggested CSS: img.logo { background-color: #f3f4f6; } This only makes a failed image look neutral; add width and height attributes too.
+Fix: correct the image URL. Paths are case-sensitive on Linux hosts; check the base path or asset prefix (Vite base, Next.js basePath/assetPrefix), drop a public/ prefix from URLs, serve the right Content-Type, and send CORS headers when the img has crossorigin.
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["img.logo"] } }).
+[endGroup] console.groupEnd
+[debug] [vite] connecting...
+[info] [GenClass] Sends anonymous diagnostics (decisions and counts, no page text) to improve the model. Opt out: GenClass.init({ telemetry: false }) or ?genclass=no-telemetry. With this app's token they also feed its private GenClass dashboard.
+[warning] Failed to decode downloaded font: http://localhost:5173/fonts/shopsans-missing.woff2
+[warning] OTS parsing error: invalid sfntVersion: 1008821359
+[debug] [vite] connected.
+[warning] No available adapters.
+[info] [GenClass] Model ready (genclass-runtime-r17, wasm, q8, 0.43s; inline on the main thread). Mode: observe.
+[startGroupCollapsed] [GenClass] Check (measured): the web font "shopsans" failed to load from /fonts/shopsans-missing.woff2; 21 of 21 sampled text elements fall back to another font, for example div.banner "Free shipping on every order over 50 â‚…". Suggested CSS: @font-face { font-family: "shopsans"; src: url("/fonts/shopsans.woff2") format("woff2"); font-display: swap; }
+[log] Measured: family "shopsans", weight "normal", style "normal", src "/fonts/shopsans-missing.woff2", elements 21, sampled 21.
+Threshold: error FontFace.status (document.fonts after fonts.ready).
+Element: div.banner (div "Free shipping on every order over 50 â‚…").
+Suggested CSS: @font-face { font-family: "shopsans"; src: url("/fonts/shopsans.woff2") format("woff2"); font-display: swap; } With a size-adjusted fallback font the swap does not move the layout.
+Fix: fix the url() relative to the stylesheet, send Access-Control-Allow-Origin for fonts on another origin (fonts are fetched in CORS mode) and ship woff2.
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["div.banner"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the page scrolls sideways on a 1280 px viewport: div.wide "This promotional strip is wider than an…" ends at 2606 px (1326 px too wide, a width wider than the viewport). Suggested CSS: div.wide { max-width: 100%; }
+[log] Measured: scrollWidth 2606, clientWidth 1280, excess 1326, culprit "div.wide", edge 2606, cause "a width wider than the viewport".
+Threshold: 1 px of scroll width beyond the client width (documentElement.scrollWidth > clientWidth + 1, the viewport not clipping, 1 s apart).
+Element: div.wide (div "This promotional strip is wider than an…").
+Suggested CSS: div.wide { max-width: 100%; }
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["div.wide"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the page shows UTF-8 text decoded as Windows-1252 (mojibake) in div.banner "Free shipping on every order over 50 â‚…": "...y order over 50 â‚¬ â€” today only". Fix: serve Content-Type: text/html; charset=utf-8, put <meta charset="utf-8"> first in <head>, store text as utf8mb4 and escape once.
+[log] Measured: pattern "mojibake", excerpt "...y order over 50 â‚¬ â€” today only", count 1, charset "UTF-8".
+Threshold: UTF-8 text decoded as Windows-1252 (mojibake) pattern (rendered text, still present 2 s later after network quiet).
+Element: div.banner (div "Free shipping on every order over 50 â‚…").
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["div.banner"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the page shows an unrendered {{ }} placeholder in p.price "{{price}}": "{{price}}". Suggested CSS: [v-cloak] { display: none; }
+[log] Measured: pattern "mustache", excerpt "{{price}}", count 1.
+Threshold: an unrendered {{ }} placeholder pattern (rendered text, still present 2 s later after network quiet).
+Element: p.price (p "{{price}}").
+Suggested CSS: [v-cloak] { display: none; } Only for uncompiled Vue templates (Angular: ng-cloak); otherwise the template is not rendering on this route.
+Fix: the fix is in code: format values before rendering (for example {price != null ? formatPrice(price) : "-"}), never interpolate an object, and check the template engine runs on this route.
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["p.price"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the page shows placeholder text (lorem ipsum) in p.blurb "Lorem ipsum dolor sit amet, consectetur…": "Lorem ipsum dolor sit amet, co...". Fix: replace the placeholder copy and images; a CI grep for lorem ipsum and the placeholder hosts keeps them out.
+[log] Measured: pattern "lorem", excerpt "Lorem ipsum dolor sit amet, co...", count 1.
+Threshold: placeholder text (lorem ipsum) pattern (rendered text, still present 2 s later after network quiet).
+Element: p.blurb (p "Lorem ipsum dolor sit amet, consectetur…").
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["p.blurb"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): text contrast 1.26:1 on div.banner "Free shipping on every order over 50 â‚…", below 1.5:1 (WCAG 2.2 contrast formula; unreadable-text threshold): #888888 on #777777 from div.banner. Suggested CSS: div.banner { color: #060606; }
+[log] Measured: ratio 1.26, fg "#888888", bg "#777777", bgFrom "div.banner", fontPx 13, fontWeight 400, large false, text "Free shipping on every order over 50 â‚¬".
+Threshold: 1.5 :1 contrast (WCAG 2.2 contrast formula; unreadable-text threshold (VISUAL.md 3.8)).
+Element: div.banner (div "Free shipping on every order over 50 â‚…").
+Suggested CSS: div.banner { color: #060606; } Reaches 4.5:1. Set colour and background together on the same selector, add the dark-mode variant, or remove a prefers-color-scheme: dark block the site has no design for.
+Sample points: 2; scheme: light; state: rest.
+Runtime fix: available with GenClass.init({ mode: "guard", visual: { on: true, fix: true } }); observe mode never changes the page.
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["div.banner"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the open dialog dialog.cookie "We use cookies." is covered by div.cover: 10 of 10 points, including #ok "OK" (dialog z-index 1, cover z-index 2). Fix: render the dialog in a portal at the end of body, or use <dialog> with showModal() (the top layer is above every z-index).
+[log] Measured: dialog "dialog.cookie", covered "10 of 10 points", cover "div.cover", dialogZ "1", coverZ "2", child "#ok \"OK\"".
+Threshold: 50 % of hit points, or any control's centre (a non-top-layer dialog, tested twice 500 ms apart).
+Element: dialog.cookie (dialog "We use cookies.").
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["dialog.cookie"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): an image failed to load on img.logo: the file is not a valid image for /logo-missing.png, shown at 120 x 40 px. Suggested CSS: img.logo { background-color: #f3f4f6; }
+[log] Measured: src "/logo-missing.png", width 120, height 40, naturalWidth 0, cause "the file is not a valid image", alt "Tiny Shop".
+Threshold: 0 px natural width (img complete with naturalWidth 0 and decode() rejected, 1 s apart).
+Element: img.logo (img).
+Suggested CSS: img.logo { background-color: #f3f4f6; } This only makes a failed image look neutral; add width and height attributes too.
+Fix: correct the image URL. Paths are case-sensitive on Linux hosts; check the base path or asset prefix (Vite base, Next.js basePath/assetPrefix), drop a public/ prefix from URLs, serve the right Content-Type, and send CORS headers when the img has crossorigin.
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["img.logo"] } }).
+[endGroup] console.groupEnd
+[debug] [vite] connecting...
+[info] [GenClass] Sends anonymous diagnostics (decisions and counts, no page text) to improve the model. Opt out: GenClass.init({ telemetry: false }) or ?genclass=no-telemetry. With this app's token they also feed its private GenClass dashboard.
+[warning] Failed to decode downloaded font: http://localhost:5173/fonts/shopsans-missing.woff2
+[warning] OTS parsing error: invalid sfntVersion: 1008821359
+[debug] [vite] connected.
+[warning] No available adapters.
+[info] [GenClass] Model ready (genclass-runtime-r17, wasm, q8, 0.47s; inline on the main thread). Mode: observe.
+[startGroupCollapsed] [GenClass] Flagged a stale response: search.query was written twice by other operations since its operation (#2) started (version 0 → 2), last 0.70s ago by GET /api/search?q=react (#10), which started 0.30s after #2, from a later user action (#9). Not acted on (would have done discard 0.97): observe mode never changes execution. (stale, 0.97)
+[log] Facts:
+  search.query was written twice by other operations since its operation (#2) started (version 0 → 2), last 0.70s ago by GET /api/search?q=react (#10), which started 0.30s after #2, from a later user action (#9).
+  search.results was written twice by other operations since its operation (#2) started (version 0 → 2), last 0.70s ago by GET /api/search?q=react (#10), which started 0.30s after #2, from a later user action (#9).
+  The response has search.results = 8 items ["React handbook", …]: neither the current value 2 items ["React handbook", …], nor the value when #2 started.
+  GET /api/search usually answers in 0.20s (p95 1.21s).
+  The response to GET /api/search?q=r (#2) arrived after 1.21s (200); the app has not seen it yet.
+  This request comes from user typed "r" into input "Search the shop" (#1), started 1.21s ago.
+[log] Timeline:
+  -0.70s end GET /api/search?q=react (#10): 200 in 0.21s
+  -0.70s write search.query: "re" → "react"; search.results: 6 items ["React handbook", …] → 2 items ["React handbook", …] (by #10)
+  -0.00s end GET /api/search?q=r (#2): 200 in 1.21s
+[log] Situation sent to the model:
+app: Tiny Shop — /
+trigger: The response to GET /api/search?q=r (#2) arrived and is about to be delivered; its operation last wrote search.query and search.results.
+facts:
+  search.query was written twice by other operations since its operation (#2) started (version 0 → 2), last 0.70s ago by GET /api/search?q=react (#10), which started 0.30s after #2, from a later user action (#9).
+  search.results was written twice by other operations since its operation (#2) started (version 0 → 2), last 0.70s ago by GET /api/search?q=react (#10), which started 0.30s after #2, from a later user action (#9).
+  The response has search.results = 8 items ["React handbook", …]: neither the current value 2 items ["React handbook", …], nor the value when #2 started.
+  GET /api/search usually answers in 0.20s (p95 1.21s).
+in_flight: none
+timeline: none
+state: none
+stats:
+  GET /api/search: 5 done, median 0.20s, p95 1.21s, 0 of last 5 failed, 5 in last 10s
+[log] Answers: {diagnosis: Object, action: Object}
+[log] explain: GenClass.runtime.explain("d1")
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the web font "shopsans" failed to load from /fonts/shopsans-missing.woff2; 21 of 21 sampled text elements fall back to another font, for example div.banner "Free shipping on every order over 50 â‚…". Suggested CSS: @font-face { font-family: "shopsans"; src: url("/fonts/shopsans.woff2") format("woff2"); font-display: swap; }
+[log] Measured: family "shopsans", weight "normal", style "normal", src "/fonts/shopsans-missing.woff2", elements 21, sampled 21.
+Threshold: error FontFace.status (document.fonts after fonts.ready).
+Element: div.banner (div "Free shipping on every order over 50 â‚…").
+Suggested CSS: @font-face { font-family: "shopsans"; src: url("/fonts/shopsans.woff2") format("woff2"); font-display: swap; } With a size-adjusted fallback font the swap does not move the layout.
+Fix: fix the url() relative to the stylesheet, send Access-Control-Allow-Origin for fonts on another origin (fonts are fetched in CORS mode) and ship woff2.
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["div.banner"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the page scrolls sideways on a 1280 px viewport: div.wide "This promotional strip is wider than an…" ends at 2606 px (1326 px too wide, a width wider than the viewport). Suggested CSS: div.wide { max-width: 100%; }
+[log] Measured: scrollWidth 2606, clientWidth 1280, excess 1326, culprit "div.wide", edge 2606, cause "a width wider than the viewport".
+Threshold: 1 px of scroll width beyond the client width (documentElement.scrollWidth > clientWidth + 1, the viewport not clipping, 1 s apart).
+Element: div.wide (div "This promotional strip is wider than an…").
+Suggested CSS: div.wide { max-width: 100%; }
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["div.wide"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the page shows UTF-8 text decoded as Windows-1252 (mojibake) in div.banner "Free shipping on every order over 50 â‚…": "...y order over 50 â‚¬ â€” today only". Fix: serve Content-Type: text/html; charset=utf-8, put <meta charset="utf-8"> first in <head>, store text as utf8mb4 and escape once.
+[log] Measured: pattern "mojibake", excerpt "...y order over 50 â‚¬ â€” today only", count 1, charset "UTF-8".
+Threshold: UTF-8 text decoded as Windows-1252 (mojibake) pattern (rendered text, still present 2 s later after network quiet).
+Element: div.banner (div "Free shipping on every order over 50 â‚…").
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["div.banner"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the page shows an unrendered {{ }} placeholder in p.price "{{price}}": "{{price}}". Suggested CSS: [v-cloak] { display: none; }
+[log] Measured: pattern "mustache", excerpt "{{price}}", count 1.
+Threshold: an unrendered {{ }} placeholder pattern (rendered text, still present 2 s later after network quiet).
+Element: p.price (p "{{price}}").
+Suggested CSS: [v-cloak] { display: none; } Only for uncompiled Vue templates (Angular: ng-cloak); otherwise the template is not rendering on this route.
+Fix: the fix is in code: format values before rendering (for example {price != null ? formatPrice(price) : "-"}), never interpolate an object, and check the template engine runs on this route.
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["p.price"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the page shows placeholder text (lorem ipsum) in p.blurb "Lorem ipsum dolor sit amet, consectetur…": "Lorem ipsum dolor sit amet, co...". Fix: replace the placeholder copy and images; a CI grep for lorem ipsum and the placeholder hosts keeps them out.
+[log] Measured: pattern "lorem", excerpt "Lorem ipsum dolor sit amet, co...", count 1.
+Threshold: placeholder text (lorem ipsum) pattern (rendered text, still present 2 s later after network quiet).
+Element: p.blurb (p "Lorem ipsum dolor sit amet, consectetur…").
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["p.blurb"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): text contrast 1.26:1 on div.banner "Free shipping on every order over 50 â‚…", below 1.5:1 (WCAG 2.2 contrast formula; unreadable-text threshold): #888888 on #777777 from div.banner. Suggested CSS: div.banner { color: #060606; }
+[log] Measured: ratio 1.26, fg "#888888", bg "#777777", bgFrom "div.banner", fontPx 13, fontWeight 400, large false, text "Free shipping on every order over 50 â‚¬".
+Threshold: 1.5 :1 contrast (WCAG 2.2 contrast formula; unreadable-text threshold (VISUAL.md 3.8)).
+Element: div.banner (div "Free shipping on every order over 50 â‚…").
+Suggested CSS: div.banner { color: #060606; } Reaches 4.5:1. Set colour and background together on the same selector, add the dark-mode variant, or remove a prefers-color-scheme: dark block the site has no design for.
+Sample points: 2; scheme: light; state: rest.
+Runtime fix: available with GenClass.init({ mode: "guard", visual: { on: true, fix: true } }); observe mode never changes the page.
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["div.banner"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the open dialog dialog.cookie "We use cookies." is covered by div.cover: 10 of 10 points, including #ok "OK" (dialog z-index 1, cover z-index 2). Fix: render the dialog in a portal at the end of body, or use <dialog> with showModal() (the top layer is above every z-index).
+[log] Measured: dialog "dialog.cookie", covered "10 of 10 points", cover "div.cover", dialogZ "1", coverZ "2", child "#ok \"OK\"".
+Threshold: 50 % of hit points, or any control's centre (a non-top-layer dialog, tested twice 500 ms apart).
+Element: dialog.cookie (dialog "We use cookies.").
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["dialog.cookie"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): an image failed to load on img.logo: the file is not a valid image for /logo-missing.png, shown at 120 x 40 px. Suggested CSS: img.logo { background-color: #f3f4f6; }
+[log] Measured: src "/logo-missing.png", width 120, height 40, naturalWidth 0, cause "the file is not a valid image", alt "Tiny Shop".
+Threshold: 0 px natural width (img complete with naturalWidth 0 and decode() rejected, 1 s apart).
+Element: img.logo (img).
+Suggested CSS: img.logo { background-color: #f3f4f6; } This only makes a failed image look neutral; add width and height attributes too.
+Fix: correct the image URL. Paths are case-sensitive on Linux hosts; check the base path or asset prefix (Vite base, Next.js basePath/assetPrefix), drop a public/ prefix from URLs, serve the right Content-Type, and send CORS headers when the img has crossorigin.
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["img.logo"] } }).
+[endGroup] console.groupEnd
+[debug] [vite] connecting...
+[info] [GenClass] Sends anonymous diagnostics (decisions and counts, no page text) to improve the model. Opt out: GenClass.init({ telemetry: false }) or ?genclass=no-telemetry. With this app's token they also feed its private GenClass dashboard.
+[debug] [vite] connected.
+[warning] Failed to decode downloaded font: http://localhost:5173/fonts/shopsans-missing.woff2
+[warning] OTS parsing error: invalid sfntVersion: 1008821359
+[warning] No available adapters.
+[info] [GenClass] Model ready (genclass-runtime-r17, wasm, q8, 0.43s; inline on the main thread). Mode: observe.
+[startGroupCollapsed] [GenClass] Flagged a stale response: search.query was written twice by other operations since its operation (#2) started (version 0 → 2), last 0.70s ago by GET /api/search?q=react (#10), which started 0.31s after #2, from a later user action (#9). Not acted on (would have done discard 0.97): observe mode never changes execution. (stale, 0.96)
+[log] Facts:
+  search.query was written twice by other operations since its operation (#2) started (version 0 → 2), last 0.70s ago by GET /api/search?q=react (#10), which started 0.31s after #2, from a later user action (#9).
+  search.results was written twice by other operations since its operation (#2) started (version 0 → 2), last 0.70s ago by GET /api/search?q=react (#10), which started 0.31s after #2, from a later user action (#9).
+  The response has search.results = 8 items ["React handbook", …]: neither the current value 2 items ["React handbook", …], nor the value when #2 started.
+  GET /api/search usually answers in 0.20s (p95 1.21s).
+  The response to GET /api/search?q=r (#2) arrived after 1.21s (200); the app has not seen it yet.
+  This request comes from user typed "r" into input "Search the shop" (#1), started 1.21s ago.
+[log] Timeline:
+  -0.70s end GET /api/search?q=react (#10): 200 in 0.20s
+  -0.70s write search.query: "re" → "react"; search.results: 6 items ["React handbook", …] → 2 items ["React handbook", …] (by #10)
+  -0.00s end GET /api/search?q=r (#2): 200 in 1.21s
+[log] Situation sent to the model:
+app: Tiny Shop — /
+trigger: The response to GET /api/search?q=r (#2) arrived and is about to be delivered; its operation last wrote search.query and search.results.
+facts:
+  search.query was written twice by other operations since its operation (#2) started (version 0 → 2), last 0.70s ago by GET /api/search?q=react (#10), which started 0.31s after #2, from a later user action (#9).
+  search.results was written twice by other operations since its operation (#2) started (version 0 → 2), last 0.70s ago by GET /api/search?q=react (#10), which started 0.31s after #2, from a later user action (#9).
+  The response has search.results = 8 items ["React handbook", …]: neither the current value 2 items ["React handbook", …], nor the value when #2 started.
+  GET /api/search usually answers in 0.20s (p95 1.21s).
+in_flight: none
+timeline: none
+state: none
+stats:
+  GET /api/search: 5 done, median 0.20s, p95 1.21s, 0 of last 5 failed, 5 in last 10s
+[log] Answers: {diagnosis: Object, action: Object}
+[log] explain: GenClass.runtime.explain("d1")
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Flagged a stale response: search.query was written 4 times by other operations since its operation (#6) started (version 0 → 4), last 0.00s ago by GET /api/search?q=reac (#8), which started 0.08s after #6, from a later user action (#7). Not acted on (would have done discard 0.98): observe mode never changes execution. (stale, 0.98)
+[log] Facts:
+  search.query was written 4 times by other operations since its operation (#6) started (version 0 → 4), last 0.00s ago by GET /api/search?q=reac (#8), which started 0.08s after #6, from a later user action (#7).
+  search.results was written 4 times by other operations since its operation (#6) started (version 0 → 4), last 0.00s ago by GET /api/search?q=reac (#8), which started 0.08s after #6, from a later user action (#7).
+  The response has search.results = 4 items ["React handbook", …]: neither the current value 2 items ["React handbook", …], nor the value when #6 started.
+  search.query holds a value written 0.00s ago by the response to GET /api/search?q=reac (#8), which was delivered over newer data from GET /api/search?q=react (#10); nothing has rewritten it since.
+  search.results holds a value written 0.00s ago by the response to GET /api/search?q=reac (#8), which was delivered over newer data from GET /api/search?q=react (#10); nothing has rewritten it since.
+  GET /api/search usually answers in 0.20s (p95 1.21s).
+  The response to GET /api/search?q=rea (#6) arrived after 0.20s (200); the app has not seen it yet.
+  This request comes from user typed "rea" into input "Search the shop" (#5), started 1.27s ago.
+[log] Timeline:
+  -0.22s end GET /api/search?q=r (#2): 200 in 1.21s
+  -0.10s write search.query: "react" → "r"; search.results: 2 items ["React handbook", …] → 8 items ["React handbook", …] (by #2)
+  -0.00s write search.query: "r" → "reac"; search.results: 8 items ["React handbook", …] → 2 items ["React handbook", …] (by #8)
+[log] Situation sent to the model:
+app: Tiny Shop — /
+trigger: The response to GET /api/search?q=rea (#6) arrived and is about to be delivered; its operation last wrote search.query and search.results.
+facts:
+  search.query was written 4 times by other operations since its operation (#6) started (version 0 → 4), last 0.00s ago by GET /api/search?q=reac (#8), which started 0.08s after #6, from a later user action (#7).
+  search.results was written 4 times by other operations since its operation (#6) started (version 0 → 4), last 0.00s ago by GET /api/search?q=reac (#8), which started 0.08s after #6, from a later user action (#7).
+  The response has search.results = 4 items ["React handbook", …]: neither the current value 2 items ["React handbook", …], nor the value when #6 started.
+in_flight: none
+timeline: none
+state: none
+stats:
+  GET /api/search: 5 done, median 0.20s, p95 1.21s, 0 of last 5 failed, 5 in last 10s
+[log] Answers: {diagnosis: Object, action: Object}
+[log] explain: GenClass.runtime.explain("d3")
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the web font "shopsans" failed to load from /fonts/shopsans-missing.woff2; 21 of 21 sampled text elements fall back to another font, for example div.banner "Free shipping on every order over 50 â‚…". Suggested CSS: @font-face { font-family: "shopsans"; src: url("/fonts/shopsans.woff2") format("woff2"); font-display: swap; }
+[log] Measured: family "shopsans", weight "normal", style "normal", src "/fonts/shopsans-missing.woff2", elements 21, sampled 21.
+Threshold: error FontFace.status (document.fonts after fonts.ready).
+Element: div.banner (div "Free shipping on every order over 50 â‚…").
+Suggested CSS: @font-face { font-family: "shopsans"; src: url("/fonts/shopsans.woff2") format("woff2"); font-display: swap; } With a size-adjusted fallback font the swap does not move the layout.
+Fix: fix the url() relative to the stylesheet, send Access-Control-Allow-Origin for fonts on another origin (fonts are fetched in CORS mode) and ship woff2.
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["div.banner"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the page scrolls sideways on a 1280 px viewport: div.wide "This promotional strip is wider than an…" ends at 2606 px (1326 px too wide, a width wider than the viewport). Suggested CSS: div.wide { max-width: 100%; }
+[log] Measured: scrollWidth 2606, clientWidth 1280, excess 1326, culprit "div.wide", edge 2606, cause "a width wider than the viewport".
+Threshold: 1 px of scroll width beyond the client width (documentElement.scrollWidth > clientWidth + 1, the viewport not clipping, 1 s apart).
+Element: div.wide (div "This promotional strip is wider than an…").
+Suggested CSS: div.wide { max-width: 100%; }
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["div.wide"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the page shows UTF-8 text decoded as Windows-1252 (mojibake) in div.banner "Free shipping on every order over 50 â‚…": "...y order over 50 â‚¬ â€” today only". Fix: serve Content-Type: text/html; charset=utf-8, put <meta charset="utf-8"> first in <head>, store text as utf8mb4 and escape once.
+[log] Measured: pattern "mojibake", excerpt "...y order over 50 â‚¬ â€” today only", count 1, charset "UTF-8".
+Threshold: UTF-8 text decoded as Windows-1252 (mojibake) pattern (rendered text, still present 2 s later after network quiet).
+Element: div.banner (div "Free shipping on every order over 50 â‚…").
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["div.banner"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the page shows an unrendered {{ }} placeholder in p.price "{{price}}": "{{price}}". Suggested CSS: [v-cloak] { display: none; }
+[log] Measured: pattern "mustache", excerpt "{{price}}", count 1.
+Threshold: an unrendered {{ }} placeholder pattern (rendered text, still present 2 s later after network quiet).
+Element: p.price (p "{{price}}").
+Suggested CSS: [v-cloak] { display: none; } Only for uncompiled Vue templates (Angular: ng-cloak); otherwise the template is not rendering on this route.
+Fix: the fix is in code: format values before rendering (for example {price != null ? formatPrice(price) : "-"}), never interpolate an object, and check the template engine runs on this route.
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["p.price"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the page shows placeholder text (lorem ipsum) in p.blurb "Lorem ipsum dolor sit amet, consectetur…": "Lorem ipsum dolor sit amet, co...". Fix: replace the placeholder copy and images; a CI grep for lorem ipsum and the placeholder hosts keeps them out.
+[log] Measured: pattern "lorem", excerpt "Lorem ipsum dolor sit amet, co...", count 1.
+Threshold: placeholder text (lorem ipsum) pattern (rendered text, still present 2 s later after network quiet).
+Element: p.blurb (p "Lorem ipsum dolor sit amet, consectetur…").
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["p.blurb"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): text contrast 1.26:1 on div.banner "Free shipping on every order over 50 â‚…", below 1.5:1 (WCAG 2.2 contrast formula; unreadable-text threshold): #888888 on #777777 from div.banner. Suggested CSS: div.banner { color: #060606; }
+[log] Measured: ratio 1.26, fg "#888888", bg "#777777", bgFrom "div.banner", fontPx 13, fontWeight 400, large false, text "Free shipping on every order over 50 â‚¬".
+Threshold: 1.5 :1 contrast (WCAG 2.2 contrast formula; unreadable-text threshold (VISUAL.md 3.8)).
+Element: div.banner (div "Free shipping on every order over 50 â‚…").
+Suggested CSS: div.banner { color: #060606; } Reaches 4.5:1. Set colour and background together on the same selector, add the dark-mode variant, or remove a prefers-color-scheme: dark block the site has no design for.
+Sample points: 2; scheme: light; state: rest.
+Runtime fix: available with GenClass.init({ mode: "guard", visual: { on: true, fix: true } }); observe mode never changes the page.
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["div.banner"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the open dialog dialog.cookie "We use cookies." is covered by div.cover: 10 of 10 points, including #ok "OK" (dialog z-index 1, cover z-index 2). Fix: render the dialog in a portal at the end of body, or use <dialog> with showModal() (the top layer is above every z-index).
+[log] Measured: dialog "dialog.cookie", covered "10 of 10 points", cover "div.cover", dialogZ "1", coverZ "2", child "#ok \"OK\"".
+Threshold: 50 % of hit points, or any control's centre (a non-top-layer dialog, tested twice 500 ms apart).
+Element: dialog.cookie (dialog "We use cookies.").
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["dialog.cookie"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): an image failed to load on img.logo: the file is not a valid image for /logo-missing.png, shown at 120 x 40 px. Suggested CSS: img.logo { background-color: #f3f4f6; }
+[log] Measured: src "/logo-missing.png", width 120, height 40, naturalWidth 0, cause "the file is not a valid image", alt "Tiny Shop".
+Threshold: 0 px natural width (img complete with naturalWidth 0 and decode() rejected, 1 s apart).
+Element: img.logo (img).
+Suggested CSS: img.logo { background-color: #f3f4f6; } This only makes a failed image look neutral; add width and height attributes too.
+Fix: correct the image URL. Paths are case-sensitive on Linux hosts; check the base path or asset prefix (Vite base, Next.js basePath/assetPrefix), drop a public/ prefix from URLs, serve the right Content-Type, and send CORS headers when the img has crossorigin.
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["img.logo"] } }).
+[endGroup] console.groupEnd
+[debug] [vite] connecting...
+[info] [GenClass] Sends anonymous diagnostics (decisions and counts, no page text) to improve the model. Opt out: GenClass.init({ telemetry: false }) or ?genclass=no-telemetry. With this app's token they also feed its private GenClass dashboard.
+[warning] Failed to decode downloaded font: http://localhost:5173/fonts/shopsans-missing.woff2
+[warning] OTS parsing error: invalid sfntVersion: 1008821359
+[debug] [vite] connected.
+[warning] No available adapters.
+[info] [GenClass] Model ready (genclass-runtime-r17, wasm, q8, 0.41s; inline on the main thread). Mode: observe.
+[startGroupCollapsed] [GenClass] Flagged a stale response: search.query was written 3 times by other operations since its operation (#4) started (version 0 → 3), last 0.03s ago by GET /api/search?q=react (#10), which started 0.23s after #4, from a later user action (#9). Not acted on (would have done discard 0.58): observe mode never changes execution. (stale, 0.99)
+[log] Facts:
+  search.query was written 3 times by other operations since its operation (#4) started (version 0 → 3), last 0.03s ago by GET /api/search?q=react (#10), which started 0.23s after #4, from a later user action (#9).
+  search.results changed since its operation (#4) started: 0 items → 2 items ["React handbook", …] (2 writes), last by GET /api/search?q=reac (#8) 0.36s after #4 started.
+  1 other GET /api/search operation is in flight (0 newer than its operation (#4)): #2 ?q=r started 0.08s before #4.
+  The response to GET /api/search?q=re (#4) arrived after 0.21s (200); the app has not seen it yet.
+  This request comes from user typed "re" into input "Search the shop" (#3), started 0.47s ago.
+[log] Timeline:
+  -0.11s write search.query: "rea" → "reac"; search.results: 4 items ["React handbook", …] → 2 items ["React handbook", …] (by #8)
+  -0.03s end GET /api/search?q=react (#10): 200 in 0.20s
+  -0.03s write search.query: "reac" → "react" (by #10)
+[log] Situation sent to the model:
+app: Tiny Shop — /
+trigger: The response to GET /api/search?q=re (#4) arrived and is about to be delivered; its operation last wrote search.query.
+facts:
+  search.query was written 3 times by other operations since its operation (#4) started (version 0 → 3), last 0.03s ago by GET /api/search?q=react (#10), which started 0.23s after #4, from a later user action (#9).
+  search.results changed since its operation (#4) started: 0 items → 2 items ["React handbook", …] (2 writes), last by GET /api/search?q=reac (#8) 0.36s after #4 started.
+  1 other GET /api/search operation is in flight (0 newer than its operation (#4)): #2 ?q=r started 0.08s before #4.
+  The response to GET /api/search?q=re (#4) arrived after 0.21s (200); the app has not seen it yet.
+  This request comes from user typed "re" into input "Search the shop" (#3), started 0.47s ago.
+in_flight:
+  GET /api/search?q=r (#2) 0.54s so far, by #1
+timeline: none
+state: none
+stats:
+  GET /api/search: 4 done, 0 of last 4 failed, 5 in last 10s
+[log] Answers: {diagnosis: Object, action: Object}
+[log] explain: GenClass.runtime.explain("d1")
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Flagged a stale write: search.query was written 3 times by other operations since this write's cause (#4) started (version 0 → 3), last 0.14s ago by GET /api/search?q=react (#10), which started 0.23s after #4, from a later user action (#9). Not acted on (would have done discard 0.99): observe mode never changes execution. (stale, 0.99)
+[log] Facts:
+  search.query was written 3 times by other operations since this write's cause (#4) started (version 0 → 3), last 0.14s ago by GET /api/search?q=react (#10), which started 0.23s after #4, from a later user action (#9).
+  search.results was written twice by other operations since this write's cause (#4) started (version 0 → 2), last 0.22s ago by GET /api/search?q=reac (#8), which started 0.15s after #4, from a later user action (#7).
+  This write would replace text the user typed into search.query after #4 started (3 user writes, the last 0.14s ago): "react" → "re".
+  This write has search.results = 6 items ["React handbook", …]: neither the current value 2 items ["React handbook", …], nor the value when #4 started.
+  1 other GET /api/search operation is in flight (0 newer than this write's cause (#4)): #2 ?q=r started 0.08s before #4.
+  This write comes from GET /api/search?q=re (#4), started 0.58s ago, ended 0.37s ago with 200; its chain began with user typed "re" into input "Search the shop" (#3).
+  This write would change search.query: "react" → "re".
+  This write would change search.results: 2 items ["React handbook", …] → 6 items ["React handbook", …].
+[log] Timeline:
+  -0.22s write search.query: "rea" → "reac"; search.results: 4 items ["React handbook", …] → 2 items ["React handbook", …] (by #8)
+  -0.15s end GET /api/search?q=react (#10): 200 in 0.20s
+  -0.15s write search.query: "reac" → "react" (by #10)
+[log] Situation sent to the model:
+app: Tiny Shop — /
+trigger: A write to search.query, search.results from GET /api/search?q=re (#4) is about to be applied.
+facts:
+  search.query was written 3 times by other operations since this write's cause (#4) started (version 0 → 3), last 0.14s ago by GET /api/search?q=react (#10), which started 0.23s after #4, from a later user action (#9).
+  search.results was written twice by other operations since this write's cause (#4) started (version 0 → 2), last 0.22s ago by GET /api/search?q=reac (#8), which started 0.15s after #4, from a later user action (#7).
+  This write would replace text the user typed into search.query after #4 started (3 user writes, the last 0.14s ago): "react" → "re".
+  This write has search.results = 6 items ["React handbook", …]: neither the current value 2 items ["React handbook", …], nor the value when #4 started.
+in_flight:
+  GET /api/search?q=r (#2) 0.66s so far, by #1
+timeline: none
+state: none
+stats:
+  GET /api/search: 4 done, 0 of last 4 failed, 5 in last 10s
+[log] Answers: {diagnosis: Object, action: Object}
+[log] explain: GenClass.runtime.explain("d2")
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Flagged a stale response: search.query was written 4 times by other operations since its operation (#2) started (version 0 → 4), last 0.55s ago by GET /api/search?q=re (#4), which started 0.08s after #2, from a later user action (#3). Not acted on (would have done discard 0.98): observe mode never changes execution. (stale, 0.98)
+[log] Facts:
+  search.query was written 4 times by other operations since its operation (#2) started (version 0 → 4), last 0.55s ago by GET /api/search?q=re (#4), which started 0.08s after #2, from a later user action (#3).
+  search.results was written 3 times by other operations since its operation (#2) started (version 0 → 3), last 0.55s ago by GET /api/search?q=re (#4), which started 0.08s after #2, from a later user action (#3).
+  The response has search.results = 8 items ["React handbook", …]: neither the current value 6 items ["React handbook", …], nor the value when #2 started.
+  search.query holds a value written 0.55s ago by the response to GET /api/search?q=re (#4), which was delivered over newer data from GET /api/search?q=react (#10); nothing has rewritten it since.
+  GET /api/search usually answers in 0.20s (p95 1.21s).
+  The response to GET /api/search?q=r (#2) arrived after 1.21s (200); the app has not seen it yet.
+  This request comes from user typed "r" into input "Search the shop" (#1), started 1.21s ago.
+[log] Timeline:
+  -0.70s write search.query: "reac" → "react" (by #10)
+  -0.55s write search.query: "react" → "re"; search.results: 2 items ["React handbook", …] → 6 items ["React handbook", …] (by #4)
+  -0.00s end GET /api/search?q=r (#2): 200 in 1.21s
+[log] Situation sent to the model:
+app: Tiny Shop — /
+trigger: The response to GET /api/search?q=r (#2) arrived and is about to be delivered; its operation last wrote search.query and search.results.
+facts:
+  search.query was written 4 times by other operations since its operation (#2) started (version 0 → 4), last 0.55s ago by GET /api/search?q=re (#4), which started 0.08s after #2, from a later user action (#3).
+  search.results was written 3 times by other operations since its operation (#2) started (version 0 → 3), last 0.55s ago by GET /api/search?q=re (#4), which started 0.08s after #2, from a later user action (#3).
+  The response has search.results = 8 items ["React handbook", …]: neither the current value 6 items ["React handbook", …], nor the value when #2 started.
+in_flight: none
+timeline: none
+state: none
+stats:
+  GET /api/search: 5 done, median 0.20s, p95 1.21s, 0 of last 5 failed, 5 in last 10s
+[log] Answers: {diagnosis: Object, action: Object}
+[log] explain: GenClass.runtime.explain("d3")
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the web font "shopsans" failed to load from /fonts/shopsans-missing.woff2; 21 of 21 sampled text elements fall back to another font, for example div.banner "Free shipping on every order over 50 â‚…". Suggested CSS: @font-face { font-family: "shopsans"; src: url("/fonts/shopsans.woff2") format("woff2"); font-display: swap; }
+[log] Measured: family "shopsans", weight "normal", style "normal", src "/fonts/shopsans-missing.woff2", elements 21, sampled 21.
+Threshold: error FontFace.status (document.fonts after fonts.ready).
+Element: div.banner (div "Free shipping on every order over 50 â‚…").
+Suggested CSS: @font-face { font-family: "shopsans"; src: url("/fonts/shopsans.woff2") format("woff2"); font-display: swap; } With a size-adjusted fallback font the swap does not move the layout.
+Fix: fix the url() relative to the stylesheet, send Access-Control-Allow-Origin for fonts on another origin (fonts are fetched in CORS mode) and ship woff2.
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["div.banner"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the page scrolls sideways on a 1280 px viewport: div.wide "This promotional strip is wider than an…" ends at 2606 px (1326 px too wide, a width wider than the viewport). Suggested CSS: div.wide { max-width: 100%; }
+[log] Measured: scrollWidth 2606, clientWidth 1280, excess 1326, culprit "div.wide", edge 2606, cause "a width wider than the viewport".
+Threshold: 1 px of scroll width beyond the client width (documentElement.scrollWidth > clientWidth + 1, the viewport not clipping, 1 s apart).
+Element: div.wide (div "This promotional strip is wider than an…").
+Suggested CSS: div.wide { max-width: 100%; }
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["div.wide"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the page shows UTF-8 text decoded as Windows-1252 (mojibake) in div.banner "Free shipping on every order over 50 â‚…": "...y order over 50 â‚¬ â€” today only". Fix: serve Content-Type: text/html; charset=utf-8, put <meta charset="utf-8"> first in <head>, store text as utf8mb4 and escape once.
+[log] Measured: pattern "mojibake", excerpt "...y order over 50 â‚¬ â€” today only", count 1, charset "UTF-8".
+Threshold: UTF-8 text decoded as Windows-1252 (mojibake) pattern (rendered text, still present 2 s later after network quiet).
+Element: div.banner (div "Free shipping on every order over 50 â‚…").
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["div.banner"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the page shows an unrendered {{ }} placeholder in p.price "{{price}}": "{{price}}". Suggested CSS: [v-cloak] { display: none; }
+[log] Measured: pattern "mustache", excerpt "{{price}}", count 1.
+Threshold: an unrendered {{ }} placeholder pattern (rendered text, still present 2 s later after network quiet).
+Element: p.price (p "{{price}}").
+Suggested CSS: [v-cloak] { display: none; } Only for uncompiled Vue templates (Angular: ng-cloak); otherwise the template is not rendering on this route.
+Fix: the fix is in code: format values before rendering (for example {price != null ? formatPrice(price) : "-"}), never interpolate an object, and check the template engine runs on this route.
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["p.price"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the page shows placeholder text (lorem ipsum) in p.blurb "Lorem ipsum dolor sit amet, consectetur…": "Lorem ipsum dolor sit amet, co...". Fix: replace the placeholder copy and images; a CI grep for lorem ipsum and the placeholder hosts keeps them out.
+[log] Measured: pattern "lorem", excerpt "Lorem ipsum dolor sit amet, co...", count 1.
+Threshold: placeholder text (lorem ipsum) pattern (rendered text, still present 2 s later after network quiet).
+Element: p.blurb (p "Lorem ipsum dolor sit amet, consectetur…").
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["p.blurb"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): text contrast 1.26:1 on div.banner "Free shipping on every order over 50 â‚…", below 1.5:1 (WCAG 2.2 contrast formula; unreadable-text threshold): #888888 on #777777 from div.banner. Suggested CSS: div.banner { color: #060606; }
+[log] Measured: ratio 1.26, fg "#888888", bg "#777777", bgFrom "div.banner", fontPx 13, fontWeight 400, large false, text "Free shipping on every order over 50 â‚¬".
+Threshold: 1.5 :1 contrast (WCAG 2.2 contrast formula; unreadable-text threshold (VISUAL.md 3.8)).
+Element: div.banner (div "Free shipping on every order over 50 â‚…").
+Suggested CSS: div.banner { color: #060606; } Reaches 4.5:1. Set colour and background together on the same selector, add the dark-mode variant, or remove a prefers-color-scheme: dark block the site has no design for.
+Sample points: 2; scheme: light; state: rest.
+Runtime fix: available with GenClass.init({ mode: "guard", visual: { on: true, fix: true } }); observe mode never changes the page.
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["div.banner"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the open dialog dialog.cookie "We use cookies." is covered by div.cover: 10 of 10 points, including #ok "OK" (dialog z-index 1, cover z-index 2). Fix: render the dialog in a portal at the end of body, or use <dialog> with showModal() (the top layer is above every z-index).
+[log] Measured: dialog "dialog.cookie", covered "10 of 10 points", cover "div.cover", dialogZ "1", coverZ "2", child "#ok \"OK\"".
+Threshold: 50 % of hit points, or any control's centre (a non-top-layer dialog, tested twice 500 ms apart).
+Element: dialog.cookie (dialog "We use cookies.").
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["dialog.cookie"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): an image failed to load on img.logo: the file is not a valid image for /logo-missing.png, shown at 120 x 40 px. Suggested CSS: img.logo { background-color: #f3f4f6; }
+[log] Measured: src "/logo-missing.png", width 120, height 40, naturalWidth 0, cause "the file is not a valid image", alt "Tiny Shop".
+Threshold: 0 px natural width (img complete with naturalWidth 0 and decode() rejected, 1 s apart).
+Element: img.logo (img).
+Suggested CSS: img.logo { background-color: #f3f4f6; } This only makes a failed image look neutral; add width and height attributes too.
+Fix: correct the image URL. Paths are case-sensitive on Linux hosts; check the base path or asset prefix (Vite base, Next.js basePath/assetPrefix), drop a public/ prefix from URLs, serve the right Content-Type, and send CORS headers when the img has crossorigin.
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["img.logo"] } }).
+[endGroup] console.groupEnd
+[debug] [vite] connecting...
+[info] [GenClass] Sends anonymous diagnostics (decisions and counts, no page text) to improve the model. Opt out: GenClass.init({ telemetry: false }) or ?genclass=no-telemetry. With this app's token they also feed its private GenClass dashboard.
+[debug] [vite] connected.
+[warning] Failed to decode downloaded font: http://localhost:5173/fonts/shopsans-missing.woff2
+[warning] OTS parsing error: invalid sfntVersion: 1008821359
+[warning] No available adapters.
+[info] [GenClass] Model ready (genclass-runtime-r17, wasm, q8, 0.44s; inline on the main thread). Mode: observe.
+[startGroupCollapsed] [GenClass] Flagged a stale response: search.query was written 4 times by other operations since its operation (#2) started (version 0 → 4), last 0.70s ago by GET /api/search?q=react (#10), which started 0.30s after #2, from a later user action (#9). Not acted on (would have done discard 0.96): observe mode never changes execution. (stale, 0.99)
+[log] Facts:
+  search.query was written 4 times by other operations since its operation (#2) started (version 0 → 4), last 0.70s ago by GET /api/search?q=react (#10), which started 0.30s after #2, from a later user action (#9).
+  search.results changed since its operation (#2) started: 0 items → 2 items ["React handbook", …] (3 writes), last by GET /api/search?q=reac (#8) 0.43s after #2 started.
+  GET /api/search usually answers in 0.20s (p95 1.21s).
+  The response to GET /api/search?q=r (#2) arrived after 1.21s (200); the app has not seen it yet.
+  This request comes from user typed "r" into input "Search the shop" (#1), started 1.21s ago.
+[log] Timeline:
+  -0.70s end GET /api/search?q=react (#10): 200 in 0.20s
+  -0.70s write search.query: "reac" → "react" (by #10)
+  -0.00s end GET /api/search?q=r (#2): 200 in 1.21s
+[log] Situation sent to the model:
+app: Tiny Shop — /
+trigger: The response to GET /api/search?q=r (#2) arrived and is about to be delivered; its operation last wrote search.query.
+facts:
+  search.query was written 4 times by other operations since its operation (#2) started (version 0 → 4), last 0.70s ago by GET /api/search?q=react (#10), which started 0.30s after #2, from a later user action (#9).
+  search.results changed since its operation (#2) started: 0 items → 2 items ["React handbook", …] (3 writes), last by GET /api/search?q=reac (#8) 0.43s after #2 started.
+  GET /api/search usually answers in 0.20s (p95 1.21s).
+  The response to GET /api/search?q=r (#2) arrived after 1.21s (200); the app has not seen it yet.
+  This request comes from user typed "r" into input "Search the shop" (#1), started 1.21s ago.
+in_flight: none
+timeline: none
+state:
+  search.query = "react" (v4, by #10 0.70s ago)
+stats:
+  GET /api/search: 5 done, median 0.20s, p95 1.21s, 0 of last 5 failed, 5 in last 10s
+[log] Answers: {diagnosis: Object, action: Object}
+[log] explain: GenClass.runtime.explain("d1")
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Flagged a stale write: search.query was written 4 times by other operations since this write's cause (#2) started (version 0 → 4), last 0.81s ago by GET /api/search?q=react (#10), which started 0.30s after #2, from a later user action (#9). Not acted on (would have done discard 1.00): observe mode never changes execution. (stale, 0.99)
+[log] Facts:
+  search.query was written 4 times by other operations since this write's cause (#2) started (version 0 → 4), last 0.81s ago by GET /api/search?q=react (#10), which started 0.30s after #2, from a later user action (#9).
+  search.results was written 3 times by other operations since this write's cause (#2) started (version 0 → 3), last 0.89s ago by GET /api/search?q=reac (#8), which started 0.23s after #2, from a later user action (#7).
+  This write would replace text the user typed into search.query after #2 started (4 user writes, the last 0.81s ago): "react" → "r".
+  This write's cause (#2) took 1.21s, 5.9× its usual 0.20s (p95 1.21s).
+  This write has search.results = 8 items ["React handbook", …]: neither the current value 2 items ["React handbook", …], nor the value when #2 started.
+  This write comes from GET /api/search?q=r (#2), started 1.32s ago, ended 0.11s ago with 200; its chain began with user typed "r" into input "Search the shop" (#1).
+  This write would change search.query: "react" → "r".
+  This write would change search.results: 2 items ["React handbook", …] → 8 items ["React handbook", …].
+[log] Timeline:
+  -0.82s end GET /api/search?q=react (#10): 200 in 0.20s
+  -0.81s write search.query: "reac" → "react" (by #10)
+  -0.11s end GET /api/search?q=r (#2): 200 in 1.21s
+[log] Situation sent to the model:
+app: Tiny Shop — /
+trigger: A write to search.query, search.results from GET /api/search?q=r (#2) is about to be applied.
+facts:
+  search.query was written 4 times by other operations since this write's cause (#2) started (version 0 → 4), last 0.81s ago by GET /api/search?q=react (#10), which started 0.30s after #2, from a later user action (#9).
+  search.results was written 3 times by other operations since this write's cause (#2) started (version 0 → 3), last 0.89s ago by GET /api/search?q=reac (#8), which started 0.23s after #2, from a later user action (#7).
+  This write would replace text the user typed into search.query after #2 started (4 user writes, the last 0.81s ago): "react" → "r".
+  This write's cause (#2) took 1.21s, 5.9× its usual 0.20s (p95 1.21s).
+in_flight: none
+timeline: none
+state: none
+stats:
+  GET /api/search: 5 done, median 0.20s, p95 1.21s, 0 of last 5 failed, 5 in last 10s
+[log] Answers: {diagnosis: Object, action: Object}
+[log] explain: GenClass.runtime.explain("d2")
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the web font "shopsans" failed to load from /fonts/shopsans-missing.woff2; 21 of 21 sampled text elements fall back to another font, for example div.banner "Free shipping on every order over 50 â‚…". Suggested CSS: @font-face { font-family: "shopsans"; src: url("/fonts/shopsans.woff2") format("woff2"); font-display: swap; }
+[log] Measured: family "shopsans", weight "normal", style "normal", src "/fonts/shopsans-missing.woff2", elements 21, sampled 21.
+Threshold: error FontFace.status (document.fonts after fonts.ready).
+Element: div.banner (div "Free shipping on every order over 50 â‚…").
+Suggested CSS: @font-face { font-family: "shopsans"; src: url("/fonts/shopsans.woff2") format("woff2"); font-display: swap; } With a size-adjusted fallback font the swap does not move the layout.
+Fix: fix the url() relative to the stylesheet, send Access-Control-Allow-Origin for fonts on another origin (fonts are fetched in CORS mode) and ship woff2.
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["div.banner"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the page scrolls sideways on a 1280 px viewport: div.wide "This promotional strip is wider than an…" ends at 2606 px (1326 px too wide, a width wider than the viewport). Suggested CSS: div.wide { max-width: 100%; }
+[log] Measured: scrollWidth 2606, clientWidth 1280, excess 1326, culprit "div.wide", edge 2606, cause "a width wider than the viewport".
+Threshold: 1 px of scroll width beyond the client width (documentElement.scrollWidth > clientWidth + 1, the viewport not clipping, 1 s apart).
+Element: div.wide (div "This promotional strip is wider than an…").
+Suggested CSS: div.wide { max-width: 100%; }
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["div.wide"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the page shows UTF-8 text decoded as Windows-1252 (mojibake) in div.banner "Free shipping on every order over 50 â‚…": "...y order over 50 â‚¬ â€” today only". Fix: serve Content-Type: text/html; charset=utf-8, put <meta charset="utf-8"> first in <head>, store text as utf8mb4 and escape once.
+[log] Measured: pattern "mojibake", excerpt "...y order over 50 â‚¬ â€” today only", count 1, charset "UTF-8".
+Threshold: UTF-8 text decoded as Windows-1252 (mojibake) pattern (rendered text, still present 2 s later after network quiet).
+Element: div.banner (div "Free shipping on every order over 50 â‚…").
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["div.banner"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the page shows an unrendered {{ }} placeholder in p.price "{{price}}": "{{price}}". Suggested CSS: [v-cloak] { display: none; }
+[log] Measured: pattern "mustache", excerpt "{{price}}", count 1.
+Threshold: an unrendered {{ }} placeholder pattern (rendered text, still present 2 s later after network quiet).
+Element: p.price (p "{{price}}").
+Suggested CSS: [v-cloak] { display: none; } Only for uncompiled Vue templates (Angular: ng-cloak); otherwise the template is not rendering on this route.
+Fix: the fix is in code: format values before rendering (for example {price != null ? formatPrice(price) : "-"}), never interpolate an object, and check the template engine runs on this route.
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["p.price"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the page shows placeholder text (lorem ipsum) in p.blurb "Lorem ipsum dolor sit amet, consectetur…": "Lorem ipsum dolor sit amet, co...". Fix: replace the placeholder copy and images; a CI grep for lorem ipsum and the placeholder hosts keeps them out.
+[log] Measured: pattern "lorem", excerpt "Lorem ipsum dolor sit amet, co...", count 1.
+Threshold: placeholder text (lorem ipsum) pattern (rendered text, still present 2 s later after network quiet).
+Element: p.blurb (p "Lorem ipsum dolor sit amet, consectetur…").
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["p.blurb"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): text contrast 1.26:1 on div.banner "Free shipping on every order over 50 â‚…", below 1.5:1 (WCAG 2.2 contrast formula; unreadable-text threshold): #888888 on #777777 from div.banner. Suggested CSS: div.banner { color: #060606; }
+[log] Measured: ratio 1.26, fg "#888888", bg "#777777", bgFrom "div.banner", fontPx 13, fontWeight 400, large false, text "Free shipping on every order over 50 â‚¬".
+Threshold: 1.5 :1 contrast (WCAG 2.2 contrast formula; unreadable-text threshold (VISUAL.md 3.8)).
+Element: div.banner (div "Free shipping on every order over 50 â‚…").
+Suggested CSS: div.banner { color: #060606; } Reaches 4.5:1. Set colour and background together on the same selector, add the dark-mode variant, or remove a prefers-color-scheme: dark block the site has no design for.
+Sample points: 2; scheme: light; state: rest.
+Runtime fix: available with GenClass.init({ mode: "guard", visual: { on: true, fix: true } }); observe mode never changes the page.
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["div.banner"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the open dialog dialog.cookie "We use cookies." is covered by div.cover: 10 of 10 points, including #ok "OK" (dialog z-index 1, cover z-index 2). Fix: render the dialog in a portal at the end of body, or use <dialog> with showModal() (the top layer is above every z-index).
+[log] Measured: dialog "dialog.cookie", covered "10 of 10 points", cover "div.cover", dialogZ "1", coverZ "2", child "#ok \"OK\"".
+Threshold: 50 % of hit points, or any control's centre (a non-top-layer dialog, tested twice 500 ms apart).
+Element: dialog.cookie (dialog "We use cookies.").
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["dialog.cookie"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): an image failed to load on img.logo: the file is not a valid image for /logo-missing.png, shown at 120 x 40 px. Suggested CSS: img.logo { background-color: #f3f4f6; }
+[log] Measured: src "/logo-missing.png", width 120, height 40, naturalWidth 0, cause "the file is not a valid image", alt "Tiny Shop".
+Threshold: 0 px natural width (img complete with naturalWidth 0 and decode() rejected, 1 s apart).
+Element: img.logo (img).
+Suggested CSS: img.logo { background-color: #f3f4f6; } This only makes a failed image look neutral; add width and height attributes too.
+Fix: correct the image URL. Paths are case-sensitive on Linux hosts; check the base path or asset prefix (Vite base, Next.js basePath/assetPrefix), drop a public/ prefix from URLs, serve the right Content-Type, and send CORS headers when the img has crossorigin.
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["img.logo"] } }).
+[endGroup] console.groupEnd
+[debug] [vite] connecting...
+[info] [GenClass] Sends anonymous diagnostics (decisions and counts, no page text) to improve the model. Opt out: GenClass.init({ telemetry: false }) or ?genclass=no-telemetry. With this app's token they also feed its private GenClass dashboard.
+[debug] [vite] connected.
+[warning] Failed to decode downloaded font: http://localhost:5173/fonts/shopsans-missing.woff2
+[warning] OTS parsing error: invalid sfntVersion: 1008821359
+[warning] No available adapters.
+[info] [GenClass] Model ready (genclass-runtime-r17, wasm, q8, 0.43s; inline on the main thread). Mode: observe.
+[debug] [vite] connecting...
+[info] [GenClass] Sends anonymous diagnostics (decisions and counts, no page text) to improve the model. Opt out: GenClass.init({ telemetry: false }) or ?genclass=no-telemetry. With this app's token they also feed its private GenClass dashboard.
+[warning] Failed to decode downloaded font: http://localhost:5173/fonts/shopsans-missing.woff2
+[warning] OTS parsing error: invalid sfntVersion: 1008821359
+[debug] [vite] connected.
+[warning] No available adapters.
+[info] [GenClass] Model ready (genclass-runtime-r17, wasm, q8, 0.47s; inline on the main thread). Mode: observe.
+[debug] [GenClass] Flagged a stale response: search.query was written once by other operations since its operation (#2) started (version 0 → 1), last 0.69s ago by GET /api/search?q=react (#10), which started 0.32s after #2, from a later user action (#9). Not acted on (would have done discard 0.95): observe mode never changes execution. (stale, 0.85) (possible)
+[startGroupCollapsed] [GenClass] Check (measured): the web font "shopsans" failed to load from /fonts/shopsans-missing.woff2; 21 of 21 sampled text elements fall back to another font, for example div.banner "Free shipping on every order over 50 â‚…". Suggested CSS: @font-face { font-family: "shopsans"; src: url("/fonts/shopsans.woff2") format("woff2"); font-display: swap; }
+[log] Measured: family "shopsans", weight "normal", style "normal", src "/fonts/shopsans-missing.woff2", elements 21, sampled 21.
+Threshold: error FontFace.status (document.fonts after fonts.ready).
+Element: div.banner (div "Free shipping on every order over 50 â‚…").
+Suggested CSS: @font-face { font-family: "shopsans"; src: url("/fonts/shopsans.woff2") format("woff2"); font-display: swap; } With a size-adjusted fallback font the swap does not move the layout.
+Fix: fix the url() relative to the stylesheet, send Access-Control-Allow-Origin for fonts on another origin (fonts are fetched in CORS mode) and ship woff2.
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["div.banner"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the page scrolls sideways on a 1280 px viewport: div.wide "This promotional strip is wider than an…" ends at 2606 px (1326 px too wide, a width wider than the viewport). Suggested CSS: div.wide { max-width: 100%; }
+[log] Measured: scrollWidth 2606, clientWidth 1280, excess 1326, culprit "div.wide", edge 2606, cause "a width wider than the viewport".
+Threshold: 1 px of scroll width beyond the client width (documentElement.scrollWidth > clientWidth + 1, the viewport not clipping, 1 s apart).
+Element: div.wide (div "This promotional strip is wider than an…").
+Suggested CSS: div.wide { max-width: 100%; }
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["div.wide"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the page shows UTF-8 text decoded as Windows-1252 (mojibake) in div.banner "Free shipping on every order over 50 â‚…": "...y order over 50 â‚¬ â€” today only". Fix: serve Content-Type: text/html; charset=utf-8, put <meta charset="utf-8"> first in <head>, store text as utf8mb4 and escape once.
+[log] Measured: pattern "mojibake", excerpt "...y order over 50 â‚¬ â€” today only", count 1, charset "UTF-8".
+Threshold: UTF-8 text decoded as Windows-1252 (mojibake) pattern (rendered text, still present 2 s later after network quiet).
+Element: div.banner (div "Free shipping on every order over 50 â‚…").
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["div.banner"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the page shows an unrendered {{ }} placeholder in p.price "{{price}}": "{{price}}". Suggested CSS: [v-cloak] { display: none; }
+[log] Measured: pattern "mustache", excerpt "{{price}}", count 1.
+Threshold: an unrendered {{ }} placeholder pattern (rendered text, still present 2 s later after network quiet).
+Element: p.price (p "{{price}}").
+Suggested CSS: [v-cloak] { display: none; } Only for uncompiled Vue templates (Angular: ng-cloak); otherwise the template is not rendering on this route.
+Fix: the fix is in code: format values before rendering (for example {price != null ? formatPrice(price) : "-"}), never interpolate an object, and check the template engine runs on this route.
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["p.price"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the page shows placeholder text (lorem ipsum) in p.blurb "Lorem ipsum dolor sit amet, consectetur…": "Lorem ipsum dolor sit amet, co...". Fix: replace the placeholder copy and images; a CI grep for lorem ipsum and the placeholder hosts keeps them out.
+[log] Measured: pattern "lorem", excerpt "Lorem ipsum dolor sit amet, co...", count 1.
+Threshold: placeholder text (lorem ipsum) pattern (rendered text, still present 2 s later after network quiet).
+Element: p.blurb (p "Lorem ipsum dolor sit amet, consectetur…").
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["p.blurb"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): text contrast 1.26:1 on div.banner "Free shipping on every order over 50 â‚…", below 1.5:1 (WCAG 2.2 contrast formula; unreadable-text threshold): #888888 on #777777 from div.banner. Suggested CSS: div.banner { color: #060606; }
+[log] Measured: ratio 1.26, fg "#888888", bg "#777777", bgFrom "div.banner", fontPx 13, fontWeight 400, large false, text "Free shipping on every order over 50 â‚¬".
+Threshold: 1.5 :1 contrast (WCAG 2.2 contrast formula; unreadable-text threshold (VISUAL.md 3.8)).
+Element: div.banner (div "Free shipping on every order over 50 â‚…").
+Suggested CSS: div.banner { color: #060606; } Reaches 4.5:1. Set colour and background together on the same selector, add the dark-mode variant, or remove a prefers-color-scheme: dark block the site has no design for.
+Sample points: 2; scheme: light; state: rest.
+Runtime fix: available with GenClass.init({ mode: "guard", visual: { on: true, fix: true } }); observe mode never changes the page.
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["div.banner"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the open dialog dialog.cookie "We use cookies." is covered by div.cover: 10 of 10 points, including #ok "OK" (dialog z-index 1, cover z-index 2). Fix: render the dialog in a portal at the end of body, or use <dialog> with showModal() (the top layer is above every z-index).
+[log] Measured: dialog "dialog.cookie", covered "10 of 10 points", cover "div.cover", dialogZ "1", coverZ "2", child "#ok \"OK\"".
+Threshold: 50 % of hit points, or any control's centre (a non-top-layer dialog, tested twice 500 ms apart).
+Element: dialog.cookie (dialog "We use cookies.").
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["dialog.cookie"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): an image failed to load on img.logo: the file is not a valid image for /logo-missing.png, shown at 120 x 40 px. Suggested CSS: img.logo { background-color: #f3f4f6; }
+[log] Measured: src "/logo-missing.png", width 120, height 40, naturalWidth 0, cause "the file is not a valid image", alt "Tiny Shop".
+Threshold: 0 px natural width (img complete with naturalWidth 0 and decode() rejected, 1 s apart).
+Element: img.logo (img).
+Suggested CSS: img.logo { background-color: #f3f4f6; } This only makes a failed image look neutral; add width and height attributes too.
+Fix: correct the image URL. Paths are case-sensitive on Linux hosts; check the base path or asset prefix (Vite base, Next.js basePath/assetPrefix), drop a public/ prefix from URLs, serve the right Content-Type, and send CORS headers when the img has crossorigin.
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["img.logo"] } }).
+[endGroup] console.groupEnd
+[debug] [vite] connecting...
+[warning] Failed to decode downloaded font: http://localhost:5173/fonts/shopsans-missing.woff2
+[warning] OTS parsing error: invalid sfntVersion: 1008821359
+[info] [GenClass] Sends anonymous diagnostics (decisions and counts, no page text) to improve the model. Opt out: GenClass.init({ telemetry: false }) or ?genclass=no-telemetry. With this app's token they also feed its private GenClass dashboard.
+[debug] [vite] connected.
+[warning] No available adapters.
+[info] [GenClass] Model ready (genclass-runtime-r17, wasm, q8, 0.56s; inline on the main thread). Mode: observe.
+[startGroupCollapsed] [GenClass] Check (measured): the web font "shopsans" failed to load from /fonts/shopsans-missing.woff2; 21 of 21 sampled text elements fall back to another font, for example div.banner "Free shipping on every order over 50 â‚…". Suggested CSS: @font-face { font-family: "shopsans"; src: url("/fonts/shopsans.woff2") format("woff2"); font-display: swap; }
+[log] Measured: family "shopsans", weight "normal", style "normal", src "/fonts/shopsans-missing.woff2", elements 21, sampled 21.
+Threshold: error FontFace.status (document.fonts after fonts.ready).
+Element: div.banner (div "Free shipping on every order over 50 â‚…").
+Suggested CSS: @font-face { font-family: "shopsans"; src: url("/fonts/shopsans.woff2") format("woff2"); font-display: swap; } With a size-adjusted fallback font the swap does not move the layout.
+Fix: fix the url() relative to the stylesheet, send Access-Control-Allow-Origin for fonts on another origin (fonts are fetched in CORS mode) and ship woff2.
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["div.banner"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the page scrolls sideways on a 1280 px viewport: div.wide "This promotional strip is wider than an…" ends at 2606 px (1326 px too wide, a width wider than the viewport). Suggested CSS: div.wide { max-width: 100%; }
+[log] Measured: scrollWidth 2606, clientWidth 1280, excess 1326, culprit "div.wide", edge 2606, cause "a width wider than the viewport".
+Threshold: 1 px of scroll width beyond the client width (documentElement.scrollWidth > clientWidth + 1, the viewport not clipping, 1 s apart).
+Element: div.wide (div "This promotional strip is wider than an…").
+Suggested CSS: div.wide { max-width: 100%; }
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["div.wide"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the page shows UTF-8 text decoded as Windows-1252 (mojibake) in div.banner "Free shipping on every order over 50 â‚…": "...y order over 50 â‚¬ â€” today only". Fix: serve Content-Type: text/html; charset=utf-8, put <meta charset="utf-8"> first in <head>, store text as utf8mb4 and escape once.
+[log] Measured: pattern "mojibake", excerpt "...y order over 50 â‚¬ â€” today only", count 1, charset "UTF-8".
+Threshold: UTF-8 text decoded as Windows-1252 (mojibake) pattern (rendered text, still present 2 s later after network quiet).
+Element: div.banner (div "Free shipping on every order over 50 â‚…").
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["div.banner"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the page shows an unrendered {{ }} placeholder in p.price "{{price}}": "{{price}}". Suggested CSS: [v-cloak] { display: none; }
+[log] Measured: pattern "mustache", excerpt "{{price}}", count 1.
+Threshold: an unrendered {{ }} placeholder pattern (rendered text, still present 2 s later after network quiet).
+Element: p.price (p "{{price}}").
+Suggested CSS: [v-cloak] { display: none; } Only for uncompiled Vue templates (Angular: ng-cloak); otherwise the template is not rendering on this route.
+Fix: the fix is in code: format values before rendering (for example {price != null ? formatPrice(price) : "-"}), never interpolate an object, and check the template engine runs on this route.
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["p.price"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the page shows placeholder text (lorem ipsum) in p.blurb "Lorem ipsum dolor sit amet, consectetur…": "Lorem ipsum dolor sit amet, co...". Fix: replace the placeholder copy and images; a CI grep for lorem ipsum and the placeholder hosts keeps them out.
+[log] Measured: pattern "lorem", excerpt "Lorem ipsum dolor sit amet, co...", count 1.
+Threshold: placeholder text (lorem ipsum) pattern (rendered text, still present 2 s later after network quiet).
+Element: p.blurb (p "Lorem ipsum dolor sit amet, consectetur…").
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["p.blurb"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): text contrast 1.26:1 on div.banner "Free shipping on every order over 50 â‚…", below 1.5:1 (WCAG 2.2 contrast formula; unreadable-text threshold): #888888 on #777777 from div.banner. Suggested CSS: div.banner { color: #060606; }
+[log] Measured: ratio 1.26, fg "#888888", bg "#777777", bgFrom "div.banner", fontPx 13, fontWeight 400, large false, text "Free shipping on every order over 50 â‚¬".
+Threshold: 1.5 :1 contrast (WCAG 2.2 contrast formula; unreadable-text threshold (VISUAL.md 3.8)).
+Element: div.banner (div "Free shipping on every order over 50 â‚…").
+Suggested CSS: div.banner { color: #060606; } Reaches 4.5:1. Set colour and background together on the same selector, add the dark-mode variant, or remove a prefers-color-scheme: dark block the site has no design for.
+Sample points: 2; scheme: light; state: rest.
+Runtime fix: available with GenClass.init({ mode: "guard", visual: { on: true, fix: true } }); observe mode never changes the page.
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["div.banner"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the open dialog dialog.cookie "We use cookies." is covered by div.cover: 10 of 10 points, including #ok "OK" (dialog z-index 1, cover z-index 2). Fix: render the dialog in a portal at the end of body, or use <dialog> with showModal() (the top layer is above every z-index).
+[log] Measured: dialog "dialog.cookie", covered "10 of 10 points", cover "div.cover", dialogZ "1", coverZ "2", child "#ok \"OK\"".
+Threshold: 50 % of hit points, or any control's centre (a non-top-layer dialog, tested twice 500 ms apart).
+Element: dialog.cookie (dialog "We use cookies.").
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["dialog.cookie"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): an image failed to load on img.logo: the file is not a valid image for /logo-missing.png, shown at 120 x 40 px. Suggested CSS: img.logo { background-color: #f3f4f6; }
+[log] Measured: src "/logo-missing.png", width 120, height 40, naturalWidth 0, cause "the file is not a valid image", alt "Tiny Shop".
+Threshold: 0 px natural width (img complete with naturalWidth 0 and decode() rejected, 1 s apart).
+Element: img.logo (img).
+Suggested CSS: img.logo { background-color: #f3f4f6; } This only makes a failed image look neutral; add width and height attributes too.
+Fix: correct the image URL. Paths are case-sensitive on Linux hosts; check the base path or asset prefix (Vite base, Next.js basePath/assetPrefix), drop a public/ prefix from URLs, serve the right Content-Type, and send CORS headers when the img has crossorigin.
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["img.logo"] } }).
+[endGroup] console.groupEnd
+[warning] Failed to decode downloaded font: http://localhost:5173/fonts/shopsans-missing.woff2
+[warning] OTS parsing error: invalid sfntVersion: 1008821359
+[debug] [vite] connecting...
+[info] [GenClass] Sends anonymous diagnostics (decisions and counts, no page text) to improve the model. Opt out: GenClass.init({ telemetry: false }) or ?genclass=no-telemetry. With this app's token they also feed its private GenClass dashboard.
+[debug] [vite] connected.
+[warning] No available adapters.
+[info] [GenClass] Model ready (genclass-runtime-r17, wasm, q8, 0.46s; inline on the main thread). Mode: observe.
+[startGroupCollapsed] [GenClass] Check (measured): the web font "shopsans" failed to load from /fonts/shopsans-missing.woff2; 21 of 21 sampled text elements fall back to another font, for example div.banner "Free shipping on every order over 50 â‚…". Suggested CSS: @font-face { font-family: "shopsans"; src: url("/fonts/shopsans.woff2") format("woff2"); font-display: swap; }
+[log] Measured: family "shopsans", weight "normal", style "normal", src "/fonts/shopsans-missing.woff2", elements 21, sampled 21.
+Threshold: error FontFace.status (document.fonts after fonts.ready).
+Element: div.banner (div "Free shipping on every order over 50 â‚…").
+Suggested CSS: @font-face { font-family: "shopsans"; src: url("/fonts/shopsans.woff2") format("woff2"); font-display: swap; } With a size-adjusted fallback font the swap does not move the layout.
+Fix: fix the url() relative to the stylesheet, send Access-Control-Allow-Origin for fonts on another origin (fonts are fetched in CORS mode) and ship woff2.
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["div.banner"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the page scrolls sideways on a 1280 px viewport: div.wide "This promotional strip is wider than an…" ends at 2606 px (1326 px too wide, a width wider than the viewport). Suggested CSS: div.wide { max-width: 100%; }
+[log] Measured: scrollWidth 2606, clientWidth 1280, excess 1326, culprit "div.wide", edge 2606, cause "a width wider than the viewport".
+Threshold: 1 px of scroll width beyond the client width (documentElement.scrollWidth > clientWidth + 1, the viewport not clipping, 1 s apart).
+Element: div.wide (div "This promotional strip is wider than an…").
+Suggested CSS: div.wide { max-width: 100%; }
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["div.wide"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the page shows UTF-8 text decoded as Windows-1252 (mojibake) in div.banner "Free shipping on every order over 50 â‚…": "...y order over 50 â‚¬ â€” today only". Fix: serve Content-Type: text/html; charset=utf-8, put <meta charset="utf-8"> first in <head>, store text as utf8mb4 and escape once.
+[log] Measured: pattern "mojibake", excerpt "...y order over 50 â‚¬ â€” today only", count 1, charset "UTF-8".
+Threshold: UTF-8 text decoded as Windows-1252 (mojibake) pattern (rendered text, still present 2 s later after network quiet).
+Element: div.banner (div "Free shipping on every order over 50 â‚…").
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["div.banner"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the page shows an unrendered {{ }} placeholder in p.price "{{price}}": "{{price}}". Suggested CSS: [v-cloak] { display: none; }
+[log] Measured: pattern "mustache", excerpt "{{price}}", count 1.
+Threshold: an unrendered {{ }} placeholder pattern (rendered text, still present 2 s later after network quiet).
+Element: p.price (p "{{price}}").
+Suggested CSS: [v-cloak] { display: none; } Only for uncompiled Vue templates (Angular: ng-cloak); otherwise the template is not rendering on this route.
+Fix: the fix is in code: format values before rendering (for example {price != null ? formatPrice(price) : "-"}), never interpolate an object, and check the template engine runs on this route.
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["p.price"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the page shows placeholder text (lorem ipsum) in p.blurb "Lorem ipsum dolor sit amet, consectetur…": "Lorem ipsum dolor sit amet, co...". Fix: replace the placeholder copy and images; a CI grep for lorem ipsum and the placeholder hosts keeps them out.
+[log] Measured: pattern "lorem", excerpt "Lorem ipsum dolor sit amet, co...", count 1.
+Threshold: placeholder text (lorem ipsum) pattern (rendered text, still present 2 s later after network quiet).
+Element: p.blurb (p "Lorem ipsum dolor sit amet, consectetur…").
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["p.blurb"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): text contrast 1.26:1 on div.banner "Free shipping on every order over 50 â‚…", below 1.5:1 (WCAG 2.2 contrast formula; unreadable-text threshold): #888888 on #777777 from div.banner. Suggested CSS: div.banner { color: #060606; }
+[log] Measured: ratio 1.26, fg "#888888", bg "#777777", bgFrom "div.banner", fontPx 13, fontWeight 400, large false, text "Free shipping on every order over 50 â‚¬".
+Threshold: 1.5 :1 contrast (WCAG 2.2 contrast formula; unreadable-text threshold (VISUAL.md 3.8)).
+Element: div.banner (div "Free shipping on every order over 50 â‚…").
+Suggested CSS: div.banner { color: #060606; } Reaches 4.5:1. Set colour and background together on the same selector, add the dark-mode variant, or remove a prefers-color-scheme: dark block the site has no design for.
+Sample points: 2; scheme: light; state: rest.
+Runtime fix: available with GenClass.init({ mode: "guard", visual: { on: true, fix: true } }); observe mode never changes the page.
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["div.banner"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the open dialog dialog.cookie "We use cookies." is covered by div.cover: 10 of 10 points, including #ok "OK" (dialog z-index 1, cover z-index 2). Fix: render the dialog in a portal at the end of body, or use <dialog> with showModal() (the top layer is above every z-index).
+[log] Measured: dialog "dialog.cookie", covered "10 of 10 points", cover "div.cover", dialogZ "1", coverZ "2", child "#ok \"OK\"".
+Threshold: 50 % of hit points, or any control's centre (a non-top-layer dialog, tested twice 500 ms apart).
+Element: dialog.cookie (dialog "We use cookies.").
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["dialog.cookie"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): an image failed to load on img.logo: the file is not a valid image for /logo-missing.png, shown at 120 x 40 px. Suggested CSS: img.logo { background-color: #f3f4f6; }
+[log] Measured: src "/logo-missing.png", width 120, height 40, naturalWidth 0, cause "the file is not a valid image", alt "Tiny Shop".
+Threshold: 0 px natural width (img complete with naturalWidth 0 and decode() rejected, 1 s apart).
+Element: img.logo (img).
+Suggested CSS: img.logo { background-color: #f3f4f6; } This only makes a failed image look neutral; add width and height attributes too.
+Fix: correct the image URL. Paths are case-sensitive on Linux hosts; check the base path or asset prefix (Vite base, Next.js basePath/assetPrefix), drop a public/ prefix from URLs, serve the right Content-Type, and send CORS headers when the img has crossorigin.
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["img.logo"] } }).
+[endGroup] console.groupEnd
+[debug] [vite] connecting...
+[info] [GenClass] Sends anonymous diagnostics (decisions and counts, no page text) to improve the model. Opt out: GenClass.init({ telemetry: false }) or ?genclass=no-telemetry. With this app's token they also feed its private GenClass dashboard.
+[warning] Failed to decode downloaded font: http://localhost:5173/fonts/shopsans-missing.woff2
+[warning] OTS parsing error: invalid sfntVersion: 1008821359
+[debug] [vite] connected.
+[warning] No available adapters.
+[info] [GenClass] Model ready (genclass-runtime-r17, wasm, q8, 0.57s; inline on the main thread). Mode: observe.
+[debug] [GenClass] Flagged a stale response: search.query was written once by other operations since its operation (#2) started (version 0 → 1), last 0.70s ago by GET /api/search?q=react (#10), which started 0.30s after #2, from a later user action (#9). Not acted on (would have done discard 0.94): observe mode never changes execution. (stale, 0.86) (possible)
+[debug] [GenClass] Flagged a stale response: search.query was written once by other operations since its operation (#6) started (version 0 → 1), last 0.81s ago by GET /api/search?q=react (#10), which started 0.15s after #6, from a later user action (#9). Not acted on (would have done discard 0.73): observe mode never changes execution. (stale, 0.89) (possible)
+[startGroupCollapsed] [GenClass] Flagged a stale response: search.query was written once by other operations since its operation (#8) started (version 0 → 1), last 0.90s ago by GET /api/search?q=react (#10), which started 0.07s after #8, from a later user action (#9). Not acted on (would have done discard 0.90): observe mode never changes execution. (stale, 0.90)
+[log] Facts:
+  search.query was written once by other operations since its operation (#8) started (version 0 → 1), last 0.90s ago by GET /api/search?q=react (#10), which started 0.07s after #8, from a later user action (#9).
+  search.results was written once by other operations since its operation (#8) started (version 0 → 1), last 0.90s ago by GET /api/search?q=react (#10), which started 0.07s after #8, from a later user action (#9).
+  In 5 earlier completions of GET /api/search its chain wrote search.query and search.results (1 of 5 wrote state).
+  GET /api/search usually answers in 0.20s (p95 1.21s).
+  The response to GET /api/search?q=reac (#8) arrived after 0.20s (200); the app has not seen it yet.
+  This request comes from user typed "reac" into input "Search the shop" (#7), started 1.19s ago.
+  The response has the current value of search.results.
+[log] Timeline:
+  -0.91s end GET /api/search?q=react (#10): 200 in 0.20s
+  -0.90s write search.query: "" → "react"; search.results: 0 items → 2 items ["React handbook", …] (by #10)
+  -0.20s end GET /api/search?q=r (#2): 200 in 1.21s
+[log] Situation sent to the model:
+app: Tiny Shop — /
+trigger: The response to GET /api/search?q=reac (#8) arrived and is about to be delivered; its operation usually writes search.query and search.results.
+facts:
+  search.query was written once by other operations since its operation (#8) started (version 0 → 1), last 0.90s ago by GET /api/search?q=react (#10), which started 0.07s after #8, from a later user action (#9).
+  search.results was written once by other operations since its operation (#8) started (version 0 → 1), last 0.90s ago by GET /api/search?q=react (#10), which started 0.07s after #8, from a later user action (#9).
+  In 5 earlier completions of GET /api/search its chain wrote search.query and search.results (1 of 5 wrote state).
+  GET /api/search usually answers in 0.20s (p95 1.21s).
+in_flight: none
+timeline: none
+state: none
+stats:
+  GET /api/search: 5 done, median 0.20s, p95 1.21s, 0 of last 5 failed, 5 in last 10s
+[log] Answers: {diagnosis: Object, action: Object}
+[log] explain: GenClass.runtime.explain("d3")
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the web font "shopsans" failed to load from /fonts/shopsans-missing.woff2; 21 of 21 sampled text elements fall back to another font, for example div.banner "Free shipping on every order over 50 â‚…". Suggested CSS: @font-face { font-family: "shopsans"; src: url("/fonts/shopsans.woff2") format("woff2"); font-display: swap; }
+[log] Measured: family "shopsans", weight "normal", style "normal", src "/fonts/shopsans-missing.woff2", elements 21, sampled 21.
+Threshold: error FontFace.status (document.fonts after fonts.ready).
+Element: div.banner (div "Free shipping on every order over 50 â‚…").
+Suggested CSS: @font-face { font-family: "shopsans"; src: url("/fonts/shopsans.woff2") format("woff2"); font-display: swap; } With a size-adjusted fallback font the swap does not move the layout.
+Fix: fix the url() relative to the stylesheet, send Access-Control-Allow-Origin for fonts on another origin (fonts are fetched in CORS mode) and ship woff2.
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["div.banner"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the page scrolls sideways on a 1280 px viewport: div.wide "This promotional strip is wider than an…" ends at 2606 px (1326 px too wide, a width wider than the viewport). Suggested CSS: div.wide { max-width: 100%; }
+[log] Measured: scrollWidth 2606, clientWidth 1280, excess 1326, culprit "div.wide", edge 2606, cause "a width wider than the viewport".
+Threshold: 1 px of scroll width beyond the client width (documentElement.scrollWidth > clientWidth + 1, the viewport not clipping, 1 s apart).
+Element: div.wide (div "This promotional strip is wider than an…").
+Suggested CSS: div.wide { max-width: 100%; }
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["div.wide"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the page shows UTF-8 text decoded as Windows-1252 (mojibake) in div.banner "Free shipping on every order over 50 â‚…": "...y order over 50 â‚¬ â€” today only". Fix: serve Content-Type: text/html; charset=utf-8, put <meta charset="utf-8"> first in <head>, store text as utf8mb4 and escape once.
+[log] Measured: pattern "mojibake", excerpt "...y order over 50 â‚¬ â€” today only", count 1, charset "UTF-8".
+Threshold: UTF-8 text decoded as Windows-1252 (mojibake) pattern (rendered text, still present 2 s later after network quiet).
+Element: div.banner (div "Free shipping on every order over 50 â‚…").
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["div.banner"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the page shows an unrendered {{ }} placeholder in p.price "{{price}}": "{{price}}". Suggested CSS: [v-cloak] { display: none; }
+[log] Measured: pattern "mustache", excerpt "{{price}}", count 1.
+Threshold: an unrendered {{ }} placeholder pattern (rendered text, still present 2 s later after network quiet).
+Element: p.price (p "{{price}}").
+Suggested CSS: [v-cloak] { display: none; } Only for uncompiled Vue templates (Angular: ng-cloak); otherwise the template is not rendering on this route.
+Fix: the fix is in code: format values before rendering (for example {price != null ? formatPrice(price) : "-"}), never interpolate an object, and check the template engine runs on this route.
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["p.price"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the page shows placeholder text (lorem ipsum) in p.blurb "Lorem ipsum dolor sit amet, consectetur…": "Lorem ipsum dolor sit amet, co...". Fix: replace the placeholder copy and images; a CI grep for lorem ipsum and the placeholder hosts keeps them out.
+[log] Measured: pattern "lorem", excerpt "Lorem ipsum dolor sit amet, co...", count 1.
+Threshold: placeholder text (lorem ipsum) pattern (rendered text, still present 2 s later after network quiet).
+Element: p.blurb (p "Lorem ipsum dolor sit amet, consectetur…").
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["p.blurb"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): text contrast 1.26:1 on div.banner "Free shipping on every order over 50 â‚…", below 1.5:1 (WCAG 2.2 contrast formula; unreadable-text threshold): #888888 on #777777 from div.banner. Suggested CSS: div.banner { color: #060606; }
+[log] Measured: ratio 1.26, fg "#888888", bg "#777777", bgFrom "div.banner", fontPx 13, fontWeight 400, large false, text "Free shipping on every order over 50 â‚¬".
+Threshold: 1.5 :1 contrast (WCAG 2.2 contrast formula; unreadable-text threshold (VISUAL.md 3.8)).
+Element: div.banner (div "Free shipping on every order over 50 â‚…").
+Suggested CSS: div.banner { color: #060606; } Reaches 4.5:1. Set colour and background together on the same selector, add the dark-mode variant, or remove a prefers-color-scheme: dark block the site has no design for.
+Sample points: 2; scheme: light; state: rest.
+Runtime fix: available with GenClass.init({ mode: "guard", visual: { on: true, fix: true } }); observe mode never changes the page.
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["div.banner"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the open dialog dialog.cookie "We use cookies." is covered by div.cover: 10 of 10 points, including #ok "OK" (dialog z-index 1, cover z-index 2). Fix: render the dialog in a portal at the end of body, or use <dialog> with showModal() (the top layer is above every z-index).
+[log] Measured: dialog "dialog.cookie", covered "10 of 10 points", cover "div.cover", dialogZ "1", coverZ "2", child "#ok \"OK\"".
+Threshold: 50 % of hit points, or any control's centre (a non-top-layer dialog, tested twice 500 ms apart).
+Element: dialog.cookie (dialog "We use cookies.").
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["dialog.cookie"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): an image failed to load on img.logo: the file is not a valid image for /logo-missing.png, shown at 120 x 40 px. Suggested CSS: img.logo { background-color: #f3f4f6; }
+[log] Measured: src "/logo-missing.png", width 120, height 40, naturalWidth 0, cause "the file is not a valid image", alt "Tiny Shop".
+Threshold: 0 px natural width (img complete with naturalWidth 0 and decode() rejected, 1 s apart).
+Element: img.logo (img).
+Suggested CSS: img.logo { background-color: #f3f4f6; } This only makes a failed image look neutral; add width and height attributes too.
+Fix: correct the image URL. Paths are case-sensitive on Linux hosts; check the base path or asset prefix (Vite base, Next.js basePath/assetPrefix), drop a public/ prefix from URLs, serve the right Content-Type, and send CORS headers when the img has crossorigin.
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["img.logo"] } }).
+[endGroup] console.groupEnd
+[debug] [vite] connecting...
+[warning] Failed to decode downloaded font: http://localhost:5173/fonts/shopsans-missing.woff2
+[warning] OTS parsing error: invalid sfntVersion: 1008821359
+[info] [GenClass] Sends anonymous diagnostics (decisions and counts, no page text) to improve the model. Opt out: GenClass.init({ telemetry: false }) or ?genclass=no-telemetry. With this app's token they also feed its private GenClass dashboard.
+[debug] [vite] connected.
+[warning] No available adapters.
+[info] [GenClass] Model ready (genclass-runtime-r17, wasm, q8, 0.45s; inline on the main thread). Mode: observe.
+[debug] [GenClass] Flagged a stale response: search.query was written once by other operations since its operation (#2) started (version 0 → 1), last 0.71s ago by GET /api/search?q=react (#10), which started 0.31s after #2, from a later user action (#9). Not acted on (would have done discard 0.94): observe mode never changes execution. (stale, 0.85) (possible)
+[startGroupCollapsed] [GenClass] Flagged a stale response: search.query was written once by other operations since its operation (#8) started (version 0 → 1), last 0.82s ago by GET /api/search?q=react (#10), which started 0.07s after #8, from a later user action (#9). Not acted on (would have done discard 0.82): observe mode never changes execution. (stale, 0.97)
+[log] Facts:
+  search.query was written once by other operations since its operation (#8) started (version 0 → 1), last 0.82s ago by GET /api/search?q=react (#10), which started 0.07s after #8, from a later user action (#9).
+  search.results was written once by other operations since its operation (#8) started (version 0 → 1), last 0.82s ago by GET /api/search?q=react (#10), which started 0.07s after #8, from a later user action (#9).
+  GET /api/search usually answers in 0.21s (p95 1.22s).
+  The response to GET /api/search?q=reac (#8) arrived after 0.20s (200); the app has not seen it yet.
+  This request comes from user typed "reac" into input "Search the shop" (#7), started 1.10s ago.
+  The response has the current value of search.results.
+[log] Timeline:
+  -0.82s end GET /api/search?q=react (#10): 200 in 0.20s
+  -0.82s write search.query: "" → "react"; search.results: 0 items → 2 items ["React handbook", …] (by #10)
+  -0.11s end GET /api/search?q=r (#2): 200 in 1.22s
+[log] Situation sent to the model:
+app: Tiny Shop — /
+trigger: The response to GET /api/search?q=reac (#8) arrived and is about to be delivered; its operation last wrote search.query and search.results.
+facts:
+  search.query was written once by other operations since its operation (#8) started (version 0 → 1), last 0.82s ago by GET /api/search?q=react (#10), which started 0.07s after #8, from a later user action (#9).
+  search.results was written once by other operations since its operation (#8) started (version 0 → 1), last 0.82s ago by GET /api/search?q=react (#10), which started 0.07s after #8, from a later user action (#9).
+  GET /api/search usually answers in 0.21s (p95 1.22s).
+  The response to GET /api/search?q=reac (#8) arrived after 0.20s (200); the app has not seen it yet.
+  This request comes from user typed "reac" into input "Search the shop" (#7), started 1.10s ago.
+in_flight: none
+timeline: none
+state: none
+stats:
+  GET /api/search: 5 done, median 0.21s, p95 1.22s, 0 of last 5 failed, 5 in last 10s
+[log] Answers: {diagnosis: Object, action: Object}
+[log] explain: GenClass.runtime.explain("d2")
+[endGroup] console.groupEnd
+[debug] [GenClass] Flagged a stale response: search.query was written once by other operations since its operation (#6) started (version 0 → 1), last 0.92s ago by GET /api/search?q=react (#10), which started 0.15s after #6, from a later user action (#9). Not acted on (would have done discard 0.83): observe mode never changes execution. (stale, 0.86) (possible)
+[startGroupCollapsed] [GenClass] Check (measured): the web font "shopsans" failed to load from /fonts/shopsans-missing.woff2; 21 of 21 sampled text elements fall back to another font, for example div.banner "Free shipping on every order over 50 â‚…". Suggested CSS: @font-face { font-family: "shopsans"; src: url("/fonts/shopsans.woff2") format("woff2"); font-display: swap; }
+[log] Measured: family "shopsans", weight "normal", style "normal", src "/fonts/shopsans-missing.woff2", elements 21, sampled 21.
+Threshold: error FontFace.status (document.fonts after fonts.ready).
+Element: div.banner (div "Free shipping on every order over 50 â‚…").
+Suggested CSS: @font-face { font-family: "shopsans"; src: url("/fonts/shopsans.woff2") format("woff2"); font-display: swap; } With a size-adjusted fallback font the swap does not move the layout.
+Fix: fix the url() relative to the stylesheet, send Access-Control-Allow-Origin for fonts on another origin (fonts are fetched in CORS mode) and ship woff2.
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["div.banner"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the page scrolls sideways on a 1280 px viewport: div.wide "This promotional strip is wider than an…" ends at 2606 px (1326 px too wide, a width wider than the viewport). Suggested CSS: div.wide { max-width: 100%; }
+[log] Measured: scrollWidth 2606, clientWidth 1280, excess 1326, culprit "div.wide", edge 2606, cause "a width wider than the viewport".
+Threshold: 1 px of scroll width beyond the client width (documentElement.scrollWidth > clientWidth + 1, the viewport not clipping, 1 s apart).
+Element: div.wide (div "This promotional strip is wider than an…").
+Suggested CSS: div.wide { max-width: 100%; }
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["div.wide"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the page shows UTF-8 text decoded as Windows-1252 (mojibake) in div.banner "Free shipping on every order over 50 â‚…": "...y order over 50 â‚¬ â€” today only". Fix: serve Content-Type: text/html; charset=utf-8, put <meta charset="utf-8"> first in <head>, store text as utf8mb4 and escape once.
+[log] Measured: pattern "mojibake", excerpt "...y order over 50 â‚¬ â€” today only", count 1, charset "UTF-8".
+Threshold: UTF-8 text decoded as Windows-1252 (mojibake) pattern (rendered text, still present 2 s later after network quiet).
+Element: div.banner (div "Free shipping on every order over 50 â‚…").
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["div.banner"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the page shows an unrendered {{ }} placeholder in p.price "{{price}}": "{{price}}". Suggested CSS: [v-cloak] { display: none; }
+[log] Measured: pattern "mustache", excerpt "{{price}}", count 1.
+Threshold: an unrendered {{ }} placeholder pattern (rendered text, still present 2 s later after network quiet).
+Element: p.price (p "{{price}}").
+Suggested CSS: [v-cloak] { display: none; } Only for uncompiled Vue templates (Angular: ng-cloak); otherwise the template is not rendering on this route.
+Fix: the fix is in code: format values before rendering (for example {price != null ? formatPrice(price) : "-"}), never interpolate an object, and check the template engine runs on this route.
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["p.price"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the page shows placeholder text (lorem ipsum) in p.blurb "Lorem ipsum dolor sit amet, consectetur…": "Lorem ipsum dolor sit amet, co...". Fix: replace the placeholder copy and images; a CI grep for lorem ipsum and the placeholder hosts keeps them out.
+[log] Measured: pattern "lorem", excerpt "Lorem ipsum dolor sit amet, co...", count 1.
+Threshold: placeholder text (lorem ipsum) pattern (rendered text, still present 2 s later after network quiet).
+Element: p.blurb (p "Lorem ipsum dolor sit amet, consectetur…").
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["p.blurb"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): text contrast 1.26:1 on div.banner "Free shipping on every order over 50 â‚…", below 1.5:1 (WCAG 2.2 contrast formula; unreadable-text threshold): #888888 on #777777 from div.banner. Suggested CSS: div.banner { color: #060606; }
+[log] Measured: ratio 1.26, fg "#888888", bg "#777777", bgFrom "div.banner", fontPx 13, fontWeight 400, large false, text "Free shipping on every order over 50 â‚¬".
+Threshold: 1.5 :1 contrast (WCAG 2.2 contrast formula; unreadable-text threshold (VISUAL.md 3.8)).
+Element: div.banner (div "Free shipping on every order over 50 â‚…").
+Suggested CSS: div.banner { color: #060606; } Reaches 4.5:1. Set colour and background together on the same selector, add the dark-mode variant, or remove a prefers-color-scheme: dark block the site has no design for.
+Sample points: 2; scheme: light; state: rest.
+Runtime fix: available with GenClass.init({ mode: "guard", visual: { on: true, fix: true } }); observe mode never changes the page.
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["div.banner"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the open dialog dialog.cookie "We use cookies." is covered by div.cover: 10 of 10 points, including #ok "OK" (dialog z-index 1, cover z-index 2). Fix: render the dialog in a portal at the end of body, or use <dialog> with showModal() (the top layer is above every z-index).
+[log] Measured: dialog "dialog.cookie", covered "10 of 10 points", cover "div.cover", dialogZ "1", coverZ "2", child "#ok \"OK\"".
+Threshold: 50 % of hit points, or any control's centre (a non-top-layer dialog, tested twice 500 ms apart).
+Element: dialog.cookie (dialog "We use cookies.").
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["dialog.cookie"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): an image failed to load on img.logo: the file is not a valid image for /logo-missing.png, shown at 120 x 40 px. Suggested CSS: img.logo { background-color: #f3f4f6; }
+[log] Measured: src "/logo-missing.png", width 120, height 40, naturalWidth 0, cause "the file is not a valid image", alt "Tiny Shop".
+Threshold: 0 px natural width (img complete with naturalWidth 0 and decode() rejected, 1 s apart).
+Element: img.logo (img).
+Suggested CSS: img.logo { background-color: #f3f4f6; } This only makes a failed image look neutral; add width and height attributes too.
+Fix: correct the image URL. Paths are case-sensitive on Linux hosts; check the base path or asset prefix (Vite base, Next.js basePath/assetPrefix), drop a public/ prefix from URLs, serve the right Content-Type, and send CORS headers when the img has crossorigin.
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["img.logo"] } }).
+[endGroup] console.groupEnd
+[debug] [vite] connecting...
+[info] [GenClass] Sends anonymous diagnostics (decisions and counts, no page text) to improve the model. Opt out: GenClass.init({ telemetry: false }) or ?genclass=no-telemetry. With this app's token they also feed its private GenClass dashboard.
+[warning] Failed to decode downloaded font: http://localhost:5173/fonts/shopsans-missing.woff2
+[warning] OTS parsing error: invalid sfntVersion: 1008821359
+[debug] [vite] connected.
+[warning] No available adapters.
+[info] [GenClass] Model ready (genclass-runtime-r17, wasm, q8, 0.53s; inline on the main thread). Mode: observe.
+[debug] [GenClass] Flagged a stale response: search.query was written once by other operations since its operation (#4) started (version 0 → 1), last 0.03s ago by GET /api/search?q=react (#10), which started 0.23s after #4, from a later user action (#9). Not acted on (would have done discard 0.65): observe mode never changes execution. (stale, 0.78) (possible)
+[debug] [GenClass] Flagged a stale response: search.query was written once by other operations since its operation (#2) started (version 0 → 1), last 0.70s ago by GET /api/search?q=react (#10), which started 0.30s after #2, from a later user action (#9). Not acted on (would have done discard 0.94): observe mode never changes execution. (stale, 0.86) (possible)
+[startGroupCollapsed] [GenClass] Check (measured): the web font "shopsans" failed to load from /fonts/shopsans-missing.woff2; 21 of 21 sampled text elements fall back to another font, for example div.banner "Free shipping on every order over 50 â‚…". Suggested CSS: @font-face { font-family: "shopsans"; src: url("/fonts/shopsans.woff2") format("woff2"); font-display: swap; }
+[log] Measured: family "shopsans", weight "normal", style "normal", src "/fonts/shopsans-missing.woff2", elements 21, sampled 21.
+Threshold: error FontFace.status (document.fonts after fonts.ready).
+Element: div.banner (div "Free shipping on every order over 50 â‚…").
+Suggested CSS: @font-face { font-family: "shopsans"; src: url("/fonts/shopsans.woff2") format("woff2"); font-display: swap; } With a size-adjusted fallback font the swap does not move the layout.
+Fix: fix the url() relative to the stylesheet, send Access-Control-Allow-Origin for fonts on another origin (fonts are fetched in CORS mode) and ship woff2.
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["div.banner"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the page scrolls sideways on a 1280 px viewport: div.wide "This promotional strip is wider than an…" ends at 2606 px (1326 px too wide, a width wider than the viewport). Suggested CSS: div.wide { max-width: 100%; }
+[log] Measured: scrollWidth 2606, clientWidth 1280, excess 1326, culprit "div.wide", edge 2606, cause "a width wider than the viewport".
+Threshold: 1 px of scroll width beyond the client width (documentElement.scrollWidth > clientWidth + 1, the viewport not clipping, 1 s apart).
+Element: div.wide (div "This promotional strip is wider than an…").
+Suggested CSS: div.wide { max-width: 100%; }
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["div.wide"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the page shows UTF-8 text decoded as Windows-1252 (mojibake) in div.banner "Free shipping on every order over 50 â‚…": "...y order over 50 â‚¬ â€” today only". Fix: serve Content-Type: text/html; charset=utf-8, put <meta charset="utf-8"> first in <head>, store text as utf8mb4 and escape once.
+[log] Measured: pattern "mojibake", excerpt "...y order over 50 â‚¬ â€” today only", count 1, charset "UTF-8".
+Threshold: UTF-8 text decoded as Windows-1252 (mojibake) pattern (rendered text, still present 2 s later after network quiet).
+Element: div.banner (div "Free shipping on every order over 50 â‚…").
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["div.banner"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the page shows an unrendered {{ }} placeholder in p.price "{{price}}": "{{price}}". Suggested CSS: [v-cloak] { display: none; }
+[log] Measured: pattern "mustache", excerpt "{{price}}", count 1.
+Threshold: an unrendered {{ }} placeholder pattern (rendered text, still present 2 s later after network quiet).
+Element: p.price (p "{{price}}").
+Suggested CSS: [v-cloak] { display: none; } Only for uncompiled Vue templates (Angular: ng-cloak); otherwise the template is not rendering on this route.
+Fix: the fix is in code: format values before rendering (for example {price != null ? formatPrice(price) : "-"}), never interpolate an object, and check the template engine runs on this route.
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["p.price"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the page shows placeholder text (lorem ipsum) in p.blurb "Lorem ipsum dolor sit amet, consectetur…": "Lorem ipsum dolor sit amet, co...". Fix: replace the placeholder copy and images; a CI grep for lorem ipsum and the placeholder hosts keeps them out.
+[log] Measured: pattern "lorem", excerpt "Lorem ipsum dolor sit amet, co...", count 1.
+Threshold: placeholder text (lorem ipsum) pattern (rendered text, still present 2 s later after network quiet).
+Element: p.blurb (p "Lorem ipsum dolor sit amet, consectetur…").
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["p.blurb"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): text contrast 1.26:1 on div.banner "Free shipping on every order over 50 â‚…", below 1.5:1 (WCAG 2.2 contrast formula; unreadable-text threshold): #888888 on #777777 from div.banner. Suggested CSS: div.banner { color: #060606; }
+[log] Measured: ratio 1.26, fg "#888888", bg "#777777", bgFrom "div.banner", fontPx 13, fontWeight 400, large false, text "Free shipping on every order over 50 â‚¬".
+Threshold: 1.5 :1 contrast (WCAG 2.2 contrast formula; unreadable-text threshold (VISUAL.md 3.8)).
+Element: div.banner (div "Free shipping on every order over 50 â‚…").
+Suggested CSS: div.banner { color: #060606; } Reaches 4.5:1. Set colour and background together on the same selector, add the dark-mode variant, or remove a prefers-color-scheme: dark block the site has no design for.
+Sample points: 2; scheme: light; state: rest.
+Runtime fix: available with GenClass.init({ mode: "guard", visual: { on: true, fix: true } }); observe mode never changes the page.
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["div.banner"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the open dialog dialog.cookie "We use cookies." is covered by div.cover: 10 of 10 points, including #ok "OK" (dialog z-index 1, cover z-index 2). Fix: render the dialog in a portal at the end of body, or use <dialog> with showModal() (the top layer is above every z-index).
+[log] Measured: dialog "dialog.cookie", covered "10 of 10 points", cover "div.cover", dialogZ "1", coverZ "2", child "#ok \"OK\"".
+Threshold: 50 % of hit points, or any control's centre (a non-top-layer dialog, tested twice 500 ms apart).
+Element: dialog.cookie (dialog "We use cookies.").
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["dialog.cookie"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): an image failed to load on img.logo: the file is not a valid image for /logo-missing.png, shown at 120 x 40 px. Suggested CSS: img.logo { background-color: #f3f4f6; }
+[log] Measured: src "/logo-missing.png", width 120, height 40, naturalWidth 0, cause "the file is not a valid image", alt "Tiny Shop".
+Threshold: 0 px natural width (img complete with naturalWidth 0 and decode() rejected, 1 s apart).
+Element: img.logo (img).
+Suggested CSS: img.logo { background-color: #f3f4f6; } This only makes a failed image look neutral; add width and height attributes too.
+Fix: correct the image URL. Paths are case-sensitive on Linux hosts; check the base path or asset prefix (Vite base, Next.js basePath/assetPrefix), drop a public/ prefix from URLs, serve the right Content-Type, and send CORS headers when the img has crossorigin.
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["img.logo"] } }).
+[endGroup] console.groupEnd
+[debug] [vite] connecting...
+[info] [GenClass] Sends anonymous diagnostics (decisions and counts, no page text) to improve the model. Opt out: GenClass.init({ telemetry: false }) or ?genclass=no-telemetry. With this app's token they also feed its private GenClass dashboard.
+[warning] Failed to decode downloaded font: http://localhost:5173/fonts/shopsans-missing.woff2
+[warning] OTS parsing error: invalid sfntVersion: 1008821359
+[debug] [vite] connected.
+[warning] No available adapters.
+[info] [GenClass] Model ready (genclass-runtime-r17, wasm, q8, 0.38s; inline on the main thread). Mode: observe.
+[startGroupCollapsed] [GenClass] Check (measured): the web font "shopsans" failed to load from /fonts/shopsans-missing.woff2; 21 of 21 sampled text elements fall back to another font, for example div.banner "Free shipping on every order over 50 â‚…". Suggested CSS: @font-face { font-family: "shopsans"; src: url("/fonts/shopsans.woff2") format("woff2"); font-display: swap; }
+[log] Measured: family "shopsans", weight "normal", style "normal", src "/fonts/shopsans-missing.woff2", elements 21, sampled 21.
+Threshold: error FontFace.status (document.fonts after fonts.ready).
+Element: div.banner (div "Free shipping on every order over 50 â‚…").
+Suggested CSS: @font-face { font-family: "shopsans"; src: url("/fonts/shopsans.woff2") format("woff2"); font-display: swap; } With a size-adjusted fallback font the swap does not move the layout.
+Fix: fix the url() relative to the stylesheet, send Access-Control-Allow-Origin for fonts on another origin (fonts are fetched in CORS mode) and ship woff2.
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["div.banner"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the page scrolls sideways on a 1280 px viewport: div.wide "This promotional strip is wider than an…" ends at 2606 px (1326 px too wide, a width wider than the viewport). Suggested CSS: div.wide { max-width: 100%; }
+[log] Measured: scrollWidth 2606, clientWidth 1280, excess 1326, culprit "div.wide", edge 2606, cause "a width wider than the viewport".
+Threshold: 1 px of scroll width beyond the client width (documentElement.scrollWidth > clientWidth + 1, the viewport not clipping, 1 s apart).
+Element: div.wide (div "This promotional strip is wider than an…").
+Suggested CSS: div.wide { max-width: 100%; }
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["div.wide"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the page shows UTF-8 text decoded as Windows-1252 (mojibake) in div.banner "Free shipping on every order over 50 â‚…": "...y order over 50 â‚¬ â€” today only". Fix: serve Content-Type: text/html; charset=utf-8, put <meta charset="utf-8"> first in <head>, store text as utf8mb4 and escape once.
+[log] Measured: pattern "mojibake", excerpt "...y order over 50 â‚¬ â€” today only", count 1, charset "UTF-8".
+Threshold: UTF-8 text decoded as Windows-1252 (mojibake) pattern (rendered text, still present 2 s later after network quiet).
+Element: div.banner (div "Free shipping on every order over 50 â‚…").
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["div.banner"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the page shows an unrendered {{ }} placeholder in p.price "{{price}}": "{{price}}". Suggested CSS: [v-cloak] { display: none; }
+[log] Measured: pattern "mustache", excerpt "{{price}}", count 1.
+Threshold: an unrendered {{ }} placeholder pattern (rendered text, still present 2 s later after network quiet).
+Element: p.price (p "{{price}}").
+Suggested CSS: [v-cloak] { display: none; } Only for uncompiled Vue templates (Angular: ng-cloak); otherwise the template is not rendering on this route.
+Fix: the fix is in code: format values before rendering (for example {price != null ? formatPrice(price) : "-"}), never interpolate an object, and check the template engine runs on this route.
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["p.price"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the page shows placeholder text (lorem ipsum) in p.blurb "Lorem ipsum dolor sit amet, consectetur…": "Lorem ipsum dolor sit amet, co...". Fix: replace the placeholder copy and images; a CI grep for lorem ipsum and the placeholder hosts keeps them out.
+[log] Measured: pattern "lorem", excerpt "Lorem ipsum dolor sit amet, co...", count 1.
+Threshold: placeholder text (lorem ipsum) pattern (rendered text, still present 2 s later after network quiet).
+Element: p.blurb (p "Lorem ipsum dolor sit amet, consectetur…").
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["p.blurb"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): text contrast 1.26:1 on div.banner "Free shipping on every order over 50 â‚…", below 1.5:1 (WCAG 2.2 contrast formula; unreadable-text threshold): #888888 on #777777 from div.banner. Suggested CSS: div.banner { color: #060606; }
+[log] Measured: ratio 1.26, fg "#888888", bg "#777777", bgFrom "div.banner", fontPx 13, fontWeight 400, large false, text "Free shipping on every order over 50 â‚¬".
+Threshold: 1.5 :1 contrast (WCAG 2.2 contrast formula; unreadable-text threshold (VISUAL.md 3.8)).
+Element: div.banner (div "Free shipping on every order over 50 â‚…").
+Suggested CSS: div.banner { color: #060606; } Reaches 4.5:1. Set colour and background together on the same selector, add the dark-mode variant, or remove a prefers-color-scheme: dark block the site has no design for.
+Sample points: 2; scheme: light; state: rest.
+Runtime fix: available with GenClass.init({ mode: "guard", visual: { on: true, fix: true } }); observe mode never changes the page.
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["div.banner"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): the open dialog dialog.cookie "We use cookies." is covered by div.cover: 10 of 10 points, including #ok "OK" (dialog z-index 1, cover z-index 2). Fix: render the dialog in a portal at the end of body, or use <dialog> with showModal() (the top layer is above every z-index).
+[log] Measured: dialog "dialog.cookie", covered "10 of 10 points", cover "div.cover", dialogZ "1", coverZ "2", child "#ok \"OK\"".
+Threshold: 50 % of hit points, or any control's centre (a non-top-layer dialog, tested twice 500 ms apart).
+Element: dialog.cookie (dialog "We use cookies.").
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["dialog.cookie"] } }).
+[endGroup] console.groupEnd
+[startGroupCollapsed] [GenClass] Check (measured): an image failed to load on img.logo: the file is not a valid image for /logo-missing.png, shown at 120 x 40 px. Suggested CSS: img.logo { background-color: #f3f4f6; }
+[log] Measured: src "/logo-missing.png", width 120, height 40, naturalWidth 0, cause "the file is not a valid image", alt "Tiny Shop".
+Threshold: 0 px natural width (img complete with naturalWidth 0 and decode() rejected, 1 s apart).
+Element: img.logo (img).
+Suggested CSS: img.logo { background-color: #f3f4f6; } This only makes a failed image look neutral; add width and height attributes too.
+Fix: correct the image URL. Paths are case-sensitive on Linux hosts; check the base path or asset prefix (Vite base, Next.js basePath/assetPrefix), drop a public/ prefix from URLs, serve the right Content-Type, and send CORS headers when the img has crossorigin.
+This is a measured check with a fixed threshold, not a model finding.
+Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: ["img.logo"] } }).
+[endGroup] console.groupEnd

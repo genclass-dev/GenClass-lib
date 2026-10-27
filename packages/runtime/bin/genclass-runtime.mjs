@@ -9,6 +9,9 @@
 //       A GenClass account for the CLI (device sign-in, the app's token from the account): bin/lib/login.mjs.
 //   genclass-runtime dashboard [--open]
 //       The link to this app's dashboard, free for every app (bin/lib/login.mjs).
+//   genclass-runtime scan <url> [--json] [--phone] [--timeout <s>] [--hosted | --local]   (alias: audit)
+//       Audit one page with the measured visual checks: locally in headless Chromium when Playwright is available,
+//       else on the genclass.dev page check; a score and each problem with its fix (bin/lib/scan.mjs).
 //   genclass-runtime fetch-model <dir> [--from <baseUrl>] [--variant q8|fp16|all] [--ort wasm|webgpu|all|none] [--ort-from <url>] [--force] [--quiet]
 //       Download a GenClass model directory (model.json + model files) so an app can self-host it, plus the
 //       onnxruntime-web files the runtime loads (into <dir>/ort/, the version the runtime bundles):
@@ -61,6 +64,7 @@ const USAGE = `Usage:
   genclass-runtime whoami
   genclass-runtime logout
   genclass-runtime dashboard [--open] [--cwd <dir>]
+  genclass-runtime scan <url> [--json] [--phone] [--timeout <s>] [--hosted | --local]   (alias: audit)
   genclass-runtime fetch-model <dir> [--from <baseUrl>] [--variant q8|fp16|all] [--ort wasm|webgpu|all|none] [--ort-from <url>] [--force] [--quiet]
   genclass-runtime info <dir>
 
@@ -73,6 +77,10 @@ visitors use each page (--open also opens it in your browser).
 login signs you in to your GenClass account in the browser and connects the app in this folder; connect does the
 second half alone; whoami shows the account and its apps; logout ends the CLI session
 (\`genclass-runtime login --help\` for details).
+scan (or audit) checks one page with GenClass's 23 measured visual checks and prints a score and each problem with
+the element and a suggested CSS fix (exit code 1 when it finds any): locally in headless Chromium through Playwright
+(observe mode, nothing sent), or with --hosted (or without Playwright) on the genclass.dev page check
+(\`genclass-runtime scan --help\` for details).
 fetch-model downloads a GenClass model directory for self-hosting (default --variant all). The default --from is
 @genclass/runtime-model@0.2.0 on npm via jsDelivr, the runtime's own default model:
   ${DEFAULT_FROM}
@@ -501,6 +509,11 @@ async function main() {
   }
   if (["login", "connect", "whoami", "logout", "dashboard"].includes(argv[0])) {
     const { run } = await import("./lib/login.mjs");
+    process.exitCode = await run(argv[0], argv.slice(1));
+    return;
+  }
+  if (argv[0] === "scan" || argv[0] === "audit") {
+    const { run } = await import("./lib/scan.mjs");
     process.exitCode = await run(argv[0], argv.slice(1));
     return;
   }

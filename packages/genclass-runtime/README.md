@@ -15,16 +15,23 @@ failures, and `heal` is experimental.
 ## What should I run instead?
 
 ```bash
-npx @genclass/runtime init        # stable 0.2.x (npm latest)
-npx @genclass/runtime@beta init   # 0.3.0 beta
+npx @genclass/runtime@beta init                  # the newest line: 0.3.0-beta.4 on 2026-10-27
+npx @genclass/runtime@beta init --token gc_...   # use a token you already have (no call to genclass.dev)
+npx @genclass/runtime@beta init --no-token       # no token, no call to genclass.dev
 ```
+
+`@beta` is the newest line of `@genclass/runtime` (`0.3.0-beta.4` on 2026-10-27); the stable line, `0.2.2` (npm's
+`latest`, `npx @genclass/runtime init`), is the exception. npm's `genclass-runtime` is still at `0.1.0-beta.3`, so
+`npx genclass-runtime init` runs that old CLI unless the project already has `@genclass/runtime` installed (see
+below).
 
 `init` finds your framework, shows you the diff first, then installs `@genclass/runtime` and adds one line to your
 entry file. From `0.3.0`, once you approve the diff, it also creates your app's token and private dashboard link at
 genclass.dev (sending your `package.json` name), writes the token into what it adds and saves the link in
 `.genclass.local` (keep that link private: anyone with it sees your app's dashboard, and it is the only way to open
-it). `--no-token` skips that and does not contact genclass.dev; the package manager still installs from its
-registry. Docs: [`@genclass/runtime`](https://www.npmjs.com/package/@genclass/runtime).
+it). `--token gc_...` uses a token you already have and `--no-token` skips the token; neither contacts genclass.dev,
+though the package manager still installs from its registry. Docs:
+[`@genclass/runtime`](https://www.npmjs.com/package/@genclass/runtime).
 
 ## What does this package install?
 
@@ -49,10 +56,11 @@ redacted situation text by default. Opt out with `GenClass.init({ telemetry: fal
 sending Global Privacy Control are never collected. Details:
 [TELEMETRY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md).
 
-<!-- Maintainers: npmjs.com shows the README and package.json fields of the published version. On 2026-10-22 npm has
-genclass-runtime 0.1.0-beta.3 (latest) with its older README and description ("Short alias for the @genclass/runtime
-CLI ...") and no deprecation flag; release.yml publishes only @genclass/runtime, so this README and the description
-here do not reach npm. The notice reaches npm users only through
-`npm deprecate genclass-runtime "Deprecated: use @genclass/runtime (npx @genclass/runtime init)"`, which npmjs.com
-shows and npm prints when it installs the package; that is the owner's call. genclass-runtime@0.3.0-beta.0, the
-version in package.json, was never published. -->
+<!-- Maintainers: npmjs.com shows the README and package.json fields of the published version. On 2026-10-27 npm has
+genclass-runtime 0.1.0-beta.3 (latest, published 2026-10-09) with its older README and description ("Short alias for
+the @genclass/runtime CLI ...") and no deprecation flag; release.yml packs and publishes only packages/runtime
+(@genclass/runtime, 0.3.0-beta.4 on main), so this README and the description here do not reach npm. The notice
+reaches npm users only through
+`npm deprecate genclass-runtime "Deprecated: use @genclass/runtime (npx @genclass/runtime@beta init)"`, which
+npmjs.com shows and npm prints when it installs the package; that is the owner's call. genclass-runtime@0.3.0-beta.1,
+the version in package.json here (depending on @genclass/runtime 0.3.0-beta.1), was never published. -->

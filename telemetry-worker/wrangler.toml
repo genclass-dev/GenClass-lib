@@ -29,11 +29,11 @@ routes = [
 # are always offered, so the site always has a way in.
 
 # The newest @genclass/runtime on npm, on any dist-tag. Below 0.3.0-beta.0 the Connect panel, /start and private
-# dashboards say first that project keys and `login` are not published yet. Set it to "0.3.0-beta.0" (then deploy) once
-# release.yml has published the beta and jsDelivr serves it, and to "0.3.0" at 0.3.0 (with pages.ts SNIPPET_RUNTIME and
-# RUNTIME_PKG).
+# dashboards say first that project keys and `login` are not published yet. Set it (with pages.ts SNIPPET_RUNTIME, then
+# deploy) to every release once release.yml has published it and jsDelivr serves it: 0.3.0-beta.3 now, "0.3.0" at 0.3.0
+# (with RUNTIME_PKG).
 [vars]
-RUNTIME_ON_NPM = "0.3.0-beta.0"
+RUNTIME_ON_NPM = "0.3.0-beta.3"
 # "on" sells the plans marked managed_payments in billing/plans.json through Stripe Managed Payments (Stripe, through
 # Link, is the merchant of record, for 3.5% of each payment on top of Stripe's fees). No plan is marked today
 # (no plan is sold on the site today), so it stays "off"; README "Paid plans".

@@ -18,9 +18,11 @@ Angular, Solid and plain-HTML apps (measured in Chromium with an unpublished 0.1
 2026-10-10, not re-run on 0.2.2 or 0.3.0:
 [compatibility matrix](https://github.com/genclass-dev/GenClass-lib/blob/main/compat/RESULTS.md)).
 
-Versions (npm dist-tags on 2026-10-24): `0.2.2` is `latest` and `0.3.0-beta.0` is `beta`. This README describes the
-`0.3.0` line; what is marked `0.3.0-beta.1` (the coding-agent link, interaction analytics) is tagged and not on npm yet.
-Both load the model `@genclass/runtime-model@0.2.0`. AI coding agents working on this repository: start at
+**Status: `@genclass/runtime@0.3.0-beta.4`, the newest line (npm `beta` dist-tag: `npm install @genclass/runtime@beta`;
+the stable line is `0.2.x`), with model `@genclass/runtime-model@0.2.0`.** npm dist-tags on 2026-10-27: `latest` is
+`0.2.2` and `beta` is `0.3.0-beta.4` (`0.3.0-beta.1` to `0.3.0-beta.4` were released between 2026-10-22 and
+2026-10-27). This README describes the `0.3.0` line; `0.2.x`, npm's `latest`, is the exception for an app that cannot
+take a prerelease. Both lines load the same model. AI coding agents working on this repository: start at
 [AGENTS.md](AGENTS.md).
 
 <a id="install"></a>
@@ -45,7 +47,7 @@ import "@genclass/runtime/auto";
 Or with no build step, first in `<head>`:
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@0.3.0-beta.1"></script>
+<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@0.3.0-beta.4"></script>
 ```
 
 - **That covers network, user actions, errors and timing in the whole app, and its state where it can be found.**
@@ -58,8 +60,10 @@ Or with no build step, first in `<head>`:
   and pass `autoState: true`.
 - **Pin the version in the script tag**, as above: the unversioned URL serves `latest`, and the CDN cache may serve an
   older release.
-- **Keep `@beta` while `0.3.0` is in beta.** Without it npm installs the stable `0.2.x`, whose CLI has no `login`,
-  `connect`, `whoami`, `logout`, `dashboard` or `--sink` and whose runtime ignores a token.
+- **Keep `@beta` while `0.3.0` is in beta.** A bare `npm install @genclass/runtime` or `npx @genclass/runtime init`
+  gets npm's `latest`, the older `0.2.x` line, which has no token, dashboard, interaction analytics, visual checks or
+  agent link, whose CLI has no `login`, `connect`, `whoami`, `logout`, `dashboard` or `--sink`, and whose runtime
+  ignores `token` and `analytics: true` without a word. Keep `0.2.x` only for an app that cannot take a prerelease.
 - **ESM only** (no `require`). Jest users need a `transformIgnorePatterns` entry that lets `@genclass/runtime` be
   transformed.
 
@@ -67,6 +71,11 @@ Full install guide, with every `init` and `remove` flag, the app token and the t
 [docs/runtime/INSTALL.md](docs/runtime/INSTALL.md). The short version, with page configuration and the script-tag
 attributes, is in the
 [package README](https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/README.md#install).
+
+To audit any page for visual bugs without adding anything to it: `npx @genclass/runtime@beta scan <url>` (alias
+`audit`; a score and each problem with its element and a suggested CSS fix;
+[Audit a page](https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/README.md#audit-a-page)).
+Coding agents get the same as `genclass_scan` in [`@genclass/mcp`](packages/mcp).
 
 ## What it finds (measured)
 
@@ -131,14 +140,16 @@ The full tables, with every false-intervention rate next to its recall, are unde
 
 ## New: your coding agent can see the race, replay it, and prove the fix
 
-`@genclass/mcp` (unreleased) is an MCP server for Claude Code and other coding agents. Your app's development build
-(`@genclass/runtime` `0.3.0-beta.1` or later) connects to it with one line, and the agent gets every click, request, the order the responses arrived and what they
-wrote, uncaught errors with the click and request behind them, and the on-device model's detections. It can run your
-steps again with the network answering in different orders (and slower) to find what depends on timing, replay the
-exact order that broke, and write a Playwright test that fails until the fix is in. Everything stays on your machine.
+`@genclass/mcp` (`0.2.0`, on npm since 2026-10-25) is an MCP server for Claude Code and other coding agents. Your
+app's development build (`@genclass/runtime` `0.3.0-beta.1` or later) connects to it with one line, and the agent
+gets every click, request, the order the responses arrived and what they wrote, uncaught errors with the click and
+request behind them, and the on-device model's detections. It can run your steps again with the network answering in
+different orders (and slower) to find what depends on timing, replay the exact order that broke, and write a
+Playwright test that fails until the fix is in. Its `genclass_scan` tool audits any page for visual bugs, like
+`scan <url>` above. Everything stays on your machine.
 
 ```bash
-claude mcp add genclass -- npx -y @genclass/mcp@0.1.0
+claude mcp add genclass -- npx -y @genclass/mcp@0.2.0
 ```
 
 ```ts
@@ -155,8 +166,8 @@ showed it on the developer's fast backend, with no false report on the fixed pag
 
 ## New in 0.3.0: app dashboards and `protect()`
 
-In `0.3.0-beta.0` (`@beta` on npm). `0.2.x` ignores `token`, has no `protect()` export (an import of it fails), and
-its `init` creates no token. Details:
+Since `0.3.0-beta.0` (the `beta` line on npm). `0.2.x` ignores `token`, has no `protect()` export (an import of it
+fails), and its `init` creates no token. Details:
 [CHANGELOG](https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/CHANGELOG.md), 0.3.0-beta.0.
 
 ```ts
@@ -172,8 +183,9 @@ export const submitOrder = protect("checkout submit", (cart) => fetch("/api/orde
   an account. Get a token at [genclass.dev/start](https://genclass.dev/start), or let `init` create it after you
   approve its diff. To keep dashboards in an optional genclass.dev account, `npx @genclass/runtime@beta login` signs in
   from the terminal (device flow) and connects the app in the current folder; `connect`, `whoami` and `logout` do the
-  rest, and `npx @genclass/runtime@beta dashboard` prints an app's link again (from `0.3.0-beta.2`). The dashboard fills from deployed pages with telemetry on. Local and private hosts (`localhost`, `*.local`,
-  `*.test`, private networks) do not send by default; `telemetry: true` or any telemetry options object is an
+  rest, and `npx @genclass/runtime@beta dashboard` prints an app's link again (from `0.3.0-beta.2`). The dashboard
+  fills from deployed pages with telemetry on. Local and private hosts (`localhost`, `*.local`, `*.test`, private
+  networks) do not send by default; `telemetry: true` or any telemetry options object is an
   explicit opt-in that sends from them too, with the token. Data is kept for 90 days (a year on Enterprise). Details:
   [docs/runtime/DASHBOARD.md](docs/runtime/DASHBOARD.md).
 - **`protect(name, fn)`** returns a function with the same signature (same `this`, arguments, return value and
@@ -259,7 +271,8 @@ but the gate fired anyway. Source and history:
 **Shipped model:** `genclass-runtime-r17` 2.0.0-rc4t (`@genclass/runtime-model@0.2.0`, run `r17-v2dT`, gain gate),
 10.2 MB q8, about 180 to 600 ms per model pass at 500 to 1,170 tokens on one WASM thread (estimated from runs in Node,
 not in a browser), loaded from jsDelivr at idle and cached. The model and the
-situation text it reads (`situation-v2.3`) are the same in `0.2.2` and `0.3.0-beta.0`. On held-out data (§1):
+situation text it reads (`situation-v2.3`) are the same in `0.2.2` and in every `0.3.0` release so far
+(`0.3.0-beta.0` to `0.3.0-beta.4`; each CHANGELOG entry says no model-visible text changed). On held-out data (§1):
 
 | profile | guard FIR | guard recall (clear / real) | heal FIR | heal recall (clear / real) | report threshold |
 |---|---|---|---|---|---|
@@ -319,12 +332,15 @@ rows and 837,623 real-browser rows (§6). Recall is the open problem.
   TELEMETRY.md first.
 - **With an app token** (`0.3.0`), batches also carry the token and the names of your `protect()`ed functions, so
   they show on your app's dashboard. Without telemetry, a token does nothing.
-- **Interaction analytics are off unless the app turns them on** (`analytics: true` with the app's token; on `main`
-  only, listed in the CHANGELOG under 0.3.0-beta.1, unreleased: the published `0.3.0-beta.0` does not have them):
-  per page view the route, engaged time, scroll depth, and clicks, rage clicks and dead clicks per element (named
-  from markup, never its text). No visitor id, nothing stored on the device, never used for a decision, and every
+- **Interaction analytics are off unless the app turns them on** (`analytics: true` with the app's token; new in
+  `0.3.0-beta.1`): per page view the route, engaged time, scroll depth, and clicks, rage clicks and dead clicks per
+  element (named from markup, never its text); and, within one page load, how each page view was reached, the route
+  before it and the time between, the first element used on it, and where the page load ended with its routes in
+  order. No visitor id; one `localStorage` entry (the visit flag, which links the page loads of a visit and says
+  whether the browser visited before; `runtime.analytics.stop()` removes it); never used for a decision, and every
   opt-out above turns them off. Where consent is needed (the EU, EEA and UK), leave `analytics` unset and call
-  `runtime.analytics.start()` once the visitor consents.
+  `runtime.analytics.start()` once the visitor consents
+  ([TELEMETRY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md#interaction-analytics)).
 - **The visual checks send nothing.**
 - **The CLI** contacts genclass.dev only for the command you run (`init` creates a dashboard only after you approve
   its diff).
@@ -416,7 +432,7 @@ a new tag and regenerated data (`training/curriculum/rt.py` mirrors the renderer
 |---|---|
 | [`packages/runtime`](packages/runtime) | `@genclass/runtime`, the library: observers, causality, stores and adapters, learned baselines, relations and profiles, facts, triage, policy gate, actions, model host (Web Worker, ONNX Runtime Web on WebGPU or WASM), measured visual checks, devtools overlay. [README](packages/runtime/README.md) · [CHANGELOG](packages/runtime/CHANGELOG.md) |
 | [`packages/runtime-model`](packages/runtime-model) | `@genclass/runtime-model`, the default model package (data only; `files/` is gitignored and filled at release time) and its [model card](packages/runtime-model/MODEL_CARD.md) |
-| [`packages/mcp`](packages/mcp) | `@genclass/mcp` (unreleased), the MCP server for coding agents: pages connect through `@genclass/runtime/agent`; the agent gets findings in causal order, replays, explore verdicts and generated regression tests ([AGENT.md](docs/runtime/AGENT.md)). [README](packages/mcp/README.md) |
+| [`packages/mcp`](packages/mcp) | `@genclass/mcp` (`0.2.0` on npm), the MCP server for coding agents: pages connect through `@genclass/runtime/agent`; the agent gets findings in causal order, replays, explore verdicts, generated regression tests and, with `genclass_scan`, the page audit ([AGENT.md](docs/runtime/AGENT.md)). [README](packages/mcp/README.md) · [CHANGELOG](packages/mcp/CHANGELOG.md) |
 | [`packages/playwright`](packages/playwright) | `@genclass/playwright` (unreleased), GenClass for Playwright: a fixture that puts the runtime on every page under test (observe mode, seeded network chaos with `page.route`, the model skipped by default) and writes one race file per test, and a reporter that turns those files into one markdown report for the pull request, with the evidence line and what reproduced across seeds. [README](packages/playwright/README.md) |
 | [`packages/nuxt`](packages/nuxt), [`packages/astro`](packages/astro) | `@genclass/nuxt` and `@genclass/astro` (unreleased): the runtime as a Nuxt module and as an Astro integration, one line in the framework's config, with options for the mode, the token, telemetry and the devtools overlay; browser only. [Nuxt README](packages/nuxt/README.md) · [Astro README](packages/astro/README.md) |
 | [`packages/sv`](packages/sv) | `@genclass/sv` (unreleased), a community add-on for the Svelte CLI: `npx sv add @genclass` sets up GenClass in a SvelteKit app (the dependency, its import first in `src/hooks.client`, the devtools overlay in development). [README](packages/sv/README.md) |

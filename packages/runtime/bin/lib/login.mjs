@@ -28,12 +28,11 @@ import {
   startDeviceLogin,
 } from "./account.mjs";
 import { apiHost, hostConfig, hostUrl } from "./host.mjs";
-import { FREE_LINES, UsageError, accountLabel, hostNotice, init, inspectProject, parse } from "./init.mjs";
+import { FREE_LINES, UsageError, accountLabel, hostNotice, init, inspectProject, parse, versionNotice } from "./init.mjs";
 import { AUTO } from "./plan.mjs";
 import { LOCAL_FILE, tokenInFiles } from "./token.mjs";
 import { banner, c, choose, confirm, err, interactive, out, row, sym } from "./ui.mjs";
-
-const CMD = "npx @genclass/runtime";
+import { CMD } from "./version.mjs";
 
 export const USAGE = `Usage:
   genclass-runtime login   [--yes] [--no-browser] [--no-connect] [--app <id|name>] [--name <name>]
@@ -335,6 +334,7 @@ async function connectApp(o, creds, st, me) {
 async function connect(o) {
   banner("connect");
   hostNotice();
+  await versionNotice(o);
   const { creds, otherHost } = readCredentialsFor();
   if (!creds) {
     out(`  Not signed in${otherHost ? ` at ${apiHost()} (the saved session is for ${otherHost})` : ""}. Sign in first: ${c.cyan(`${CMD} login`)} (it offers to connect this app too).`);
@@ -380,6 +380,7 @@ async function afterLogin(o, creds, me) {
 async function login(o) {
   banner("login");
   hostNotice();
+  await versionNotice(o);
   const host = apiHost();
   const saved = readCredentialsFor(host);
   if (saved.creds) {

@@ -371,8 +371,11 @@ export class RuntimeImpl implements Runtime {
   private learnKey = "genclass:learn";
   private learnVersion: string | undefined;
   private learnMaxBytes = LEARN_MAX_BYTES;
-  /** The runtime is writing its own learned state: the storage observer must not record it. */
-  private selfStorage = false;
+  /**
+   * The runtime is writing its own state (learned state; the analytics chunk's visit flag, src/analytics/index.ts): the
+   * storage observer must not record it. Internal.
+   */
+  selfStorage = false;
   private reportMode: "console" | "interventions" | "silent" | "fn" = "console";
   private uninstall: (() => void)[] = [];
   private teardowns: (() => void)[] = [];
@@ -3312,7 +3315,7 @@ export class RuntimeImpl implements Runtime {
     this.warnOnce(
       "worker-unavailable",
       `The model worker could not start (${s.workerError ?? "unknown"}) and model.inlineFallback is false, so the model is not loaded; GenClass keeps observing without it. ` +
-        `If a Content-Security-Policy blocks the worker, allow worker-src 'self' (blob: for the script tag) or self-host (npx @genclass/runtime fetch-model).`,
+        `If a Content-Security-Policy blocks the worker, allow worker-src 'self' (blob: for the script tag) or self-host (npx @genclass/runtime@beta fetch-model).`,
     );
   }
 

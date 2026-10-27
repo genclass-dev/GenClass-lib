@@ -1,0 +1,5 @@
+agent % genclass_status {}
+GenClass bridge: http://127.0.0.1:47400 · 0 active page(s), 0 recorded run(s)
+Findings: none yet.
+
+No page has connected yet. The app's dev build needs connectAgent from @genclass/runtime/agent: see genclass_setup.

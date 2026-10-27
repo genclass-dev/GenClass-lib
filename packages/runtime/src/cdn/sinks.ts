@@ -4,7 +4,7 @@
 //   <meta name="genclass" content="sink=console-json+webhook:/genclass">   (+ joins names: commas separate meta keys)
 //   <script src=".../genclass.global.min.js" data-sink="console-json,webhook:/genclass"></script>
 //   window.GENCLASS_CONFIG = { sinks: ["webhook:/genclass"] }
-//   npx @genclass/runtime init --sink webhook:/genclass
+//   npx @genclass/runtime@beta init --sink webhook:/genclass
 //
 // Names: console-json (optionally `:noevidence`), webhook:<url>. The names sentry, posthog and datadog are not part of
 // the free runtime (no plan offers forwarding to those tools yet): `applySinks` leaves them out with one console

@@ -8,7 +8,7 @@ diagnostics are separate (see [Privacy](#privacy)).
 
 This page covers `@genclass/runtime-model@0.2.0` (model `genclass-runtime-r17` 2.0.0-rc4t, training run
 `r17-v2dT`), the default model of `@genclass/runtime` 0.1.0-beta.1 and later, including `0.2.2` (npm `latest`) and
-`0.3.0-beta.0` (`beta`). Training data, held-out results, thresholds and limits are in the
+`0.3.0-beta.4` (`beta`, 2026-10-27). Training data, held-out results, thresholds and limits are in the
 [model card](https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime-model/MODEL_CARD.md).
 
 ## At a glance
@@ -78,7 +78,7 @@ To serve the model yourself (offline apps, strict CSP, no third-party CDN), down
 which verifies every hash:
 
 ```bash
-npx @genclass/runtime fetch-model public/genclass-model   # model + ONNX Runtime files (into public/genclass-model/ort/)
+npx @genclass/runtime@beta fetch-model public/genclass-model   # model + ONNX Runtime files (into public/genclass-model/ort/)
 ```
 
 ```ts

@@ -1,0 +1,15 @@
+worker.js
+wrangler.jsonc
+functions
+.wrangler
+node_modules
+.git*
+.assetsignore
+README.md
+Snowdaypred.py
+package.json
+LICENSE
+test
+.mcp.json
+.genclass
+.vscode

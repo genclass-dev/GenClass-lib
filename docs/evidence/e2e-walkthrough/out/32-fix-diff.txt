@@ -1,0 +1,54 @@
+~/tiny-shop % diff -u ../steps/02-main.js src/main.js | tail -n +3
+@@ -14,14 +14,16 @@
+ const state = Object.fromEntries(store.keys().filter((k) => !k.startsWith("search.")).map((k) => [k, genclass.guard(k, { get: () => store.get(k), set: (v) => store.set(k, v) })]));
+ const write = (k, v) => state[k].set(v);
+ 
+-// Search: every keystroke fetches; whichever response arrives last wins, even if it answers an older query.
+-// The search state is a GenClass atom (the one line from the README): every write is recorded with the response that
+-// caused it, and in guard mode a stale response's write can be dropped.
++// Search: every keystroke fetches; only the response to the latest query may write the results (the fix: a sequence
++// number per request; an older response that arrives later is ignored).
+ const search = genclass.atom("search", { query: "", results: [] });
++let searchSeq = 0;
+ $("#q").addEventListener("input", async (e) => {
+   const q = e.target.value;
++  const mine = ++searchSeq;
+   const r = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+   const data = await r.json();
++  if (mine !== searchSeq) return; // a newer query is in flight or done: this response is stale
+   search.set((s) => ({ ...s, results: data.results, query: data.q }));
+ });
+ search.subscribe(({ results }) => {
+@@ -34,12 +36,18 @@
+   }
+ });
+ 
+-// Cart: each click posts; two quick clicks post twice.
++// Cart: the button is disabled while its request is in flight (the fix: a double click adds once).
+ for (const b of document.querySelectorAll("button.add")) {
+   b.addEventListener("click", async () => {
+-    const r = await fetch("/api/cart", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ item: b.dataset.item }) });
+-    const data = await r.json();
+-    write("cart.count", data.count);
++    if (b.disabled) return;
++    b.disabled = true;
++    try {
++      const r = await fetch("/api/cart", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ item: b.dataset.item }) });
++      const data = await r.json();
++      write("cart.count", data.count);
++    } finally {
++      b.disabled = false;
++    }
+   });
+ }
+ store.subscribe("cart.count", (n) => ($("#cartcount").textContent = String(n)));
+@@ -72,7 +80,7 @@
+ $("#profile").addEventListener("click", async () => {
+   const r = await fetch("/api/profile");
+   const profile = await r.json();
+-  $("#profilemsg").textContent = `Ships to ${profile.address.city}`;
++  $("#profilemsg").textContent = profile.address ? `Ships to ${profile.address.city}` : "No address on file yet."; // the fix
+ });
+ 
+ // Newsletter: the form posts; a 503 now and then is shown as is.
+

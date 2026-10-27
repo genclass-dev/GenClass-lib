@@ -73,9 +73,9 @@ hosts (`0.2.1` sends from them too, by mistake; fixed in `0.2.2`), outside a bro
 [packages/runtime/TELEMETRY.md](../../packages/runtime/TELEMETRY.md).
 
 **App token and dashboard** (0.3.0: `0.2.x` ignores `token`). `token: "gc_..."` (from
-`npx @genclass/runtime init` or https://genclass.dev/start) is sent with each telemetry batch so the app's diagnostics
+`npx @genclass/runtime@beta init` or https://genclass.dev/start) is sent with each telemetry batch so the app's diagnostics
 show up on its private dashboard (`https://genclass.dev/dashboard/<secret>`; free on every plan, and
-`npx @genclass/runtime dashboard` prints the link for the app in the current folder); with a token, decision events also
+`npx @genclass/runtime@beta dashboard` prints the link for the app in the current folder); with a token, decision events also
 carry `fn` (see "Protected functions"). Public; malformed values log one warning and are ignored; it does nothing
 while telemetry is off (on a local host the console says so once). `rt.telemetry.token` reports it while telemetry
 is on. `token` and `scope` are fixed when GenClass starts: on a runtime already started by `/auto` or the script tag,
@@ -86,11 +86,21 @@ tag or `data-token` / `data-scope`).
 `token` (or a custom `telemetry.endpoint`) also sends `interactions` telemetry events for the app's dashboard: per
 page view the route, engaged time, scroll milestones, and clicks, rage clicks and dead clicks per element key (built
 from markup: `data-genclass-name`, `data-testid`, a stable id, a link's target, stable classes, a short structural
-path; never element text). Every telemetry opt-out and Global Privacy Control turn them off; without a token
+path; never element text), and (Unreleased) per visit a random visit id kept 30 minutes in `localStorage`
+(`genclass.analytics.<token>`), the referring host, utm values without ids, device class, browser and OS families and
+whether the browser visited before, and how visitors move within a page load: how each view was reached (`nav`), the
+previous route and the time between (`from`, `fromMs`), the first element interacted with (`first`, `firstMs`), and at
+the end of the page load where it ended and its routes in order (`exit`, `path`, at most 10; ANALYTICS.md section 11).
+Every telemetry opt-out and Global Privacy Control turn them off; without a token
 `analytics: true` warns once and records nothing. They run in a lazy chunk (`dist/analytics/index.js`), outside the
 event log: nothing reaches a situation, a decision or the model. `rt.analytics.start()` / `stop()` turn them on and
-off later (consent; `stop()` drops the counts not sent yet). Also `data-analytics="on"`, `analytics=on` in the meta
+off later (consent; `stop()` drops the counts not sent yet and removes the visit entry). Also `data-analytics="on"`, `analytics=on` in the meta
 tag, `window.GENCLASS_CONFIG.analytics`. Schema: [TELEMETRY.md](../../packages/runtime/TELEMETRY.md#interaction-analytics).
+With the script tag, a chunk that does not load warns once per load (`[GenClass] analytics: <url> (@genclass/runtime
+<version>) did not load; nothing is recorded. ...`, `reason: "error"`), and a chunk of another release than the tag
+warns once with both versions. `0.2.x` (npm's `latest` until 0.3.0)
+and `0.3.0-beta.0` have no analytics and ignore the option silently: install `@genclass/runtime@beta`
+([ANALYTICS.md](ANALYTICS.md) section 4.1).
 
 ## Options
 
@@ -138,7 +148,9 @@ interface InitOptions {
                                                         // off in GenClass.init / createRuntime (there it needs import "@genclass/runtime/discover" first)
   token?: string;                                       // (0.3.0) app token, gc_ + 22 letters/digits: groups telemetry under your private dashboard
   analytics?: boolean;                                  // (0.3.0-beta.1) [false] interaction analytics for the app's dashboard: page views, engaged time,
-                                                        // scroll depth, clicks, rage and dead clicks per element key; needs telemetry and the token
+                                                        // scroll depth, clicks, rage and dead clicks per element key; visits, sources, devices
+                                                        // (Unreleased); navigation within a page load (how each view was reached, the previous route,
+                                                        // the first interaction, the end and the path); needs telemetry and the token
   scope?: "app" | "functions";                          // (0.3.0) ["app"]; "functions": decisions and standing questions only for activity inside protect()ed functions (rt.ask() still answered)
 
   // batch 12 (docs/runtime/OPTIONS-SPEC.md); defaults in brackets
@@ -179,7 +191,7 @@ interface InitOptions {
 ```
 
 Runtime additions: `rt.audit(n?)` (the audit trail, below), `rt.disable({ undo? })` (permanent; `undo: true` rolls back the last minute's actions),
-`rt.summary(): SessionSummary` (0.3.0: `possibleDetections` per diagnosis next to `detections`, the likely ones), `rt.setSession({ id?, tags? })`, `rt.breaker.{tripped, reset()}`, `rt.learn.clear()`,
+`rt.summary(): SessionSummary` (0.3.0: `possibleDetections` per diagnosis next to `detections`, the likely ones; after 0.3.0-beta.1: `requests`, below), `rt.setSession({ id?, tags? })`, `rt.breaker.{tripped, reset()}`, `rt.learn.clear()`,
 `rt.learned()` (below), events `shadow`, `breaker`, `limit`, `modelBudget`, `expectation`. `status` adds `effectiveMode`, `sampled`, `breaker`, `scope`,
 `modelBudget`, and states `"disabled" | "skipped" | "unloaded"`. `status.scope` is what is in force on the current
 route: `mode` is the effective mode there (equal to `effectiveMode`: the requested mode demoted by sampling, the breaker
@@ -225,7 +237,7 @@ the model's recent median latency, 150 to 800 ms), then proceed unchanged; nothi
 expected to answer within that budget. Serving your page with `Cross-Origin-Opener-Policy: same-origin` and
 `Cross-Origin-Embedder-Policy: require-corp` enables WASM threads (about 3× faster without WebGPU).
 
-Self-hosting the model: `npx @genclass/runtime fetch-model public/genclass-model` then
+Self-hosting the model: `npx @genclass/runtime@beta fetch-model public/genclass-model` then
 `GenClass.init({ model: { baseUrl: "/genclass-model/" } })`.
 
 ## State
@@ -697,7 +709,7 @@ never caps its `summary` record.
 Sinks by name, with no code, in the zero-code entries (`/auto`, the script tag): `window.GENCLASS_CONFIG = { sinks:
 ["webhook:/genclass"] }`, `<meta name="genclass" content="sink=webhook:/genclass+console-json">` (`+` joins names,
 since commas separate the meta keys), `data-sink="webhook:/genclass,console-json"` on the script tag, or
-`npx @genclass/runtime init --sink webhook:/genclass` (the names are `console-json` and `webhook:<url>`;
+`npx @genclass/runtime@beta init --sink webhook:/genclass` (the names are `console-json` and `webhook:<url>`;
 `console-json:noevidence` makes its adapter with `evidence: false`). The names `sentry`, `posthog` and `datadog` (any
 case, with or without an option) are left out at init with one console warning for them all, `Ignored sink <names>:
 Sentry, PostHog and Datadog forwarding is not in the free runtime: https://genclass.dev/pricing`, and nothing is loaded or sent for them; `init --sink sentry` is a usage error that says
@@ -716,7 +728,8 @@ The console default is unchanged.
 Deterministic measurements of visual and CSS bugs that never throw an error, with fixed thresholds
 ([VISUAL.md](VISUAL.md) has every check, threshold and exclusion). They are reported as kind `"check"` and never as a
 model finding: the model is not involved, the checks never feed a situation, a fact, the event log, the gate or a
-decision, and they never fire `detect`.
+decision, and they never fire `detect`. For any URL from a terminal or a coding agent, without code:
+`npx @genclass/runtime@beta scan <url> [--json]` (the package README's "Audit a page"; `@genclass/mcp`'s `genclass_scan`).
 
 ```ts
 GenClass.init({ visual: true });                                       // on everywhere, report-only
@@ -726,7 +739,7 @@ await rt.checkNow();                                                   // a pass
 
 interface VisualOptions {
   on?: boolean | "local";            // ["local" in GenClass.init in a browser; false in createRuntime] "local": development hosts and the devtools overlay only
-  checks?: Partial<Record<CheckKind, boolean>>;   // [every kind on]
+  checks?: Partial<Record<CheckKind, boolean>> & { stallMs?: number }; // [every kind on; stallMs 15000]
   fix?: boolean | ("text-invisible" | "pointer-events-leak" | "scroll-lock-stuck")[]; // [false] needs on: true and guard or heal
   ignore?: string[];                 // selectors never checked (and image hosts for text-placeholder)
   budgetMs?: number;                 // [8] per idle slice, clamped to 2..16
@@ -741,7 +754,7 @@ type CheckKind = "image-broken" | "image-css-broken" | "media-failed" | "stylesh
   | "icon-font-failed" | "csp-blocked" | "text-invisible" | "text-template-leak" | "text-placeholder" | "text-encoding"
   | "css-var-undefined" | "image-distorted" | "page-overflow-x" | "viewport-meta-missing" | "layout-shift"
   | "page-blank" | "click-blocked" | "pointer-events-leak" | "scroll-lock-stuck" | "control-unreachable"
-  | "focus-obscured" | "dialog-covered";
+  | "focus-obscured" | "dialog-covered" | "request-stalled" | "ad-heavy" | "text-warped";  // ad-heavy, text-warped: VISUAL.md 3.25, 3.26 (report only)
 
 interface CheckFinding {
   id: string;                        // "c1", "c2", ...
@@ -782,6 +795,14 @@ interface CheckFinding {
 - **Sinks** get `kind: "check"` records (`check: { kind, severity, fixed }`, `route`) only when their `kinds` list
   `"check"`; `evidence: true` adds `message`, `target` and `selector`.
 - **Audit.** Every fix applied, undone or dropped is an entry of kind `"fix"`: `fix: { what, checkId, kind, css, reason? }`.
+- **Stalled requests.** `request-stalled` (after 0.3.0-beta.1): a `fetch` or XHR request still pending after
+  `visual: { checks: { stallMs } }` (default 15,000 ms, clamped to 1 s..10 min) is reported once, with its method, host
+  and normalised path (no query), how long it has waited, and the control the page disabled (`disabled`,
+  `aria-disabled="true"`) or marked `aria-busy="true"` from 1 s before the request started, if it still is (severity
+  high then, medium otherwise; `measured.control` is `"not watched"` for a request older than the checks). Not checked:
+  EventSource and WebSocket, a request on a background schedule the runtime learned (long polling), an endpoint whose
+  learned p95 latency is at least `stallMs`. `visual.ignore` takes a host or a path prefix. Needs the runtime (not in
+  `checkPage()`); judged on the Clock at most every 2 s, from the start of the page (not after it settles).
 - **Summary.** `rt.summary().visual`, once the checks have run: `checks` (per kind), `checksByRoute` (at most 20
   routes), `fixes` (`applied`, `undone`), `passes`, `elements`, `ms`, `maxSliceMs`, `partial`, `abstained`,
   `unsupported` (kinds this browser cannot measure), `tier`, `stopped`.
@@ -798,6 +819,41 @@ interface CheckFinding {
   running runtime).
 - **Devtools.** A Checks tab lists every finding with its measured value and threshold, the suggested CSS (Copy), a
   Show button that scrolls to the element and outlines it inside the overlay, and Undo for an applied fix.
+
+### Requests in `rt.summary()`
+
+`rt.summary().requests` (after 0.3.0-beta.1, issue 94) answers "did GenClass see my requests?" without a model
+decision. Counted from the `fetch` and XHR operations the runtime records; reporting only (never a situation, a fact,
+the gate or the model), and not sent by telemetry. It is counted in the measured checks' chunk (`src/visual/requests.ts`),
+so it is present once that chunk has loaded: wherever `visual` is on (development hosts by default, `visual: true`
+elsewhere), when the devtools overlay mounts, or after `rt.checkNow()`. On load it counts the requests the runtime
+still holds (its op store keeps the last 2,000 operations of every kind), then follows its event stream.
+
+```ts
+interface RequestHealth {
+  requests: number;            // fetch and XHR requests started (GenClass's own retries and hedges excluded)
+  "2xx": number; "3xx": number; "4xx": number; "5xx": number; // answers by status class
+  network: number;             // no answer: network error, timeout (XHR timeout, AbortSignal.timeout), status 0
+  aborted: number;             // aborted by the app
+  notJson: number;             // fetch answers read with response.json() whose Content-Type is not JSON
+  byGenClass: number;          // answered by GenClass (blocked, reused response; guard and heal only)
+  pending: number;             // still in flight
+  latency?: { n: number; p50: number; p95: number }; // ms, answers that did not fail (the learned baselines, last 64 per endpoint)
+}
+interface RequestSummary extends RequestHealth {
+  hosts: Record<string, RequestHealth>; // "same-origin", "api.example.com", ...; "other" past 30 hosts
+}
+```
+
+- `requests: 0` after the app sent requests means GenClass did not see them: it was loaded after them (a deferred
+  script tag starts after classic scripts), or the app calls a `fetch` it captured before GenClass loaded. Requests
+  counted and nothing in `detections` means it saw them and none was salient: a 404 or a non-JSON answer the app's own
+  `catch` handles is counted here, not detected.
+- `notJson` reads the Content-Type header, never the body: an API that sends invalid JSON as `application/json` is not
+  counted, and neither is XHR's `responseType = "json"`. Its first-load cost is one flag on the request (34 B gzip).
+- A sink's `summary` record carries the totals with an empty `hosts` (the per-host counts stay in `rt.summary()`).
+- A request answered by GenClass from its cache before the chunk loaded counts by its status, not as `byGenClass`.
+- A request still pending past `visual.checks.stallMs` is also a `request-stalled` check (Visual checks, below).
 
 ### Audit trail
 

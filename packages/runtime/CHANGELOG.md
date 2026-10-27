@@ -1,8 +1,144 @@
 # Changelog
 
-## Unreleased
+## 0.3.0-beta.4 (2026-10-27)
 
-- **`dashboard` prints the link to this app's free dashboard.** `npx @genclass/runtime dashboard` prints the link
+- **The devtools pill counts measured checks** (`src/devtools/`, VISUAL.md 9.3). The collapsed pill showed only
+  interventions and model detections, so a page where GenClass had fixed invisible text, a stuck scroll lock and a
+  click block on screen still read "0 · 0". The pill now has a third counter (the scan icon) with the page's measured
+  checks, red when there are any, its title saying how many were fixed on screen, and it pulses when a new one arrives.
+  With checks and no interventions or detections yet, the panel opens on the Checks tab. Each check card leads with
+  the kind in words ("Page cannot scroll", "Page stopped taking clicks", "Invisible text", "Ads covering content"),
+  the kind itself beside it. Checks stay labelled "measured", never model findings. Tests: `devtools-checks.test.ts`.
+  No model-visible text changed (`situation-v2.3`).
+
+## 0.3.0-beta.3 (2026-10-26)
+
+- **A colour fix stays while its element is out of view** (`src/visual/engine.ts`, VISUAL.md 11.2). The periodic
+  re-measure of a `text-invisible` fix hit-tests the element's points; off the viewport there are none, which read as
+  a changed background and undid the fix (the demo shop's banner lost its fix as soon as the page scrolled, and did not
+  get it back). An element outside the viewport is now left as it is until it is back in view; the 50 ms check after
+  applying is unchanged. Likewise while `pointer-events: none` reaches the text (a click block left on `body`): hit
+  testing skips it, so the re-measure finds no points, which used to undo the fix (the snow day demo's banner lost its
+  fix while "Load road conditions" blocked clicks). Tests: `visual-fix.test.ts`. No model-visible text changed
+  (`situation-v2.3`).
+
+## 0.3.0-beta.2 (2026-10-25)
+
+- **The dashboard is laid out like Supabase Studio** (telemetry-worker, owner request 2026-10-25; `src/studio.ts`).
+  An account is the organization and each app a project: `/account` is the organization's Projects page (search,
+  New project, a card per project, Import a dashboard from a private link; Account settings under `#settings`),
+  `/account/new` is Studio's Create a new project, and `/account/billing` sits in the same frame. A project has
+  Studio's 48px header (the organization and project switchers, Connect, Feedback, a search pill for the command menu
+  with Ctrl or Cmd K, help, the account menu), the icon rail that widens on hover (Project overview, Problems, Pages,
+  Actions, Activity, Visitors, Health, MCP, Loop, Integrations, Project Settings) and product menus for Problems,
+  Visitors and Project Settings. Project overview follows Studio's project home: the name and status, the summary
+  and four stats beside the problems chart, usage cards per hour or day, Get connected, the problems that need
+  attention, and Getting started until the first event. **Connect** is Studio's dialog with Framework, API Keys,
+  **MCP** and Analytics tabs. The **MCP** view sets up `@genclass/mcp` for Claude Code, Cursor, VS Code, Codex,
+  Claude Desktop, Windsurf and Gemini CLI, with **Copy prompt** and the configuration, and gives the agent its
+  production numbers through an **agent link**: on a private link the page's own address, in an account a new
+  private link made with `POST /api/account/projects/<id>/link` (shown once; it replaces any earlier link, which
+  stops working; the account's browser session only). Every problem has a **Copy prompt** for a coding agent (what,
+  where, the usual fix, the MCP steps that prove it), and every data view copies as **Markdown**. The sign-in pages
+  and `/start` keep genclass.dev's own look. Studio's dark tokens with two contrast deviations the tests measure
+  (input borders at 3:1, muted text at 4.5:1). No runtime change; no model-visible text changed (`situation-v2.3`).
+- **Every path lands on the newest line.** npm's `latest` is still `0.2.2`, so `npx @genclass/runtime init` and
+  `npm install @genclass/runtime` give an app the older line without the token, the dashboard, analytics, visual
+  checks or the agent link. Now `init` (and `login`, `connect`) prints its own version and the npm dist-tag it came
+  from (`Version  @genclass/runtime 0.3.0-beta.1 (npm dist-tag beta)`), asks npm's dist-tags once
+  (`npm view @genclass/runtime dist-tags`, at most 3 s; never with `--dry-run`, the new `--no-network`, `--no-token`
+  or `--no-telemetry`; nothing when offline) and says when a newer release is on npm, with the command that runs it.
+  A project that already has an older `@genclass/runtime` (a 0.2.x from `init` without `@beta`) is upgraded to
+  `^<this version>` after the same diff and question, instead of being kept; the plain "install it by hand" hint
+  names the version too. Every command the CLI prints, and the console messages that name one (an invalid token, a
+  blocked model, the mode and token hints), say `npx @genclass/runtime@beta` while the runtime is a prerelease. The
+  READMEs, templates (`^0.3.0-beta.1`), TELEMETRY.md, API.md and the script tags (pinned to `@0.3.0-beta.1`) put the
+  newest line first and the stable `0.2.x` as the exception. No model-visible text changed (`situation-v2.3`).
+- **Interaction analytics are loud when their code is missing or from another release**
+  ([docs/runtime/ANALYTICS.md](../../docs/runtime/ANALYTICS.md) section 4.1). `0.2.x` and `0.3.0-beta.0` ignore
+  `analytics: true` without a word (reproduced on 0.2.2; they cannot change). On this line, the script tag's analytics chunk that does not
+  load (a self-hosted `dist/` without `analytics/`) warns once per load, `[GenClass] analytics: <url>
+  (@genclass/runtime <version>) did not load; nothing is recorded. ...`, with `runtime.analytics.reason` `"error"` as
+  before; the tag passes its version to the chunk, and a chunk of another release warns once per page with both
+  versions and the install line, and still records (`src/cdn/analytics-loader.ts`, the chunk). Not in the ESM first
+  load; the `@beta` console messages above add 16 B gzip to `/auto` and 13 B to the main entry. Under the dashboard's
+  copy-prompt button, the Visitors view and the Connect panel name the version analytics need and the app's older
+  runtimes.
+- **Interaction analytics: visits, where they come from, devices, entry and exit pages, funnels** (inside
+  `analytics: true`, off by default; [docs/runtime/ANALYTICS.md](../../docs/runtime/ANALYTICS.md) sections 1.2 and
+  3.1, TELEMETRY.md "Visits"). A view's first `interactions` event now names its **visit** (`visit`: 16 random hex
+  characters; a visit is page views with no gap over 30 minutes, or until a page load comes from another site or a
+  utm link). The view that opens a visit also sends `entry: true`, `ref` (the referring site's host only), `utm`
+  (`source`, `medium`, `campaign`, cleaned of ids, at most 40 characters each), `device` (desktop, mobile, tablet),
+  `browser` and `os` (families, never the user agent) and `returning` (whether this browser had a visit before). To
+  know that, the runtime keeps **one `localStorage` entry while analytics run**, `genclass.analytics.<token>` (the
+  visit id, its last time, a visited-before flag); `runtime.analytics.stop()` removes it, and every opt-out keeps it
+  from being written. The dashboard's Visitors view adds Sources, Devices (with the collector's country), Sessions
+  (visits per day, pages per visit, one-page visits, returning share), Entry and exit pages and **Funnels** (up to 5
+  of 2 to 6 routes, defined on the dashboard and counted from the routes each visit went through in order); for an
+  app without analytics it is one big "Copy the prompt for your coding agent" button. All of it is in the lazy
+  analytics chunk: the first load is unchanged. No model-visible text changed (`situation-v2.3`). The collector needs
+  migration `0010_visits_funnels.sql` before it is deployed.
+- **`rt.summary().requests`: the requests GenClass saw, per host** (issue 94; [API.md](../../docs/runtime/API.md)
+  "Requests in `rt.summary()`"). Counts of the `fetch` and XHR requests of the page load, in total and per host
+  (`"same-origin"` or the API's host, 30 at most): `requests`, answers by status class, `network` (no answer),
+  `aborted`, `notJson` (a fetch answer read with `response.json()` while the Content-Type is not JSON; the body is never
+  parsed for it), `byGenClass`, `pending`, and the latency `p50` / `p95` of the answers that did not fail, from the
+  learned baselines. `requests: 0` now tells "GenClass did not see the requests" apart from "it saw them and nothing
+  was salient" (a 404 or a non-JSON answer the app's own `catch` handles is counted, not detected). Counted in the
+  measured checks' chunk, so it is present wherever the checks run (development hosts by default, `visual: true`
+  elsewhere); first load +34 B gzip (the not-JSON flag), within the existing limits. Local only: telemetry does not
+  send it (a proposal for that and a dashboard alert waits for the owner,
+  [OPTIONS-SPEC.md](../../docs/runtime/OPTIONS-SPEC.md) §4.21); a sink's `summary` record carries the totals only.
+- **Measured check `request-stalled`** ([VISUAL.md](../../docs/runtime/VISUAL.md) 3.24). A `fetch` or XHR request
+  still pending after `visual: { checks: { stallMs } }` (default 15 s) is reported once as a kind `"check"` finding
+  with its method, host and path, how long it waited, and the control the page disabled or marked `aria-busy` when it
+  started if that control still is (severity high then). Long polls the runtime learned, endpoints that usually take
+  that long, EventSource and WebSocket are not checked. Same rules as the other visual checks: on by default on
+  development hosts, `visual: true` elsewhere, report-only, never a situation or model input, nothing sent. It lives
+  in the lazily loaded checks chunk: no first-load bytes. Demos: 0 false reports in 120 clean and chaos runs, 11 of 18
+  planted 60 s hangs found (polls on a learned schedule are skipped by design; RESULTS.md §23).
+- **`init` writes `defer` on the plain-HTML script tag**, so a slow or blocked CDN no longer holds up rendering.
+  GenClass then starts after classic scripts without `defer` or `async` (their requests during page load are not
+  seen), still before deferred and module scripts; model loading is unchanged (idle after `load`). `--sync` writes the
+  blocking tag of earlier versions; existing setups are not changed. `remove` already took out the tag with attributes
+  added by hand (`defer`, `async`, `nonce`); that is now tested and said in `remove`'s help.
+- **`init` notes when a project looks mostly static** (no `fetch`, XHR, WebSocket or EventSource call in its sources,
+  or a plain HTML page with one script): one sentence that GenClass will have little to find there, pointing to the
+  visual checks and the page scan, `npx @genclass/runtime@beta scan <url>`.
+- **Two measured visual checks: `ad-heavy` and `text-warped`** ([docs/runtime/VISUAL.md](../../docs/runtime/VISUAL.md)
+  sections 3.25 and 3.26). `ad-heavy` reports a page whose ad slots (elements whose id or class names an ad slot, the
+  AdSense, Ad Manager and Prebid attributes, cross-site frames at a fixed ad size) cover 30% of the page, half the first
+  screen, a fixed ad 30% of the screen (the Coalition for Better Ads thresholds), or a full-screen ad on top of the page
+  (an interstitial, high). `text-warped` reports text a reader cannot read as text, from line boxes, rects, transforms
+  and code points: two lines overlapping by half a line, a line cut mid-way by its overflow box, lone surrogates and
+  unassigned code points (half an emoji), mirrored text, text skewed over 20° or stretched 2x, letter spacing of
+  0.5 em or more (or -0.2 em and less), and text drawn below 8 px that is still meant to be read. Both are kind
+  `"check"`, report only (no runtime fix), run in the lazy chunk's idle slices on the full tier, and never feed the
+  model; `CheckKind` gains both. First load unchanged (0 B of first-load code; the lazy visual chunk grows by about
+  6.7 KB gzip).
+- **Interaction analytics: navigation paths** ([docs/runtime/ANALYTICS.md](../../docs/runtime/ANALYTICS.md) section
+  11, TELEMETRY.md "Interaction analytics"). With `analytics: true` (still off by default, still only with the app's
+  token), `interactions` events also say how each page view was reached (`nav`: load, reload, back_forward, push, back,
+  forward, pop), the previous view's route in the same page load and the ms between (`from`, `fromMs`), the element key
+  of the view's first click or keyboard focus on a form field (`first`, `firstMs`), and at pagehide that the page load
+  ended there with its routes in order (`exit`, `path`, at most 10). Never text or the referrer; these fields describe
+  one page load (visits, above, follow pages across page loads). The console notice now also says "the path between
+  them". The dashboard's Visitors view shows the most taken paths, page-to-page steps, page load starts and ends,
+  back/forward use, and the first interaction per page.
+- **`scan <url>` (alias `audit`): audit any page in one command.** `npx @genclass/runtime@beta scan https://example.com`
+  loads the page in headless Chromium through Playwright (resolved from the project, this package or the global
+  node_modules, never a dependency) at desktop (1280x800) and phone (390x844) sizes, with the script-tag build
+  injected first in observe mode (telemetry off, no model, visual checks on; the runtime's files come from disk on a
+  virtual same-origin path, so the only requests are the page's own), runs a check pass, presses Tab four times and
+  scrolls to the end like the hosted page check, and prints a score (the hosted check's "Visual bugs" formula) and
+  each finding with its count, sizes, element, selector and suggested CSS, worst first. `--json` prints the same
+  report (`format: "genclass-scan/1"`) as JSON on stdout only; `--phone` checks the phone size only; `--timeout <s>`.
+  Without Playwright's Chromium it prints the line to install it and checks the page on the genclass.dev page check
+  instead, saying so (`--hosted` asks for that directly, `--local` never uses it; a loopback or private address is
+  never sent). Exit code 0 when nothing is found, 1 when something is, 2 on an error. No runtime code, no telemetry
+  and no model-visible text changed. `@genclass/mcp`'s `genclass_scan` tool runs it.
+- **`dashboard` prints the link to this app's free dashboard.** `npx @genclass/runtime@beta dashboard` prints the link
   to the dashboard of the app in the current folder: the private link in `.genclass.local` (nothing is contacted),
   else the app's page in the signed-in account (one `GET /api/me`), else the account's apps; `--open` also opens it in
   the browser. `init`'s dashboard notice says what the dashboard shows and how to print the link again, and `whoami`

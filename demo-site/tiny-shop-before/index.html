@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <!-- no viewport meta on purpose: the page zooms out on a phone -->
+    <title>Tiny Shop</title>
+    <link rel="stylesheet" href="/theme-missing.css" />
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div class="banner">Free shipping on every order over 50 â‚¬ â€” today only</div>
+    <header class="top">
+      <img class="logo" src="/logo-missing.png" alt="Tiny Shop" width="120" height="40" />
+      <nav>
+        <a href="#">Home</a>
+        <a href="#">Deals</a>
+        <a href="#" class="faint">Help</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="search">
+        <label for="q">Search the shop</label>
+        <input id="q" type="search" placeholder="Type a product name" autocomplete="off" />
+        <ul id="results"></ul>
+      </section>
+
+      <section class="grid">
+        <article class="card">
+          <img src="/lamp.svg" alt="Reading lamp" width="200" height="200" />
+          <h3>Reading lamp</h3>
+          <p class="price">{{price}}</p>
+          <button class="add" data-item="Reading lamp">Add to cart</button>
+        </article>
+        <article class="card">
+          <img src="/lamp.svg" alt="Retro keyboard" width="200" height="120" />
+          <h3>Retro keyboard</h3>
+          <p class="price">39 €</p>
+          <button class="add" data-item="Retro keyboard">Add to cart</button>
+        </article>
+        <article class="card">
+          <p class="blurb">Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
+          <h3>Red notebook</h3>
+          <p class="price">4 €</p>
+          <button class="add" data-item="Red notebook">Add to cart</button>
+        </article>
+      </section>
+
+      <section class="cart">
+        <p>Cart: <strong id="cartcount">0</strong> items</p>
+        <div class="checkout-wrap">
+          <button id="checkout">Checkout</button>
+          <div class="promo-overlay">Use code WELCOME at checkout</div>
+        </div>
+        <p id="checkout-msg" class="msg"></p>
+      </section>
+
+      <section class="more">
+        <button id="reviews">Load reviews</button>
+        <ul id="reviewlist"></ul>
+        <button id="profile">Show my profile</button>
+        <p id="profilemsg" class="msg"></p>
+        <form id="newsletter">
+          <label>Newsletter <input name="email" type="email" value="ada@example.com" /></label>
+          <button type="submit">Subscribe</button>
+          <span id="newsmsg" class="msg"></span>
+        </form>
+      </section>
+
+      <p class="fine">Prices include VAT. Returns within 30 days.</p>
+      <section class="about">
+        <h3>About Tiny Shop</h3>
+        <p>Tiny Shop is a small shop with a small team and a long list of Friday-evening fixes. Orders ship the next working day. Returns are free within 30 days; pack the item as it came and use the label in the parcel.</p>
+        <p>Questions go to the Help page, where the answers are short and the form is long. Gift wrapping is available at checkout for 2 €. Prices include VAT and are shown in euros.</p>
+        <p>The lamp is our best seller. The keyboard is louder than you expect. The notebook is red.</p>
+      </section>
+      <div class="wide">This promotional strip is wider than any screen and makes the page scroll sideways.</div>
+      <button class="offscreen" id="secret">Secret deals</button>
+      <dialog open class="cookie">We use cookies. <button id="ok">OK</button></dialog>
+      <div class="cover"></div>
+    </main>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

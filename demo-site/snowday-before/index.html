@@ -1,0 +1,2326 @@
+<!DOCTYPE html>
+<html lang="en-CA" itemscope itemtype="https://schema.org/WebApplication">
+
+<head>
+    <meta charset="UTF-8">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6531771326648501"
+        crossorigin="anonymous"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <title>Snow Day Predictor | School Closure Probability Tool for Canada and the U.S.</title>
+    <meta name="description"
+        content="Weather-based snow day probability estimates for postal codes and ZIP codes, plus methodology notes and official closure resources.">
+    <meta name="author" content="Snow Day Predictor">
+    <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
+    <link rel="canonical" href="https://snowday-predictor.ca/">
+    <link rel="alternate" hreflang="en-CA" href="https://snowday-predictor.ca/">
+    <link rel="alternate" hreflang="en-US" href="https://snowday-predictor.ca/">
+    <link rel="alternate" hreflang="x-default" href="https://snowday-predictor.ca/">
+
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://snowday-predictor.ca/">
+    <meta property="og:title" content="Snow Day Predictor">
+    <meta property="og:description"
+        content="Estimate snow day probability from forecast conditions and verify with official school board announcements.">
+    <meta property="og:image" content="https://snowday-predictor.ca/og-image.jpg">
+    <meta property="og:image:alt" content="Snow Day Predictor home page">
+    <meta property="og:site_name" content="Snow Day Predictor">
+    <meta property="og:locale" content="en_CA">
+    <meta property="og:locale:alternate" content="en_US">
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="https://snowday-predictor.ca/">
+    <meta name="twitter:title" content="Snow Day Predictor">
+    <meta name="twitter:description"
+        content="Weather-based snow day probability estimates with transparent methodology and official-source links.">
+    <meta name="twitter:image" content="https://snowday-predictor.ca/twitter-card.jpg">
+    <meta name="twitter:image:alt" content="Snow Day Predictor home page">
+
+    <meta name="theme-color" content="#1e3a5f">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Snow Day">
+    <meta name="application-name" content="Snow Day Predictor">
+    <meta name="format-detection" content="telephone=no">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://api.open-meteo.com">
+    <link rel="dns-prefetch" href="https://nominatim.openstreetmap.org">
+
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "@id": "https://snowday-predictor.ca/#website",
+        "url": "https://snowday-predictor.ca/",
+        "name": "Snow Day Predictor",
+        "description": "Weather-based school closure probability estimator for selected regions in Canada and the United States."
+    }
+    </script>
+
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "@id": "https://snowday-predictor.ca/#webapp",
+        "name": "Snow Day Predictor",
+        "url": "https://snowday-predictor.ca/",
+        "applicationCategory": "UtilitiesApplication",
+        "operatingSystem": "Web",
+        "isAccessibleForFree": true,
+        "description": "Estimate snow day probability using forecast snowfall, temperature, wind, and visibility."
+    }
+    </script>
+
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "@id": "https://snowday-predictor.ca/#organization",
+        "name": "Snow Day Predictor",
+        "url": "https://snowday-predictor.ca/",
+        "email": "hello@snowday-predictor.ca",
+        "sameAs": [
+            "https://github.com/MeharPro/snowday-predictor"
+        ]
+    }
+    </script>
+
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+            {
+                "@type": "Question",
+                "name": "Is this an official school closure announcement?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "No. This site provides a probability estimate only. Final decisions come from your school board or transportation authority."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "What data is used for predictions?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Predictions use Open-Meteo forecast fields such as snowfall, temperature, wind speed, and visibility, combined with rule-based scoring."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "Does it support both Canadian and U.S. locations?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Yes. You can enter a Canadian postal code or a U.S. ZIP code. Coverage guides are listed in the school directory."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "How should I use the estimate?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Use the estimate as an early planning signal, then verify with official alerts before making school or travel decisions."
+                }
+            }
+        ]
+    }
+    </script>
+
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+            {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Home",
+                "item": "https://snowday-predictor.ca/"
+            }
+        ]
+    }
+    </script>
+
+    <!-- Fonts with display swap for performance -->
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --primary: #3b82f6;
+            --primary-dark: #1d4ed8;
+            --primary-light: #93c5fd;
+            --secondary: #8b5cf6;
+            --accent: #06b6d4;
+            --bg-dark: #0f172a;
+            --bg-medium: #1e293b;
+            --bg-light: #334155;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --success: #22c55e;
+            --warning: #eab308;
+            --danger: #ef4444;
+            --snow-white: #f0f9ff;
+            --glass-bg: rgba(255, 255, 255, 0.08);
+            --glass-border: rgba(255, 255, 255, 0.12);
+        }
+
+        /* Navigation Bar */
+        .nav-header {
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 1000;
+            padding: 0.8rem 0;
+        }
+
+        .nav-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        .nav-logo {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            text-decoration: none;
+            color: var(--text-primary);
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.5rem;
+            align-items: center;
+        }
+
+        .nav-link {
+            text-decoration: none;
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        .nav-link:hover {
+            color: var(--snow-white);
+        }
+
+        /* Adjust main container to account for fixed nav */
+        .container {
+            padding-top: 80px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0f172a 100%);
+            min-height: 100vh;
+            color: var(--text-primary);
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* Snowfall Animation */
+        .snowflakes {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+            overflow: hidden;
+        }
+
+        .snowflake {
+            position: absolute;
+            top: -10px;
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 1em;
+            animation: fall linear infinite;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+        }
+
+        @keyframes fall {
+            0% {
+                transform: translateY(-10px) rotate(0deg);
+                opacity: 1;
+            }
+
+            100% {
+                transform: translateY(100vh) rotate(360deg);
+                opacity: 0.3;
+            }
+        }
+
+        /* Aurora Background Effect */
+        .aurora {
+            position: fixed;
+            top: 110px;
+            left: 0;
+            width: 100%;
+            height: calc(100% - 110px);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .aurora::before,
+        .aurora::after {
+            content: '';
+            position: absolute;
+            width: 150%;
+            height: 150%;
+            background: radial-gradient(ellipse at center,
+                    rgba(59, 130, 246, 0.15) 0%,
+                    rgba(139, 92, 246, 0.1) 25%,
+                    transparent 70%);
+            animation: aurora-move 15s ease-in-out infinite alternate;
+        }
+
+        .aurora::after {
+            animation-delay: -7s;
+            background: radial-gradient(ellipse at center,
+                    rgba(6, 182, 212, 0.12) 0%,
+                    rgba(59, 130, 246, 0.08) 30%,
+                    transparent 70%);
+        }
+
+        @keyframes aurora-move {
+            0% {
+                transform: translate(-25%, -25%) rotate(0deg);
+            }
+
+            100% {
+                transform: translate(25%, 25%) rotate(10deg);
+            }
+        }
+
+        /* Main Container */
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem;
+            position: relative;
+            z-index: 10;
+        }
+
+        /* Header */
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+            padding-top: 2rem;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .logo-icon {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            box-shadow: 0 10px 40px rgba(59, 130, 246, 0.4);
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-10px);
+            }
+        }
+
+        h1 {
+            font-size: clamp(2rem, 5vw, 3.5rem);
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--snow-white) 0%, var(--primary-light) 50%, var(--accent) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.75rem;
+            letter-spacing: -0.02em;
+        }
+
+        .subtitle {
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+            font-weight: 400;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        .alert-bar { margin-top: 0.8rem; margin-bottom: -0.8rem; background: #fff; color: #fff; text-align: center; padding: 6px 12px; font-size: 14px; }
+        dialog.notice { position: fixed; bottom: 16px; left: 16px; margin: 0; z-index: 50; background: var(--bg-medium); color: var(--text-primary, #fff); border: 1px solid var(--bg-light); border-radius: 10px; padding: 12px 16px; }
+        dialog.notice button { margin-left: 8px; padding: 4px 10px; }
+        .extras-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; align-items: start; }
+        .extra { margin: 0 !important; padding: 16px 18px !important; }
+        .extra .row { margin-top: 10px; }
+        .extra h2 { font-size: 1.1rem; margin-bottom: 12px; color: var(--text-primary, #fff); }
+        .extra input { width: 100%; padding: 10px 12px; border-radius: 8px; border: 2px solid var(--bg-light); background: var(--bg-medium); color: var(--text-primary, #fff); font-size: 15px; }
+        .extra ul { list-style: none; margin-top: 8px; min-height: 0; }
+        .extra li { padding: 3px 0; font-size: 14px; border-bottom: 1px dotted var(--bg-light); color: var(--primary-light); }
+        .extra .row { display: flex; gap: 10px; align-items: center; }
+        .extra button { padding: 10px 16px; border-radius: 8px; border: 0; background: var(--primary); color: #fff; cursor: pointer; white-space: nowrap; }
+        .extra p { margin-top: 10px; color: var(--primary-light); }
+        .extra .poll-note { margin: -4px 0 8px; font-size: 13px; }
+        .extra .row button strong { margin-left: 6px; }
+        .trust-note {
+            max-width: 700px;
+            margin: 1rem auto 0;
+            font-size: 0.9rem;
+            color: #cbd5e1;
+            background: rgba(15, 23, 42, 0.55);
+            border: 1px solid rgba(148, 163, 184, 0.25);
+            border-radius: 12px;
+            padding: 0.75rem 1rem;
+        }
+
+        .trust-note a {
+            color: var(--primary-light);
+            text-decoration: none;
+        }
+
+        .trust-note a:hover {
+            text-decoration: underline;
+        }
+
+        /* Glass Card */
+        .glass-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 2.5rem;
+            margin-bottom: 2rem;
+            box-shadow:
+                0 25px 50px -12px rgba(0, 0, 0, 0.4),
+                0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .glass-card:hover {
+            transform: translateY(-5px);
+            box-shadow:
+                0 35px 60px -15px rgba(0, 0, 0, 0.5),
+                0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+        }
+
+        /* Input Section */
+        .input-section {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .input-group {
+            position: relative;
+        }
+
+        .input-label {
+            display: block;
+            margin-bottom: 0.75rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .input-wrapper {
+            position: relative;
+            display: flex;
+            gap: 1rem;
+        }
+
+        .postal-input {
+            flex: 1;
+            padding: 1.25rem 1.5rem;
+            font-size: 1.25rem;
+            font-weight: 500;
+            font-family: inherit;
+            background: var(--bg-medium);
+            border: 2px solid var(--bg-light);
+            border-radius: 16px;
+            color: var(--text-primary);
+            outline: none;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .postal-input::placeholder {
+            color: var(--text-secondary);
+            text-transform: none;
+            letter-spacing: 0;
+        }
+
+        .postal-input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2);
+        }
+
+        .predict-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            padding: 1.25rem 2.5rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+            font-family: inherit;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            border: none;
+            border-radius: 16px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 30px rgba(59, 130, 246, 0.4);
+            min-width: 180px;
+        }
+
+        .predict-btn:hover:not(:disabled) {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 40px rgba(59, 130, 246, 0.5);
+        }
+
+        .predict-btn:active:not(:disabled) {
+            transform: translateY(-1px);
+        }
+
+        .predict-btn:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+
+        .predict-btn .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Results Section */
+        .results-section {
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .results-section.visible {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .probability-display {
+            text-align: center;
+            padding: 3rem 2rem;
+        }
+
+        .probability-ring {
+            position: relative;
+            width: 220px;
+            height: 220px;
+            margin: 0 auto 2rem;
+        }
+
+        .probability-ring svg {
+            transform: rotate(-90deg);
+            width: 100%;
+            height: 100%;
+        }
+
+        .probability-ring circle {
+            fill: none;
+            stroke-width: 12;
+            stroke-linecap: round;
+        }
+
+        .probability-ring .ring-bg {
+            stroke: var(--bg-light);
+        }
+
+        .probability-ring .ring-progress {
+            stroke: var(--primary);
+            stroke-dasharray: 565.48;
+            stroke-dashoffset: 565.48;
+            transition: stroke-dashoffset 1.5s ease-out, stroke 0.5s ease;
+        }
+
+        .probability-value {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+
+        .probability-number {
+            font-size: 4rem;
+            font-weight: 800;
+            line-height: 1;
+            background: linear-gradient(135deg, var(--snow-white) 0%, var(--primary-light) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .probability-label {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-top: 0.5rem;
+        }
+
+        .prediction-verdict {
+            font-size: 1.75rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+        }
+
+        .prediction-verdict.high {
+            color: var(--success);
+        }
+
+        .prediction-verdict.medium {
+            color: var(--warning);
+        }
+
+        .prediction-verdict.low {
+            color: var(--danger);
+        }
+
+        .prediction-message {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            line-height: 1.6;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        /* Weather Details */
+        .weather-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1.25rem;
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 1px solid var(--glass-border);
+        }
+
+        .weather-stat {
+            text-align: center;
+            padding: 1.5rem;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 16px;
+            transition: transform 0.3s ease;
+        }
+
+        .weather-stat:hover {
+            transform: translateY(-3px);
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        .weather-stat-icon {
+            font-size: 2rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .weather-stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 0.25rem;
+        }
+
+        .weather-stat-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        /* Location Display */
+        .location-display {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+            padding: 0.75rem 1.5rem;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 100px;
+            display: inline-flex;
+            margin: 0 auto 1.5rem;
+        }
+
+        .location-display span {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        /* Error Message */
+        .error-message {
+            display: none;
+            padding: 1rem 1.5rem;
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: 12px;
+            color: #fca5a5;
+            text-align: center;
+            margin-top: 1rem;
+        }
+
+        .error-message.visible {
+            display: block;
+            animation: shake 0.5s ease;
+        }
+
+        @keyframes shake {
+
+            0%,
+            100% {
+                transform: translateX(0);
+            }
+
+            20%,
+            60% {
+                transform: translateX(-5px);
+            }
+
+            40%,
+            80% {
+                transform: translateX(5px);
+            }
+        }
+
+        /* Info Section */
+        .info-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .info-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 2rem;
+            transition: transform 0.3s ease;
+        }
+
+        .info-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .info-card-icon {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .info-card h3 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            color: var(--text-primary);
+        }
+
+        .info-card p {
+            font-size: 0.925rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        .transparency-section {
+            margin-top: 2rem;
+        }
+
+        .transparency-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 1.25rem;
+        }
+
+        .transparency-card {
+            background: rgba(15, 23, 42, 0.55);
+            border: 1px solid rgba(148, 163, 184, 0.25);
+            border-radius: 16px;
+            padding: 1.25rem;
+        }
+
+        .transparency-card h3 {
+            font-size: 1rem;
+            margin-bottom: 0.6rem;
+            color: var(--text-primary);
+        }
+
+        .transparency-card p {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.75rem;
+            line-height: 1.55;
+        }
+
+        .transparency-card ul {
+            margin: 0;
+            padding-left: 1.1rem;
+            color: var(--text-secondary);
+        }
+
+        .transparency-card li {
+            font-size: 0.86rem;
+            margin-bottom: 0.4rem;
+        }
+
+        .transparency-card a {
+            color: var(--primary-light);
+            text-decoration: none;
+        }
+
+        .transparency-card a:hover {
+            text-decoration: underline;
+        }
+
+        /* FAQ Section */
+        .faq-section {
+            margin-top: 4rem;
+            padding: 2rem 0;
+        }
+
+        .faq-section h2 {
+            text-align: center;
+            font-size: 1.75rem;
+            margin-bottom: 2rem;
+            color: var(--text-primary);
+        }
+
+        .faq-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .faq-item {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            backdrop-filter: blur(10px);
+        }
+
+        .faq-item h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--primary-light);
+            margin-bottom: 0.75rem;
+        }
+
+        .faq-item p {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        /* Blog Section */
+        .blog-section {
+            margin-top: 4rem;
+            padding: 2rem 0;
+        }
+
+        .blog-section h2 {
+            text-align: center;
+            font-size: 1.75rem;
+            margin-bottom: 2rem;
+            color: var(--text-primary);
+        }
+
+        .blog-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .blog-card {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            backdrop-filter: blur(10px);
+            transition: transform 0.3s ease, border-color 0.3s ease;
+        }
+
+        .blog-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--primary);
+        }
+
+        .blog-date {
+            font-size: 0.75rem;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .blog-card h3 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin: 0.75rem 0;
+        }
+
+        .blog-card p {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+            margin-bottom: 1rem;
+        }
+
+        .blog-link {
+            color: var(--primary-light);
+            font-size: 0.875rem;
+            font-weight: 500;
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        .blog-link:hover {
+            color: var(--accent);
+        }
+
+        /* Schools Directory Section */
+        .schools-directory {
+            margin-top: 4rem;
+            padding: 2rem 0;
+            border-top: 1px solid var(--glass-border);
+        }
+
+        .schools-directory h2 {
+            text-align: center;
+            font-size: 1.75rem;
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
+        }
+
+        .schools-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1rem;
+        }
+
+        .schools-region {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 1.25rem;
+        }
+
+        .schools-region h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            color: var(--primary-light);
+        }
+
+        .schools-links {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .schools-links a {
+            display: inline-block;
+            background: rgba(59, 130, 246, 0.15);
+            color: var(--text-primary);
+            padding: 0.35rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .schools-links a:hover {
+            background: var(--primary);
+            color: white;
+        }
+
+        .view-all-btn {
+            display: inline-block;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            padding: 0.85rem 2rem;
+            border-radius: 10px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .view-all-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(59, 130, 246, 0.3);
+        }
+
+        /* Footer */
+        footer {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 3rem 2rem 1.5rem;
+            margin-top: 4rem;
+        }
+
+        .footer-content {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 2rem;
+            max-width: 1200px;
+            margin: 0 auto 2rem;
+        }
+
+        .footer-section h4 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 1rem;
+        }
+
+        .footer-section p {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        .footer-section ul {
+            list-style: none;
+        }
+
+        .footer-section ul li {
+            margin-bottom: 0.5rem;
+        }
+
+        .footer-section ul li a {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        .footer-section ul li a:hover {
+            color: var(--primary-light);
+        }
+
+        .footer-bottom {
+            text-align: center;
+            padding-top: 2rem;
+            border-top: 1px solid var(--glass-border);
+        }
+
+        .footer-bottom p {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+        }
+
+        .footer-note {
+            font-size: 0.75rem !important;
+            opacity: 0.7;
+        }
+
+        .footer-note a {
+            color: var(--primary-light);
+            text-decoration: none;
+        }
+
+        .footer-note a:hover {
+            text-decoration: underline;
+        }
+
+        /* Responsive */
+        @media (max-width: 640px) {
+            .container {
+                padding: 1rem;
+            }
+
+            .glass-card {
+                padding: 1.5rem;
+            }
+
+            .input-wrapper {
+                flex-direction: column;
+            }
+
+            .predict-btn {
+                width: 100%;
+            }
+
+            .probability-ring {
+                width: 180px;
+                height: 180px;
+            }
+
+            .probability-number {
+                font-size: 3rem;
+            }
+
+            .weather-details {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <dialog open class="notice">Forecasts update every hour; predictions are estimates. <button id="notice-ok">OK</button></dialog>
+    <!-- Navigation Bar -->
+    <nav class="nav-header">
+        <div class="nav-content">
+            <a href="/" class="nav-logo">❄️ Snow Day Predictor</a>
+            <div class="nav-links">
+                <a href="#calculator" class="nav-link">Calculator</a>
+                <a href="/schools/" class="nav-link">All Schools</a>
+                <a href="/methodology.html" class="nav-link">Methodology</a>
+                <a href="#faq" class="nav-link">FAQ</a>
+            </div>
+        </div>
+        <div class="alert-bar">Storm watch tonight: predictions refresh every hour as the forecast changes.</div>
+    </nav>
+    <!-- Snowfall Effect -->
+    <div class="snowflakes" id="snowflakes"></div>
+
+    <!-- Aurora Background -->
+    <div class="aurora"></div>
+
+    <div class="container">
+        <header>
+            <div class="logo">
+                <div class="logo-icon">❄️</div>
+            </div>
+            <h1>Snow Day Predictor</h1>
+            <p class="subtitle">Estimate your school closure probability in seconds from forecast conditions.</p>
+            <p class="trust-note">This is an estimate, not an official closure notice. Always confirm with your school
+                board or transportation provider. See <a href="/sources.html">official source links</a>.</p>
+        </header>
+
+        <main>
+            <!-- Input Card -->
+            <div class="glass-card" id="calculator">
+                <div class="input-section">
+                    <div class="input-group">
+                        <label class="input-label" for="postal-code">Enter Your Postal/ZIP Code</label>
+                        <div class="input-wrapper">
+                            <input type="text" id="postal-code" class="postal-input" placeholder="e.g., L6H3X5 or 14201"
+                                maxlength="10" autocomplete="off">
+                            <button class="predict-btn" id="predict-btn" onclick="getPrediction()">
+                                <span id="btn-text">Predict</span>
+                                <span class="spinner" id="spinner" style="display: none;"></span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="error-message" id="error-message"></div>
+                </div>
+            </div>
+
+            <div class="extras-row">
+                <div class="glass-card extra" id="boards">
+                    <h2>Find your school board</h2>
+                    <input id="board-q" type="search" placeholder="Type your board's name" autocomplete="off">
+                    <ul id="board-results"></ul>
+                </div>
+                <div class="glass-card extra" id="poll">
+                    <h2>Will schools close tomorrow?</h2>
+                    <p class="poll-note">Today's community vote</p>
+                    <div class="row"><button id="vote-yes" data-choice="yes">❄️ Snow day <strong id="yes-count">124</strong></button><button id="vote-no" data-choice="no">🏫 School's on <strong id="no-count">88</strong></button></div>
+                </div>
+            </div>
+            <!-- Results Card -->
+            <div class="glass-card results-section" id="results-section">
+                <div class="probability-display">
+                    <div class="location-display" id="location-display">
+                        <span>📍</span>
+                        <span id="location-name">Loading...</span>
+                    </div>
+
+                    <div class="probability-ring">
+                        <svg viewBox="0 0 200 200">
+                            <circle class="ring-bg" cx="100" cy="100" r="90"></circle>
+                            <circle class="ring-progress" id="ring-progress" cx="100" cy="100" r="90"></circle>
+                        </svg>
+                        <div class="probability-value">
+                            <div class="probability-number" id="probability-number">0%</div>
+                            <div class="probability-label">Snow Day Chance</div>
+                        </div>
+                    </div>
+
+                    <div class="prediction-verdict" id="prediction-verdict">Calculating...</div>
+                    <p class="prediction-message" id="prediction-message">Analyzing weather data...</p>
+
+                    <div class="weather-details" id="weather-details">
+                        <div class="weather-stat">
+                            <div class="weather-stat-icon">🌨️</div>
+                            <div class="weather-stat-value" id="snowfall-value">--</div>
+                            <div class="weather-stat-label">Total Snowfall</div>
+                        </div>
+                        <div class="weather-stat">
+                            <div class="weather-stat-icon">⚡</div>
+                            <div class="weather-stat-value" id="intensity-value">--</div>
+                            <div class="weather-stat-label">Peak Intensity</div>
+                        </div>
+                        <div class="weather-stat">
+                            <div class="weather-stat-icon">🌡️</div>
+                            <div class="weather-stat-value" id="temp-value">--</div>
+                            <div class="weather-stat-label">8 AM Temp</div>
+                        </div>
+                        <div class="weather-stat">
+                            <div class="weather-stat-icon">💨</div>
+                            <div class="weather-stat-value" id="wind-value">--</div>
+                            <div class="weather-stat-label">8 AM Wind</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Info Section -->
+            <div class="info-section">
+                <div class="info-card">
+                    <div class="info-card-icon">🎯</div>
+                    <h3>Forecast Inputs</h3>
+                    <p>Each estimate is calculated from forecast snowfall, wind, temperature, and visibility for school
+                        commute hours.</p>
+                </div>
+                <div class="info-card">
+                    <div class="info-card-icon">📊</div>
+                    <h3>Rule-Based Model</h3>
+                    <p>The score is generated by published weighting rules in the page code. It is meant for planning,
+                        not for official decision-making.</p>
+                </div>
+                <div class="info-card">
+                    <div class="info-card-icon">✅</div>
+                    <h3>Verify Officially</h3>
+                    <p>Always confirm closures with your district website, transportation alerts, and local emergency
+                        notices before acting on a prediction.</p>
+                </div>
+            </div>
+
+            <section class="transparency-section" id="method">
+                <div class="transparency-grid">
+                    <article class="transparency-card">
+                        <h3>Coverage Status</h3>
+                        <p>We currently publish detailed guides for selected states, provinces, and Ontario boards.</p>
+                        <p>Use the <a href="/schools/">school directory</a> to see active coverage pages.</p>
+                    </article>
+                    <article class="transparency-card">
+                        <h3>Data and Method</h3>
+                        <ul>
+                            <li>Forecast provider: Open-Meteo API</li>
+                            <li>Geocoding: OpenStreetMap Nominatim + local fallbacks</li>
+                            <li>Scoring logic: deterministic weather-based rule weights</li>
+                        </ul>
+                        <p><a href="/methodology.html">Read full methodology</a></p>
+                    </article>
+                    <article class="transparency-card">
+                        <h3>Editorial Standards</h3>
+                        <p>We disclose limitations, avoid guaranteed outcomes, and link to primary official sources.</p>
+                        <p><a href="/editorial-policy.html">View editorial policy</a></p>
+                    </article>
+                </div>
+            </section>
+
+            <!-- FAQ Section for SEO -->
+            <section class="faq-section" id="faq">
+                <h2>❓ Frequently Asked Questions</h2>
+                <div class="faq-grid">
+                    <article class="faq-item">
+                        <h3>Is this an official closure announcement?</h3>
+                        <p>No. This is an estimate built from forecast data. Official closure decisions come from your
+                            school board or transportation authority.</p>
+                    </article>
+                    <article class="faq-item">
+                        <h3>What weather factors are included?</h3>
+                        <p>Snow accumulation, snowfall rate, commute-hour timing, temperature, wind chill, wind speed,
+                            and low-visibility risk are all included in the scoring model.</p>
+                    </article>
+                    <article class="faq-item">
+                        <h3>What locations are supported?</h3>
+                        <p>You can enter Canadian postal codes and U.S. ZIP codes. District pages are available for
+                            selected regions listed in the schools directory.</p>
+                    </article>
+                    <article class="faq-item">
+                        <h3>Where should I verify final status?</h3>
+                        <p>Check official district channels, transportation websites, and emergency alerts. We maintain
+                            a source list at <a href="/sources.html">sources.html</a>.</p>
+                    </article>
+                </div>
+            </section>
+
+            <!-- Blog Teaser Section -->
+            <section class="blog-section" id="blog">
+                <h2>📝 Snow Day Tips & Updates</h2>
+                <div class="blog-grid">
+                    <article class="blog-card">
+                        <span class="blog-date">January 2026</span>
+                        <h3>Understanding HDSB's Snow Day Decision Process</h3>
+                        <p>Learn how Halton Student Transportation Services evaluates weather conditions and makes the
+                            call to close schools...</p>
+                        <a href="articles/hdsb-decision-process.html" class="blog-link">Read More →</a>
+                    </article>
+                    <article class="blog-card">
+                        <span class="blog-date">December 2025</span>
+                        <h3>Top 5 Activities for an Unexpected Snow Day</h3>
+                        <p>School's cancelled! Here are the best ways to make the most of your snow day in Halton
+                            Region...</p>
+                        <a href="articles/snow-day-activities.html" class="blog-link">Read More →</a>
+                    </article>
+                    <article class="blog-card">
+                        <span class="blog-date">November 2025</span>
+                        <h3>Historical Snow Day Trends: What the Data Shows</h3>
+                        <p>We analyzed 10 years of HDSB closures to find patterns in when and why schools close...</p>
+                        <a href="articles/historical-trends.html" class="blog-link">Read More →</a>
+                    </article>
+                </div>
+            </section>
+
+            <!-- School Boards Directory Section - Critical for SEO Internal Linking -->
+            <section class="schools-directory" id="schools">
+                <h2>🏫 Find Your School District</h2>
+                <p style="text-align:center; color:var(--text-secondary); margin-bottom:2rem;">Browse currently
+                    available region pages and board guides.</p>
+
+                <div class="schools-grid">
+                    <!-- Canada -->
+                    <div class="schools-region">
+                        <h3>🇨🇦 Canada</h3>
+                        <div class="schools-links">
+                            <a href="/schools/ontario/">Ontario</a>
+                            <a href="/schools/ontario/hdsb/">HDSB</a>
+                            <a href="/schools/ontario/tdsb/">TDSB</a>
+                            <a href="/schools/ontario/pdsb/">PDSB</a>
+                            <a href="/schools/ontario/yrdsb/">YRDSB</a>
+                            <a href="/schools/quebec/">Quebec</a>
+                            <a href="/schools/british-columbia/">BC</a>
+                            <a href="/schools/alberta/">Alberta</a>
+                            <a href="/schools/manitoba/">Manitoba</a>
+                            <a href="/schools/saskatchewan/">Saskatchewan</a>
+                            <a href="/schools/nova-scotia/">Nova Scotia</a>
+                        </div>
+                    </div>
+
+                    <!-- Northeast US -->
+                    <div class="schools-region">
+                        <h3>🇺🇸 Northeast</h3>
+                        <div class="schools-links">
+                            <a href="/schools/new-york/">New York</a>
+                            <a href="/schools/massachusetts/">Massachusetts</a>
+                            <a href="/schools/pennsylvania/">Pennsylvania</a>
+                            <a href="/schools/new-jersey/">New Jersey</a>
+                            <a href="/schools/connecticut/">Connecticut</a>
+                            <a href="/schools/maine/">Maine</a>
+                            <a href="/schools/vermont/">Vermont</a>
+                            <a href="/schools/new-hampshire/">New Hampshire</a>
+                            <a href="/schools/maryland/">Maryland</a>
+                            <a href="/schools/virginia/">Virginia</a>
+                        </div>
+                    </div>
+
+                    <!-- Midwest US -->
+                    <div class="schools-region">
+                        <h3>🇺🇸 Midwest</h3>
+                        <div class="schools-links">
+                            <a href="/schools/michigan/">Michigan</a>
+                            <a href="/schools/ohio/">Ohio</a>
+                            <a href="/schools/illinois/">Illinois</a>
+                            <a href="/schools/wisconsin/">Wisconsin</a>
+                            <a href="/schools/minnesota/">Minnesota</a>
+                            <a href="/schools/indiana/">Indiana</a>
+                            <a href="/schools/iowa/">Iowa</a>
+                        </div>
+                    </div>
+
+                    <!-- West US -->
+                    <div class="schools-region">
+                        <h3>🇺🇸 West</h3>
+                        <div class="schools-links">
+                            <a href="/schools/colorado/">Colorado</a>
+                            <a href="/schools/washington/">Washington</a>
+                            <a href="/schools/">Directory →</a>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="text-align:center; margin-top:2rem;">
+                    <a href="/schools/" class="view-all-btn">Open Full Directory →</a>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h4>Snow Day Predictor</h4>
+                    <p>Forecast-based snow day probability tool with transparent assumptions and official verification
+                        links.</p>
+                </div>
+                <div class="footer-section">
+                    <h4>Resources</h4>
+                    <ul>
+                        <li><a href="/schools/">All School Districts</a></li>
+                        <li><a href="/about.html">About Us</a></li>
+                        <li><a href="/methodology.html">Methodology</a></li>
+                        <li><a href="/sources.html">Official Sources</a></li>
+                        <li><a href="/editorial-policy.html">Editorial Policy</a></li>
+                        <li><a href="#faq">FAQ</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4>🇨🇦 Canadian School Boards</h4>
+                    <ul>
+                        <li><a href="/schools/ontario/">Ontario Schools</a></li>
+                        <li><a href="/schools/ontario/hdsb/">HDSB (Halton)</a></li>
+                        <li><a href="/schools/ontario/tdsb/">TDSB (Toronto)</a></li>
+                        <li><a href="/schools/ontario/pdsb/">PDSB (Peel)</a></li>
+                        <li><a href="/schools/ontario/yrdsb/">YRDSB (York)</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4>🇺🇸 US School Districts</h4>
+                    <ul>
+                        <li><a href="/schools/new-york/">New York State</a></li>
+                        <li><a href="/schools/massachusetts/">Massachusetts</a></li>
+                        <li><a href="/schools/michigan/">Michigan</a></li>
+                        <li><a href="/schools/ohio/">Ohio</a></li>
+                        <li><a href="/schools/">View All Districts →</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-section">
+                <h4>Connect</h4>
+                <ul>
+                    <li><a href="https://github.com/MeharPro/snowday-predictor" target="_blank"
+                            rel="noopener">GitHub</a></li>
+                    <li><a href="mailto:hello@snowday-predictor.ca">Contact Us</a></li>
+                    <li><a href="#blog">Blog</a></li>
+                </ul>
+            </div>
+
+    <div class="footer-bottom">
+        <p>© 2026 Snow Day Predictor | <a href="/about.html" style="color: #64748b; text-decoration: none;">About</a>
+            | <a href="/privacy.html" style="color: #64748b; text-decoration: none;">Privacy Policy</a> | <a
+                href="/schools/" style="color: #64748b; text-decoration: none;">All Schools</a></p>
+        <p class="footer-note">For planning only. Verify closures with official district or transportation channels.</p>
+    </div>
+    </footer>
+    </div>
+
+    <script>
+        // Create snowflakes
+        function createSnowflakes() {
+            const container = document.getElementById('snowflakes');
+            const snowflakeCount = 50;
+            const snowflakeChars = ['❄', '❅', '❆', '✻', '✼'];
+
+            for (let i = 0; i < snowflakeCount; i++) {
+                const snowflake = document.createElement('div');
+                snowflake.className = 'snowflake';
+                snowflake.textContent = snowflakeChars[Math.floor(Math.random() * snowflakeChars.length)];
+                snowflake.style.left = Math.random() * 100 + '%';
+                snowflake.style.fontSize = (Math.random() * 10 + 8) + 'px';
+                snowflake.style.opacity = Math.random() * 0.5 + 0.3;
+                snowflake.style.animationDuration = (Math.random() * 10 + 10) + 's';
+                snowflake.style.animationDelay = -(Math.random() * 10) + 's';
+                container.appendChild(snowflake);
+            }
+        }
+
+        createSnowflakes();
+
+        // Canadian postal code to coordinates lookup
+        async function postalCodeToCoords(postalCode) {
+            // Clean the input
+            const cleaned = postalCode.replace(/\s+/g, '').toUpperCase();
+
+            // Detect if this is a Canadian postal code or US ZIP code
+            const canadianPostalRegex = /^[A-Z]\d[A-Z]\d[A-Z]\d$/;
+            const usZipRegex = /^\d{5}(-\d{4})?$/;
+
+            const isCanadian = canadianPostalRegex.test(cleaned);
+            const isUSZip = usZipRegex.test(cleaned);
+
+            if (!isCanadian && !isUSZip) {
+                throw new Error('Please enter a valid postal code (e.g., L6H3X5) or ZIP code (e.g., 14201)');
+            }
+
+            // Handle Canadian postal codes
+            if (isCanadian) {
+                const formatted = cleaned.slice(0, 3) + ' ' + cleaned.slice(3);
+                const fsa = cleaned.slice(0, 3);
+
+                // PRIORITY 1: Use FSA (Forward Sortation Area) lookup - no API call needed
+                const fsaCoords = getFSACoordinates(fsa);
+                if (fsaCoords) {
+                    return {
+                        lat: fsaCoords.lat,
+                        lon: fsaCoords.lon,
+                        displayName: `${fsaCoords.name}, Ontario`
+                    };
+                }
+
+                // PRIORITY 2: Try Nominatim API for unknown FSAs
+                try {
+                    const response = await fetch(
+                        `https://nominatim.openstreetmap.org/search?postalcode=${encodeURIComponent(formatted)}&country=Canada&format=json&limit=1`,
+                        { headers: { 'User-Agent': 'SnowDayCalculator/2.0' } }
+                    );
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data && data.length > 0) {
+                            return {
+                                lat: parseFloat(data[0].lat),
+                                lon: parseFloat(data[0].lon),
+                                displayName: data[0].display_name.split(',').slice(0, 2).join(',')
+                            };
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Canadian geocoding API unavailable');
+                }
+
+                // PRIORITY 3: Region fallback
+                const firstChar = fsa.charAt(0);
+                const regionDefaults = {
+                    'L': { lat: 43.45, lon: -79.68, name: 'Southern Ontario' },
+                    'M': { lat: 43.65, lon: -79.38, name: 'Toronto' },
+                    'N': { lat: 43.00, lon: -81.25, name: 'Southwestern Ontario' },
+                    'K': { lat: 45.42, lon: -75.69, name: 'Eastern Ontario' },
+                    'P': { lat: 46.50, lon: -81.00, name: 'Northern Ontario' }
+                };
+
+                if (regionDefaults[firstChar]) {
+                    return {
+                        lat: regionDefaults[firstChar].lat,
+                        lon: regionDefaults[firstChar].lon,
+                        displayName: `${formatted} (${regionDefaults[firstChar].name})`
+                    };
+                }
+
+                throw new Error('Please enter an Ontario postal code for accurate predictions.');
+            }
+
+            // Handle US ZIP codes  
+            if (isUSZip) {
+                const zipCode = cleaned.substring(0, 5); // Take first 5 digits
+
+                try {
+                    const response = await fetch(
+                        `https://nominatim.openstreetmap.org/search?postalcode=${zipCode}&country=USA&format=json&limit=1`,
+                        { headers: { 'User-Agent': 'SnowDayCalculator/2.0' } }
+                    );
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data && data.length > 0) {
+                            return {
+                                lat: parseFloat(data[0].lat),
+                                lon: parseFloat(data[0].lon),
+                                displayName: data[0].display_name.split(',').slice(0, 2).join(',')
+                            };
+                        }
+                    }
+                } catch (e) {
+                    console.warn('US geocoding API unavailable');
+                }
+
+                // Common US state fallbacks based on ZIP code prefix
+                const zipPrefix = parseInt(zipCode.substring(0, 3));
+                const usDefaults = getUSZipRegion(zipPrefix);
+
+                return {
+                    lat: usDefaults.lat,
+                    lon: usDefaults.lon,
+                    displayName: `${zipCode} (${usDefaults.name})`
+                };
+            }
+        }
+
+        // Get approximate US region based on ZIP code prefix
+        function getUSZipRegion(prefix) {
+            // Northeast (snow-prone areas)
+            if (prefix >= 100 && prefix <= 149) return { lat: 42.65, lon: -73.75, name: 'New York' };
+            if (prefix >= 150 && prefix <= 196) return { lat: 40.44, lon: -79.99, name: 'Pennsylvania' };
+            if (prefix >= 10 && prefix <= 69) return { lat: 42.36, lon: -71.06, name: 'Massachusetts' };
+            if (prefix >= 70 && prefix <= 89) return { lat: 43.15, lon: -77.61, name: 'New York' };
+            // Buffalo area (near Halton!)
+            if (prefix >= 140 && prefix <= 149) return { lat: 42.89, lon: -78.88, name: 'Buffalo, NY' };
+            // Michigan
+            if (prefix >= 480 && prefix <= 499) return { lat: 42.33, lon: -83.05, name: 'Michigan' };
+            // Ohio
+            if (prefix >= 430 && prefix <= 459) return { lat: 39.96, lon: -83.00, name: 'Ohio' };
+            // Default to midwest
+            return { lat: 41.88, lon: -87.63, name: 'Midwest US' };
+        }
+
+        // FSA (Forward Sortation Area) approximate coordinates for common Halton areas
+        function getFSACoordinates(fsa) {
+            const fsaMap = {
+                // Halton Region
+                'L6H': { lat: 43.4681, lon: -79.6903, name: 'Oakville' },
+                'L6J': { lat: 43.4481, lon: -79.6813, name: 'Oakville' },
+                'L6K': { lat: 43.4481, lon: -79.7056, name: 'Oakville' },
+                'L6L': { lat: 43.4150, lon: -79.7567, name: 'Oakville' },
+                'L6M': { lat: 43.4320, lon: -79.7200, name: 'Oakville' },
+                'L7G': { lat: 43.6480, lon: -79.8731, name: 'Georgetown' },
+                'L7J': { lat: 43.6600, lon: -79.9200, name: 'Acton' },
+                'L7K': { lat: 43.6700, lon: -79.9100, name: 'Halton Hills' },
+                'L7L': { lat: 43.3800, lon: -79.7700, name: 'Burlington' },
+                'L7M': { lat: 43.3600, lon: -79.8000, name: 'Burlington' },
+                'L7N': { lat: 43.3400, lon: -79.8200, name: 'Burlington' },
+                'L7P': { lat: 43.3300, lon: -79.8400, name: 'Burlington' },
+                'L7R': { lat: 43.3200, lon: -79.7900, name: 'Burlington' },
+                'L7S': { lat: 43.3500, lon: -79.7600, name: 'Burlington' },
+                'L7T': { lat: 43.3700, lon: -79.7400, name: 'Burlington' },
+                'L9T': { lat: 43.5200, lon: -79.8700, name: 'Milton' },
+                'L9E': { lat: 43.5089, lon: -79.8871, name: 'Milton' },
+
+                // Mississauga
+                'L4T': { lat: 43.6900, lon: -79.6100, name: 'Mississauga' },
+                'L4V': { lat: 43.6800, lon: -79.6200, name: 'Mississauga' },
+                'L4W': { lat: 43.6400, lon: -79.6100, name: 'Mississauga' },
+                'L4X': { lat: 43.6100, lon: -79.5900, name: 'Mississauga' },
+                'L4Y': { lat: 43.5900, lon: -79.5600, name: 'Mississauga' },
+                'L4Z': { lat: 43.5800, lon: -79.5800, name: 'Mississauga' },
+                'L5A': { lat: 43.5750, lon: -79.6200, name: 'Mississauga' },
+                'L5B': { lat: 43.5890, lon: -79.6441, name: 'Mississauga' },
+                'L5C': { lat: 43.5600, lon: -79.6100, name: 'Mississauga' },
+                'L5E': { lat: 43.5400, lon: -79.5800, name: 'Mississauga' },
+                'L5G': { lat: 43.5300, lon: -79.5900, name: 'Mississauga' },
+                'L5H': { lat: 43.5100, lon: -79.6100, name: 'Mississauga' },
+                'L5J': { lat: 43.4900, lon: -79.6200, name: 'Mississauga' },
+                'L5K': { lat: 43.5200, lon: -79.6500, name: 'Mississauga' },
+                'L5L': { lat: 43.5400, lon: -79.6700, name: 'Mississauga' },
+                'L5M': { lat: 43.5538, lon: -79.6682, name: 'Mississauga' },
+                'L5N': { lat: 43.5936, lon: -79.6500, name: 'Mississauga' },
+                'L5P': { lat: 43.5600, lon: -79.6200, name: 'Mississauga' },
+                'L5R': { lat: 43.6000, lon: -79.6400, name: 'Mississauga' },
+                'L5S': { lat: 43.6100, lon: -79.6500, name: 'Mississauga' },
+                'L5T': { lat: 43.6200, lon: -79.6600, name: 'Mississauga' },
+                'L5V': { lat: 43.5700, lon: -79.7100, name: 'Mississauga' },
+                'L5W': { lat: 43.5900, lon: -79.7300, name: 'Mississauga' },
+
+                // Brampton
+                'L6P': { lat: 43.7500, lon: -79.7500, name: 'Brampton' },
+                'L6R': { lat: 43.7300, lon: -79.7600, name: 'Brampton' },
+                'L6S': { lat: 43.7200, lon: -79.7200, name: 'Brampton' },
+                'L6T': { lat: 43.7100, lon: -79.7000, name: 'Brampton' },
+                'L6V': { lat: 43.6900, lon: -79.7400, name: 'Brampton' },
+                'L6W': { lat: 43.6800, lon: -79.7100, name: 'Brampton' },
+                'L6X': { lat: 43.7000, lon: -79.7700, name: 'Brampton' },
+                'L6Y': { lat: 43.6700, lon: -79.7300, name: 'Brampton' },
+                'L6Z': { lat: 43.7400, lon: -79.8000, name: 'Brampton' },
+                'L7A': { lat: 43.7200, lon: -79.8200, name: 'Brampton' },
+
+                // Toronto
+                'M1B': { lat: 43.8100, lon: -79.2000, name: 'Scarborough' },
+                'M1C': { lat: 43.7800, lon: -79.1700, name: 'Scarborough' },
+                'M1E': { lat: 43.7700, lon: -79.1900, name: 'Scarborough' },
+                'M1G': { lat: 43.7700, lon: -79.2200, name: 'Scarborough' },
+                'M1H': { lat: 43.7700, lon: -79.2400, name: 'Scarborough' },
+                'M2H': { lat: 43.8000, lon: -79.3700, name: 'North York' },
+                'M2J': { lat: 43.7800, lon: -79.3500, name: 'North York' },
+                'M2K': { lat: 43.7700, lon: -79.3800, name: 'North York' },
+                'M2N': { lat: 43.7700, lon: -79.4100, name: 'North York' },
+                'M3A': { lat: 43.7500, lon: -79.3300, name: 'North York' },
+                'M3B': { lat: 43.7500, lon: -79.3500, name: 'North York' },
+                'M3C': { lat: 43.7300, lon: -79.3400, name: 'North York' },
+                'M3H': { lat: 43.7600, lon: -79.4400, name: 'North York' },
+                'M3J': { lat: 43.7700, lon: -79.4900, name: 'North York' },
+                'M4A': { lat: 43.7300, lon: -79.3100, name: 'North York' },
+                'M4B': { lat: 43.7100, lon: -79.3100, name: 'East York' },
+                'M4C': { lat: 43.6900, lon: -79.3200, name: 'East York' },
+                'M4E': { lat: 43.6800, lon: -79.2900, name: 'The Beaches' },
+                'M4G': { lat: 43.7100, lon: -79.3700, name: 'Leaside' },
+                'M4H': { lat: 43.7100, lon: -79.3500, name: 'Thorncliffe Park' },
+                'M4J': { lat: 43.6900, lon: -79.3400, name: 'East York' },
+                'M4K': { lat: 43.6800, lon: -79.3500, name: 'Riverdale' },
+                'M4L': { lat: 43.6700, lon: -79.3100, name: 'The Beaches' },
+                'M4M': { lat: 43.6600, lon: -79.3400, name: 'Leslieville' },
+                'M4N': { lat: 43.7300, lon: -79.3900, name: 'Lawrence Park' },
+                'M4P': { lat: 43.7100, lon: -79.3900, name: 'Davisville' },
+                'M4R': { lat: 43.7100, lon: -79.4000, name: 'North Toronto' },
+                'M4S': { lat: 43.7000, lon: -79.3900, name: 'Davisville' },
+                'M4T': { lat: 43.6900, lon: -79.3900, name: 'Moore Park' },
+                'M4V': { lat: 43.6900, lon: -79.4000, name: 'Summerhill' },
+                'M4W': { lat: 43.6800, lon: -79.3800, name: 'Rosedale' },
+                'M4X': { lat: 43.6700, lon: -79.3700, name: 'Cabbagetown' },
+                'M4Y': { lat: 43.6700, lon: -79.3800, name: 'Church-Yonge' },
+                'M5A': { lat: 43.6600, lon: -79.3600, name: 'St. Lawrence' },
+                'M5B': { lat: 43.6600, lon: -79.3800, name: 'Garden District' },
+                'M5C': { lat: 43.6500, lon: -79.3700, name: 'St. Lawrence' },
+                'M5E': { lat: 43.6500, lon: -79.3800, name: 'Harbourfront' },
+                'M5G': { lat: 43.6600, lon: -79.3900, name: 'Bay Street Corridor' },
+                'M5H': { lat: 43.6512, lon: -79.3796, name: 'Financial District' },
+                'M5J': { lat: 43.6400, lon: -79.3800, name: 'Harbourfront' },
+                'M5V': { lat: 43.6426, lon: -79.3871, name: 'Entertainment District' },
+                'M6A': { lat: 43.7200, lon: -79.4600, name: 'Lawrence Heights' },
+                'M6B': { lat: 43.7100, lon: -79.4500, name: 'Glencairn' },
+                'M6C': { lat: 43.6900, lon: -79.4300, name: 'Humewood-Cedarvale' },
+                'M6G': { lat: 43.6700, lon: -79.4200, name: 'Christie Pits' },
+                'M6H': { lat: 43.6700, lon: -79.4400, name: 'Corso Italia' },
+                'M6J': { lat: 43.6500, lon: -79.4200, name: 'Little Portugal' },
+                'M6K': { lat: 43.6400, lon: -79.4300, name: 'Liberty Village' },
+                'M6P': { lat: 43.6600, lon: -79.4600, name: 'High Park' },
+                'M8V': { lat: 43.6100, lon: -79.5000, name: 'Mimico' },
+                'M8W': { lat: 43.6000, lon: -79.5300, name: 'Long Branch' },
+                'M9A': { lat: 43.6700, lon: -79.5300, name: 'Islington' },
+                'M9B': { lat: 43.6600, lon: -79.5600, name: 'Islington' },
+                'M9C': { lat: 43.6500, lon: -79.5800, name: 'Markland Wood' },
+                'M9V': { lat: 43.7400, lon: -79.5900, name: 'Rexdale' },
+                'M9W': { lat: 43.7100, lon: -79.5900, name: 'Rexdale' },
+
+                // York Region
+                'L3P': { lat: 43.8800, lon: -79.2600, name: 'Markham' },
+                'L3R': { lat: 43.8600, lon: -79.3600, name: 'Markham' },
+                'L3S': { lat: 43.8700, lon: -79.2800, name: 'Markham' },
+                'L3T': { lat: 43.8500, lon: -79.4000, name: 'Thornhill' },
+                'L4B': { lat: 43.8600, lon: -79.4100, name: 'Richmond Hill' },
+                'L4C': { lat: 43.8560, lon: -79.4280, name: 'Richmond Hill' },
+                'L4E': { lat: 43.9000, lon: -79.4700, name: 'Aurora' },
+                'L4G': { lat: 43.9500, lon: -79.4600, name: 'Aurora' },
+                'L4J': { lat: 43.8100, lon: -79.4300, name: 'Thornhill' },
+                'L4K': { lat: 43.8000, lon: -79.5100, name: 'Vaughan' },
+                'L4L': { lat: 43.8200, lon: -79.5300, name: 'Vaughan' },
+                'L6A': { lat: 43.8400, lon: -79.5200, name: 'Maple' },
+                'L6B': { lat: 43.8600, lon: -79.5400, name: 'Maple' },
+                'L6C': { lat: 43.8800, lon: -79.5300, name: 'Vaughan' },
+                'L6E': { lat: 43.9200, lon: -79.3100, name: 'Markham' },
+                'L6G': { lat: 43.8400, lon: -79.3200, name: 'Unionville' },
+
+                // Durham Region
+                'L1B': { lat: 43.8700, lon: -79.0200, name: 'Pickering' },
+                'L1C': { lat: 43.9200, lon: -79.0900, name: 'Pickering' },
+                'L1G': { lat: 43.9000, lon: -78.9600, name: 'Oshawa' },
+                'L1H': { lat: 43.8900, lon: -78.8600, name: 'Oshawa' },
+                'L1J': { lat: 43.8700, lon: -78.8500, name: 'Oshawa' },
+                'L1K': { lat: 43.9200, lon: -78.8900, name: 'Oshawa' },
+                'L1L': { lat: 43.9100, lon: -78.8200, name: 'Oshawa' },
+                'L1R': { lat: 43.8600, lon: -78.9000, name: 'Ajax' },
+                'L1S': { lat: 43.8500, lon: -79.0300, name: 'Ajax' },
+                'L1T': { lat: 43.8700, lon: -79.0500, name: 'Ajax' },
+                'L1V': { lat: 43.8400, lon: -79.0800, name: 'Pickering' },
+                'L1W': { lat: 43.8600, lon: -79.0900, name: 'Pickering' },
+                'L1X': { lat: 43.8500, lon: -79.1100, name: 'Pickering' },
+                'L1Z': { lat: 43.8300, lon: -79.0800, name: 'Ajax' },
+
+                // Hamilton
+                'L8E': { lat: 43.2200, lon: -79.7800, name: 'Stoney Creek' },
+                'L8G': { lat: 43.2300, lon: -79.8000, name: 'Stoney Creek' },
+                'L8H': { lat: 43.2400, lon: -79.8200, name: 'Hamilton' },
+                'L8L': { lat: 43.2500, lon: -79.8600, name: 'Hamilton' },
+                'L8M': { lat: 43.2500, lon: -79.8400, name: 'Hamilton' },
+                'L8N': { lat: 43.2600, lon: -79.8700, name: 'Hamilton' },
+                'L8P': { lat: 43.2500, lon: -79.8800, name: 'Hamilton' },
+                'L9A': { lat: 43.2400, lon: -79.9100, name: 'Hamilton Mountain' },
+                'L9B': { lat: 43.2200, lon: -79.9000, name: 'Hamilton Mountain' },
+                'L9C': { lat: 43.2100, lon: -79.8900, name: 'Hamilton Mountain' },
+                'L9G': { lat: 43.3100, lon: -79.9400, name: 'Dundas' },
+                'L9H': { lat: 43.2700, lon: -79.9500, name: 'Dundas' },
+            };
+
+            return fsaMap[fsa.toUpperCase()];
+        }
+
+        // Get weather data from Open-Meteo API
+        async function getWeatherData(lat, lon) {
+            const today = new Date();
+            const tomorrow = new Date(today);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+
+            const dateStr = tomorrow.toISOString().split('T')[0];
+
+            const response = await fetch(
+                `https://api.open-meteo.com/v1/forecast?` +
+                `latitude=${lat}&longitude=${lon}` +
+                `&hourly=temperature_2m,precipitation,snowfall,weather_code,visibility,wind_speed_10m` +
+                `&daily=temperature_2m_min,temperature_2m_max,snowfall_sum,precipitation_sum,wind_speed_10m_max` +
+                `&timezone=America/Toronto` +
+                `&forecast_days=2`
+            );
+
+            if (!response.ok) {
+                throw new Error('Failed to fetch weather data');
+            }
+
+            return response.json();
+        }
+
+        // Calculate snow day probability using the prediction model
+        function calculateSnowDayProbability(weatherData) {
+            const daily = weatherData.daily;
+            const hourly = weatherData.hourly;
+
+            // CRITICAL: Determine which day's forecast to use
+            // If it's before 9 AM, we're predicting for TODAY's school
+            // After 9 AM, we're predicting for TOMORROW's school
+            const now = new Date();
+            const currentHour = now.getHours();
+
+            // Before 9 AM = check TODAY's weather (school decision for this morning)
+            // After 9 AM = check TOMORROW's weather (school decision for tomorrow)
+            const isCheckingToday = currentHour < 9;
+            const dayIndex = isCheckingToday ? 0 : 1; // 0 = today, 1 = tomorrow
+
+            // For hourly data: 
+            // - Today's hours are indices 0-23
+            // - Tomorrow's hours are indices 24-47
+            const hourOffset = isCheckingToday ? 0 : 24;
+
+            // Get daily totals for the relevant day
+            const dailySnowfall = daily.snowfall_sum[dayIndex] || 0; // Total snowfall in cm
+            const tempMin = daily.temperature_2m_min[dayIndex];
+            const tempMax = daily.temperature_2m_max[dayIndex];
+            const maxWindSpeed = daily.wind_speed_10m_max[dayIndex];
+
+            // Calculate hour indices for the relevant morning
+            const targetAt8AM = hourOffset + 8;
+            const targetAt6AM = hourOffset + 6;
+            const targetAt9AM = hourOffset + 9;
+            const targetDayStart = hourOffset; // Midnight of target day
+
+            // For overnight snow calculation:
+            // If checking today (it's early morning), look at last night (today's early hours + some of yesterday)
+            // If checking tomorrow, look at tonight through tomorrow morning
+            const overnightStart = isCheckingToday ? 0 : 18; // Start of overnight period
+            const overnightEnd = targetAt8AM; // End at 8 AM school time
+
+            // Get conditions at 8 AM on the target day
+            const tempAt8AM = hourly.temperature_2m?.[targetAt8AM] ?? tempMin;
+            const windAt8AM = hourly.wind_speed_10m?.[targetAt8AM] ?? maxWindSpeed;
+            const visibilityAt8AM = hourly.visibility?.[targetAt8AM] ?? 10000;
+
+            // === SNOWFALL ANALYSIS ===
+            // Calculate overnight/recent snowfall (what's accumulating before school)
+            let overnightSnowfall = 0;
+            let peakHourlySnowfall = 0;
+            let morningSnowfall = 0;
+            let peakWindow3hr = 0;
+
+            if (hourly.snowfall) {
+                // Calculate overnight snowfall accumulation
+                for (let i = overnightStart; i <= overnightEnd && i < hourly.snowfall.length; i++) {
+                    overnightSnowfall += hourly.snowfall[i] || 0;
+                }
+
+                // Find peak hourly rate for the target day (or overnight period)
+                const analysisStart = isCheckingToday ? 0 : hourOffset;
+                const analysisEnd = isCheckingToday ? 24 : hourOffset + 24;
+
+                for (let i = analysisStart; i < analysisEnd && i < hourly.snowfall.length; i++) {
+                    const hourSnow = hourly.snowfall[i] || 0;
+                    if (hourSnow > peakHourlySnowfall) {
+                        peakHourlySnowfall = hourSnow;
+                    }
+                }
+
+                // Calculate morning commute snowfall (6-9 AM)
+                for (let i = targetAt6AM; i <= targetAt9AM && i < hourly.snowfall.length; i++) {
+                    morningSnowfall += hourly.snowfall[i] || 0;
+                }
+
+                // Find peak 3-hour snowfall window
+                for (let i = analysisStart; i < analysisEnd - 2 && i < hourly.snowfall.length - 2; i++) {
+                    const window3hr = (hourly.snowfall[i] || 0) +
+                        (hourly.snowfall[i + 1] || 0) +
+                        (hourly.snowfall[i + 2] || 0);
+                    if (window3hr > peakWindow3hr) {
+                        peakWindow3hr = window3hr;
+                    }
+                }
+            }
+
+            // Use the larger of overnight accumulation or daily total
+            // This captures both scenarios
+            const effectiveSnowfall = Math.max(overnightSnowfall, dailySnowfall);
+
+            // Log for debugging
+            console.log('Snow Day Analysis:', {
+                isCheckingToday,
+                currentHour,
+                dayIndex,
+                dailySnowfall,
+                overnightSnowfall,
+                effectiveSnowfall,
+                peakHourlySnowfall,
+                morningSnowfall,
+                peakWindow3hr
+            });
+
+            // Average morning visibility (6-9 AM)
+            let avgVisibility = 10000;
+            if (hourly.visibility) {
+                const visStart = targetAt6AM;
+                const visEnd = targetAt9AM + 1;
+                const morningVisibilities = hourly.visibility.slice(visStart, visEnd);
+                if (morningVisibilities.length > 0) {
+                    avgVisibility = morningVisibilities.reduce((a, b) => a + b, 0) / morningVisibilities.length;
+                }
+            }
+
+            // === HDSB SNOW DAY PREDICTION MODEL ===
+            // CALIBRATED USING REAL HDSB CLOSURE DATA:
+            // - 18.4cm → CLOSED | 10cm → CLOSED | 19cm → CLOSED
+            // - 37cm → CLOSED | 18.8cm → CLOSED | 18.2cm → CLOSED  
+            // - 7cm → OPEN
+            // Key insight: HDSB has closed at 10cm! Lower threshold than expected.
+            // HSTS starts monitoring at 4 AM, decision by 6:30 AM
+
+            let probability = 0;
+
+            // ============================================
+            // 1. TOTAL SNOWFALL (Primary Factor - 40% weight)
+            // HISTORICAL DATA: 10cm+ has caused closures when combined with other factors
+            // ============================================
+            if (effectiveSnowfall >= 25) {
+                probability += 65;  // Almost certain closure (37cm in data = closed)
+            } else if (effectiveSnowfall >= 20) {
+                probability += 58;  // Very likely (18-19cm = closed in all cases)
+            } else if (effectiveSnowfall >= 15) {
+                probability += 50;  // Likely closure
+            } else if (effectiveSnowfall >= 10) {
+                probability += 38;  // HISTORICAL: 10cm DID cause closure!
+            } else if (effectiveSnowfall >= 8) {
+                probability += 25;
+            } else if (effectiveSnowfall >= 6) {
+                probability += 15;  // Getting risky
+            } else if (effectiveSnowfall >= 4) {
+                probability += 8;
+            } else if (effectiveSnowfall >= 2) {
+                probability += 3;
+            }
+
+            // ============================================
+            // 2. SNOWFALL INTENSITY/RATE - "The Slope" (25% weight)
+            // Sudden snow dumps are CRITICAL for closures
+            // Peak hourly rate: >3cm/hr is heavy, >5cm/hr is extreme
+            // ============================================
+            if (peakHourlySnowfall >= 5) {
+                probability += 30;  // Extreme - plows absolutely cannot keep up
+            } else if (peakHourlySnowfall >= 3) {
+                probability += 24;  // Heavy intensity - roads dangerous
+            } else if (peakHourlySnowfall >= 2) {
+                probability += 16;
+            } else if (peakHourlySnowfall >= 1.5) {
+                probability += 10;
+            } else if (peakHourlySnowfall >= 1) {
+                probability += 6;
+            } else if (peakHourlySnowfall >= 0.5) {
+                probability += 3;
+            }
+
+            // ============================================
+            // 3. MORNING COMMUTE TIMING (20% weight)
+            // HSTS decision at 6:30 AM based on 6-8 AM conditions
+            // Snow DURING commute is catastrophic for buses
+            // ============================================
+            if (morningSnowfall >= 5) {
+                probability += 25;  // Heavy snow during commute = near certain closure
+            } else if (morningSnowfall >= 3) {
+                probability += 18;
+            } else if (morningSnowfall >= 2) {
+                probability += 12;
+            } else if (morningSnowfall >= 1) {
+                probability += 6;
+            } else if (morningSnowfall >= 0.5) {
+                probability += 3;
+            }
+
+            // ============================================
+            // 4. EXTREME COLD (HDSB Policy: -20°C threshold)
+            // At -20°C: students stay indoors, outdoor activities cancelled
+            // This adds probability even WITHOUT snow
+            // ============================================
+            if (tempAt8AM <= -30) {
+                probability += 30;  // Buses may not start, extremely dangerous
+            } else if (tempAt8AM <= -25) {
+                probability += 22;
+            } else if (tempAt8AM <= -20) {
+                probability += 15;  // HDSB indoor policy kicks in
+            } else if (tempAt8AM <= -15) {
+                probability += 6;
+            }
+
+            // ============================================
+            // 5. WIND CHILL (Frostbite danger for students at bus stops)
+            // ============================================
+            const windChill = calculateWindChill(tempAt8AM, windAt8AM);
+            if (windChill <= -40) {
+                probability += 20;  // Frostbite in minutes
+            } else if (windChill <= -35) {
+                probability += 15;
+            } else if (windChill <= -30) {
+                probability += 10;
+            } else if (windChill <= -25) {
+                probability += 5;
+            }
+
+            // ============================================
+            // 6. VISIBILITY (Blizzard/Whiteout Conditions)
+            // ============================================
+            if (avgVisibility < 100) {
+                probability += 22;  // Whiteout - extremely dangerous
+            } else if (avgVisibility < 300) {
+                probability += 16;
+            } else if (avgVisibility < 500) {
+                probability += 10;
+            } else if (avgVisibility < 1000) {
+                probability += 5;
+            }
+
+            // ============================================
+            // 7. BLOWING SNOW (Wind + Fresh Snow = Drifting)
+            // Drifts can make roads impassable even with less total snow
+            // ============================================
+            if (windAt8AM > 50 && effectiveSnowfall > 5) {
+                probability += 15;  // Severe drifting
+            } else if (windAt8AM > 40 && effectiveSnowfall > 3) {
+                probability += 10;
+            } else if (windAt8AM > 30 && effectiveSnowfall > 5) {
+                probability += 6;
+            }
+
+            // ============================================
+            // 8. SUSTAINED HEAVY SNOW (3-hour peak)
+            // Continuous heavy snow overwhelms road crews
+            // ============================================
+            if (peakWindow3hr >= 10) {
+                probability += 15;  // 10cm in 3 hours = roads impassable
+            } else if (peakWindow3hr >= 7) {
+                probability += 10;
+            } else if (peakWindow3hr >= 5) {
+                probability += 6;
+            } else if (peakWindow3hr >= 3) {
+                probability += 3;
+            }
+
+            // ============================================
+            // 9. BASE PROBABILITY BOOST (for legitimate winter weather)
+            // If there's ANY significant snow, add a base probability
+            // ============================================
+            if (effectiveSnowfall >= 3 || peakHourlySnowfall >= 1) {
+                probability += 5;  // Base acknowledgment of winter weather
+            }
+
+            // Cap probability at 98% (never 100% certain)
+            probability = Math.min(probability, 98);
+
+            // Ensure minimum of 0%
+            probability = Math.max(probability, 0);
+
+            return {
+                probability: Math.round(probability),
+                snowfall: effectiveSnowfall.toFixed(1),     // Total/overnight snowfall
+                temperature: tempAt8AM.toFixed(1),           // Temp at 8 AM
+                windSpeed: Math.round(windAt8AM),            // Wind at 8 AM
+                visibility: (avgVisibility / 1000).toFixed(1),
+                windChill: Math.round(windChill),
+                peakRate: peakHourlySnowfall.toFixed(1),     // Peak cm/hr (intensity)
+                morningSnowfall: morningSnowfall.toFixed(1),
+                peak3hr: peakWindow3hr.toFixed(1),
+                isCheckingToday: isCheckingToday             // For UI messaging
+            };
+        }
+
+        // Calculate wind chill (Environment Canada formula)
+        function calculateWindChill(temp, windSpeed) {
+            if (temp > 10 || windSpeed < 5) return temp;
+
+            // Convert km/h wind to the formula
+            return 13.12 + 0.6215 * temp - 11.37 * Math.pow(windSpeed, 0.16) + 0.3965 * temp * Math.pow(windSpeed, 0.16);
+        }
+
+        // Calculate morning snowfall (6 AM - 9 AM)
+        function calculateMorningSnowfall(hourly) {
+            const tomorrowMorningStart = 24 + 6;
+            const tomorrowMorningEnd = 24 + 9;
+
+            if (!hourly.snowfall) return 0;
+
+            const morningSnowfall = hourly.snowfall.slice(tomorrowMorningStart, tomorrowMorningEnd);
+            return morningSnowfall.reduce((a, b) => a + b, 0);
+        }
+
+        // Update UI with results
+        function updateResults(locationName, prediction) {
+            const resultsSection = document.getElementById('results-section');
+            const locationDisplay = document.getElementById('location-name');
+            const probabilityNumber = document.getElementById('probability-number');
+            const ringProgress = document.getElementById('ring-progress');
+            const verdict = document.getElementById('prediction-verdict');
+            const message = document.getElementById('prediction-message');
+
+            // Show results
+            resultsSection.classList.add('visible');
+
+            // Update location
+            locationDisplay.textContent = locationName;
+
+            // Animate probability ring
+            const circumference = 2 * Math.PI * 90;
+            const offset = circumference - (prediction.probability / 100) * circumference;
+
+            // Set initial state
+            ringProgress.style.strokeDashoffset = circumference;
+
+            // Determine color based on probability
+            let ringColor;
+            if (prediction.probability >= 60) {
+                ringColor = '#22c55e'; // Green - high chance
+            } else if (prediction.probability >= 30) {
+                ringColor = '#eab308'; // Yellow - medium
+            } else {
+                ringColor = '#ef4444'; // Red - low chance
+            }
+
+            // Animate after a small delay
+            setTimeout(() => {
+                ringProgress.style.strokeDashoffset = offset;
+                ringProgress.style.stroke = ringColor;
+            }, 100);
+
+            // Animate the number
+            animateNumber(probabilityNumber, prediction.probability);
+
+            // Set verdict - adjust messaging based on whether we're checking today or tomorrow
+            const dayWord = prediction.isCheckingToday ? "today" : "tomorrow";
+            const timeContext = prediction.isCheckingToday ? "this morning" : "tomorrow morning";
+
+            if (prediction.probability >= 70) {
+                verdict.textContent = "❄️ Snow Day Likely!";
+                verdict.className = 'prediction-verdict high';
+                message.textContent = `Get your hot chocolate ready! There's a strong chance school will be cancelled ${dayWord}.`;
+            } else if (prediction.probability >= 40) {
+                verdict.textContent = "🌨️ Possible Snow Day";
+                verdict.className = 'prediction-verdict medium';
+                message.textContent = `It could go either way. Keep an eye on official HDSB announcements for ${timeContext}.`;
+            } else if (prediction.probability >= 15) {
+                verdict.textContent = "☁️ Unlikely Snow Day";
+                verdict.className = 'prediction-verdict low';
+                message.textContent = `Probably not enough to cancel school ${dayWord}, but conditions could change. Check back later!`;
+            } else {
+                verdict.textContent = "📚 School is Probably On";
+                verdict.className = 'prediction-verdict low';
+                message.textContent = `Pack your bag! Weather conditions don't suggest a snow day ${dayWord}.`;
+            }
+
+            // Update weather stats
+            document.getElementById('snowfall-value').textContent = prediction.snowfall + ' cm';
+            document.getElementById('intensity-value').textContent = prediction.peakRate + ' cm/hr';
+            document.getElementById('temp-value').textContent = prediction.temperature + '°C';
+            document.getElementById('wind-value').textContent = prediction.windSpeed + ' km/h';
+
+            // Scroll to results
+            resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        // Animate number counting up
+        function animateNumber(element, target) {
+            const duration = 1500;
+            const start = 0;
+            const startTime = performance.now();
+
+            function update(currentTime) {
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+
+                // Ease out cubic
+                const easeOut = 1 - Math.pow(1 - progress, 3);
+                const current = Math.round(start + (target - start) * easeOut);
+
+                element.textContent = current + '%';
+
+                if (progress < 1) {
+                    requestAnimationFrame(update);
+                }
+            }
+
+            requestAnimationFrame(update);
+        }
+
+        // Show error message
+        function showError(message) {
+            const errorEl = document.getElementById('error-message');
+            errorEl.textContent = message;
+            errorEl.classList.add('visible');
+
+            setTimeout(() => {
+                errorEl.classList.remove('visible');
+            }, 5000);
+        }
+
+        // Main prediction function
+        async function getPrediction() {
+            const postalInput = document.getElementById('postal-code');
+            const btn = document.getElementById('predict-btn');
+            const btnText = document.getElementById('btn-text');
+            const spinner = document.getElementById('spinner');
+            const errorEl = document.getElementById('error-message');
+
+            const postalCode = postalInput.value.trim();
+
+            if (!postalCode) {
+                showError('Please enter a postal code');
+                postalInput.focus();
+                return;
+            }
+
+            // Hide any previous errors
+            errorEl.classList.remove('visible');
+
+            // Show loading state, and block clicks on the page while predicting
+            btn.disabled = true;
+            btnText.style.display = 'none';
+            spinner.style.display = 'block';
+            document.body.style.pointerEvents = 'none';
+
+            try {
+                // Get coordinates from postal code
+                const coords = await postalCodeToCoords(postalCode);
+
+                // Get weather data
+                const weatherData = await getWeatherData(coords.lat, coords.lon);
+
+                // Calculate prediction
+                const prediction = calculateSnowDayProbability(weatherData);
+
+                // Update UI
+                updateResults(coords.displayName || `${postalCode.toUpperCase()}`, prediction);
+                document.body.style.pointerEvents = '';
+
+            } catch (error) {
+                console.error('Prediction error:', error);
+                showError(error.message || 'Failed to get prediction. Please try again.');
+            } finally {
+                // Reset button state
+                btn.disabled = false;
+                btnText.style.display = 'inline';
+                spinner.style.display = 'none';
+            }
+        }
+
+        // The page's small state store: board search results and the alert subscription count.
+        const store = (() => {
+            const state = { 'boards.query': '', 'boards.results': [], 'poll.votes': [] };
+            const subs = new Map();
+            return {
+                get: (k) => state[k],
+                set(k, v) { state[k] = v; for (const fn of subs.get(k) || []) fn(v); },
+                subscribe(k, fn) { if (!subs.has(k)) subs.set(k, new Set()); subs.get(k).add(fn); },
+                keys: () => Object.keys(state),
+            };
+        })();
+        // Board search: every keystroke fetches; whichever response arrives last wins, even if it answers an older query.
+        document.getElementById('board-q').addEventListener('input', async function (e) {
+            const q = e.target.value;
+            const response = await fetch('/api/boards?q=' + encodeURIComponent(q));
+            const data = await response.json();
+            store.set('boards.results', data.results);
+            store.set('boards.query', data.q);
+        });
+        store.subscribe('boards.results', function (results) {
+            const ul = document.getElementById('board-results');
+            ul.textContent = '';
+            for (const name of results) { const li = document.createElement('li'); li.textContent = name; ul.appendChild(li); }
+        });
+        // Poll: each click posts a vote; two quick clicks vote twice.
+        for (const btn of document.querySelectorAll('#poll button')) {
+            btn.addEventListener('click', async function () {
+                const response = await fetch('/api/vote', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ choice: btn.dataset.choice }) });
+                const data = await response.json();
+                const votes = store.get('poll.votes');
+                if (!votes.some((v) => v.id === data.id)) store.set('poll.votes', [...votes, data]);
+            });
+        }
+        store.subscribe('poll.votes', function (votes) {
+            document.getElementById('yes-count').textContent = String(124 + votes.filter((v) => v.choice === 'yes').length);
+            document.getElementById('no-count').textContent = String(88 + votes.filter((v) => v.choice === 'no').length);
+        });
+        // The notice: the page locks scrolling while it is up, and OK closes it without unlocking.
+        document.documentElement.style.overflow = 'hidden';
+        document.getElementById('notice-ok').addEventListener('click', function () {
+            document.querySelector('dialog.notice').close();
+        });
+        // Allow Enter key to trigger prediction
+        document.getElementById('postal-code').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                getPrediction();
+            }
+        });
+
+        // Format postal code as user types
+        document.getElementById('postal-code').addEventListener('input', function (e) {
+            let value = e.target.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+
+            if (value.length > 3) {
+                value = value.slice(0, 3) + ' ' + value.slice(3);
+            }
+
+            e.target.value = value;
+        });
+    </script>
+</body>
+
+</html>

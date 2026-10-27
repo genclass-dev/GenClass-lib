@@ -7,12 +7,13 @@ browser global, compares what changed with the inventory at the end of this page
 and counts the patch sites in `src/` (a new `addEventListener`, `defineProperty` or global assignment fails the test
 until this page is updated).
 
-> **Version.** Written for `@genclass/runtime` 0.3.0 as it is on GitHub `main`: the CHANGELOG's unreleased
-> 0.3.0-beta.1 section, while `package.json` still says 0.3.0-beta.0 until it is released. The copy in an npm package
-> describes that package's version. As of 2026-10-22, `npm i @genclass/runtime` installs 0.2.2 (`latest`), which has
-> no measured visual checks, no `protect()` and no webhook sink, and `npm i @genclass/runtime@beta` installs
-> 0.3.0-beta.0. Items marked 0.3.0 are not in 0.2.x; the interaction analytics rows (`src/analytics/`) and the
-> devtools overlay's `theme: "dark"` default (both 0.3.0-beta.1) are not on npm yet.
+> **Version.** Written for `@genclass/runtime` 0.3.0-beta.4 as it is on GitHub `main` (released 2026-10-27). The
+> copy in an npm package describes that package's version. As of 2026-10-27, `npm i @genclass/runtime@beta` installs
+> 0.3.0-beta.4 (the 0.3.0 line: 0.3.0-beta.1 to 0.3.0-beta.4, released 2026-10-22 to 2026-10-27), and
+> `npm i @genclass/runtime` installs 0.2.2 (`latest`, 2026-10-13), which has no measured visual checks, no `protect()`,
+> no webhook sink and no interaction analytics. Items marked 0.3.0 are not in 0.2.x; the interaction analytics rows
+> (`src/analytics/`) and the devtools overlay's `theme: "dark"` default are 0.3.0-beta.1, the `genclass.analytics.<token>`
+> entry 0.3.0-beta.2.
 
 The `src/...` links are relative to `packages/runtime/` in the repository
 ([GenClass-lib on GitHub](https://github.com/genclass-dev/GenClass-lib/tree/main/packages/runtime)): the npm package
@@ -158,6 +159,7 @@ from ever being held.
 | Cache Storage | `genclass-model` cache (`model.cacheName`): model files, each checked against the card's size and sha256 | model load | [src/model/loader.ts](src/model/loader.ts) `fetchFile` |
 | `sessionStorage` | `genclass:bucket` (`sample`), the breaker's trip state | `sample` < 1; breaker trips | [src/runtime.ts](src/runtime.ts) `sampleBucket`, [src/decide/breaker.ts](src/decide/breaker.ts) |
 | `localStorage` / `sessionStorage` | `genclass:learn` (only with `learn.expectations: true` (0.3.0) or `learn.persist`: learned flows, and operation shapes too with `learn.persist`: signatures, routes and field names with id-like parts normalised, counts, hashed action labels; ≤ `learn.maxBytes`), `genclass:learn:probe` (set and removed once at init when a store is wanted, to check storage works), `genclass:learn:session` in sessionStorage (the tab's session ordinal, with a localStorage store) | only with `learn.expectations: true` or `learn.persist` (by default nothing is stored); with `learn.expectations` alone, not in jsdom / happy-dom; `learn.persist: false` turns it all off; the runtime's own writes are not recorded as storage events | [src/runtime.ts](src/runtime.ts) `saveProfilesSoon`, `startSession`, [docs/runtime/EXPECTATIONS.md](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/EXPECTATIONS.md) |
+| `localStorage` | `genclass.analytics.<token>`: the visit id (16 random hex characters), the time of the visit's last page view or event, and a visited-before flag; written with the storage observer muted (`rt.selfStorage`), so it never becomes a `storage` event | interaction analytics on (`InitOptions.analytics`, `rt.analytics.start()`): each page view and each `interactions` event; removed by `rt.analytics.stop()` | [src/analytics/index.ts](src/analytics/index.ts) `startAnalytics` |
 | `localStorage` (read only) | `genclass` (kill switch; read only when the URL has no `?genclass=` value, which takes precedence), `genclass.telemetry` (opt-out) | init | [src/index.ts](src/index.ts) `killSwitch`, [src/telemetry/config.ts](src/telemetry/config.ts) |
 | A module `Worker` (`genclass-model`) running onnxruntime-web; inline on the main thread only if the worker cannot start (`model.inlineFallback`, default true; `false` (0.3.0; 0.2.x ignores it): no model then, status `skipped` / `worker-unavailable`) | | model load | [src/model/host.ts](src/model/host.ts) |
 | Memory | ≤ 64 response bodies of ≤ 256 KB (last good GET per identity), ≤ 4 MB of recent responses for coalescing, a 500-event history, 200 decisions, 1,000 audit entries | always | [src/observe/cache.ts](src/observe/cache.ts) |
@@ -273,7 +275,7 @@ GenClass.init({ mode: "guard", requests: { protect: [...protectPreset("payments"
 window.GENCLASS_CONFIG = { requests: { protect: ["preset:payments", "preset:auth"] } };
 ```
 
-`npx @genclass/runtime init` suggests the second form when the project depends on a payment SDK (Stripe, PayPal,
+`npx @genclass/runtime@beta init` suggests the second form when the project depends on a payment SDK (Stripe, PayPal,
 Braintree, Adyen, Square, Paddle, ...) or has source files named like a checkout or payments page. The presets
 ([src/presets.ts](src/presets.ts)) match URL words such as `checkout`, `payment(s)`, `payment_intents`, `billing`,
 `invoice`, `charge`, `refund`, `subscription`, `order`, `transaction`, `transfer`, `payout`, `wallet` and provider

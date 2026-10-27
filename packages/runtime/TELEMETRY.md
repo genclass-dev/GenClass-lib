@@ -4,11 +4,12 @@ GenClass Runtime (`@genclass/runtime`), an open-source browser library that repo
 sends anonymous diagnostics about its own decisions to its maintainers, by default on public websites; this page lists
 every event and field it sends, where they are stored and for how long, and every way to turn it off.
 
-> **Version.** Written for `@genclass/runtime` 0.3.0 as it is on GitHub `main`: the CHANGELOG's unreleased
-> 0.3.0-beta.1 section, while `package.json` and the `runtime` field of every batch still say 0.3.0-beta.0 until it
-> is released. The copy in an npm package describes that package's version. As of 2026-10-22,
-> `npm i @genclass/runtime` installs 0.2.2 (`latest`) and `npm i @genclass/runtime@beta` installs 0.3.0-beta.0. Items
-> marked 0.3.0 are not in 0.2.x; items marked 0.3.0-beta.1 (interaction analytics) are not on npm yet.
+> **Version.** Written for `@genclass/runtime` 0.3.0-beta.4 (2026-10-27), the version on GitHub `main`, in
+> `package.json` and in the `runtime` field of every batch. The copy in an npm package describes that package's version.
+> As of 2026-10-27, `npm i @genclass/runtime@beta` installs 0.3.0-beta.4 (the newest line; 0.3.0-beta.1 to beta.4 were
+> released 2026-10-22 to 2026-10-27) and `npm i @genclass/runtime` installs the stable line, 0.2.2 (`latest`). Items
+> marked 0.3.0 are not in 0.2.x; interaction analytics are marked 0.3.0-beta.1, visits and navigation paths
+> 0.3.0-beta.2.
 
 Since **`0.1.0-beta.3`**, `GenClass.init()` in a browser sends **anonymous diagnostics** about GenClass's own
 decisions to the GenClass maintainers (Daybot Solutions Inc.). We use them to measure and improve the GenClass
@@ -23,7 +24,7 @@ Details under [Opting out](#opting-out).
 
 | how GenClass starts | default |
 |---|---|
-| `GenClass.init()`, `import "@genclass/runtime/auto"` (and `/auto/*`), the CDN script tag, `npx @genclass/runtime init` setups | **on** in a browser on a public host |
+| `GenClass.init()`, `import "@genclass/runtime/auto"` (and `/auto/*`), the CDN script tag, `npx @genclass/runtime@beta init` setups | **on** in a browser on a public host |
 | the same, on a local or private host (`localhost`, `*.localhost`, `*.local`, `*.test`, `*.internal`, `127.0.0.1`, `::1`, `10/8`, `172.16/12`, `192.168/16`, link-local, `file:`) | off unless `telemetry: true` / `{ ... }` (`0.1.0-beta.3` to `0.2.0`: on, with no local-host rule yet; `0.2.1`: on, by mistake; fixed in `0.2.2`, see the CHANGELOG) |
 | `GenClass.init()` outside a browser (Node, SSR, workers) | off unless `telemetry: true` / `{ ... }` |
 | `createRuntime()` (headless, tests, the simulator) | off unless `telemetry: true` / `{ ... }` |
@@ -46,7 +47,8 @@ When it is on, the console shows one notice per page:
 
 (The coding-agent link, `connectAgent` from `@genclass/runtime/agent`, is not telemetry: it runs in development builds
 on development hosts and sends its recording only to a bridge on the same machine, `http://127.0.0.1:47357`. It changes
-nothing below. [docs/runtime/AGENT.md](../../docs/runtime/AGENT.md) section 6.)
+nothing below. [docs/runtime/AGENT.md](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/AGENT.md)
+section 6.)
 
 Only data the runtime already computes for its own decisions. **By default, no text from the page is sent:**
 decision events carry the trigger kind, the diagnosis and its confidence, the chosen action, the gate, the outcome,
@@ -69,7 +71,9 @@ segment holding an `@`, such as an e-mail address, is `:id` too).
   turns them on** with `analytics: true`, and only with the app's token (or your own `telemetry.endpoint`). Then the
   page also sends `interactions` events: per page view, the route, engaged time, scroll depth milestones and clicks,
   rage clicks and dead clicks per element, the element named from markup (a `data-genclass-name`, a `data-testid`, an
-  id, a link's target, stable class names or a short structural path), never its text. See
+  id, a link's target, stable class names or a short structural path), never its text; and (`0.3.0-beta.2`) per visit
+  a random visit id kept 30 minutes, where the visit came from (the referring host, utm values), the device class,
+  browser and OS families and whether the browser visited before (a flag in `localStorage`). See
   [Interaction analytics](#interaction-analytics).
 - **Measured visual checks** ([VISUAL.md](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/VISUAL.md); new in `0.3.0`): nothing about
   them is sent. Their findings stay in the page (the console, `rt.checks()`, your own sinks). Counts per check kind
@@ -91,7 +95,7 @@ segment holding an `@`, such as an e-mail address, is `:id` too).
   "token": "gc_…",           // only when the app configured a valid token (InitOptions.token); see "App tokens"
   "sid": "3f9c…",            // 24 hex chars from crypto.getRandomValues, new on every page load, never stored
   "sent": 12034,             // ms since this page's GenClass started (no wall-clock time is sent)
-  "runtime": "0.3.0-beta.0", // @genclass/runtime version
+  "runtime": "0.3.0-beta.4", // @genclass/runtime version
   "model": "2.0.0-rc4t",     // model card version, or null without a model
   "events": [ /* ≤ 100 events, ≤ 60 KB per request */ ]
 }
@@ -256,8 +260,8 @@ and on destroy.
 
 #### `interactions` event
 
-**When:** only with `analytics: true` and a token (or a custom endpoint): when a page view ends (a route change, page
-exit), when the tab is hidden, and before a `summary`, if anything changed ([Interaction
+**When:** only with `analytics: true` and a token (or a custom endpoint; 0.3.0-beta.1): when a page view ends (a route
+change, page exit), when the tab is hidden, and before a `summary`, if anything changed ([Interaction
 analytics](#interaction-analytics)).
 
 **Fields:**
@@ -271,6 +275,25 @@ analytics](#interaction-analytics)).
 - `end` (the view ended)
 
 Counts are deltas since the view's previous event.
+
+**Visits** (0.3.0-beta.2; [Visits](#visits)), on a view's first event only:
+
+- `visit` (16 hex characters, random)
+- and when that view opened the visit: `entry: true`; `ref` (the referring site's host, `www.` dropped, when it is
+  another site; `(other)` when the host looks like data); `utm` (`source`, `medium`, `campaign`: lower case, letters,
+  digits, `. _ + -` and spaces, words that look like ids dropped, at most 40 characters each); `device` (`desktop` /
+  `mobile` / `tablet`); `browser` (`Chrome`, `Safari`, `Firefox`, `Edge`, `Opera`, `Samsung Internet`, `Other`); `os`
+  (`Windows`, `macOS`, `iOS`, `Android`, `Linux`, `ChromeOS`, `Other`); `returning` (whether this browser had a visit
+  before; absent when storage is blocked)
+
+**Navigation paths** (0.3.0-beta.2;
+[design](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/ANALYTICS.md#11-navigation-paths-2026-10-25)):
+
+- on the view's first event, `nav` (how it was reached: `load`, `reload`, `back_forward`, `push`, `back`, `forward`,
+  `pop`) and, from a page load's second view on, `from` (the previous view's route) and `fromMs`
+- once per view, `first` (the element key of the first click, or of the first focus on a form field after a key press)
+  and `firstMs`
+- on the page load's last event (pagehide), `exit: true` and `path` (its routes in order, at most 10, then `"(more)"`)
 
 ### Volume
 
@@ -347,7 +370,7 @@ without either, `analytics: true` warns once in the console and records nothing.
 Privacy Control and the local-host default turn them off too. When they start, the console says so once:
 
 ```
-[GenClass] Interaction analytics are on (this app turned them on): page views, time on page, scroll depth and clicks per element, never page text.
+[GenClass] Interaction analytics are on (this app turned them on): page views and the path between them, visits, time on page, scroll depth, clicks per element, the referring site, campaign and device type, never page text.
 ```
 
 What is recorded, per page view (a page load, and each route change to a new path):
@@ -365,13 +388,50 @@ What is recorded, per page view (a page load, and each route change to a new pat
   `[data-testid="…"]`, `tag#id` (ids that look generated or like data are skipped), a link's target (`a[href="/route"]`
   on your site, the other site's origin only), the tag with up to two stable class names, or an `nth-of-type` path of
   up to 4 levels under a named ancestor or a landmark. At most 120 characters. Any attribute value that looks like data
-  (an e-mail address, a URL, 4 or more digits, 12 or more hex digits) is not used.
+  (an e-mail address, a URL, 4 or more digits, 12 or more hex digits) is not used;
+- **navigation within the page load** (`0.3.0-beta.2`,
+  [design](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/ANALYTICS.md#11-navigation-paths-2026-10-25)):
+  how each view was reached (a page load, a reload, the browser's back or forward button, an in-app route change, an
+  in-app back or forward), the previous view's route and the time from its start to this view's, the element key of
+  the view's first interaction (a click, or a focus on a form field right after a key press) and the time to it, and
+  when the page load ends (`pagehide`), the routes of its views in order (at most 10) and that it ended there. These
+  describe one page load: a full page navigation to another page of the same site starts a new path (the visit, below,
+  follows pages across page loads), so on a site without client-side routing each path is one page long.
+
+#### Visits
+
+New in `0.3.0-beta.2` (2026-10-25). A **visit** is a run of page views with no gap over 30 minutes:
+
+- **The visit flag, in `localStorage`.** The runtime keeps one entry, `genclass.analytics.<the app's token>` (or
+  `genclass.analytics.endpoint` with your own endpoint and no token), holding `{ "v": <visit id>, "t": <time of the
+  last page view or event, ms>, "r": 1 }`. The visit id is 16 random hex characters (`crypto.getRandomValues`). A page
+  view more than 30 minutes after `t`, or a page load that comes from another site or from a link with utm values,
+  starts a new visit with a new id. `r` only says that this browser had a visit before, which is all "new or
+  returning" means: there is no visitor id. It is written only while analytics run (so never with any opt-out below,
+  GPC or on a local host by default) and `runtime.analytics.stop()` removes it. With storage blocked, a visit lasts
+  the page load and `returning` is not sent.
+- **Where a visit came from**, on the view that opened it: the referring site's host only (`google.com`, never its
+  path or query; your own site is not a source), and the `utm_source`, `utm_medium` and `utm_campaign` values of the
+  page's URL, cleaned (the rules are under the [`interactions` event](#interactions-event) above). No other query
+  parameter is read.
+- **The device class, browser family and OS family**, from the user agent and its hints, as one of the buckets listed
+  under the [`interactions` event](#interactions-event) above. The user agent string itself is never sent.
+- **The country** is the collector's own coarse `request.cf.country` (two letters), as for every batch, counted once
+  per visit.
+
+The collector keeps per visit only a hash of the app's token and the visit id (never the id itself), when it started
+and was last seen, its entry and exit page, its number of page views and the routes of its first 50 page views in
+order, and deletes it 90 days after the visit started. That is what the dashboard's entry and exit pages, pages per
+visit and **funnels** come from: an app defines up to 5 funnels of 2 to 6 routes on its dashboard (stored with the
+app), and each step counts the visits that reached the steps before it in that order.
 
 **Never recorded:** element text, labels, `alt`, `title`, placeholders, input values or what was typed, mouse
-coordinates, the order or timing of clicks, the query string or fragment, the referrer, the page title, the screen
-size, a visitor id. Nothing is written to cookies or `localStorage`, so page loads by the same person cannot be linked
-and the dashboard does not count unique visitors. Synthetic events (`isTrusted` false) and events inside
-`[data-genclass-ignore]` are not counted.
+coordinates, the order or timing of clicks, the query string or fragment (beyond the three utm values), the
+referrer's path or query, the page title, the screen size, the user agent string, a visitor id. No cookies are set,
+and nothing links two visits of one browser except the yes-or-no `returning` flag, so the dashboard does not count
+unique visitors. The order of page views and the time between them are sent only within one page load (the visit's
+pages in order are stored by the collector, keyed by a hash of the visit id). Synthetic events (`isTrusted` false) and
+events inside `[data-genclass-ignore]` are not counted.
 
 They never reach the model or a decision: they are recorded by their own listeners (a separate file the runtime loads
 only when analytics are on), outside GenClass's event log, and change nothing on the page in any mode. The
@@ -379,7 +439,8 @@ maintainers use `interactions` events only for the app's dashboard and its expor
 evaluation.
 
 **After consent:** `runtime.analytics.start()` turns them on later (for example once a visitor accepts analytics in
-your consent banner), `runtime.analytics.stop()` turns them off and drops the counts not sent yet.
+your consent banner), `runtime.analytics.stop()` turns them off, drops the counts not sent yet and removes the visit
+flag from `localStorage`.
 `runtime.analytics` reports `{ enabled, reason? }` (`option`, `telemetry-off`, `no-token`, `stopped`, `error`).
 
 ## App tokens and dashboards
@@ -394,7 +455,9 @@ or at https://genclass.dev/start.
 - Whoever holds the app's private dashboard link (`https://genclass.dev/dashboard/<secret>`, given once when the
   token is created) can see aggregated diagnostics for that token (decisions, detections by diagnosis, possible
   detections (the `detect` events with `tier: "possible"`, shown apart), actions, the app's hostnames, top routes and
-  protected functions, model load, backend and latency, versions) and its recent detections. Dashboard data is also deleted after 90 days.
+  protected functions, model load, backend and latency, versions; with interaction analytics on, page views, visits,
+  their sources, devices, countries, entry and exit pages and the app's funnels) and its recent detections. Dashboard
+  data is also deleted after 90 days (visits after 90 days on every plan).
 - A token changes nothing about when data is collected: with telemetry off (any opt-out, or Global Privacy
   Control, or a local host) nothing is sent and the dashboard gets nothing from that page. On a local host the
   console says so once when a token is set; otherwise only with `debug: true`.
@@ -433,6 +496,17 @@ or at https://genclass.dev/start.
   `DELETE /api/account/sessions/current`. Signed in, `init` asks whether a new app goes into the account and then
   creates it with `POST /api/account/projects` instead of `/api/projects`. These account requests carry
   `user-agent: genclass-runtime-cli/<version>`.
+
+### What a coding agent reports (opt-in, from the developer's machine)
+
+The runtime sends nothing of this. When a developer sets `GENCLASS_REPORT` for `@genclass/mcp` (off by default), that
+server on their machine mirrors its log of the loop to the app's dashboard, with the dashboard's private link: the id,
+kind and page path of each finding it made in the app's development build, when the agent read its evidence, each
+replay armed and its verdict (reproduced or not), when a regression test was written, each explore report (how many
+page loads it compared and how many races it found) and each clear; never page text, evidence, snapshots or values.
+The dashboard keeps them 90 days (at most 500 log rows per app) and shows them in its Closed-loop development view.
+Details: [docs/runtime/AGENT.md](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/AGENT.md)
+section 4.5.
 
 ## Where it goes
 
@@ -476,7 +550,7 @@ GenClass.init({
     maxBatch: 100,                   // events per request
     include: { situation: true },    // also send the redacted situation text (default: off)
   },
-  analytics: true,                   // 0.3.0-beta.1, not on npm yet: interaction analytics for the app's dashboard (default: off; needs the token)
+  analytics: true,                   // 0.3.0-beta.1: interaction analytics for the app's dashboard (default: off; needs the token; visits and navigation paths from 0.3.0-beta.2)
 });
 ```
 

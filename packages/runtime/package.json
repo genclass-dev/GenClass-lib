@@ -1,6 +1,6 @@
 {
   "name": "@genclass/runtime",
-  "version": "0.3.0-beta.1",
+  "version": "0.3.0-beta.4",
   "description": "Browser library that reports race conditions in web apps while they happen (stale responses, double submits, inconsistent state, failure storms) using a small on-device model. Report-only by default; an opt-in guard mode can prevent a few of them.",
   "type": "module",
   "license": "Apache-2.0",

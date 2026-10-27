@@ -3,7 +3,8 @@
 // project is involved; the project name says it is simulated. Deterministic per day (a seeded generator), so a
 // refresh does not reshuffle the chart. It shows the "possible issues" tier too (lower confidence, never counted as
 // problems), with its own simulated counts, and interaction analytics (page views, time on page, scroll depth, clicks,
-// rage and dead clicks per element), as an app that turned them on would.
+// rage and dead clicks per element; visits, their sources, devices, countries, entry and exit pages, and two funnels),
+// as an app that turned them on would.
 
 import { dayKey, hourKey, RANGES, type Range, type Stats } from "./dashboard.js";
 
@@ -49,6 +50,33 @@ const IX_PAGES: [string, number, number, number[]][] = [
   ["/account", 0.03, 35, [0.9, 0.71, 0.5, 0.42]],
   ["/orders", 0.02, 29, [0.93, 0.66, 0.45, 0.37]],
 ];
+/** Navigation (simulated, ANALYTICS.md section 11): steps per 100 page views with seconds before the step, paths per 100 page loads, first interactions. */
+const IX_STEPS: [string, string, number, number][] = [
+  ["/", "/products", 14, 31],
+  ["/products", "/products/:id", 12, 44],
+  ["/products/:id", "/cart", 5, 63],
+  ["/", "/search", 6, 18],
+  ["/search", "/products/:id", 5, 27],
+  ["/cart", "/checkout", 4, 41],
+  ["/products/:id", "/products", 4, 52],
+  ["/checkout", "/orders", 1.5, 96],
+];
+const IX_PATHS: [string, number][] = [
+  ["/", 34],
+  ["/ > /products > /products/:id", 9],
+  ["/products/:id", 8],
+  ["/ > /search > /products/:id", 5],
+  ["/ > /products > /products/:id > /cart > /checkout", 3],
+  ["/products/:id > /cart > /checkout > /orders", 1.5],
+];
+const IX_FIRST: [string, string, number][] = [
+  ["/", 'a[href="/products"]', 0.41],
+  ["/products", '[data-genclass-name="filter-size"]', 0.38],
+  ["/products/:id", '[data-genclass-name="add-to-cart"]', 0.36],
+  ["/search", "input#q", 0.71],
+  ["/cart", "button.qty-plus", 0.33],
+  ["/checkout", "input#email", 0.68],
+];
 /** Clicks per 100 page views (simulated), and rage and dead clicks per 1,000, per page and element key. */
 const IX_CLICKS: [string, string, number][] = [
   ["/", 'a[href="/products"]', 21],
@@ -70,6 +98,26 @@ const IX_RAGE: [string, string, number][] = [
 const IX_DEAD: [string, string, number][] = [
   ["/cart", "button.promo-apply", 6.2],
   ["/account", "button#save-address", 1.4],
+];
+
+/** Visits (simulated): shares of the visits that started in the period, per source, device, browser, OS and country. */
+const IX_SHARES: Record<string, [string, number][]> = {
+  ix_ref: [["(direct)", 0.41], ["google.com", 0.27], ["news.ycombinator.com", 0.09], ["t.co", 0.07], ["duckduckgo.com", 0.04], ["reddit.com", 0.04], ["bing.com", 0.03], ["(other)", 0.05]],
+  ix_utm_source: [["newsletter", 0.06], ["producthunt", 0.03]],
+  ix_utm_medium: [["email", 0.06], ["social", 0.03]],
+  ix_utm_campaign: [["autumn-sale", 0.06], ["launch", 0.03]],
+  ix_device: [["desktop", 0.58], ["mobile", 0.37], ["tablet", 0.05]],
+  ix_browser: [["Chrome", 0.61], ["Safari", 0.24], ["Edge", 0.06], ["Firefox", 0.06], ["Samsung Internet", 0.02], ["Other", 0.01]],
+  ix_os: [["Windows", 0.31], ["iOS", 0.27], ["macOS", 0.21], ["Android", 0.15], ["Linux", 0.04], ["ChromeOS", 0.01], ["Other", 0.01]],
+  ix_country: [["US", 0.38], ["DE", 0.09], ["GB", 0.08], ["IN", 0.07], ["CA", 0.05], ["FR", 0.05], ["NL", 0.03], ["BR", 0.03], ["AU", 0.03], ["(unknown)", 0.01]],
+  ix_returning: [["new", 0.64], ["returning", 0.36]],
+};
+const ENTRY: [string, number][] = [["/", 0.46], ["/products/:id", 0.24], ["/products", 0.14], ["/search", 0.09], ["/account", 0.04], ["/orders", 0.03]];
+const EXIT: [string, number][] = [["/products/:id", 0.31], ["/", 0.22], ["/checkout", 0.15], ["/cart", 0.12], ["/products", 0.1], ["/search", 0.07], ["/orders", 0.03]];
+/** Funnels (simulated): per step, the share of visits that reached it in order. */
+const FUNNELS: [string, string[], number[]][] = [
+  ["Checkout", ["/products/:id", "/cart", "/checkout"], [0.52, 0.19, 0.09]],
+  ["Search to product", ["/search", "/products/:id"], [0.17, 0.11]],
 ];
 
 function split(n: number, routes: [string, number][], into: (route: string, c: number) => void): void {
@@ -145,8 +193,11 @@ export function sampleStats(rangeParam: string | null, now: Date): Stats {
   const series = buckets.map((b, i) => {
     const sessions = Math.round(perBucket * (0.82 + r() * 0.36));
     // a page load plus its in-app route changes
-    return { bucket: b, sessions, decisions: Math.round(perBucket * 0.66 * (0.8 + r() * 0.4)), detections: Object.values(typeSeries[i]!.counts).reduce((a, x) => a + x, 0), acted: 0, possible: possibleBy[i]!, ix_views: Math.round(sessions * 1.36) };
+    const ix_views = Math.round(sessions * 1.36);
+    return { bucket: b, sessions, decisions: Math.round(perBucket * 0.66 * (0.8 + r() * 0.4)), detections: Object.values(typeSeries[i]!.counts).reduce((a, x) => a + x, 0), acted: 0, possible: possibleBy[i]!, ix_views, ix_sessions: Math.round(ix_views / 2.6) };
   });
+  const visitCount = series.reduce((a, s) => a + s.ix_sessions, 0);
+  const shareOf = (list: [string, number][]) => list.map(([key, f]) => ({ key, count: Math.max(1, Math.round(visitCount * f)) }));
   const sessions = series.reduce((a, s) => a + s.sessions, 0);
   const views = series.reduce((a, s) => a + s.ix_views, 0);
   const ixViews = IX_PAGES.map(([route, share, secs, reach]) => ({ route, n: Math.round(views * share), secs, reach }));
@@ -154,8 +205,25 @@ export function sampleStats(rangeParam: string | null, now: Date): Stats {
   const per = (list: [string, string, number][], unit: number) => list.map(([route, k, rate]) => ({ key: `${route}\t${k}`, count: Math.max(1, Math.round((views * rate) / unit)) }));
   const ixClick = per(IX_CLICKS, 100), ixRage = per(IX_RAGE, 1000), ixDead = per(IX_DEAD, 1000);
   const total = (l: { count: number }[]) => l.reduce((a, x) => a + x.count, 0);
+  const steps = IX_STEPS.map(([a, b, rate, secs]) => ({ key: `${a}\t${b}`, count: Math.round((views * rate) / 100), secs }));
+  const entries = Math.max(1, views - total(steps));
+  const viewsOf = (r0: string) => ixViews.find((p) => p.route === r0)?.n ?? 0;
+  const entryOf = (r0: string) => Math.max(0, viewsOf(r0) - steps.filter((x) => x.key.endsWith(`\t${r0}`)).reduce((a, x) => a + x.count, 0));
+  const exitOf = (r0: string) => Math.round(Math.max(0, viewsOf(r0) - steps.filter((x) => x.key.startsWith(`${r0}\t`)).reduce((a, x) => a + x.count, 0)) * 0.86);
+  const ixEntry = ixViews.map((p) => ({ key: p.route, count: entryOf(p.route) }));
+  const ixExit = ixViews.map((p) => ({ key: p.route, count: exitOf(p.route) }));
+  const ixFirst = IX_FIRST.map(([r0, k, rate]) => ({ key: `${r0}\t${k}`, count: Math.round(viewsOf(r0) * rate) }));
   const coalesce = Math.round((tot.duplicate ?? 0) * 0.55), discard = Math.round((tot.stale ?? 0) * 0.4);
   const interventions = coalesce + discard;
+  // the series' acted: the interventions spread over the buckets where the repeats and stale responses happened
+  const actable = typeSeries.map((b) => (b.counts.duplicate ?? 0) + (b.counts.stale ?? 0));
+  const actTotal = actable.reduce((a, x) => a + x, 0);
+  let left = interventions;
+  series.forEach((s, i) => {
+    const n = i === series.length - 1 ? left : Math.min(left, actTotal ? Math.round((interventions * actable[i]!) / actTotal) : 0);
+    s.acted = n;
+    left -= n;
+  });
   const undone = interventions > 6 ? 1 : 0;
   const ready = Math.round(sessions * 0.968), failed = Math.max(1, Math.round(sessions * 0.004));
   const recent: Record<string, unknown>[] = [];
@@ -199,6 +267,19 @@ export function sampleStats(rangeParam: string | null, now: Date): Stats {
     ix_click: ixClick.sort((a, b) => b.count - a.count),
     ix_rage: ixRage.sort((a, b) => b.count - a.count),
     ix_dead: ixDead.sort((a, b) => b.count - a.count),
+    ix_entry: ixEntry.sort((a, b) => b.count - a.count),
+    ix_exit: ixExit.sort((a, b) => b.count - a.count),
+    ix_nav: steps.map(({ key, count }) => ({ key, count })).sort((a, b) => b.count - a.count),
+    ix_nav_ms: steps.map(({ key, count, secs }) => ({ key, count: count * secs * 1000 })),
+    ix_arrive: [
+      ...[["load", 0.78], ["push", 0.15], ["back", 0.04], ["back_forward", 0.02], ["reload", 0.01]].map(([k, f]) => ({ key: k as string, count: Math.round(views * (f as number)) })),
+      ...ixViews.map((p) => ({ key: `${p.route}\tback`, count: Math.round(p.n * 0.04) })),
+    ],
+    ix_first: ixFirst.sort((a, b) => b.count - a.count),
+    ix_first_n: IX_FIRST.map(([r0]) => ({ key: r0, count: Math.round(viewsOf(r0) * 0.8) })),
+    ix_first_ms: IX_FIRST.map(([r0], i) => ({ key: r0, count: Math.round(viewsOf(r0) * 0.8) * (3200 + 1700 * i) })),
+    ix_path: IX_PATHS.map(([key, rate]) => ({ key, count: Math.round((entries * rate) / 100) })),
+    ...Object.fromEntries(Object.entries(IX_SHARES).map(([m, list]) => [m, shareOf(list)])),
   };
   return {
     name: SAMPLE_PROJECT.name,
@@ -212,13 +293,55 @@ export function sampleStats(rangeParam: string | null, now: Date): Stats {
       sessions, decisions: series.reduce((a, s) => a + s.decisions, 0), detections, acted: interventions, executed: interventions, interventions,
       model_ready: ready, model_load_failed: failed, modelLoadAvgMs: 1340, latency_ms_n: Math.round(sessions * 0.66), latencyAvgMs: 168, failOpens: Math.round(sessions * 0.011), modelErrors: failed,
       detectionsWithPage: detections, possible, possibleWithPage: possible, hidden_skipped: Math.round(sessions * 0.05), model_dropped: hourly ? 0 : Math.round(sessions * 0.002), telemetry_dropped: 0,
-      ix_views: views, ix_engaged_ms: engagedMs, ix_click: total(ixClick), ix_rage: total(ixRage), ix_dead: total(ixDead),
+      ix_views: views, ix_engaged_ms: engagedMs, ix_click: total(ixClick), ix_rage: total(ixRage), ix_dead: total(ixDead), ix_sessions: visitCount,
+      ix_entry: total(ixEntry), ix_exit: total(ixExit),
     },
     breakdowns,
     distinct: Object.fromEntries(Object.entries(breakdowns).map(([k, v]) => [k, v.length])),
     series,
     typeSeries,
-    previous: { sessions: Math.round(sessions * 0.94), detections: Math.round(detections * 1.15), acted: Math.max(0, interventions - 2), ix_views: Math.round(views * 0.91) },
+    previous: { sessions: Math.round(sessions * 0.94), detections: Math.round(detections * 1.15), acted: Math.max(0, interventions - 2), ix_views: Math.round(views * 0.91), ix_sessions: Math.round(visitCount * 0.88) },
     recent,
+    agent: sampleAgent(now),
+    visits: { sessions: visitCount, pages: views, bounces: Math.round(visitCount * 0.41), entry: shareOf(ENTRY), exit: shareOf(EXIT) },
+    funnels: FUNNELS.map(([name, steps, f]) => ({ name, steps, counts: f.map((x) => Math.round(visitCount * x)) })),
   };
+}
+
+/**
+ * What a coding agent reported on the sample app: one problem proven fixed and closed (after a first fix that did not
+ * hold), one reproduced and tested, one found; and the log those steps left, newest first.
+ */
+function sampleAgent(now: Date): Stats["agent"] {
+  const t = (minAgo: number) => new Date(now.getTime() - minAgo * 60_000).toISOString();
+  const findings: Stats["agent"]["findings"] = [
+    { id: "f3", kind: "stale-write", route: "/search", found: t(310), explained: t(245), replayed: t(42), reproduced: false, reproducedN: 2, tested: t(240), proven: t(42), closed: true, updated: t(42) },
+    { id: "f7", kind: "duplicate-request", route: "/checkout", found: t(95), explained: t(72), replayed: t(80), reproduced: true, reproducedN: 1, tested: t(70), proven: null, closed: false, updated: t(70) },
+    { id: "f9", kind: "error", route: "/products/:id", found: t(12), explained: null, replayed: null, reproduced: null, reproducedN: 0, tested: null, proven: null, closed: false, updated: t(12) },
+  ];
+  const f3 = { id: "f3", kind: "stale-write", route: "/search" };
+  const f7 = { id: "f7", kind: "duplicate-request", route: "/checkout" };
+  const none = { id: null, kind: null, route: null };
+  const row = (minAgo: number, t2: string, f: { id: string | null; kind: string | null; route: string | null }, x: Partial<Stats["agent"]["log"][number]> = {}): Stats["agent"]["log"][number] => ({
+    at: t(minAgo), t: t2, id: f.id, kind: f.kind, route: f.route, reproduced: null, runs: null, races: null, what: null, ...x,
+  });
+  const log: Stats["agent"]["log"] = [
+    row(12, "found", { id: "f9", kind: "error", route: "/products/:id" }),
+    row(42, "replay", f3, { reproduced: false }),
+    row(55, "armed", f3),
+    row(70, "test", f7),
+    row(72, "explain", f7),
+    row(80, "replay", f7, { reproduced: true }),
+    row(85, "armed", f7),
+    row(95, "found", f7),
+    row(120, "replay", f3, { reproduced: true }),
+    row(130, "armed", f3),
+    row(180, "explore", { ...none, route: "/search" }, { runs: 8, races: 1 }),
+    row(240, "test", f3),
+    row(245, "explain", f3),
+    row(290, "replay", f3, { reproduced: true }),
+    row(300, "armed", f3),
+    row(310, "found", f3),
+  ];
+  return { findings, counts: { found: 3, reproduced: 2, tested: 2, proven: 1 }, stages: { found: 3, explained: 2, reproduced: 2, fixed: 1, closed: 1, open: 2, continued: 1 }, log, last: t(12) };
 }
