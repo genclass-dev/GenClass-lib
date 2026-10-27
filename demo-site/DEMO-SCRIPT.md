@@ -33,11 +33,12 @@ the page loads, the stale response, the dropped write and the duplicate, and the
 1. **One GenClass MCP server on this Mac, the one act 6 starts**: it must own the bridge port so the dashboard mirror and
    the replays work. Quit other Claude Code sessions that run one (or stop their genclass server). The repo's own
    `.mcp.json` is set aside as `.mcp.json.off` for the recording.
-2. **Reset the code** to its broken state, forget the last take's MCP entry, and **deploy it to snowday-predictor.ca**,
+2. **Reset the code** to its broken state, forget the last take's MCP entry (Claude may save it for this folder or, since
+   the folder sits inside the GenClass repository, for every project), and **deploy it to snowday-predictor.ca**,
    right before you start recording (real visitors see the five bugs from now until act 3's deploy):
 
    ```bash
-   cd ~/GenClass-lib-main/demo-site/snowday-before && git checkout -- . && git clean -fdqx . && (claude mcp remove genclass -s local 2>/dev/null; true) && npm run deploy
+   cd ~/GenClass-lib-main/demo-site/snowday-before && git checkout -- . && git clean -fdqx . && (claude mcp remove genclass -s local; claude mcp remove genclass -s user; true) 2>/dev/null && npm run deploy
    ```
 
    (`npm run deploy` is the folder's own deploy script: wrangler with the Dizon login, `XDG_CONFIG_HOME=~/.config-dizon`,
@@ -201,8 +202,9 @@ cd ~/GenClass-lib-main/demo-site/snowday-before && XDG_CONFIG_HOME=~/.config-diz
 
 `3b0ff5e1-…` is the version Mehar deployed on 2026-10-25, live when the demo was prepared. The demo's board finder
 and poll are demo data and must not stay on the real site; the agent's fixes from act 6 stay in the
-folder as the record of the demo. Section 0, step 2 resets the folder for the next take, and the project from this take
-can go with **Project Settings → Delete project** on genclass.dev.
+folder as the record of the demo. Section 0, step 2 resets the folder for the next take and removes the take's GenClass
+MCP entry (it holds the agent link); the project from this take can go with **Project Settings → Delete project** on
+genclass.dev.
 
 ## After: the 2–3 minute cut
 

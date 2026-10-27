@@ -43,7 +43,8 @@ let out = "";
 try { out = JSON.parse(r.stdout).result ?? r.stdout; } catch { out = r.stdout || r.stderr; }
 console.log(`\n--- Claude (${Math.round((Date.now() - t0) / 1000)} s):\n${out.slice(0, 1800)}`);
 // leave nothing behind: the MCP entry with the agent link, servers started from the copy
-sh(`export PATH="$HOME/.local/bin:$PATH"; claude mcp remove genclass -s local`, WORK);
+// Claude saves it for this folder (under the repository's root) or, seeing that, for every project: remove both
+sh(`export PATH="$HOME/.local/bin:$PATH"; claude mcp remove genclass -s local; claude mcp remove genclass -s user`, WORK);
 for (const pid of sh("lsof -nP -iTCP -sTCP:LISTEN -Fp | tr -d p").stdout.split("\n").filter(Boolean)) {
   if (sh(`lsof -a -p ${pid} -d cwd -Fn | grep ^n | cut -c2-`).stdout.trim().startsWith(WORK)) sh(`kill ${pid}`);
 }
@@ -58,7 +59,7 @@ has("guard mode", /data-mode="guard"|mode:\s*["']guard/.test(html));
 has("eager", /eager/.test(html));
 has("visual fixes", /data-visual="fix"|fix:\s*true/.test(html));
 has("the overlay on every host", /data-devtools(?!="local")|mountDevtools|devtools:\s*true/.test(html));
-has("the board search as one atom", /atom\(\s*["'][^"']+["']\s*,\s*\{\s*query/.test(html));
+has("the board search as one value (no separate boards.query key; an atom or one guarded key)", /\b(atom|guard)\(/.test(html) && !/boards\.query/.test(html));
 has("the agent link for local hosts", /connectAgent/.test(html));
 writeFileSync(join(REC, "out", "rehearsal-head.txt"), html.slice(0, html.indexOf('<meta name="viewport"')));
 
