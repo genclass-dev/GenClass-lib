@@ -1,0 +1,5 @@
+{
+  // The demo: the Claude logo at the top right of the editor opens Claude Code in a new terminal, a new conversation
+  // that loads the MCP servers added since (DEMO-SCRIPT.md, acts 3 and 6).
+  "claudeCode.useTerminal": true
+}

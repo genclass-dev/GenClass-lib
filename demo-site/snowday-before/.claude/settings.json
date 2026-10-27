@@ -1,0 +1,15 @@
+{
+  "model": "opus",
+  "permissions": {
+    "defaultMode": "acceptEdits",
+    "allow": [
+      "Bash(npx --yes wrangler@4 dev:*)",
+      "Bash(npx wrangler dev:*)",
+      "Bash(curl:*)",
+      "Bash(claude mcp add:*)",
+      "Bash(claude mcp get:*)",
+      "Bash(claude mcp list:*)",
+      "Bash(sleep:*)"
+    ]
+  }
+}
