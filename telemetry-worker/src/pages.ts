@@ -765,6 +765,7 @@ const DASH_JS = `
       T0[m] = [loads, found, nfixed, npos, decisions, loads - failed, failed, loads, visitors, loads * d.engagedSec * 1000, sumo(clicks), sumo(rage), sumo(dead)][i];
     });
     if (!T0.modelLoadAvgMs) T0.modelLoadAvgMs = 3900;
+    T0.detectionsWithPage = found;
     var eng = {}; Object.keys(pages).forEach(function(r){ eng[r] = pages[r] * d.engagedSec * 1000; });
     var add = { detect_diagnosis: kv(kinds), detect_issue: issue, detect_route: kv(routes), page_route: kv(pages), mode: [{ key: "guard", count: loads }],
       intervention: kv(fixed), action_outcome: [{ key: "applied", count: nfixed }, { key: "undone", count: n(d.undone) }],
