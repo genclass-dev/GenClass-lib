@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.0-beta.4 (2026-10-27)
+
+- **The devtools pill counts measured checks** (`src/devtools/`, VISUAL.md 9.3). The collapsed pill showed only
+  interventions and model detections, so a page where GenClass had fixed invisible text, a stuck scroll lock and a
+  click block on screen still read "0 · 0". The pill now has a third counter (the scan icon) with the page's measured
+  checks, red when there are any, its title saying how many were fixed on screen, and it pulses when a new one arrives.
+  With checks and no interventions or detections yet, the panel opens on the Checks tab. Each check card leads with
+  the kind in words ("Page cannot scroll", "Page stopped taking clicks", "Invisible text", "Ads covering content"),
+  the kind itself beside it. Checks stay labelled "measured", never model findings. Tests: `devtools-checks.test.ts`.
+  No model-visible text changed (`situation-v2.3`).
+
 ## 0.3.0-beta.3 (2026-10-26)
 
 - **A colour fix stays while its element is out of view** (`src/visual/engine.ts`, VISUAL.md 11.2). The periodic
