@@ -274,6 +274,11 @@ export class TelemetryClient implements TelemetryStatus {
       }),
       sample: this.cfg.sample,
       situation: this.cfg.situation,
+      // the measured visual checks on this page (VISUAL.md section 10): off, "local" (development hosts, the overlay,
+      // checkNow()) or on, and whether the app turned their runtime fixes on, so the summary's check counts can be read
+      // against coverage. The counts themselves are added to `summary` by the checks' own chunk (src/visual/bridge.ts)
+      visual: this.rt.vis?.setting ?? "off",
+      fix: !!this.rt.vis?.fix,
       // decisionSample / maxDecisions are not sent (no owner OK for the page's config values, AGENTS.md rule 8): a
       // collector scales from summary.telemetry (decisionRecords, decisionsSampledOut, decisionsCapped)
     });

@@ -30,6 +30,11 @@ object; version 0.2.1 sent from those hosts by default, by mistake, fixed in 0.2
   their users.
 - **Technical details:** GenClass and model versions, settings, device type (WebGPU or WASM), load times and error
   counts, and the website's hostname.
+- **Counts of the measured visual checks, from runtime 0.3.0-beta.5, only where they run** (off on public sites
+  unless the website's developer turned them on): whether the checks run on the page and whether their fixes are on,
+  how many problems each check found (such as text in its background's colour, or a page that stopped scrolling), the
+  same per page path, and how many fixes GenClass applied on the page and undid. Never which element, its text, its
+  colours or any address.
 - **The page's path**, with id-like segments (and, from runtime 0.3.0, segments containing an `@`, such as an e-mail
   address) replaced by `:id` and no query string or fragment (for example `/orders/:id`), on each page load and each
   decision. Other words in the path, such as a username, are sent as they are.
@@ -73,7 +78,7 @@ works on their own site. We do not sell the data, use it for advertising, or try
 ## Dashboards for website owners
 
 A website owner can get a private dashboard link for their site's token. Whoever holds that link can see aggregated diagnostics for that site (counts of decisions, detections, possible detections and actions, the site's hostnames,
-routes, the names the developer gave to protected functions, model speed, versions; with interaction analytics on,
+routes, the names the developer gave to protected functions, model speed, versions, the measured visual checks' counts per check and page and their fixes; with interaction analytics on,
 page views, the paths between pages, time on page, scroll depth and clicks per page and element, visits per day, pages per visit, where visits
 came from, devices, countries, new or returning, entry and exit pages and funnels) and a list of recent detections
 (time, route or function name, diagnosis, action). Dashboards do not show the situation text. Data from browsers that opted out or

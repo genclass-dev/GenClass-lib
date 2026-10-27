@@ -1755,6 +1755,62 @@ describe("accounts: deleting an account", () => {
   });
 });
 
+describe("accounts: deleting a project (Project Settings, Delete project)", () => {
+  it("removes the app with its stats, visits, agent rows and links; its key stops counting; the account's other apps stay", async () => {
+    const { env, sql } = setup();
+    const { cookie } = await signedIn(env);
+    await givePro(env, cookie); // the fixture's free plan has no dashboard; every plan has one in production
+    const made = ((await (await call(env, "POST", "/api/account/projects", { body: { name: "Rehearsal" }, cookie })).json()) as any).project;
+    const kept = ((await (await call(env, "POST", "/api/account/projects", { body: { name: "Kept" }, cookie })).json()) as any).project;
+    await sendBatch(env, made.token);
+    await sendBatch(env, kept.token, "dddddddddddd");
+    const at = clock.toISOString();
+    sql.db.prepare("INSERT INTO agent_reports (token, finding, kind, route, updated) VALUES (?, 'f1', 'stale', '/', ?)").run(made.token, at);
+    sql.db.prepare("INSERT INTO agent_log (token, at, t, received) VALUES (?, ?, 'found', ?)").run(made.token, at, at);
+    const count = (t: string, token: string) => Number(sql.rows(`SELECT COUNT(*) AS n FROM ${t} WHERE token = ?`, token)[0]!.n);
+    expect(count("daily", made.token)).toBeGreaterThan(0);
+    // the dashboard of an owned app offers it; a private-link dashboard does not
+    const page = await (await call(env, "GET", `/account/apps/${made.id}`, { cookie })).text();
+    expect(page).toContain("data-delproj");
+    expect(page).toContain('href="#delproj"');
+
+    const path = `/api/account/projects/${made.id}`;
+    expect((await call(env, "DELETE", path, { body: {}, cookie })).status).toBe(400);
+    expect((await call(env, "DELETE", path, { body: { confirm: "delete" }, cookie, origin: "https://evil.example" })).status).toBe(403);
+    expect((await call(env, "DELETE", path, { body: { confirm: "delete" } })).status).toBe(401);
+    expect((await call(env, "DELETE", path, { body: { confirm: "delete" }, bearer: await cliToken(env, cookie), origin: null })).status).toBe(403);
+    const bob = await signedIn(env, "bob@example.com");
+    expect((await call(env, "DELETE", path, { body: { confirm: "delete" }, cookie: bob.cookie })).status).toBe(404);
+    expect((await call(env, "GET", path, { cookie })).status).toBe(405);
+    expect(count("daily", made.token)).toBeGreaterThan(0);
+
+    expect((await call(env, "DELETE", path, { body: { confirm: "delete" }, cookie })).status).toBe(204);
+    for (const t of ["projects", "daily", "hourly", "recent", "sessions", "visits", "agent_reports", "agent_log", "event_batches"]) expect(count(t, made.token), t).toBe(0);
+    // its key stops counting at once; the other app is untouched
+    await sendBatch(env, made.token);
+    expect(count("daily", made.token)).toBe(0);
+    expect(count("daily", kept.token)).toBeGreaterThan(0);
+    const list = (await (await call(env, "GET", "/api/account/projects", { cookie })).json()) as any;
+    expect(list.projects.map((p: { name: string }) => p.name)).toEqual(["Kept"]);
+    expect((await call(env, "GET", `/account/apps/${made.id}`, { cookie })).status).toBe(404);
+    expect((await call(env, "DELETE", path, { body: { confirm: "delete" }, cookie })).status).toBe(404);
+    expect(await (await call(env, "GET", "/account?deleted=project", { cookie })).text()).toContain("The project is deleted, with its stats and its links.");
+  });
+
+  it("a claimed app's private link and the agent link stop working with it", async () => {
+    const { env } = setup();
+    const { cookie } = await signedIn(env);
+    const anon = (await (await call(env, "POST", "/api/projects", { body: { name: "Old app" }, origin: null })).json()) as any;
+    const { project } = (await (await call(env, "POST", "/api/account/projects/claim", { body: { dashboard_url: anon.dashboardUrl }, cookie })).json()) as any;
+    const agent = ((await (await call(env, "POST", `/api/account/projects/${project.id}/link`, { cookie })).json()) as any).dashboardUrl;
+    expect((await handle(new Request(agent), env, { now: () => clock })).status).toBe(200);
+    expect(await (await handle(new Request(agent), env, { now: () => clock })).text()).not.toContain("data-delproj");
+    expect((await call(env, "DELETE", `/api/account/projects/${project.id}`, { body: { confirm: "delete" }, cookie })).status).toBe(204);
+    expect((await handle(new Request(agent), env, { now: () => clock })).status).toBe(404);
+    expect((await handle(new Request(anon.dashboardUrl), env, { now: () => clock })).status).toBe(404);
+  });
+});
+
 describe("accounts: private links of owned apps", () => {
   it("a claimed app's link keeps working until the owner turns it off; then it opens and claims nothing; the dashboard says which", async () => {
     const { env, sql } = setup();
@@ -1973,6 +2029,19 @@ describe("accounts: the agent link (POST /api/account/projects/<id>/link) and St
     expect(projects).toContain('<li class="pcard" data-name="shop">');
     expect(projects).toContain("<h1>Projects</h1>");
     expect(projects).toContain("<h1>Account settings</h1>");
+  });
+
+  it("/account/new?name=: the page check's site fills in the project name, through sign-in; markup in it stays text", async () => {
+    const { env } = setup();
+    const out = await call(env, "GET", "/account/new?name=snowday-predictor.ca", {});
+    expect(out.status).toBe(302);
+    expect(out.headers.get("location")).toBe("/login?next=%2Faccount%2Fnew%3Fname%3Dsnowday-predictor.ca");
+    const { cookie } = await signedIn(env, "ada@example.com");
+    expect(await (await call(env, "GET", "/account/new?name=snowday-predictor.ca", { cookie })).text()).toContain('autofocus value="snowday-predictor.ca">');
+    const odd = await (await call(env, "GET", `/account/new?name=${encodeURIComponent('"><script>x</script>')}`, { cookie })).text();
+    expect(odd).toContain('value="&#34;&#62;&#60;script&#62;x&#60;/script&#62;">');
+    expect(odd).not.toContain("<script>x</script>");
+    expect(await (await call(env, "GET", "/account/new", { cookie })).text()).toContain("required autofocus>");
   });
 });
 

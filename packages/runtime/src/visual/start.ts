@@ -20,6 +20,8 @@ import { visualRegistry } from "./registry.js";
 export interface VisualStub {
   /** "on": the checks start after load; "local": only when the devtools overlay mounts or checkNow() is called. */
   readonly setting: "local" | "on";
+  /** The app turned runtime fixes on (`visual: { on: true, fix }`); they run only in guard or heal. Telemetry's session event. */
+  readonly fix: boolean;
   /** The findings so far (rt.checks()), at most 200. */
   readonly b: CheckFinding[];
   /** The chunk's controller once it has loaded. */
@@ -71,6 +73,7 @@ export function startVisual(rt: RuntimeImpl, opt: InitOptions["visual"], init: b
     ));
   const v: VisualStub = {
     setting: base === true || local || q == "on" ? "on" : "local",
+    fix: o.on === true && (o.fix === true || (Array.isArray(o.fix) && o.fix.length > 0)),
     b: [],
     now: () => load().then((c) => c?.now() ?? []),
     start: load,

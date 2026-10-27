@@ -29,7 +29,7 @@ const finding = (id = "c1"): CheckFinding =>
   );
 
 function stub(rt: RuntimeImpl): VisualStub {
-  const v: VisualStub = { setting: "on", b: [], now: () => Promise.resolve([]), start: () => undefined };
+  const v: VisualStub = { setting: "on", fix: false, b: [], now: () => Promise.resolve([]), start: () => undefined };
   rt.vis = v;
   return v;
 }

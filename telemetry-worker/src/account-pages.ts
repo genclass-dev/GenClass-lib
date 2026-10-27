@@ -941,6 +941,8 @@ export interface NewProjectView {
   /** The account's projects (the header's switcher) and its plan's name (the organization's badge). */
   projects: { id: string; name: string }[];
   plan?: string;
+  /** The name filled in (?name=, from the page check's "Fix it with GenClass"); empty for none. */
+  suggested?: string;
 }
 
 /**
@@ -954,7 +956,7 @@ export function newProjectPage(nonce: string, v: NewProjectView): string {
 <form class="pnl newp" id="new-app" novalidate>
   <div class="pnl-h"><h1>Create a new project</h1><p>A project is one web app. It gets its own key, its own dashboard of what breaks for its users, and access for your coding agent through the MCP server. The dashboard is free.</p></div>
   <div class="frow"><label for="org">Organization</label><div><select id="org" disabled><option>${esc(org)}</option></select><p class="hint">Your account. Every project in it is on the ${esc(v.plan ?? "Free")} plan.</p></div></div>
-  <div class="frow"><label for="appname">Project name</label><div><input id="appname" type="text" maxlength="80" autocomplete="off" placeholder="e.g. Acme checkout" required autofocus><p class="hint">Shown on the dashboard and in the project switcher. Up to 80 characters.</p></div></div>
+  <div class="frow"><label for="appname">Project name</label><div><input id="appname" type="text" maxlength="80" autocomplete="off" placeholder="e.g. Acme checkout" required autofocus${v.suggested ? ` value="${esc(v.suggested)}"` : ""}><p class="hint">Shown on the dashboard and in the project switcher. Up to 80 characters.</p></div></div>
   <div class="frow"><span class="l">Comes with</span><ul class="gets">
     <li>${icon("key", 15)}<span>A public project key for the app's code (the runtime's <code>token</code>)</span></li>
     <li>${icon("chart", 15)}<span>Project overview, problems, pages, activity, visitors and health</span></li>

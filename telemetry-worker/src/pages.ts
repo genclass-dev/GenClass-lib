@@ -64,6 +64,30 @@ export const LOGO =
 /** The MCP server for coding agents, pinned as its own install blocks pin it (packages/mcp/src/clients.ts). */
 export const MCP_PKG = "@genclass/mcp@0.2.0";
 
+/** The package names and URLs installPrompt names; passed in, so the page script runs the same function. */
+export interface PromptNames {
+  pkg: string;
+  cdn: string;
+  /** the agent link's module on the CDN, for pages without a bundler */
+  agent: string;
+  mcp: string;
+}
+export const PROMPT_NAMES: PromptNames = { pkg: RUNTIME_PKG, cdn: CDN_SCRIPT, agent: `${CDN_SCRIPT}/dist/agent.js`, mcp: MCP_PKG };
+
+/** What the Connect dialog's choices add to installPrompt; all off is observe, the overlay in development only. */
+export interface InstallChoices {
+  /** guard: GenClass may act when it is sure (drop a stale response, fix a CSS bug on the page), reversibly */
+  guard?: boolean;
+  /** with guard: act on smaller signals (aggressiveness "eager") */
+  eager?: boolean;
+  /** the devtools overlay on every host, the deployed site too (for demos and staging) */
+  badge?: boolean;
+  /** the agent link (a private dashboard link): the MCP server's production numbers and the Loop view */
+  agentLink?: string | null;
+  /** deploy with the project's own deploy command at the end */
+  deploy?: boolean;
+}
+
 // The palette, type, buttons, header and focus ring of genclass.dev (site/src/css/base.css and components.css), with
 // the site's values: black ground, bone text, the GenClass mark's green and red-orange, square corners, 1px rules,
 // Satoshi for text and JetBrains Mono for code. Like the site, every page here is dark only, whatever the visitor's
@@ -354,13 +378,19 @@ export function notFoundPage(nonce: string): string {
 // (test/pages.test.ts measures them).
 // A bar draws only the types it has, so slots that are not palette neighbours can touch; the 2px canvas gap between
 // segments, the legend, the hover breakdown and the table view carry identity there.
-// Five problem types get a slot, the rest share "Other". Possible issues (the lower-confidence tier) are drawn hollow:
+// Five problem types get a slot, the rest share "Other". The measured visual checks (never model findings) get one more
+// slot of their own, hatched in the muted ink rather than a hue, so they never read as a model type. Possible issues
+// (the lower-confidence tier) are drawn hollow:
 // outlined bars in the muted ink (Fig. 2, one series, so no legend) and ring keys in the type's colour; never in the
 // confirmed counts.
 // Every dynamic string goes through textContent.
 
 export const DASH_CSS = `
 :root{--t1:#3987E5;--t2:#E8552F;--t3:#2AA3C7;--t4:#C98500;--t5:#B964C9;--t0:#88897F;--grid:#262626}
+/* the measured checks' key: hatched in the muted ink, never a problem type's hue */
+:root{--chk:repeating-linear-gradient(135deg,var(--ink2) 0 2px,transparent 2px 4px)}
+.find h3 .bdg,.adv h3 .bdg{margin-left:2px}
+table.dt td .bdg{margin-left:8px;vertical-align:middle}
 /* the page header: the project's name on the overview, the view's title elsewhere; the period and the tools */
 .phead{display:flex;flex-wrap:wrap;gap:16px 24px;align-items:flex-start;justify-content:space-between;margin-bottom:28px}
 .phead h1{font-size:30px;line-height:1.2;letter-spacing:-.02em;overflow-wrap:anywhere}
@@ -552,6 +582,14 @@ details.more summary:hover{color:var(--ink)}
 .kn .lnk,.fine .lnk{color:var(--ink2);text-decoration:underline;text-underline-offset:3px}
 .kn .lnk:hover{color:var(--ink)}
 .cprompt{padding:8px 0 4px;display:grid;justify-items:start;gap:10px}
+/* the Connect dialog's choices: each a checkbox and one line of what it adds to the prompt */
+.copts{display:grid;gap:6px;margin:4px 0 12px;max-width:72ch}
+.copt{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;border:1px solid var(--rule2);border-radius:6px;cursor:pointer;font-size:13px;color:var(--ink3);line-height:1.45}
+.copt b{color:var(--ink);font-weight:500}
+.copt input{margin-top:3px;accent-color:var(--accent)}
+.copt.sub{margin-left:26px}
+.copt:has(input:disabled){opacity:.55;cursor:default}
+.copt:has(input:checked){border-color:var(--ink3)}
 .cprompt .cp-sub{font-size:13px;color:var(--ink3);max-width:64ch;line-height:1.5}
 .cprompt textarea.cp-text{width:100%;max-width:72ch;min-height:150px;padding:10px 12px;font:12.5px/1.5 var(--mono);color:var(--ink);background:var(--ctl);border:1px solid var(--rule2);border-radius:6px;resize:vertical}
 .connect .cana{padding:0}
@@ -664,12 +702,14 @@ const DASH_JS = `
       what: "An operation did something different from what it normally does, such as writing fewer fields than usual.",
       fix: "Compare the operation's result with what it usually returns." }
   };
-  var SLOTS = ["duplicate", "stale", "failing", "slow", "conflict"];
+  var SLOTS = ["duplicate", "stale", "failing", "slow", "conflict"], BASE_SLOTS = SLOTS;
   var ACTIONS = { coalesce: "Merged a repeated request", discard: "Dropped a stale write", defer: "Waited for related requests", delay: "Delayed a request",
-    retry: "Retried a failed request", serve_cached: "Answered from cache", block: "Blocked a request", hedge: "Sent a backup request", rollback: "Rolled back a write", resync: "Re-synced state" };
+    retry: "Retried a failed request", serve_cached: "Answered from cache", block: "Blocked a request", hedge: "Sent a backup request", rollback: "Rolled back a write", resync: "Re-synced state",
+    check_fix: "Fixed a measured check on the visitor's screen (a reversible CSS change)" };
   function T(k){ return TYPES[k] || { name: k && k !== "(unknown)" ? k.charAt(0).toUpperCase() + k.slice(1) : "Other", c: "--t0", what: "", fix: "" }; }
   function slotOf(k){ return SLOTS.indexOf(k) >= 0 ? k : "other"; }
-  function colorOf(slot){ return "var(" + (slot === "other" ? "--t0" : TYPES[slot].c) + ")"; }
+  function colorOf(slot){ return slot === "checks" ? CHK : "var(" + (slot === "other" ? "--t0" : TYPES[slot].c) + ")"; }
+  function slotName(slot){ return slot === "other" ? "Other" : slot === "checks" ? "Measured checks" : TYPES[slot].name; }
   function key(color){ var s = el("span", "key"); s.style.background = color; return s; }
   function ago(iso){
     var s = Math.max(0, (Date.now() - Date.parse(iso)) / 1000);
@@ -702,19 +742,23 @@ const DASH_JS = `
   // ---------- summary and tiles
   function summary(S){
     var T0 = S.totals, B = S.breakdowns, host = document.getElementById("summary"); host.textContent = "";
-    var pages = count(S, "detect_route"), modes = map(B.mode), acting = (modes.guard || 0) + (modes.heal || 0) > 0, poss = T0.possible || 0;
+    var pages = problemPages(S), modes = map(B.mode), acting = (modes.guard || 0) + (modes.heal || 0) > 0, poss = T0.possible || 0;
+    var checks = T0.checks || 0, found = problemsOf(S), fixed = checkFixed(S);
     function put(t, bold){ host.appendChild(bold ? el("b", null, t) : document.createTextNode(t)); }
     if (!T0.sessions) { put("No page loads in this period yet."); return; }
     put(RANGE[S.range] + " GenClass watched "); put(plural(T0.sessions, "page load", "page loads"), true);
-    if (P.demo && T0.ix_sessions) { put(" from "); put(plural(T0.ix_sessions, "visitor", "visitors"), true); }
-    if (!T0.detections && poss) { put(" and found no problems. It flagged "); put(plural(poss, "possible issue", "possible issues"), true); put(" at lower confidence, listed separately below."); return; }
-    if (!T0.detections) { put(" and found nothing wrong. It only reports situations that stand out, so a quiet stretch is normal."); return; }
-    put(" and found "); put(plural(T0.detections, "problem", "problems"), true);
+    if (S.demo && T0.ix_sessions) { put(" from "); put(plural(T0.ix_sessions, "visitor", "visitors"), true); }
+    if (!found && poss) { put(" and found no problems. It flagged "); put(plural(poss, "possible issue", "possible issues"), true); put(" at lower confidence, listed separately below."); return; }
+    if (!found) { put(" and found nothing wrong. It only reports situations that stand out, so a quiet stretch is normal."); return; }
+    put(" and found "); put(plural(found, "problem", "problems"), true);
+    // the measured checks are their own kind: said apart from the model's findings
+    if (checks) put(checks === found ? " (all measured checks)" : " (" + plural(checks, "measured check", "measured checks") + ")");
     if (pages) { put(" on "); put(plural(pages, "page", "pages"), true); }
     put(". ");
     if (acting && T0.interventions) { put("It stepped in "); put(plural(T0.interventions, "time", "times"), true); var u = map(B.action_outcome).undone || 0; put(u ? ", and " + plural(u, "change was", "changes were") + " undone." : ", and nothing it changed was undone."); }
-    else if (acting) put("It is allowed to step in and did not need to.");
-    else put("It is in observe mode, so it reported them and changed nothing.");
+    else if (acting && !fixed) put("It is allowed to step in and did not need to.");
+    else if (!acting) put("It is in observe mode, so it reported them and changed nothing.");
+    if (fixed) { put((acting && !T0.interventions ? "" : " ") + "It fixed "); put(plural(fixed, "measured check", "measured checks"), true); put(" on visitors' screens with a reversible CSS change."); }
     if (poss) { put(" It also flagged "); put(plural(poss, "possible issue", "possible issues"), true); put(" at lower confidence, listed separately and not counted as problems."); }
   }
   function delta(now, before){
@@ -729,7 +773,8 @@ const DASH_JS = `
   // the app's status: Healthy with no problems in the period; Critical when 100 or more were not fixed live, or
   // problems not fixed live reached 5% of page loads; otherwise Needs attention
   function verdict(S){
-    var T0 = S.totals, n = T0.detections || 0, open = Math.max(0, n - (T0.interventions || 0)), loads = T0.sessions || 0;
+    // the measured checks count as problems too; a check fix still in place counts as fixed live
+    var T0 = S.totals, n = problemsOf(S), open = Math.max(0, n - (T0.interventions || 0) - checkFixed(S)), loads = T0.sessions || 0;
     var host = document.getElementById("verdict"); if (!host) return;
     var v = !n ? ["ok", "Healthy", "No problems found " + RANGE[S.range].charAt(0).toLowerCase() + RANGE[S.range].slice(1)]
       : open >= 100 || (loads && open / loads >= 0.05) ? ["bad", "Critical", plural(open, "problem", "problems") + " not fixed live"]
@@ -741,12 +786,13 @@ const DASH_JS = `
   function tiles(S){
     var T0 = S.totals, B = S.breakdowns, host = document.getElementById("tiles"); host.textContent = "";
     var ready = T0.model_ready || 0, failed = T0.model_load_failed || 0, modes = map(B.mode), acting = (modes.guard || 0) + (modes.heal || 0) > 0;
-    var outcomes = map(B.action_outcome), applied = outcomes.applied || T0.interventions || 0, undone = outcomes.undone || 0;
-    host.appendChild(stat("Problems found", fmt(T0.detections) + (P.demo ? "+" : ""), P.demo ? "detected in production" : delta(T0.detections || 0, (S.previous || {}).detections || 0)));
+    var outcomes = map(B.action_outcome), applied = outcomes.applied || T0.interventions || 0, undone = outcomes.undone || 0, prev = S.previous || {}, checks = T0.checks || 0, fixed = checkFixed(S);
+    var d = delta(problemsOf(S), (prev.detections || 0) + (prev.checks || 0));
+    host.appendChild(stat("Problems found", fmt(problemsOf(S)) + (S.demo ? "+" : ""), S.demo ? "detected in production" : checks ? [d, plural(checks, "measured check", "measured checks")].filter(Boolean).join(" \\u00b7 ") : d));
     var seenPages = count(S, "page_route");
-    host.appendChild(stat("Pages affected", fmt(count(S, "detect_route")), seenPages ? "of " + plural(seenPages, "page", "pages") + " that sent data" : ""));
-    if (P.demo) host.appendChild(stat("Fixed live", fmt(T0.interventions), "hotfixed on users' screens, no redeploy"));
-    else host.appendChild(stat("Stopped by GenClass", fmt(T0.interventions), acting ? (applied ? Math.round(100 * undone / applied) + "% undone by users" : "nothing needed stopping") : "observe mode reports only"));
+    host.appendChild(stat("Pages affected", fmt(problemPages(S)), seenPages ? "of " + plural(seenPages, "page", "pages") + " that sent data" : ""));
+    if (S.demo) host.appendChild(stat("Fixed live", fmt(T0.interventions), "hotfixed on users' screens, no redeploy"));
+    else host.appendChild(stat("Stopped by GenClass", fmt((T0.interventions || 0) + fixed), acting ? (applied ? Math.round(100 * undone / applied) + "% undone by users" + (fixed ? ", " + plural(fixed, "check fix", "check fixes") : "") : fixed ? plural(fixed, "measured check", "measured checks") + " fixed live" : "nothing needed stopping") : "observe mode reports only"));
     host.appendChild(stat("Model loaded", share(ready, ready + failed), ready ? "average " + (T0.modelLoadAvgMs >= 1000 ? (T0.modelLoadAvgMs / 1000).toFixed(1) + " s" : fmt(T0.modelLoadAvgMs) + " ms") + ", " + plural(failed, "failure", "failures") : "no model loads yet"));
   }
   // ---------- problems over time
@@ -755,22 +801,28 @@ const DASH_JS = `
     host.textContent = ""; leg.textContent = ""; tbl.textContent = "";
     var hourly = S.range === "24h";
     document.getElementById("unit").textContent = hourly ? "hour" : "day";
+    // the measured checks are one more slot, from the series (never folded into a model type or Other)
+    var chk = {}; (S.series || []).forEach(function(b){ chk[b.bucket] = b.checks || 0; });
     var rows = (S.typeSeries || []).map(function(b){
       var o = { bucket: b.bucket, total: 0, parts: {} };
       Object.keys(b.counts).forEach(function(k){ var s = slotOf(k); o.parts[s] = (o.parts[s] || 0) + b.counts[k]; o.total += b.counts[k]; });
+      if (chk[b.bucket]) { o.parts.checks = chk[b.bucket]; o.total += chk[b.bucket]; }
       return o;
     });
-    var order = SLOTS.concat(["other"]).filter(function(s){ return rows.some(function(r){ return r.parts[s]; }); });
+    var order = SLOTS.concat(["other", "checks"]).filter(function(s){ return rows.some(function(r){ return r.parts[s]; }); });
     var total = rows.reduce(function(s, r){ return s + r.total; }, 0);
     document.getElementById("trendn").textContent = plural(total, "problem", "problems");
     var poss = {}, ptotal = 0;
     (S.series || []).forEach(function(b){ poss[b.bucket] = b.possible || 0; ptotal += b.possible || 0; });
     if (total || ptotal) trendTable(tbl, rows, order, hourly, poss, ptotal);
     if (!total) { host.appendChild(el("p", "quiet", "No problems found in this period.")); return; }
-    if (order.length > 1) order.forEach(function(s){ var x = el("span"); x.appendChild(key(colorOf(s))); x.appendChild(document.createTextNode(s === "other" ? "Other" : TYPES[s].name)); leg.appendChild(x); });
+    if (order.length > 1 || order[0] === "checks") order.forEach(function(s){ var x = el("span"); x.appendChild(key(colorOf(s))); x.appendChild(document.createTextNode(slotName(s))); leg.appendChild(x); });
     var W = 720, H = 210, PL = 30, PB = 24, PT = 6, n = rows.length, plotW = W - PL, plotH = H - PB - PT;
     var max = niceMax(Math.max.apply(null, rows.map(function(r){ return r.total; })));
     var g = svg("svg", { viewBox: "0 0 " + W + " " + H, role: "img", "aria-label": "Problems found per " + (hourly ? "hour" : "day") + " by type" });
+    // the measured checks' hatch (the legend's --chk, as an SVG pattern)
+    var defs = svg("defs"), pat = svg("pattern", { id: "chkp", width: 4, height: 4, patternUnits: "userSpaceOnUse", patternTransform: "rotate(45)" });
+    pat.appendChild(svg("rect", { width: 4, height: 4, fill: "var(--panel)" })); pat.appendChild(svg("rect", { width: 2, height: 4, fill: "var(--ink2)" })); defs.appendChild(pat); g.appendChild(defs);
     [0, max / 2, max].forEach(function(v){
       var y = PT + plotH - plotH * v / max;
       g.appendChild(svg("line", { x1: PL, x2: W, y1: y, y2: y, stroke: v ? "var(--grid)" : "var(--rule2)", "stroke-width": 1 }));
@@ -782,7 +834,7 @@ const DASH_JS = `
       var x = PL + i * step + (step - bw) / 2, y = PT + plotH, drawn = order.filter(function(s){ return r.parts[s]; });
       drawn.forEach(function(s, j){
         var h = plotH * r.parts[s] / max; y -= h;
-        g.appendChild(svg("rect", { x: x, y: y, width: bw, height: Math.max(1, h), rx: j === drawn.length - 1 ? 3 : 0, fill: colorOf(s), stroke: "var(--paper)", "stroke-width": drawn.length > 1 ? 2 : 0 }));
+        g.appendChild(svg("rect", { x: x, y: y, width: bw, height: Math.max(1, h), rx: j === drawn.length - 1 ? 3 : 0, fill: s === "checks" ? "url(#chkp)" : colorOf(s), stroke: "var(--paper)", "stroke-width": drawn.length > 1 ? 2 : 0, "data-slot": s }));
       });
       if (i === 0 || i === n - 1 || i === Math.floor(n / 2)) {
         var lt = svg("text", { x: PL + i * step + step / 2, y: H - 6, "text-anchor": i === 0 ? "start" : i === n - 1 ? "end" : "middle" }); lt.textContent = label(r.bucket, hourly); g.appendChild(lt);
@@ -790,7 +842,7 @@ const DASH_JS = `
       var hit = svg("rect", { x: PL + i * step, y: PT, width: step, height: plotH, fill: "transparent", tabindex: 0 });
       function show(){
         tip.textContent = ""; tip.appendChild(el("div", "t", label(r.bucket, hourly) + ": " + plural(r.total, "problem", "problems")));
-        order.forEach(function(s){ if (!r.parts[s]) return; var row = el("div", "r"); var a = el("span"); a.appendChild(key(colorOf(s))); a.appendChild(document.createTextNode(s === "other" ? "Other" : TYPES[s].name)); row.appendChild(a); row.appendChild(el("b", null, fmt(r.parts[s]))); tip.appendChild(row); });
+        order.forEach(function(s){ if (!r.parts[s]) return; var row = el("div", "r"); var a = el("span"); a.appendChild(key(colorOf(s))); a.appendChild(document.createTextNode(slotName(s))); row.appendChild(a); row.appendChild(el("b", null, fmt(r.parts[s]))); tip.appendChild(row); });
         tip.classList.remove("hidden");
         var box = host.getBoundingClientRect(), left = (PL + i * step + step / 2) / W * box.width;
         tip.style.left = Math.min(Math.max(0, left - 80), box.width - 170) + "px"; tip.style.top = "0px";
@@ -802,7 +854,7 @@ const DASH_JS = `
     host.appendChild(g); host.appendChild(tip);
   }
   function trendTable(tbl, rows, order, hourly, poss, ptotal){
-    var tb = el("table", "dt"), hr = el("tr"); hr.appendChild(el("th", null, hourly ? "Hour" : "Day")); order.forEach(function(s){ hr.appendChild(el("th", null, s === "other" ? "Other" : TYPES[s].name)); }); hr.appendChild(el("th", null, "Total"));
+    var tb = el("table", "dt"), hr = el("tr"); hr.appendChild(el("th", null, hourly ? "Hour" : "Day")); order.forEach(function(s){ hr.appendChild(el("th", null, slotName(s))); }); hr.appendChild(el("th", null, "Total"));
     if (ptotal) hr.appendChild(el("th", null, "Possible (not in total)"));
     var th = el("thead"); th.appendChild(hr); tb.appendChild(th); var body = el("tbody");
     rows.forEach(function(r){ var tr = el("tr"); tr.appendChild(el("td", null, label(r.bucket, hourly))); order.forEach(function(s){ tr.appendChild(el("td", null, fmt(r.parts[s] || 0))); }); tr.appendChild(el("td", null, fmt(r.total))); if (ptotal) tr.appendChild(el("td", "poss-n", fmt(poss[r.bucket] || 0))); body.appendChild(tr); });
@@ -848,11 +900,11 @@ const DASH_JS = `
   }
 
   // ---------- one card per kind of problem
-  function spark(S, d){
-    var vals = (S.typeSeries || []).map(function(b){ return b.counts[d] || 0; }), n = vals.length, max = Math.max.apply(null, vals) || 1;
+  function spark(S, d, check){
+    var vals = ((check ? S.checkSeries : S.typeSeries) || []).map(function(b){ return b.counts[d] || 0; }), n = vals.length, max = Math.max.apply(null, vals) || 1;
     var g = svg("svg", { viewBox: "0 0 " + (n * 10) + " 24", preserveAspectRatio: "none", "class": "spark", "aria-hidden": "true" });
     g.appendChild(svg("line", { x1: 0, x2: n * 10, y1: 23.5, y2: 23.5, stroke: "var(--rule)", "stroke-width": 1 }));
-    vals.forEach(function(v, i){ if (!v) return; var h = Math.max(2, 22 * v / max); g.appendChild(svg("rect", { x: i * 10 + 3, y: 23 - h, width: 4, height: h, rx: 1, fill: colorOf(slotOf(d)) })); });
+    vals.forEach(function(v, i){ if (!v) return; var h = Math.max(2, 22 * v / max); g.appendChild(svg("rect", { x: i * 10 + 3, y: 23 - h, width: 4, height: h, rx: 1, fill: check ? "var(--ink2)" : colorOf(slotOf(d)) })); });
     return g;
   }
   // where a kind of problem happened: the type x page counts, else the pages of the recent rows
@@ -864,6 +916,8 @@ const DASH_JS = `
     return Object.keys(m).map(function(r){ return { route: r, count: m[r] }; }).sort(function(a, b){ return b.count - a.count; });
   }
   function lower(s){ return s.charAt(0).toLowerCase() + s.slice(1); }
+  // page loads the agent needs: it says what to do, then waits for them itself, so nobody has to type "done"
+  var WAIT = "When a step needs page loads on the dev page, tell me in one line exactly what to do there (for example: reload it and repeat the search fast), then wait for the loads yourself: check every 10 seconds (sleep 10 in a shell in between), for up to 5 minutes, instead of ending your turn.";
   // what a coding agent gets from Copy prompt for one kind of problem: what, where, the usual fix, the MCP steps
   function fixPrompt(k, n, where){
     var t = T(k), pages = where.slice(0, 4).map(function(w){ return w.route + " (" + fmt(w.count) + ")"; }).join(", ");
@@ -872,63 +926,178 @@ const DASH_JS = `
     if (t.fix) out.push("How it is usually fixed: " + t.fix);
     out.push("", "Use the GenClass MCP server (" + MCP + "; the project's MCP page in the GenClass dashboard says how to add it):",
       "1. genclass_findings, then genclass_explain on the finding that matches. " + stepFor(k, where.length ? where[0].route : "the page"),
+      "   " + WAIT,
       "2. Find the code behind it and fix it; keep the regression test genclass_explain generates.",
       "3. Replay the recorded order again with genclass_replay: it must say not reproduced.",
       "4. Tell me what you changed, the test you added and the replay's verdict.");
     return out.join("\\n");
+  }
+  // one prompt for every kind of problem in the period, and the checks on the dev page: the loop for each (reproduce,
+  // fix, prove), from one paste
+  function fixAllPrompt(S){
+    var list = problemList(S), checks = list.some(function(x){ return x.check; });
+    var out = ["Fix the problems GenClass found in this web app (" + P.name + ") and prove each fix, with the GenClass MCP server (" + MCP + "; the project's MCP page in the GenClass dashboard says how to add it).", "", "In production, " + lower(RANGE[range]) + ":"];
+    list.forEach(function(x){
+      var t = infoOf(x), w = whereFor(S, x);
+      out.push("- " + t.name + (x.check ? " (measured check " + x.key + ")" : "") + ", " + plural(x.count, "time", "times") + (w.length ? ", on " + w.slice(0, 3).map(function(v){ return v.route; }).join(", ") : "") + "." + (t.fix ? " Usual fix: " + t.fix : ""));
+    });
+    out.push("- And every " + (checks ? "other " : "") + "check genclass_findings lists from the dev page (unreadable text, a scroll lock left on, a page that stops taking clicks).", "",
+      "1. genclass_status: the dev page must be connected; if it is not, tell me what to open.",
+      "2. For each problem: genclass_findings, then genclass_explain; reproduce it with genclass_explore or genclass_replay. " + (checks ? "A measured check is a measurement, not a recorded order: run genclass_scan on its page instead, which lists it with the element, its selector and a suggested CSS change. " : "") + WAIT,
+      "3. Fix the cause in the code, small and idiomatic; keep the regression test genclass_explain generates.",
+      "4. Replay the recorded order again: it must say not reproduced." + (checks ? " For a measured check, genclass_scan on its page must no longer list it." : ""),
+      "5. Sum up in one line per problem: what it was, the proof, the fix.");
+    return out.join("\\n");
+  }
+  function fixAll(S){
+    var any = problemList(S).length > 0;
+    ["fixall", "fixall2"].forEach(function(id){ var b = document.getElementById(id); if (!b) return; b.classList.toggle("hidden", !any); b.setAttribute("data-copy", any ? fixAllPrompt(S) : ""); });
   }
   function promptBtn(k, n, where, cls){
     var b = el("button", cls || "btn sm ghost", "Copy prompt"); b.type = "button";
     b.setAttribute("data-copy", fixPrompt(k, n, where)); b.setAttribute("aria-label", "Copy a prompt to fix " + lower(T(k).name));
     return b;
   }
+  // ---------- measured visual checks (runtime 0.3.0-beta.5, docs/runtime/VISUAL.md): deterministic measurements with
+  // fixed thresholds, never a model finding. Their own kind on every view: a "Measured check" badge, a hatched key and
+  // their own slot in Fig. 1, their own prompt (genclass_scan measures the page again). Counts only reach the
+  // dashboard: never a selector, element text, colour or URL.
+  var CHECKS = {
+    "image-broken": { name: "Broken images", what: "An image failed to load or decode, so visitors saw an empty box or the browser's broken-image icon.", fix: "Fix the image's URL or the file it points to, and give images that matter a fallback." },
+    "image-css-broken": { name: "Broken background images", what: "A background image set in CSS answered with an error, so its element showed without it (Chromium reports these).", fix: "Fix the url() in the stylesheet or the file it points to." },
+    "media-failed": { name: "Video or audio that failed", what: "A video or audio element failed with a network or decoding error, or the browser could not play its format.", fix: "Check the media URL and offer a format every browser plays." },
+    "stylesheet-failed": { name: "Stylesheets that failed", what: "A stylesheet did not load (an error, or a page served instead of CSS), so part of the page was unstyled.", fix: "Fix the stylesheet's URL or what the server answers for it (status and content type)." },
+    "font-failed": { name: "Fonts that failed", what: "A web font failed to load, so its text fell back to another font.", fix: "Fix the font file's URL, format or CORS headers, and keep a close fallback in font-family." },
+    "icon-font-failed": { name: "Missing icons", what: "An icon font failed to load, so icons showed as empty boxes or as their names.", fix: "Fix the icon font's URL or CORS headers, or draw the icons as inline SVG." },
+    "csp-blocked": { name: "Blocked by the CSP", what: "The page's Content-Security-Policy blocked a stylesheet, a font or an image the page uses.", fix: "Allow that source in the policy (style-src, font-src, img-src), or serve the file from an allowed origin." },
+    "text-invisible": { name: "Invisible text", what: "Text drawn in almost its background's colour (contrast under 1.5:1) in the visitor's own colour scheme, so nobody could read it.", fix: "Set the text colour and the background together on the same selector, the dark-mode variant included. In guard mode with visual fixes on, GenClass applies a readable colour on the visitor's screen.", live: true },
+    "text-template-leak": { name: "Template text on the page", what: "Unrendered template or code text reached the page, such as {{ name }}, [object Object], undefined or NaN.", fix: "Find the value that was missing or unformatted when it was rendered, and render a fallback instead." },
+    "text-placeholder": { name: "Placeholder content", what: "Lorem ipsum, or an image from a placeholder service, was still on the page.", fix: "Replace the placeholder text or image with the real content." },
+    "text-encoding": { name: "Garbled characters", what: "Text with mojibake (UTF-8 read as another encoding), replacement characters, or HTML entities shown as text.", fix: "Serve and read the text as UTF-8 end to end, and escape it once, not twice." },
+    "css-var-undefined": { name: "Undefined CSS variables", what: "A rule uses a custom property (var(--name)) that nothing defines, with no fallback, so the declaration does nothing.", fix: "Define the variable, fix its name, or give var() a fallback." },
+    "image-distorted": { name: "Stretched images", what: "An image was shown at an aspect ratio far from its own, so it looked stretched or squashed.", fix: "Set object-fit: cover (or contain) on it, or size it to its own aspect ratio." },
+    "page-overflow-x": { name: "Page scrolls sideways", what: "The page was wider than the screen, so it scrolled sideways, usually on phones.", fix: "Give the element that sticks out max-width: 100%, or let it wrap; avoid fixed widths wider than the screen." },
+    "viewport-meta-missing": { name: "No viewport tag", what: "On a phone the page rendered at desktop width because it has no viewport meta tag, so everything was tiny.", fix: "Add a viewport meta tag with width=device-width, initial-scale=1 to the page's head." },
+    "layout-shift": { name: "Layout shifts", what: "Content jumped while visitors were reading it, often an image without a size or a late banner.", fix: "Reserve space for images, ads and embeds (width and height, or aspect-ratio), and insert late content below what the visitor is looking at." },
+    "page-blank": { name: "Blank page", what: "The page's main area showed no text and no media for seconds after it loaded.", fix: "Find why the content did not render (a failed request, an error while rendering) and show an error state instead of nothing." },
+    "click-blocked": { name: "Clicks on an invisible layer", what: "Clicks landed on an invisible or transparent layer over the content, so the controls under it never got them.", fix: "Remove the leftover overlay, or give it pointer-events: none while it is not shown." },
+    "pointer-events-leak": { name: "Page stopped taking clicks", what: "pointer-events: none was left on the page's html or body with nothing open, so nothing on the page responded to clicks.", fix: "Clear the click block in the same code path that sets it, failure and cancel paths included (a finally block). In guard mode with visual fixes on, GenClass removes the leaked declaration on the visitor's screen.", live: true },
+    "scroll-lock-stuck": { name: "Scroll locked", what: "overflow: hidden (or a fixed body) was left on the page with no dialog or menu open, so the page stopped scrolling.", fix: "Remove the lock in the same code path that closes the dialog, menu or notice, error and cancel paths included. In guard mode with visual fixes on, GenClass removes the leaked lock on the visitor's screen.", live: true },
+    "control-unreachable": { name: "Controls out of reach", what: "A button or link stayed under another element (a sticky footer, a cookie bar) even at the end of the page, so it could not be clicked.", fix: "Leave room for the fixed element (padding at the bottom of the page) or move the control out from under it." },
+    "focus-obscured": { name: "Focused element hidden", what: "An element reached with the keyboard, or a link's target, ended up hidden behind a sticky header or another layer.", fix: "Add scroll-padding-top (or scroll-margin) for the sticky header, or keep the layer out of the way." },
+    "dialog-covered": { name: "Dialogs under other layers", what: "A dialog opened behind another element, so parts of it, or its buttons, could not be seen or clicked.", fix: "Put the dialog above everything else: the top layer (a dialog element opened with showModal()), or a z-index above the other layer's stacking context." },
+    "request-stalled": { name: "Requests that never finished", what: "A request stayed pending while a control waited on it, so visitors were stuck with a spinner or a disabled button.", fix: "Give the request a timeout (AbortSignal.timeout) and show an error with a retry when it runs out." },
+    "ad-heavy": { name: "Ads covering content", what: "Ads took more of the screen than the Coalition for Better Ads standards allow, or one covered the content as an overlay.", fix: "Reserve each ad's space in the layout and keep in-content ads out of fixed overlays. GenClass reports these and leaves the ads alone." },
+    "text-warped": { name: "Warped text", what: "Text on screen that could not be read as text: squeezed or stretched, overlapping other text, or its letters spread apart.", fix: "Remove the transform, letter-spacing or fixed height that distorts it, and let the text wrap." }
+  };
+  // what to do on the dev page so the check measures it again (the rest: load the page and use it as visitors do)
+  var CHECK_DO = {
+    "scroll-lock-stuck": "Open and close every dialog, menu and notice on the page, error and cancel paths included, then try to scroll.",
+    "pointer-events-leak": "Run every action that blocks clicks while it works, the failing path too (a bad input, the network off), then click something.",
+    "click-blocked": "Open and close the overlays on the page, then click the controls under where they were.",
+    "request-stalled": "Repeat the action with the request held up (genclass_explore with slow_ms), and watch what the control does while it waits.",
+    "dialog-covered": "Open each dialog on the page.",
+    "focus-obscured": "Tab through the page and follow its in-page links.",
+    "control-unreachable": "Scroll to the end of the page on a phone-sized window.",
+    "text-invisible": "Check the page in light and dark mode, and the hover and focus states of what it names.",
+    "page-overflow-x": "Load the page in a phone-sized window.",
+    "viewport-meta-missing": "Load the page in a phone-sized window."
+  };
+  var CHK = "var(--chk)";
+  function CK(k){ return CHECKS[k] || { name: k ? k.charAt(0).toUpperCase() + k.slice(1).replace(/-/g, " ") : "Other check", what: "", fix: "" }; }
+  function checkList(S){ return (S.breakdowns.check_kind || []).filter(function(x){ return x.count > 0; }); }
+  function checkWhere(S, k){ return (issues(S.breakdowns, "check_issue")[k] || []).slice().sort(function(a, b){ return b.count - a.count; }); }
+  // check fixes still in place when their page loads ended (applied minus undone), at most one per finding
+  function checkFixed(S){ var o = map(S.breakdowns.check_fix); return Math.min(S.totals.checks || 0, Math.max(0, (o.applied || 0) - (o.undone || 0))); }
+  // every kind of problem in the period, the model's and the measured checks', the most frequent first
+  function problemList(S){
+    var out = (S.breakdowns.detect_diagnosis || []).filter(function(x){ return x.key !== "expected"; }).map(function(x){ return { key: x.key, count: x.count, check: false }; });
+    checkList(S).forEach(function(x){ out.push({ key: x.key, count: x.count, check: true }); });
+    return out.sort(function(a, b){ return b.count - a.count; });
+  }
+  function infoOf(x){ return x.check ? CK(x.key) : T(x.key); }
+  function whereFor(S, x){ return x.check ? checkWhere(S, x.key) : whereOf(S, x.key); }
+  function keyOf(x){ return key(x.check ? CHK : colorOf(slotOf(x.key))); }
+  function problemsOf(S){ return (S.totals.detections || 0) + (S.totals.checks || 0); }
+  // the pages with a problem of either kind: the model's (every one, past the top 25 too) and the checks' pages
+  function problemPages(S){
+    var seen = {}, n = 0;
+    (S.breakdowns.detect_route || []).forEach(function(x){ if (!seen[x.key]) { seen[x.key] = 1; n++; } });
+    var more = Math.max(0, count(S, "detect_route") - n);
+    (S.breakdowns.check_issue || []).forEach(function(x){ var r = x.key.slice(x.key.indexOf("\\t") + 1); if (!seen[r]) { seen[r] = 1; n++; } });
+    return n + more;
+  }
+  function badge(){ var b = el("span", "bdg", "Measured check"); b.title = "A measurement with a fixed threshold, not a model finding"; return b; }
+  // what a coding agent gets from Copy prompt for one measured check: what was measured, where, the usual fix, and the
+  // MCP steps that measure the page again
+  function checkPrompt(k, n, where){
+    var t = CK(k), pages = where.slice(0, 4).map(function(w){ return w.route + " (" + fmt(w.count) + ")"; }).join(", "), top = where.length ? where[0].route : "the page";
+    var out = ["Fix a problem GenClass measured in production in this web app (" + P.name + "): " + lower(t.name) + " (the measured check " + k + "), " + plural(n, "time", "times") + " " + lower(RANGE[range]) + (pages ? ", on " + pages : "") + ".", ""];
+    if (t.what) out.push("What it measured: " + t.what);
+    if (t.fix) out.push("How it is usually fixed: " + t.fix);
+    out.push("This is a measured check (a measurement against a fixed threshold, not a model finding): it says what was wrong on the page; the cause is in the code or the CSS.",
+      "", "Use the GenClass MCP server (" + MCP + "; the project's MCP page in the GenClass dashboard says how to add it):",
+      "1. genclass_scan on " + top + " (the dev server's URL, or the deployed page): it runs the same checks and lists this one with the element, its selector, what it measured and a suggested CSS change. With the dev page connected, genclass_findings lists it too, as kind check. " + (CHECK_DO[k] || "Load the page and use it as visitors do."),
+      "   " + WAIT,
+      "2. Find the code or CSS behind it and fix it at the cause (the suggested CSS is a starting point, not a patch).",
+      "3. Run genclass_scan on the page again, after the same steps: it must not list " + k + " any more.",
+      "4. Tell me what you changed and what genclass_scan listed before and after.");
+    return out.join("\\n");
+  }
+  function checkBtn(k, n, where, cls){
+    var b = el("button", cls || "btn sm ghost", "Copy prompt"); b.type = "button";
+    b.setAttribute("data-copy", checkPrompt(k, n, where)); b.setAttribute("aria-label", "Copy a prompt to fix " + lower(CK(k).name));
+    return b;
+  }
+  function problemBtn(x, where, cls){ return x.check ? checkBtn(x.key, x.count, where, cls) : promptBtn(x.key, x.count, where, cls); }
   function cards(S){
-    var B = S.breakdowns, host = document.getElementById("issues"); host.textContent = "";
-    var list = (B.detect_diagnosis || []).filter(function(x){ return x.key !== "expected"; }), total = sum(list);
+    var host = document.getElementById("issues"); host.textContent = "";
+    var list = problemList(S), total = sum(list);
     document.getElementById("issuesempty").classList.toggle("hidden", list.length > 0);
     list.forEach(function(x){
-      var t = T(x.key), c = el("article", "find");
-      var top = el("div", "top"), h = el("h3"); h.appendChild(key(colorOf(slotOf(x.key)))); h.appendChild(document.createTextNode(t.name)); top.appendChild(h);
+      var t = infoOf(x), c = el("article", "find" + (x.check ? " chk" : ""));
+      var top = el("div", "top"), h = el("h3"); h.appendChild(keyOf(x)); h.appendChild(document.createTextNode(t.name)); if (x.check) h.appendChild(badge()); top.appendChild(h);
       var nw = el("div", "nw"); nw.appendChild(el("span", "n", fmt(x.count))); nw.appendChild(el("span", "share", total ? Math.round(100 * x.count / total) + "% of problems" : "")); top.appendChild(nw); c.appendChild(top);
-      c.appendChild(spark(S, x.key));
+      c.appendChild(spark(S, x.key, x.check));
       if (t.what) c.appendChild(el("p", null, t.what));
-      var where = whereOf(S, x.key);
+      var where = whereFor(S, x);
       if (where.length) {
         var ul = el("ul", "where");
         where.slice(0, 4).forEach(function(w){ var li = el("li"); li.appendChild(el("code", null, w.route)); li.appendChild(el("span", null, fmt(w.count))); ul.appendChild(li); });
         c.appendChild(ul);
       }
       if (t.fix) { var f = el("p", "fix"); f.appendChild(el("b", null, "Fix: ")); f.appendChild(document.createTextNode(t.fix)); c.appendChild(f); }
-      var acts = el("div", "acts"); acts.appendChild(promptBtn(x.key, x.count, where)); c.appendChild(acts);
+      var acts = el("div", "acts"); acts.appendChild(problemBtn(x, where)); c.appendChild(acts);
       host.appendChild(c);
     });
   }
   // Project overview: the kinds of problems that need attention first (Studio's advisor cards), each with its prompt
   function advisor(S){
     var host = document.getElementById("advisor"); if (!host) return; host.textContent = "";
-    var list = (S.breakdowns.detect_diagnosis || []).filter(function(x){ return x.key !== "expected"; });
+    var list = problemList(S);
     var lead = document.getElementById("advn");
     if (lead) lead.textContent = list.length ? plural(list.length, "kind of problem needs", "kinds of problems need") + " attention" : "GenClass found no problems";
     if (!list.length) { var none = el("div", "none"); none.appendChild(el("p", null, "Nothing broke " + lower(RANGE[range]) + ". GenClass only reports situations that stand out, so a quiet stretch is normal.")); host.appendChild(none); return; }
     list.slice(0, 3).forEach(function(x){
-      var t = T(x.key), a = el("article"), top = el("div", "top"), h = el("h3");
-      h.appendChild(key(colorOf(slotOf(x.key)))); h.appendChild(document.createTextNode(t.name)); top.appendChild(h);
+      var t = infoOf(x), a = el("article"), top = el("div", "top"), h = el("h3");
+      h.appendChild(keyOf(x)); h.appendChild(document.createTextNode(t.name)); if (x.check) h.appendChild(badge()); top.appendChild(h);
       top.appendChild(el("span", "bdg" + (x.count >= 10 ? " destructive" : " warning"), plural(x.count, "time", "times"))); a.appendChild(top);
-      var where = whereOf(S, x.key);
+      var where = whereFor(S, x);
       a.appendChild(el("p", null, (where.length ? "On " + where.slice(0, 2).map(function(w){ return w.route; }).join(", ") + ". " : "") + (t.what || "")));
       var acts = el("div", "acts"), v = el("a", "btn sm ghost", "View"); v.href = "#found"; v.setAttribute("data-goto", "found");
-      acts.appendChild(promptBtn(x.key, x.count, where)); acts.appendChild(v); a.appendChild(acts);
+      acts.appendChild(problemBtn(x, where)); acts.appendChild(v); a.appendChild(acts);
       host.appendChild(a);
     });
   }
   // Project overview: four usage cards (Studio's request charts), one bar per hour or day
   function usage(S){
     var host = document.getElementById("usage"); if (!host) return; host.textContent = "";
-    var hourly = S.range === "24h", rows = S.series || [], T0 = S.totals, prev = S.previous || {};
+    // Problems found: the model's detections and the measured checks, per bucket and in total
+    var hourly = S.range === "24h", rows = (S.series || []).map(function(b){ var o = {}; for (var k in b) o[k] = b[k]; o.problems = (b.detections || 0) + (b.checks || 0); return o; }), T0 = S.totals, prev = S.previous || {};
     var lead = document.getElementById("ulead"); if (lead) lead.textContent = fmt(T0.sessions);
     var ix = (T0.ix_sessions || 0) > 0 || rows.some(function(b){ return b.ix_sessions; });
     // the number is the period's total (exact, from the totals); the bars are the series, one per hour or day
-    [["Page loads", "sessions", "var(--accent)", prev.sessions, T0.sessions], ["Problems found", "detections", "var(--t2)", prev.detections, T0.detections],
+    [["Page loads", "sessions", "var(--accent)", prev.sessions, T0.sessions], ["Problems found", "problems", "var(--t2)", typeof prev.detections === "number" ? prev.detections + (prev.checks || 0) : prev.detections, problemsOf(S)],
      ["Stepped in", "acted", "var(--accent)", prev.acted, T0.interventions],
      ix ? ["Visits", "ix_sessions", "var(--accent)", prev.ix_sessions, T0.ix_sessions] : ["Possible issues", "possible", "var(--ink3)", null, T0.possible]].forEach(function(c){
       var total = typeof c[4] === "number" ? c[4] : rows.reduce(function(s, b){ return s + (b[c[1]] || 0); }, 0), card = el("div", "ucard");
@@ -974,6 +1143,8 @@ const DASH_JS = `
     function at(route){ return routes[route] = routes[route] || { route: route, total: 0, parts: {}, poss: 0 }; }
     Object.keys(byIssue).forEach(function(d){ byIssue[d].forEach(function(w){ var r = at(w.route); var s = slotOf(d); r.parts[s] = (r.parts[s] || 0) + w.count; r.total += w.count; }); });
     if (!Object.keys(routes).length) (B.detect_route || []).forEach(function(x){ at(x.key).total += x.count; });
+    var byCheck = issues(B, "check_issue");
+    Object.keys(byCheck).forEach(function(k){ byCheck[k].forEach(function(w){ var r = at(w.route); r.parts.checks = (r.parts.checks || 0) + w.count; r.total += w.count; }); });
     if (Object.keys(byPoss).length) Object.keys(byPoss).forEach(function(d){ byPoss[d].forEach(function(w){ at(w.route).poss += w.count; }); });
     else (B.possible_route || []).forEach(function(x){ at(x.key).poss += x.count; });
     var list = Object.keys(routes).map(function(k){ return routes[k]; });
@@ -986,9 +1157,9 @@ const DASH_JS = `
     hd.appendChild(hr); tb.appendChild(hd); var body = el("tbody");
     list.slice(0, 8).forEach(function(r){
       var tr = el("tr"); var rc = el("td", "route", r.route); rc.title = r.route; tr.appendChild(rc); tr.appendChild(el("td", "num", fmt(r.total)));
-      var td = el("td", "wide"), mix = el("div", "mix"), parts = SLOTS.concat(["other"]).filter(function(s){ return r.parts[s]; });
+      var td = el("td", "wide"), mix = el("div", "mix"), parts = SLOTS.concat(["other", "checks"]).filter(function(s){ return r.parts[s]; });
       if (!parts.length && r.total) { var i0 = el("i"); i0.style.width = (100 * r.total / max) + "%"; i0.style.background = "var(--t0)"; i0.title = "Not broken down by type: " + fmt(r.total); mix.appendChild(i0); }
-      parts.forEach(function(s){ var i = el("i"); i.style.width = (100 * r.parts[s] / max) + "%"; i.style.background = colorOf(s); i.title = (s === "other" ? "Other" : TYPES[s].name) + ": " + fmt(r.parts[s]); mix.appendChild(i); });
+      parts.forEach(function(s){ var i = el("i"); i.style.width = (100 * r.parts[s] / max) + "%"; i.style.background = colorOf(s); i.title = slotName(s) + ": " + fmt(r.parts[s]); mix.appendChild(i); });
       td.appendChild(mix); tr.appendChild(td);
       if (anyPoss) tr.appendChild(el("td", "num poss-n", r.poss ? fmt(r.poss) : "-"));
       body.appendChild(tr);
@@ -999,11 +1170,15 @@ const DASH_JS = `
     if (typeof withPage === "number" && T0.detections > withPage) notes.push(plural(T0.detections - withPage, "problem", "problems") + " arrived without a page (the page comes with the decision record, which was in another batch or not sent); the totals count them.");
     var possWithPage = T0.possibleWithPage;
     if (anyPoss && typeof possWithPage === "number" && (T0.possible || 0) > possWithPage) notes.push(plural(T0.possible - possWithPage, "possible issue", "possible issues") + " arrived without a page.");
+    if (list.some(function(r){ return r.parts.checks; })) notes.push("Hatched: measured checks, not model findings.");
+    if (typeof T0.checksWithPage === "number" && (T0.checks || 0) > T0.checksWithPage) notes.push(plural(T0.checks - T0.checksWithPage, "measured check", "measured checks") + " arrived without a page (a page load sends the counts of its first 20 pages).");
     if (notes.length) host.appendChild(el("figcaption", null, notes.join(" ")));
   }
   function acted(S){
     var B = S.breakdowns, T0 = S.totals, host = document.getElementById("acted"); host.textContent = "";
-    var modes = map(B.mode), acting = (modes.guard || 0) + (modes.heal || 0) > 0, list = B.intervention || [];
+    var modes = map(B.mode), acting = (modes.guard || 0) + (modes.heal || 0) > 0, list = (B.intervention || []).slice(), cf = map(B.check_fix);
+    // the measured checks' runtime fixes (one reversible CSS change each), counted apart from the model's actions
+    if (cf.applied) { list.push({ key: "check_fix", count: cf.applied }); list.sort(function(a, b){ return b.count - a.count; }); }
     if (!list.length) {
       host.appendChild(el("p", "quiet", acting ? "GenClass did not need to step in during this period." : "This app runs in observe mode, so GenClass only reports. Switch to guard mode when you trust what it reports, and what it stops will show here."));
       return;
@@ -1012,13 +1187,15 @@ const DASH_JS = `
     hr.appendChild(el("th", null, "Action")); hr.appendChild(el("th", "num", "Times")); hr.appendChild(el("th", null, ""));
     hd.appendChild(hr); tb.appendChild(hd); var body = el("tbody");
     list.slice(0, 8).forEach(function(x){
-      var tr = el("tr"); tr.appendChild(el("td", null, ACTIONS[x.key] || x.key)); tr.appendChild(el("td", "num", fmt(x.count)));
+      var tr = el("tr"), name = el("td", null, ACTIONS[x.key] || x.key); if (x.key === "check_fix") name.appendChild(badge()); tr.appendChild(name); tr.appendChild(el("td", "num", fmt(x.count)));
       var td = el("td", "wide"), mix = el("div", "mix"), i = el("i"); i.style.width = (100 * x.count / max) + "%"; i.style.background = "var(--accent-f)"; mix.appendChild(i); td.appendChild(mix); tr.appendChild(td);
       body.appendChild(tr);
     });
     tb.appendChild(body); host.appendChild(tb);
-    var o = map(B.action_outcome), applied = o.applied || T0.interventions || 0;
-    host.appendChild(el("figcaption", null, plural(o.undone || 0, "change", "changes") + " undone by users" + (applied ? " (" + Math.round(100 * (o.undone || 0) / applied) + "%)" : "") + (o.failed ? ", " + plural(o.failed, "action", "actions") + " failed" : "") + "."));
+    var o = map(B.action_outcome), applied = o.applied || T0.interventions || 0, notes = [];
+    if (applied || !cf.applied) notes.push(plural(o.undone || 0, "change", "changes") + " undone by users" + (applied ? " (" + Math.round(100 * (o.undone || 0) / applied) + "%)" : "") + (o.failed ? ", " + plural(o.failed, "action", "actions") + " failed" : "") + ".");
+    if (cf.applied) notes.push(plural(cf.undone || 0, "check fix", "check fixes") + " undone: by the developer, by the page changing the element, or because the fix no longer fitted it.");
+    host.appendChild(el("figcaption", null, notes.join(" ")));
   }
   function row(dl, label0, value, sub, flag){
     dl.appendChild(el("dt", null, label0)); var dd = el("dd"), v = el("div", "v", value);
@@ -1046,6 +1223,13 @@ const DASH_JS = `
       errs.slice(0, 4).forEach(function(x){ var li = el("li", null, fmt(x.count) + " \\u00D7 " + x.key); li.title = x.key; ul.appendChild(li); });
       dd.appendChild(ul);
     }
+    // the measured checks' coverage (runtime 0.3.0-beta.5): the counts above are read against it
+    var vs = map(B.visual_setting), cl = T0.check_loads || 0, tiers = map(B.check_tier);
+    if (cl || vs.on || vs.local) {
+      var cs = cl ? [plural(cl, "page load", "page loads") + " ran them", tiers.light ? fmt(tiers.light) + " on the light tier (low-end devices: the near-free checks only)" : "", T0.visual_fix ? fmt(T0.visual_fix) + " with runtime fixes on" : "", T0.check_ms ? "about " + fmt(T0.check_ms / cl) + " ms of check time each" : ""].filter(Boolean).join(", ") + "."
+        : "They are off on public hosts unless the app turns them on: visual: true (on the script tag, data-visual=on), and visual: { on: true, fix: true } in guard mode (data-visual=fix) for the runtime fixes.";
+      row(dl, "Measured checks", T0.sessions ? share(cl, T0.sessions) + " of page loads" : fmt(cl), cs, cl ? null : ["bad", "not running"]);
+    }
     var rv = B.runtime || [];
     if (rv.length) row(dl, "Runtime versions", rv.slice(0, 3).map(function(x){ return x.key; }).join(", "), rv.length > 1 ? "more than one version is live" : "");
     host.appendChild(dl);
@@ -1069,7 +1253,8 @@ const DASH_JS = `
     var B = S.breakdowns, host = document.getElementById("adv"); host.textContent = "";
     [["Triggers", B.trigger], ["Diagnoses (all decisions)", B.diagnosis], ["Top routes (decision records)", B.route], ["Top pages (page loads)", B.page_route], ["Protected functions", B.fn],
      ["Model load states", B.model_state], ["Decision latency (records)", B.latency_bucket], ["Fail-opens (reason:trigger)", B.fail_open], ["Modes", B.mode], ["Model versions", B.model_version],
-     ["Hosts seen", B.host], ["Possible issues (lower confidence)", B.possible_diagnosis], ["Action limits", B.action_limits]].forEach(function(p){
+     ["Hosts seen", B.host], ["Possible issues (lower confidence)", B.possible_diagnosis], ["Action limits", B.action_limits],
+     ["Measured checks (by check)", B.check_kind], ["Measured checks setting (page loads)", B.visual_setting]].forEach(function(p){
       var c = el("div"); c.appendChild(el("h2", null, p[0]));
       if (!p[1] || !p[1].length) { c.appendChild(el("p", "empty", "None in this period.")); host.appendChild(c); return; }
       var max = Math.max.apply(null, p[1].map(function(x){ return x.count; })) || 1, ul = el("ul", "bars");
@@ -1549,8 +1734,9 @@ const DASH_JS = `
     var T0 = S.totals, B = S.breakdowns, out = [], sumEl = document.getElementById("summary");
     out.push("# " + P.name + " (GenClass dashboard)", "", RANGE[S.range] + ", to " + String(S.generated).slice(0, 16).replace("T", " ") + " UTC. " + (sumEl ? sumEl.textContent : ""), "");
     out.push("| Metric | Value |", "| --- | ---: |");
-    [["Page loads", T0.sessions], ["Decisions", T0.decisions], ["Problems found", T0.detections], ["Possible issues (lower confidence, not problems)", T0.possible],
-     ["Pages with a problem", count(S, "detect_route")], ["Times GenClass stepped in", T0.interventions], ["Visits", T0.ix_sessions], ["Page views", T0.ix_views]].forEach(function(r){
+    var cf = map(B.check_fix);
+    [["Page loads", T0.sessions], ["Decisions", T0.decisions], ["Problems found", problemsOf(S)], ["Of them measured checks (not model findings)", T0.checks], ["Possible issues (lower confidence, not problems)", T0.possible],
+     ["Pages with a problem", problemPages(S)], ["Times GenClass stepped in", T0.interventions], ["Measured checks fixed on visitors' screens", cf.applied], ["Visits", T0.ix_sessions], ["Page views", T0.ix_views]].forEach(function(r){
       if (typeof r[1] === "number") out.push("| " + r[0] + " | " + fmt(r[1]) + " |");
     });
     var list = (B.detect_diagnosis || []).filter(function(x){ return x.key !== "expected"; });
@@ -1563,7 +1749,17 @@ const DASH_JS = `
       if (w.length) out.push("Pages: " + w.map(function(p){ return "\`" + p.route + "\` (" + fmt(p.count) + ")"; }).join(", "), "");
       if (t.fix) out.push("Fix: " + t.fix, "");
     });
-    var acts = B.intervention || [];
+    var cl = checkList(S);
+    if (cl.length) out.push("## Measured checks by kind", "", "Measurements with fixed thresholds, not model findings: genclass_scan on the page lists each one with its element and a suggested CSS change.", "");
+    cl.forEach(function(x){
+      var t = CK(x.key), w = checkWhere(S, x.key).slice(0, 4);
+      out.push("### " + t.name + " (" + x.key + "): " + fmt(x.count), "");
+      if (t.what) out.push(t.what, "");
+      if (w.length) out.push("Pages: " + w.map(function(p){ return "\`" + p.route + "\` (" + fmt(p.count) + ")"; }).join(", "), "");
+      if (t.fix) out.push("Fix: " + t.fix, "");
+    });
+    var acts = (B.intervention || []).slice();
+    if (cf.applied) acts.push({ key: "check_fix", count: cf.applied });
     if (acts.length) {
       out.push("## What GenClass did", "", "| Action | Times |", "| --- | ---: |");
       acts.slice(0, 8).forEach(function(x){ out.push("| " + (ACTIONS[x.key] || x.key) + " | " + fmt(x.count) + " |"); });
@@ -1667,6 +1863,20 @@ const DASH_JS = `
     });
   }
   document.addEventListener("click", function(e){
+    var b = e.target && e.target.closest ? e.target.closest("[data-delproj]") : null; if (!b || !P.account) return;
+    var err = b.parentNode && b.parentNode.nextElementSibling;
+    // the first click asks, the second (within 6 s) deletes the project and opens the Projects page
+    if (b.getAttribute("data-armed") !== "1") {
+      b.setAttribute("data-armed", "1"); b.textContent = "Confirm: delete this project and its data";
+      setTimeout(function(){ if (b.getAttribute("data-armed") === "1" && !b.disabled) { b.removeAttribute("data-armed"); b.textContent = "Delete project"; } }, 6000);
+      return;
+    }
+    b.disabled = true; if (err) err.textContent = "";
+    fetch("/api/account/projects/" + encodeURIComponent(P.id), { method: "DELETE", credentials: "same-origin", headers: { accept: "application/json", "content-type": "application/json" }, body: JSON.stringify({ confirm: "delete" }) })
+      .then(function(r){ if (r.ok) { location.href = "/account?deleted=project"; return; } return r.json().catch(function(){ return {}; }).then(function(j){ throw new Error((j && j.error) || "HTTP " + r.status); }); })
+      .catch(function(x){ if (err) err.textContent = "Not deleted: " + x.message + "."; b.disabled = false; b.removeAttribute("data-armed"); b.textContent = "Delete project"; });
+  });
+  document.addEventListener("click", function(e){
     var b = e.target && e.target.closest ? e.target.closest("[data-mklink]") : null; if (!b || !P.account) return;
     var box = b.closest(".alink"), err = box ? box.querySelector(".err") : null;
     // a link already exists: the first click asks, the second (within 6 s) replaces it and the old one stops working
@@ -1676,14 +1886,42 @@ const DASH_JS = `
       return;
     }
     b.disabled = true; if (err) err.textContent = "";
-    fetch("/api/account/projects/" + encodeURIComponent(P.id) + "/link", { method: "POST", credentials: "same-origin", headers: { accept: "application/json", "content-type": "application/json" }, body: "{}" })
-      .then(function(r){ return r.json().catch(function(){ return {}; }).then(function(j){ if (!r.ok) throw new Error((j && j.error) || "HTTP " + r.status); return j; }); })
-      .then(function(j){ agentLink = j.dashboardUrl; mcpOpt.link = true; alinkShow(); mcpAll(); })
-      .catch(function(x){ if (err) err.textContent = "Not created: " + x.message + "."; b.disabled = false; b.removeAttribute("data-armed"); });
+    makeAgentLink().catch(function(x){ if (err) err.textContent = "Not created: " + x.message + "."; b.disabled = false; b.removeAttribute("data-armed"); });
   });
+  // a new agent link (auth.ts makeLink): shown on the MCP page and in Project Settings, and named by the Connect prompt
+  function makeAgentLink(){
+    return fetch("/api/account/projects/" + encodeURIComponent(P.id) + "/link", { method: "POST", credentials: "same-origin", headers: { accept: "application/json", "content-type": "application/json" }, body: "{}" })
+      .then(function(r){ return r.json().catch(function(){ return {}; }).then(function(j){ if (!r.ok) throw new Error((j && j.error) || "HTTP " + r.status); return j; }); })
+      .then(function(j){ agentLink = j.dashboardUrl; mcpOpt.link = true; alinkShow(); mcpAll(); promptNow(); });
+  }
+  // ---------- the Connect dialog's choices: its prompt is installPrompt, the server's own function, with them
+  var installPrompt = ${installPromptSource()};
+  var NAMES = ${JSON.stringify(PROMPT_NAMES).replace(/</g, "\\u003c")};
+  var choiceBox = document.getElementById("cchoices");
+  function choiceOn(k){ var i = choiceBox && choiceBox.querySelector('[data-choice="' + k + '"]'); return !!(i && i.checked && !i.disabled); }
+  function promptNow(){
+    var b = document.getElementById("cpinstall"), t = document.getElementById("cpinstallt"); if (!b || !choiceBox) return;
+    var p = installPrompt(P.token, P.endpoint || null, { guard: choiceOn("guard"), eager: choiceOn("eager"), badge: choiceOn("badge"), deploy: choiceOn("deploy"), agentLink: choiceOn("agent") ? agentLink : null }, NAMES);
+    b.setAttribute("data-copy", p); if (t) t.value = p;
+  }
+  if (choiceBox) choiceBox.addEventListener("change", function(e){
+    var i = e.target, k = i && i.getAttribute ? i.getAttribute("data-choice") : null, err = choiceBox.querySelector(".err"); if (!k) return;
+    if (k === "guard") { var ea = choiceBox.querySelector('[data-choice="eager"]'); if (ea) { ea.disabled = !i.checked; if (!i.checked) ea.checked = false; } }
+    if (k === "agent" && i.checked && !agentLink && P.account) {
+      // ticking it makes the link: the first time, or a new one that replaces the app's (the label says which)
+      i.disabled = true; if (err) err.textContent = "";
+      makeAgentLink().then(function(){ i.disabled = false; promptNow(); }, function(x){ i.disabled = false; i.checked = false; if (err) err.textContent = "No agent link: " + x.message + "."; promptNow(); });
+      return;
+    }
+    promptNow();
+  });
+  // a browser can bring ticked boxes back with the page (back, reload): the prompt and the eager box follow them
+  if (choiceBox) { var g0 = choiceBox.querySelector('[data-choice="guard"]'), e0 = choiceBox.querySelector('[data-choice="eager"]'); if (g0 && e0) e0.disabled = !g0.checked; var a0 = choiceBox.querySelector('[data-choice="agent"]'); if (a0 && a0.checked && !agentLink) a0.checked = false; promptNow(); }
 
   function render(S){
     shownS = S;
+    // the recorded demo's kinds get the chart's slots while its estimate is shown (src/demo.ts), else the model's five
+    SLOTS = S.demo && P.demo ? P.demo.slots : BASE_SLOTS;
     var live = !!S.lastEvent, st = document.getElementById("status"), stt = document.getElementById("statust"), hs = document.getElementById("hstatus");
     if (st) st.classList.toggle("on", live);
     if (stt) stt.textContent = live ? "Last event " + ago(S.lastEvent) : "Waiting for the first event";
@@ -1700,19 +1938,18 @@ const DASH_JS = `
     document.getElementById("content").classList.toggle("hidden", !live);
     ["period", "mdcopy", "verdict"].forEach(function(id){ var n = document.getElementById(id); if (n) n.classList.toggle("hidden", !live); });
     if (!live) return;
-    verdict(S); summary(S); tiles(S); usage(S); advisor(S); trend(S); possibleTrend(S); cards(S); possibleCards(S); pages(S); acted(S); health(S); stages(S); agentLog(S); loop(S); recent(S); visits(S); advanced(S);
+    verdict(S); summary(S); tiles(S); usage(S); advisor(S); fixAll(S); trend(S); possibleTrend(S); cards(S); possibleCards(S); pages(S); acted(S); health(S); stages(S); agentLog(S); loop(S); recent(S); visits(S); advanced(S);
     var B2 = S.breakdowns, T2 = S.totals;
     function put(id, t){ var n = document.getElementById(id); if (n) n.textContent = t; }
-    put("c-trend", fmt(T2.detections));
-    put("c-found", String((B2.detect_diagnosis || []).filter(function(x){ return x.key !== "expected"; }).length));
-    put("c-pages", String(count(S, "detect_route")));
-    put("c-did", fmt(T2.interventions));
+    put("c-trend", fmt(problemsOf(S)));
+    put("c-found", String(problemList(S).length));
+    put("c-pages", String(problemPages(S)));
+    put("c-did", fmt((T2.interventions || 0) + (map(B2.check_fix).applied || 0)));
   }
 
   if (P.demo) {
     Object.keys(P.demo.types).forEach(function(k){ var t = P.demo.types[k]; TYPES[k] = { name: t.name, c: t.c, what: t.what, fix: t.fix }; STEPS[k] = function(r){ return t.step.replace("{page}", r); }; });
     Object.keys(P.demo.actions).forEach(function(k){ ACTIONS[k] = P.demo.actions[k]; });
-    SLOTS = P.demo.slots;
   }
   document.getElementById("pname").textContent = P.name;
   // Views: each rail or product-menu link opens one view (the parts marked data-v with it; a part may name several);
@@ -1721,7 +1958,7 @@ const DASH_JS = `
   (function(){
     var VIEW = { top: "overview", trend: "overview", usage: "overview", advisor: "overview", getc: "overview", found: "problems", "possible-s": "problems", where: "pages", did: "pages",
       "recent-s": "activity", visits: "visitors", "ix-sources": "visitors", "ix-devices": "visitors", "ix-sessions": "visitors", "ix-entry": "visitors", "ix-funnels": "visitors", clicks: "visitors", moves: "visitors",
-      "health-s": "health", adv: "health", loop: "loop", mcp: "mcp", "mcp-tools": "mcp", "mcp-json": "mcp", settings: "settings", keys: "settings", forwarding: "forwarding", "export": "export" };
+      "health-s": "health", adv: "health", loop: "loop", mcp: "mcp", "mcp-tools": "mcp", "mcp-json": "mcp", settings: "settings", keys: "settings", delproj: "settings", forwarding: "forwarding", "export": "export" };
     var TITLE = {
       problems: ["Problems", "Each kind of problem GenClass found in this period: where it happened, how to fix it, and a prompt for your coding agent."],
       pages: ["Pages and actions", "The pages with the most problems, and what GenClass did about them."],
@@ -1730,11 +1967,11 @@ const DASH_JS = `
       health: ["Health", "Whether GenClass could watch your pages at all: model loads, decision time, what was not checked."],
       loop: ["Loop", "What broke on this app, and what your coding agent does with each problem."],
       mcp: ["MCP", "Let your coding agent read this project: production problems through @genclass/mcp, and what happens inside your pages while you develop."],
-      settings: ["Project Settings", "This project's name, key and agent access."],
+      settings: ["Project Settings", P.account ? "This project's name, key and agent access, and deleting it." : "This project's name, key and agent access."],
       forwarding: ["Integrations", "Send each new detection where you already look."],
       "export": ["Export", "Every event GenClass received for this app, as a file or through the API."]
     };
-    var PARENT = { "export": "settings" }, SCROLL = { did: 1, "possible-s": 1, "ix-sources": 1, "ix-devices": 1, "ix-sessions": 1, "ix-entry": 1, "ix-funnels": 1, clicks: 1, moves: 1, keys: 1, usage: 1, advisor: 1, getc: 1, adv: 1, "mcp-tools": 1, "mcp-json": 1 };
+    var PARENT = { "export": "settings" }, SCROLL = { did: 1, "possible-s": 1, "ix-sources": 1, "ix-devices": 1, "ix-sessions": 1, "ix-entry": 1, "ix-funnels": 1, clicks: 1, moves: 1, keys: 1, usage: 1, advisor: 1, getc: 1, adv: 1, "mcp-tools": 1, "mcp-json": 1, delproj: 1 };
     var links = [].slice.call(document.querySelectorAll(".snav a, .sb-pm a"));
     var parts = [].slice.call(document.querySelectorAll("[data-v]"));
     var current = null;
@@ -1933,29 +2170,61 @@ export function analyticsPrompt(token: string, where: string, endpoint: string |
 }
 
 /**
- * The prompt the Connect dialog's Framework tab copies, the whole integration from one paste: install the runtime and
- * start it with this project's key in observe mode (it only reports), connect the state responses write, the agent
- * link for development builds, the GenClass MCP server in the coding agent, a dev-server check, and where the first
- * events come from.
+ * The prompt the Connect dialog's Framework tab copies, the whole integration from one paste: install the runtime (or
+ * the script tags of a site with no build step) and start it with this project's key, the mode and overlay the dialog's
+ * choices pick, the state responses write (one atom per response), the agent link for development builds, the GenClass
+ * MCP server in the coding agent (with the agent link when chosen), a dev-server check, and a deploy when chosen.
+ * Pure, and it names nothing outside its arguments: the page script runs this same function (its source) when a
+ * choice changes, so the server's prompt and the dialog's stay one text.
  */
-export function installPrompt(token: string, endpoint: string | null = null): string {
-  const ep = endpoint ? `, telemetry: { endpoint: "${endpoint}" }` : "";
-  return [
-    "Add GenClass to this web app with its project key, so the app's GenClass dashboard shows what breaks for its users in production (double submits, stale responses, failing endpoints, write races), and so you, the coding agent, can see what happens on the dev pages, replay it and prove fixes.",
+export function installPrompt(token: string, endpoint: string | null = null, c: InstallChoices = {}, n: PromptNames = PROMPT_NAMES): string {
+  const guard = !!c.guard;
+  const eager = guard && !!c.eager;
+  const badge = !!c.badge;
+  const link = c.agentLink || "";
+  const init = [`token: "${token}"`];
+  if (guard) init.push('mode: "guard"', ...(eager ? ['aggressiveness: "eager"'] : []), "visual: { on: true, fix: true }");
+  if (endpoint) init.push(`telemetry: { endpoint: "${endpoint}" }`);
+  // the script tag carries the mode, the visual fixes and the overlay; what it cannot carry goes in GENCLASS_CONFIG
+  const cfg = [...(eager ? ['aggressiveness: "eager"'] : []), ...(endpoint ? [`telemetry: { endpoint: "${endpoint}" }`] : [])];
+  const tag = `<script src="${n.cdn}" data-token="${token}"${guard ? ' data-mode="guard" data-visual="fix"' : ""}${badge ? " data-devtools" : ' data-devtools="local"'}></script>`;
+  const local = '["localhost", "127.0.0.1"].includes(location.hostname)';
+  const out = [
+    "Add GenClass to this web app with its project key, so the app's GenClass dashboard shows what breaks for its users in production (double submits, stale responses, failing endpoints, write races), and so you, the coding agent, can see what happens on the dev pages, replay it and prove fixes. Do every step yourself.",
     "",
-    `1. Install the runtime with the project's package manager: npm install ${RUNTIME_PKG} (or pnpm add / yarn add / bun add).`,
-    `2. Start it as early as possible in the browser entry (main.ts, the root layout or the root component), with this project's key ${token}:`,
+    `1. Install the runtime with the project's package manager: npm install ${n.pkg} (or pnpm add / yarn add / bun add). A site with no build step (plain HTML pages, no bundler) installs nothing: it uses the script tags below.`,
+    `2. Start it as early as possible, with this project's key ${token}. With a bundler, in the browser entry (main.ts, the root layout or the root component):`,
     '   import { GenClass } from "@genclass/runtime";',
-    `   const rt = GenClass.init({ token: "${token}"${ep} });`,
-    `   Without a bundler, put this in the HTML head instead: <script src="${CDN_SCRIPT}" data-token="${token}"></script>`,
-    `   The key is public: it can only add telemetry to this app, so it belongs in front-end code. (npx ${RUNTIME_PKG} init --token ${token} --yes does steps 1 and 2 and shows the diff.)`,
-    "3. Keep the default mode, observe: GenClass reports and never changes what the app does. In development builds also mount the devtools overlay, which shows what GenClass sees on the page: if (import.meta.env.DEV) import(\"@genclass/runtime/devtools\").then((d) => d.mountDevtools(rt)); (Next.js: process.env.NODE_ENV === \"development\").",
-    '4. Connect the state that responses write (search results, carts, lists, forms), so GenClass sees each write with the response or click that caused it. React, Redux and Zustand state is found automatically; otherwise create it with rt.atom("name", initial) or wrap the store you have with rt.guard("name", { get, set }), and write through the handle.',
+    `   const rt = GenClass.init({ ${init.join(", ")} });`,
+    "   Without a bundler, in the <head> of every HTML page, before the page's own scripts:",
+    ...(cfg.length ? [`   <script>window.GENCLASS_CONFIG = { ${cfg.join(", ")} };</script>`] : []),
+    `   ${tag}`,
+    "   and in the page's scripts the handle (rt below) is GenClass.runtime.",
+    `   The key is public: it can only add telemetry to this app, so it belongs in front-end code. (With a bundler, npx ${n.pkg} init --token ${token} --yes does steps 1 and 2 and shows the diff.)`,
+    (guard
+      ? `3. Mode guard, as chosen on the dashboard: when GenClass is sure, it acts with minimal, reversible steps (it drops a stale response or fixes a CSS bug on the page) and never changes a response${eager ? '; aggressiveness "eager" lets it act on smaller signals' : ""}.`
+      : "3. Keep the default mode, observe: GenClass reports and never changes what the app does.") +
+      (badge
+        ? ' Mount the devtools overlay on every host, the deployed site too, as chosen on the dashboard, so visitors see what GenClass does: import("@genclass/runtime/devtools").then((d) => d.mountDevtools(rt)); (the script tag\'s data-devtools does the same).'
+        : ' In development builds also mount the devtools overlay, which shows what GenClass sees on the page: if (import.meta.env.DEV) import("@genclass/runtime/devtools").then((d) => d.mountDevtools(rt)); (Next.js: process.env.NODE_ENV === "development"; the script tag\'s data-devtools="local" does the same).'),
+    '4. Connect the state that responses write (search results, carts, lists, forms), so GenClass sees each write with the response or click that caused it. React, Redux and Zustand state is found automatically; otherwise create it with rt.atom("name", initial) or wrap the store you have with rt.guard("name", { get, set }), and write through the handle. Values one response writes together (a search\'s query and its results) go in one atom, written once per response, so GenClass can drop a stale response as one write: const search = rt.atom("search", { query: "", results: [] }); then search.set((s) => ({ ...s, query: data.q, results: data.results })) and render from search.subscribe.',
     '5. Development builds only, add the agent link: import { connectAgent } from "@genclass/runtime/agent"; if (import.meta.env.DEV) connectAgent(rt); (Next.js: process.env.NODE_ENV === "development"). It records what happens on local pages for the GenClass MCP server and is never part of a production build.',
-    `6. Add the GenClass MCP server to yourself: npx -y ${MCP_PKG} init writes .mcp.json for Claude Code (npx -y ${MCP_PKG} config <client> prints the block for Cursor, VS Code, Codex, Gemini CLI and others); then reload your MCP servers. Its tools: genclass_status, genclass_findings, genclass_explain, genclass_replay, genclass_explore, genclass_scan.`,
-    "7. Run the dev server and load a page to check that the app builds and runs without errors; genclass_status should then list the page. Local hosts (localhost, private networks) send nothing to the dashboard by default, so the first production events come from the deployed site.",
-    "8. Tell me what you changed.",
-  ].join("\n");
+    `   Without a bundler, after the runtime's script tag: <script type="module">if (${local}) import("${n.agent}").then((a) => { const go = () => (GenClass.runtime ? a.connectAgent(GenClass.runtime) : setTimeout(go, 50)); go(); });</script>`,
+    link
+      ? `6. Add the GenClass MCP server to yourself with this project's agent link, in your own settings rather than a file in the repository (anyone with the link can read this app's stats). Claude Code: claude mcp add genclass -e GENCLASS_DASHBOARD=${link} -e GENCLASS_REPORT=on -- npx -y ${n.mcp} (other agents: npx -y ${n.mcp} config <client> prints the block; add those two env values to it). GENCLASS_REPORT=on mirrors what you find, replay and prove to the dashboard's Loop view. Its tools: genclass_status, genclass_findings, genclass_explain, genclass_replay, genclass_explore, genclass_scan, genclass_analytics.`
+      : `6. Add the GenClass MCP server to yourself: npx -y ${n.mcp} init writes .mcp.json for Claude Code (npx -y ${n.mcp} config <client> prints the block for Cursor, VS Code, Codex, Gemini CLI and others); then reload your MCP servers. Its tools: genclass_status, genclass_findings, genclass_explain, genclass_replay, genclass_explore, genclass_scan.`,
+    "7. Run the dev server and load a page to check that the app builds and runs without errors; genclass_status should then list the page (a new MCP server loads in your next conversation). Local hosts (localhost, private networks) send nothing to the dashboard by default, so the first production events come from the deployed site.",
+    ...(c.deploy
+      ? ["8. Deploy it, as chosen on the dashboard, with the command this project already uses (a deploy script in package.json, wrangler deploy for a Cloudflare Worker, vercel deploy --prod, and so on), then check that the deployed site serves the change."]
+      : []),
+    `${c.deploy ? 9 : 8}. Tell me what you changed${c.deploy ? " and where it is deployed" : ""}, and that a new conversation with you has the GenClass tools.`,
+  ];
+  return out.join("\n");
+}
+
+/** installPrompt's own source for the page script, safe inside its <script> element (no "</script" left in it). */
+function installPromptSource(): string {
+  return installPrompt.toString().replace(/<\/(script)/gi, "<\\/$1");
 }
 
 /** One big primary button that copies analyticsPrompt, and at most two lines under it. */
@@ -1974,6 +2243,12 @@ interface ConnectOptions {
   analytics: string;
   /** The MCP tab (the page script renders it; the locked page has no script for it). Default true. */
   mcp?: boolean;
+  /**
+   * The choices above the prompt (guard, eager, the badge on every host, the agent link, deploy), which the dashboard's
+   * page script turns into the prompt; none on the locked page. `agent`: the agent link choice, and whether choosing it
+   * replaces a link the app already has (account mode), or names this private link (private mode).
+   */
+  choices?: { agent: "new" | "replace" | "this" | null };
 }
 
 /**
@@ -2001,7 +2276,27 @@ function connectSection(c: ConnectOptions): string {
   };
   const notYet = c.runtimeReady ? "" : `<p class="cnote" id="cnote">${NOT_ON_NPM} So this line keeps waiting.</p>`;
   const install = installPrompt(token, endpoint);
-  const ask = `<div class="cprompt"><button class="btn green xl" type="button" data-copy="${esc(install)}">Copy the prompt for your coding agent</button><p class="cp-sub">Paste it into Claude Code, Cursor or Codex: it installs GenClass in this app with this project's key.</p><textarea class="cp-text" readonly hidden aria-label="The prompt, to copy by hand" rows="8">${esc(install)}</textarea></div>`;
+  const ch = c.choices;
+  const opt = (k: string, label: string, note: string, sub = false) =>
+    `<label class="copt${sub ? " sub" : ""}"><input type="checkbox" data-choice="${k}"${sub ? " disabled" : ""}><span><b>${label}</b> ${note}</span></label>`;
+  const agentNote = !ch?.agent
+    ? ""
+    : ch.agent === "this"
+      ? "The prompt names this private link, which opens these stats to anyone who has it."
+      : ch.agent === "replace"
+        ? "Makes a new agent link; the one the app has stops working."
+        : "Makes an agent link, a read-only link to these stats that stays in your agent's own settings.";
+  const choices = ch
+    ? `<div class="copts" id="cchoices" role="group" aria-label="What the prompt sets up">
+  ${opt("guard", "Guard", "GenClass fixes what it is sure of, reversibly: it drops a stale response, fixes a CSS bug on the page.")}
+  ${opt("eager", "Eager", "It acts on smaller signals too.", true)}
+  ${opt("badge", "Badge on the live site", "The GenClass overlay shows on every host, not only locally: for demos and staging.")}
+  ${ch.agent ? opt("agent", "Connect my coding agent to production", `Its MCP server reads these numbers and reports to the Loop view. ${agentNote}`) : ""}
+  ${opt("deploy", "Deploy when done", "The agent deploys with the project's own deploy command.")}
+  <p class="err" role="alert"></p>
+</div>`
+    : "";
+  const ask = `${choices}<div class="cprompt"><button class="btn green xl" type="button" id="cpinstall" data-copy="${esc(install)}">Copy the prompt for your coding agent</button><p class="cp-sub">Paste it into Claude Code, Cursor or Codex: it installs GenClass in this app with this project's key.</p><textarea class="cp-text" id="cpinstallt" readonly hidden aria-label="The prompt, to copy by hand" rows="8">${esc(install)}</textarea></div>`;
   const ways = c.account
     ? `<div class="ways">
     ${
@@ -2136,7 +2431,7 @@ export function dashboardPage(
   if (acct && opts.locked) return lockedDashboardPage(nonce, project, { ...opts, account: acct });
   const waiting = !project.lastEvent;
   const base = acct
-    ? { ...project, id: opts.id, firstEvent: opts.firstEvent ?? null, statsUrl: `/api/account/projects/${opts.id}/stats`, funnelsUrl: `/api/account/projects/${opts.id}/funnels`, account: true }
+    ? { ...project, id: opts.id, firstEvent: opts.firstEvent ?? null, statsUrl: `/api/account/projects/${opts.id}/stats`, funnelsUrl: `/api/account/projects/${opts.id}/funnels`, account: true, ...(opts.endpoint ? { endpoint: opts.endpoint } : {}) }
     : opts.endpoint
       ? { ...project, endpoint: opts.endpoint }
       : project;
@@ -2160,6 +2455,7 @@ export function dashboardPage(
     runtimeReady: opts.runtimeReady === true,
     endpoint: opts.endpoint ?? null,
     analytics: promptBlock(project.token, where, opts.endpoint ?? null, "Page views, visits, sources, devices and funnels on this dashboard. Paste the prompt into your coding agent and it turns them on."),
+    choices: { agent: acct ? (opts.privateLink ? "replace" : "new") : "this" },
   });
   const settings = `<div id="settings" data-v="settings">
 <section class="blk">
@@ -2179,6 +2475,15 @@ export function dashboardPage(
   <div class="blk-h"><h2>Agent access</h2><span class="aside">For @genclass/mcp</span></div>
   ${agentAccess(!!acct, !!opts.privateLink)}
 </section>
+${
+  acct && opts.id
+    ? `<section class="blk" id="delproj">
+  <div class="blk-h"><h2>Delete project</h2><span class="aside">Cannot be undone</span></div>
+  <p class="poss-note">Deletes ${esc(project.name)} with its stats, visitors, the agent's log and its export. Its key stops counting at once: batches the app still sends reach no dashboard, so take the GenClass lines out of its code too. Its agent link and any private dashboard link stop working.</p>
+  <div class="row mt-s"><button class="btn danger" type="button" data-delproj>Delete project</button></div><p class="err" role="alert"></p>
+</section>`
+    : ""
+}
 </div>`;
   // the rail (Studio's project navigation), the product menus of the views with sub-pages, the command menu's extras
   const rail: RailItem[][] = [
@@ -2232,6 +2537,7 @@ export function dashboardPage(
       groups: [
         { label: "Configuration", items: [{ href: "#settings", label: "General" }, { href: "#keys", label: "API keys" }] },
         ...(opts.extra ? [{ label: "Data", items: [{ href: "#forwarding", label: "Integrations" }, { href: "#export", label: "Export" }] }] : []),
+        ...(acct && opts.id ? [{ label: "Danger zone", items: [{ href: "#delproj", label: "Delete project" }] }] : []),
       ],
     },
   ];
@@ -2272,7 +2578,7 @@ versions ignore it. ${LOCAL_HOSTS} Your deployed site sends by default.</p>
     <figure>
       <div class="legend" id="legend"></div>
       <div class="plot" id="trendplot"></div>
-      <figcaption>Fig. 1. Problems GenClass found, per <span id="unit">day</span>, by type. Hover a bar for its breakdown.</figcaption>
+      <figcaption>Fig. 1. Problems GenClass found, per <span id="unit">day</span>, by type; hatched: measured checks (fixed thresholds, not the model). Hover a bar for its breakdown.</figcaption>
     </figure>
     <figure class="poss-fig hidden" id="possfig">
       <div class="poss-h"><h3>Possible issues</h3><span class="aside" id="possn"></span></div>
@@ -2291,10 +2597,11 @@ versions ignore it. ${LOCAL_HOSTS} Your deployed site sends by default.</p>
   <button type="button" data-open="m-connect" data-tab="ana">${icon("pointer", 18)}<div><b>Turn on visitor analytics</b><span>One prompt for your coding agent</span></div></button>
   <a href="https://genclass.dev/docs/dashboard">${icon("book", 18)}<div><b>Read the dashboard guide</b><span>What each view means and how to act on it</span></div></a>
 </div>
-<div class="uh" data-v="overview"><h2 id="advn">Problems that need attention</h2><a class="btn sm ghost" href="#found" data-goto="found">All problems</a></div>
+<div class="uh" data-v="overview"><h2 id="advn">Problems that need attention</h2><div class="acts"><button class="btn sm hidden" type="button" id="fixall2" data-copy="" aria-label="Copy one prompt for your coding agent to fix every problem">Fix them all: copy one prompt</button><a class="btn sm ghost" href="#found" data-goto="found">All problems</a></div></div>
 <div class="adv" id="advisor" data-v="overview"></div>
 <section class="blk" id="found" data-v="problems">
   <div class="blk-h"><h2>What GenClass found</h2><span class="aside">Each kind of problem, where it happened and how to fix it</span></div>
+  <div class="acts mt-s"><button class="btn sm hidden" type="button" id="fixall" data-copy="" aria-label="Copy one prompt for your coding agent to fix every problem">Fix them all: copy one prompt</button></div>
   <div class="finds" id="issues"></div>
   <p class="quiet hidden" id="issuesempty">No problems found in this period.</p>
 </section>

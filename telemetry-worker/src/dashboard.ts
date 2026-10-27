@@ -12,6 +12,13 @@
 //   `summary.counts.possibleDetections`. Their own metrics (possible, possible_*), exact like detections, never in
 //   detections or detect_diagnosis. The worker never derives the tier from decision records: what the dashboard lists
 //   is what the page's console listed.
+// - Measured visual checks (runtime 0.3.0-beta.5, docs/runtime/VISUAL.md section 10): deterministic measurements with
+//   fixed thresholds (a scroll lock left on, a page that stops taking clicks, invisible text, ads over content), never a
+//   model finding, so never in detections. The runtime sends counts only, cumulative in each `summary`
+//   (`counts.checks` per kind, `counts.checksByRoute`, `counts.fixes`, `runtime.visual`), counted exactly like the
+//   detections: checks, check_kind, check_issue (kind TAB page), check_fix (applied, undone), check_loads (page
+//   loads whose checks ran), check_tier, check_partial, check_ms. The session event's `visual` and `fix` give
+//   visual_setting (off, local, on) and visual_fix, the coverage the counts are read against.
 // - Interaction analytics (runtime `interactions` events, docs/runtime/ANALYTICS.md; only from apps that turned them on):
 //   page views, engaged time, scroll milestones, and clicks, rage clicks and dead clicks per page and element key, as
 //   ix_* counters with their own per-batch budget (MAX_IX_COUNTERS), so they never crowd out the diagnostics counters.
@@ -345,7 +352,50 @@ export function summaryValues(e: Ev): SummaryValues {
   one("telemetry_dropped", tel.dropped);
   one("records_sampled_out", tel.decisionsSampledOut);
   one("records_capped", tel.decisionsCapped);
+  checkValues(values, counts, obj(e.runtime).visual);
   return { seq: seqOf(e.seq) ?? 0, at: num(e.at) ?? 0, values };
+}
+
+/** A check kind as the runtime names it (CheckKind: lower-case words joined by "-"); anything else is not counted. */
+const CHECK_KIND_RE = /^[a-z][a-z0-9]*(?:-[a-z0-9]+){0,5}$/;
+/** Routes of one summary's `checksByRoute` the collector reads (the runtime keeps at most 20). */
+const CHECK_ROUTES = 20;
+
+/**
+ * The measured visual checks' values in a `summary` (VISUAL.md section 10; src/visual/bridge.ts withChecks), all
+ * cumulative for the page load: findings per kind and per kind x page (the key cut like every exact key, so a long
+ * route is shortened, the same way on every summary), fixes applied and undone, and from `runtime.visual` that the
+ * checks ran on this page load, their tier, partial passes and check time. Only summaries that carry them set them.
+ */
+function checkValues(values: Exact, counts: Ev, visual: unknown): void {
+  if (counts.checks !== null && typeof counts.checks === "object" && !Array.isArray(counts.checks)) {
+    const kinds: Record<string, number> = {};
+    for (const [k, n] of Object.entries(countMap(counts.checks))) if (CHECK_KIND_RE.test(k)) kinds[k] = n;
+    values.checks = { "": Object.values(kinds).reduce((a, b) => a + b, 0) };
+    values.check_kind = kinds;
+    // kind TAB page, as detect_issue keys detections (the route as the runtime normalised it for its decisions)
+    const issue: Record<string, number> = {};
+    for (const [r0, row] of Object.entries(obj(counts.checksByRoute)).slice(0, CHECK_ROUTES)) {
+      const route = str(r0)?.startsWith("/") ? str(r0)! : "(unknown)";
+      for (const [k, n] of Object.entries(countMap(row))) {
+        const key = cutKey(`${k}\t${route}`);
+        if (!CHECK_KIND_RE.test(k) || (!(key in issue) && Object.keys(issue).length >= EXACT_KEYS)) continue;
+        issue[key] = (issue[key] ?? 0) + n;
+      }
+    }
+    values.check_issue = issue;
+  }
+  const fixes = obj(counts.fixes);
+  if (num(fixes.applied) !== undefined || num(fixes.undone) !== undefined) values.check_fix = countMap({ applied: fixes.applied, undone: fixes.undone });
+  const v = obj(visual);
+  if (visual !== undefined && Object.keys(v).length) {
+    values.check_loads = { "": 1 };
+    if (v.tier === "full" || v.tier === "light") values.check_tier = { [v.tier]: 1 };
+    const partial = num(v.partial);
+    if (partial !== undefined && partial >= 0) values.check_partial = { "": partial };
+    const ms = num(v.ms);
+    if (ms !== undefined && ms >= 0) values.check_ms = { "": Math.round(ms) };
+  }
 }
 
 // Interaction analytics (`interactions` events): what one event may add. The runtime sends at most 50 element keys
@@ -521,6 +571,9 @@ export function summarize(batch: AggBatch): {
         c.add("model_kind", str(e.model) ?? "(unknown)");
         const dev = e.device as Ev | undefined;
         if (dev && typeof dev === "object") c.add("webgpu_available", dev.webgpu ? "yes" : "no");
+        // the measured visual checks' coverage (runtime 0.3.0-beta.5): whether they run here, and whether fixes may
+        if (e.visual === "off" || e.visual === "local" || e.visual === "on") c.add("visual_setting", e.visual);
+        if (e.fix === true) c.add("visual_fix");
         break;
       }
       case "model": {
@@ -891,7 +944,7 @@ export async function aggregate(db: D1Like, token: string, batch: AggBatch, now:
 /** 90d and 1y: account dashboards on a plan with that much history (src/plans.ts); link dashboards use RANGES. */
 export type Range = "24h" | "7d" | "30d" | "90d" | "1y";
 export const RANGES: Range[] = ["24h", "7d", "30d"];
-const SERIES_METRICS = ["sessions", "decisions", "detections", "acted", "possible", "ix_views", "ix_sessions"];
+const SERIES_METRICS = ["sessions", "decisions", "detections", "acted", "possible", "checks", "ix_views", "ix_sessions"];
 
 export interface Stats {
   name: string;
@@ -902,16 +955,22 @@ export interface Stats {
   from: string;
   generated: string;
   totals: Record<string, number>;
-  /** Top 25 keys per metric (200 for the type x page metrics `detect_issue` and `possible_issue`, and the ix_* ones). */
+  /** Top 25 keys per metric (200 for the type x page metrics `detect_issue`, `possible_issue` and `check_issue`, and the ix_* ones). */
   breakdowns: Record<string, { key: string; count: number }[]>;
   /** Distinct keys per metric in the period, before the top-N cut (e.g. how many pages had a problem). */
   distinct: Record<string, number>;
-  /** Per bucket; `possible` is the lower-confidence tier, never part of `detections`; `ix_views` the page views and `ix_sessions` the visits counted by interaction analytics. */
-  series: { bucket: string; sessions: number; decisions: number; detections: number; acted: number; possible: number; ix_views: number; ix_sessions: number }[];
+  /**
+   * Per bucket; `possible` is the lower-confidence tier, never part of `detections`; `checks` the measured visual
+   * checks' findings, never part of `detections` either; `ix_views` the page views and `ix_sessions` the visits counted
+   * by interaction analytics.
+   */
+  series: { bucket: string; sessions: number; decisions: number; detections: number; acted: number; possible: number; checks: number; ix_views: number; ix_sessions: number }[];
   /** Detections per bucket by diagnosis (the dashboard's stacked timeline). */
   typeSeries: { bucket: string; counts: Record<string, number> }[];
+  /** Measured check findings per bucket by check kind (their cards' sparklines). */
+  checkSeries: { bucket: string; counts: Record<string, number> }[];
   /** The same totals over the period just before this one (deltas). */
-  previous: { sessions: number; detections: number; acted: number; ix_views: number; ix_sessions: number };
+  previous: { sessions: number; detections: number; acted: number; checks: number; ix_views: number; ix_sessions: number };
   recent: Record<string, unknown>[];
   /** Interaction analytics: the visits that started in the period (visits are kept 90 days whatever the plan). */
   visits: VisitStats;
@@ -919,6 +978,8 @@ export interface Stats {
   funnels: FunnelStats[];
   /** What the developer's coding agent reported through @genclass/mcp in the period (agentStats); off unless the developer turned reporting on. */
   agent: AgentStats;
+  /** The recorded demo's estimate stands in for the measured counts (src/demo.ts). */
+  demo?: boolean;
 }
 
 // --------------------------------------------------------------------------------------------- visits and funnels
@@ -1293,7 +1354,7 @@ export async function stats(db: D1Like, p: Project, range: Range, now: Date): Pr
   const prevStart = new Date(Date.parse(hourly ? `${from}:00:00.000Z` : `${from}T00:00:00.000Z`) - span * (hourly ? 3_600_000 : 86_400_000));
   const prevFrom = hourly ? hourKey(prevStart) : dayKey(prevStart);
 
-  const [agg, series, recent, types, prev, fun] = await db.batch([
+  const [agg, series, recent, types, prev, fun, checkTypes] = await db.batch([
     db.prepare(`SELECT metric, key, SUM(count) AS c FROM ${table} WHERE token = ? AND ${col} >= ? GROUP BY metric, key`).bind(p.token, from),
     db
       .prepare(`SELECT ${col} AS b, metric, SUM(count) AS c FROM ${table} WHERE token = ? AND ${col} >= ? AND key = '' AND metric IN (${SERIES_METRICS.map(() => "?").join(", ")}) GROUP BY ${col}, metric`)
@@ -1303,9 +1364,10 @@ export async function stats(db: D1Like, p: Project, range: Range, now: Date): Pr
       .bind(p.token, hourly ? new Date(now.getTime() - 86_400_000).toISOString() : `${from}T00:00:00.000Z`),
     db.prepare(`SELECT ${col} AS b, key, SUM(count) AS c FROM ${table} WHERE token = ? AND ${col} >= ? AND metric = 'detect_diagnosis' GROUP BY ${col}, key`).bind(p.token, from),
     db
-      .prepare(`SELECT metric, SUM(count) AS c FROM ${table} WHERE token = ? AND ${col} >= ? AND ${col} < ? AND key = '' AND metric IN ('sessions', 'detections', 'acted', 'ix_views', 'ix_sessions') GROUP BY metric`)
+      .prepare(`SELECT metric, SUM(count) AS c FROM ${table} WHERE token = ? AND ${col} >= ? AND ${col} < ? AND key = '' AND metric IN ('sessions', 'detections', 'acted', 'checks', 'ix_views', 'ix_sessions') GROUP BY metric`)
       .bind(p.token, prevFrom, from),
     db.prepare("SELECT funnels FROM projects WHERE token = ?").bind(p.token),
+    db.prepare(`SELECT ${col} AS b, key, SUM(count) AS c FROM ${table} WHERE token = ? AND ${col} >= ? AND metric = 'check_kind' GROUP BY ${col}, key`).bind(p.token, from),
   ]);
   const rows = (r: unknown) => ((r as { results?: Record<string, unknown>[] })?.results ?? []) as Record<string, unknown>[];
 
@@ -1324,7 +1386,7 @@ export async function stats(db: D1Like, p: Project, range: Range, now: Date): Pr
     distinct[metric] = list.length;
     sums[metric] = list.reduce((s, x) => s + x.count, 0);
     list.sort((a, b) => b.count - a.count || a.key.localeCompare(b.key));
-    list.splice(metric === "detect_issue" || metric === "possible_issue" || metric.startsWith("ix_") ? 200 : 25);
+    list.splice(metric === "detect_issue" || metric === "possible_issue" || metric === "check_issue" || metric.startsWith("ix_") ? 200 : 25);
   }
   const sumOf = (m: string) => sums[m] ?? 0;
   totals.latencyAvgMs = totals.latency_ms_n ? Math.round(totals.latency_ms_sum! / totals.latency_ms_n) : 0;
@@ -1336,23 +1398,28 @@ export async function stats(db: D1Like, p: Project, range: Range, now: Date): Pr
   // detections (and possible ones) whose page is known (their decision record came in the same batch); the rest have no route
   totals.detectionsWithPage = sumOf("detect_route");
   totals.possibleWithPage = sumOf("possible_route");
+  // measured check findings whose page is known (a page load sends its first 20 routes' counts)
+  totals.checksWithPage = sumOf("check_issue");
   if (breakdowns.latency_bucket) {
     const order = LATENCY_BUCKETS.map(([, l]) => l);
     breakdowns.latency_bucket.sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key));
   }
 
-  const byBucket = new Map(buckets.map((b) => [b, { bucket: b, sessions: 0, decisions: 0, detections: 0, acted: 0, possible: 0, ix_views: 0, ix_sessions: 0 }]));
+  const byBucket = new Map(buckets.map((b) => [b, { bucket: b, sessions: 0, decisions: 0, detections: 0, acted: 0, possible: 0, checks: 0, ix_views: 0, ix_sessions: 0 }]));
   for (const r of rows(series)) {
     const s = byBucket.get(String(r.b));
     if (s && SERIES_METRICS.includes(String(r.metric))) (s as Record<string, unknown>)[String(r.metric)] = Number(r.c) || 0;
   }
 
-  const byType = new Map(buckets.map((b) => [b, { bucket: b, counts: {} as Record<string, number> }]));
-  for (const r of rows(types)) {
-    const s = byType.get(String(r.b));
-    if (s) s.counts[String(r.key ?? "")] = (s.counts[String(r.key ?? "")] ?? 0) + (Number(r.c) || 0);
-  }
-  const previous = { sessions: 0, detections: 0, acted: 0, ix_views: 0, ix_sessions: 0 };
+  const perBucket = (r0: unknown) => {
+    const m = new Map(buckets.map((b) => [b, { bucket: b, counts: {} as Record<string, number> }]));
+    for (const r of rows(r0)) {
+      const s = m.get(String(r.b));
+      if (s) s.counts[String(r.key ?? "")] = (s.counts[String(r.key ?? "")] ?? 0) + (Number(r.c) || 0);
+    }
+    return [...m.values()];
+  };
+  const previous = { sessions: 0, detections: 0, acted: 0, checks: 0, ix_views: 0, ix_sessions: 0 };
   for (const r of rows(prev)) {
     const m = String(r.metric) as keyof typeof previous;
     if (m in previous) previous[m] = Number(r.c) || 0;
@@ -1372,16 +1439,20 @@ export async function stats(db: D1Like, p: Project, range: Range, now: Date): Pr
     breakdowns,
     distinct,
     series: [...byBucket.values()],
-    typeSeries: [...byType.values()],
+    typeSeries: perBucket(types),
+    checkSeries: perBucket(checkTypes),
     previous,
     recent: rows(recent).map((r) => ({ ...r, executed: r.executed === null ? null : !!r.executed, acted: r.acted === null ? null : !!r.acted })),
     agent: await agentStats(db, p.token, fromIso),
     visits: vs.visits,
     funnels: vs.funnels,
   };
-  // the recorded demo's estimate for its project (src/demo.ts); every other project gets its measured counts
+  // the recorded demo's estimate for its project (src/demo.ts), until that project's first page load with measured
+  // checks arrives (runtime 0.3.0-beta.5 on the live site): from then on, in every period, its measured counts
   const demo = demoData(p.name);
-  return demo && p.last_event ? applyDemo(out, demo, now) : out;
+  if (!demo || !p.last_event) return out;
+  const measured = await db.prepare("SELECT 1 AS ok FROM daily WHERE token = ? AND metric = 'check_loads' LIMIT 1").bind(p.token).first();
+  return measured ? out : applyDemo(out, demo, now);
 }
 
 // --------------------------------------------------------------------------------------------- retention

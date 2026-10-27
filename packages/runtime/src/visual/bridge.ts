@@ -9,13 +9,16 @@
 //   "interventions" and a function behave as for every other report), and a sink record for sinks whose `kinds`
 //   lists "check";
 // - write an audit entry of kind "fix";
-// - follow status changes (mode, enabled, breaker) and the runtime's teardown.
+// - follow status changes (mode, enabled, breaker) and the runtime's teardown;
+// - add the counts VISUAL.md section 10 lists to telemetry's `summary` events (checks per kind and per route, fixes
+//   applied and undone, the passes' cost and tier), so first load carries no code for them. Never a selector,
+//   element text, colour, URL, size or a per-finding event.
 // It never pushes RtEvents, facts or situations and never touches the gate, the queue or the model (AGENTS.md rule 2
 // exception). Some members it reads are private in TypeScript only (cadence, reporter, sinks, fire, pushAudit, auditBase,
 // sessionId, sessionTags, sampled, reportMode, _aggr): the RtLike interface below names them, and
 // test/visual-bridge.test.ts fails when one of them is renamed.
 
-import type { AuditEntry, CheckFinding, Clock, ModeOrOff, Report, SessionSummary, SinkRecord } from "../types.js";
+import type { AuditEntry, CheckFinding, Clock, ModeOrOff, Report, SessionSummary, SinkRecord, VisualSummary } from "../types.js";
 import type { VisualHost } from "./host.js";
 import type { VisualStub } from "./start.js";
 import { RequestCounter, type RequestsRt } from "./requests.js";
@@ -28,6 +31,8 @@ export interface RtLike {
   readonly base: { latency(sig: string): { p95: number } | undefined } & RequestsRt["base"];
   readonly isPaused: boolean;
   vis: VisualStub | null;
+  /** The telemetry client (src/telemetry/client.ts) when telemetry is on: `push` queues an event. */
+  telemetry?: { push?: (e: Record<string, unknown>) => void };
   effectiveMode(): ModeOrOff;
   summary(): SessionSummary;
   on(type: "status", fn: () => void): () => void;
@@ -117,12 +122,36 @@ export function hostFor(rt0: unknown, describe: (el: Element) => string, normali
   };
 }
 
+/** Printed once per page when telemetry is on and the checks start: what of them telemetry sends (TELEMETRY.md). */
+export const VISUAL_TELEMETRY_NOTICE =
+  "[GenClass] The diagnostics also carry the measured visual checks' counts: findings per check and page, runtime fixes applied and undone, never selectors, page text, colours or URLs.";
+let noticeShown = false;
+
+/** Tests only: print the notice again. */
+export function resetVisualNotice(): void {
+  noticeShown = false;
+}
+
+/**
+ * The counts telemetry's `summary` event carries for the checks (VISUAL.md section 10, approved 2026-10-27), added to
+ * the event in place: `counts.checks` (per kind), `counts.checksByRoute` (per normalised route, at most 20, as the
+ * engine keeps them), `counts.fixes` (applied, undone) and `runtime.visual` (passes, check time in ms, partial passes,
+ * tier). Nothing else of VisualSummary (elements, slices, abstentions, unsupported kinds) is sent.
+ */
+export function withChecks(e: Record<string, unknown>, v: VisualSummary | undefined): void {
+  if (!v) return;
+  const counts = e.counts as Record<string, unknown> | undefined;
+  if (counts) Object.assign(counts, { checks: v.checks, checksByRoute: v.checksByRoute, fixes: { applied: v.fixes.applied, undone: v.fixes.undone } });
+  const run = e.runtime as Record<string, unknown> | undefined;
+  if (run) run.visual = { passes: v.passes, ms: v.ms, partial: v.partial, tier: v.tier };
+}
+
 /**
  * Follow the runtime: status changes re-check the fix gate, teardown stops the checks, and rt.summary() of this
  * runtime gains its `requests` key (src/visual/requests.ts) and, once the checks have run, its `visual` key (added
- * here, so first load carries no code for either).
+ * here, so first load carries no code for either); telemetry's summary events gain the check counts (withChecks).
  */
-export function follow(rt0: unknown, ctl: { gateFixes(): void; stop(): void; summary(): object | null }): void {
+export function follow(rt0: unknown, ctl: { gateFixes(): void; stop(): void; summary(): { visual: VisualSummary } | null }): void {
   const rt = rt0 as RtLike & { summary: () => SessionSummary };
   const reqs = new RequestCounter(rt);
   rt.on("status", () => ctl.gateFixes());
@@ -138,4 +167,27 @@ export function follow(rt0: unknown, ctl: { gateFixes(): void; stop(): void; sum
     const q = r.summary?.requests;
     push(q ? { ...r, summary: { ...r.summary!, requests: { ...q, hosts: {} } } } : r);
   };
+  // the client calls this.push for its own events too, so an own property here sees every summary it queues
+  const tel = rt.telemetry;
+  if (typeof tel?.push === "function") {
+    const queue = tel.push.bind(tel);
+    tel.push = (e) => {
+      if (e.t === "summary") {
+        try {
+          withChecks(e, ctl.summary()?.visual);
+        } catch {
+          /* the summary goes out without them */
+        }
+      }
+      queue(e);
+    };
+    if (!noticeShown) {
+      noticeShown = true;
+      try {
+        ((rt.global.console as Console | undefined) ?? (globalThis as { console?: Console }).console)?.info?.(VISUAL_TELEMETRY_NOTICE);
+      } catch {
+        /* ignore */
+      }
+    }
+  }
 }
