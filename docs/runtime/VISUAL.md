@@ -82,7 +82,8 @@ What follows from that:
   sampling hashes the session id; no `Math.random`.
 - **Rule 7.** No new dependency. axe-core is not added; the contrast pipeline below reimplements the parts of its
   approach that matter (stack at text rects, walk to the first opaque layer, abstain on anything complex).
-- **Rule 8.** No visual telemetry ships until the owner approves the exact fields (section 10).
+- **Rule 8.** No visual telemetry shipped until the owner approved the exact fields (section 10): counts only,
+  approved on 2026-10-27 and sent from `0.3.0-beta.4`.
 
 ## 2. Shared machinery
 
@@ -996,8 +997,9 @@ Why off on public hosts by default:
 1. **The visitor pays the CPU.** A layout pass costs main-thread time on every page view, and on a low-end phone that
    time is 4 to 6 times larger (estimate, to be measured). The visitor gets nothing back unless a developer reads the
    reports.
-2. **Nobody reads production consoles.** Until telemetry for checks is approved (section 10), production reports
-   reach only an app's own `report` function or sinks. An app that wants them sets `visual: true` and wires a sink.
+2. **Nobody reads production consoles.** Production findings reach only an app's own `report` function or sinks;
+   since `0.3.0-beta.4` their counts also reach the app's dashboard through telemetry (section 10). An app that wants
+   them sets `visual: true`.
 3. **Visitors' environments cause false reports.** Dark-mode extensions, page translation, zoom, forced colours and
    user font settings change what is measured. The abstain list covers the known ones; the bench (section 15) has to
    show the rest is rare before a production default is reconsidered.
@@ -1182,26 +1184,54 @@ receives every report.
 
 ## 10. Telemetry
 
-Nothing about visual checks is sent until the owner approves the exact fields. Rule 8 says widening what is sent
-needs the owner's OK, and the request of 2026-10-13 did not mention telemetry. Until then the telemetry client has no
-visual code at all (which also keeps its first-load bytes unchanged). (The first implementation added a `visual`
-field to the session and summary events; the review of 2026-10-13 removed both, section 19.)
-
-Proposed fields, counts only:
+**Approved by the owner on 2026-10-27; sent from `0.3.0-beta.4`.** Rule 8 says widening what is sent needs the
+owner's OK, and the request of 2026-10-13 did not mention telemetry, so until then nothing about the checks was sent.
+(The first implementation added a `visual` field to the session and summary events; the review of 2026-10-13 removed
+both, section 19.) The owner approved these fields, counts only, on 2026-10-27, after a production site full of stuck
+scroll locks and frozen clicks (each measured and fixed in its visitors' consoles) looked clean on its dashboard:
 
 | field | where | content |
 |---|---|---|
 | `counts.checks` | summary event | `{ [kind]: n }` |
-| `counts.checksByRoute` | summary event | `{ [normalisedRoute]: { [kind]: n } }`, at most 20 routes; the route is the same `normalizePath(pathname)` already sent with decisions |
+| `counts.checksByRoute` | summary event | `{ [normalisedRoute]: { [kind]: n } }`, at most 20 routes; the route is the same `normalizePath(pathname)` already sent with decisions (a segment holding an `@` as `:id`) |
 | `counts.fixes` | summary event | `{ applied, undone }` |
 | `runtime.visual` | summary event | `{ passes, ms, partial, tier }` |
 | `visual`, `fix` | session event | `"off" \| "local" \| "on"` and a boolean, so counts can be normalised by coverage |
 
-Never sent: selectors, element text, colours, URLs, sizes, per-finding events. Route keys would be cut as telemetry's
-`route()` cuts other routes. When approved: update `TELEMETRY.md`, both READMEs, the CHANGELOG and the console notice
-check. Coverage note: telemetry is off on local hosts and visual is off on public hosts by default, so counts would
-come from apps that set `visual: true` in production, from visitors who open a link with `?genclass-visual=on`, and
-from pages where the devtools overlay mounted or `rt.checkNow()` ran.
+Never sent: selectors, element text, colours, URLs, sizes, per-finding events, and the rest of
+`SessionSummary.visual` (`elements`, `maxSliceMs`, `abstained`, `unsupported`, `stopped`).
+
+As built:
+
+- **Session event** (`src/telemetry/client.ts`): `visual` is the first-load stub's setting (`rt.vis.setting`, `"off"`
+  without a stub) and `fix` is the stub's `fix`: `visual.on === true` and `visual.fix` is `true` or a non-empty list,
+  the condition under which the engine's `resolveCfg` allows any fix kind. Whether a fix can run also needs guard or
+  heal, which the same event's `effectiveMode` says. These two fields are the only first-load bytes.
+- **Summary event**: the chunk adds the counts (`src/visual/bridge.ts`, `withChecks`), so first load carries no code
+  for them. `follow()` replaces the telemetry client's `push` with one that adds them to every `summary` event before
+  it is queued; the client queues its own events through `this.push`, so the own property sees periodic, hidden,
+  pagehide and destroy summaries alike (teardowns run in order, so the destroy summary still reads the engine). A page
+  where the chunk never loaded (`"local"` on a public host) sends summaries exactly as before. The counts are
+  cumulative for the page load, like every other summary count; the collector counts them exactly through its
+  per-page-load high-water marks.
+- **Console notice**: when the chunk starts on a page with telemetry on, it prints once per page `[GenClass] The
+  diagnostics also carry the measured visual checks' counts: findings per check and page, runtime fixes applied and
+  undone, never selectors, page text, colours or URLs.` (`VISUAL_TELEMETRY_NOTICE`). The telemetry notice itself is
+  unchanged ("decisions and counts, no page text").
+- **Collector and dashboard** (`telemetry-worker/src/dashboard.ts`, `pages.ts`): counters `checks`, `check_kind`,
+  `check_issue` (kind TAB route), `check_fix` (applied, undone), `check_loads`, `check_tier`, `check_partial` and
+  `check_ms` from summaries, `visual_setting` and `visual_fix` from session events; no migration (the counters tables
+  hold any metric). The dashboard shows checks as their own kind (a "Measured check" badge, a hatched slot in the
+  problems chart, cards with what was measured, where, the usual fix and a Copy prompt that uses `genclass_scan`), counts
+  them in the app's status and in Fix them all, and lists their fixes in What GenClass did. They are never counted as
+  model detections.
+- Tests: `packages/runtime/test/telemetry-visual.test.ts`, `telemetry-worker/test/dashboard.test.ts` and
+  `pages.test.ts` ("measured visual checks").
+
+Coverage: telemetry is off on local hosts and visual is off on public hosts by default, so counts come from apps
+that set `visual: true` in production (`data-visual="on"`, or `data-visual="fix"` with the runtime fixes), from
+visitors who open a link with `?genclass-visual=on`, and from pages where the devtools overlay mounted or
+`rt.checkNow()` ran. The dashboard's Health view says on how many page loads the checks ran.
 
 ## 11. Runtime fixes and undo
 
@@ -1473,7 +1503,8 @@ Owner decisions:
 1. **Defaults**: `visual: "local"` (on for development hosts and with devtools mounted, off on public hosts unless
    `visual: true`), and whether `?genclass-visual=on` may enable report-only checks on public hosts.
 2. **Fixes**: explicit `visual.fix` plus `guard` or `heal`, and the three v1 fix kinds.
-3. **Telemetry**: the fields in section 10 (counts per kind and normalised route), under rule 8.
+3. **Telemetry**: the fields in section 10 (counts per kind and normalised route), under rule 8. Approved on
+   2026-10-27, sent from `0.3.0-beta.4`.
 4. **Sinks**: `"check"` records only for sinks that list it in `kinds`.
 5. **Gates**: the numbers in section 15. Measured on 2026-10-13 (RESULTS.md section 14): the false-report and fix gates
    are met; the 4x-throttling gate is not reliably met (pass 1 inside 100 ms on 78.1% of clean local pages in runs 1
