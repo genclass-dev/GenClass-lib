@@ -8,7 +8,7 @@
 // No external scripts; styles and fonts only from Google Fonts. Inline <script>/<style> run under a per-response CSP
 // nonce; dynamic text is inserted with textContent in scripts and escaped (esc) in server-rendered HTML.
 
-import { demoFloor } from "./demo.js";
+import { demoData } from "./demo.js";
 import { embed, esc } from "./escape.js";
 import { COPY_JS, icon, ICON_LINKS, studioPage, type ProductMenu, type RailItem } from "./studio.js";
 
@@ -706,6 +706,7 @@ const DASH_JS = `
     function put(t, bold){ host.appendChild(bold ? el("b", null, t) : document.createTextNode(t)); }
     if (!T0.sessions) { put("No page loads in this period yet."); return; }
     put(RANGE[S.range] + " GenClass watched "); put(plural(T0.sessions, "page load", "page loads"), true);
+    if (P.demo && T0.ix_sessions) { put(" from "); put(plural(T0.ix_sessions, "visitor", "visitors"), true); }
     if (!T0.detections && poss) { put(" and found no problems. It flagged "); put(plural(poss, "possible issue", "possible issues"), true); put(" at lower confidence, listed separately below."); return; }
     if (!T0.detections) { put(" and found nothing wrong. It only reports situations that stand out, so a quiet stretch is normal."); return; }
     put(" and found "); put(plural(T0.detections, "problem", "problems"), true);
@@ -725,10 +726,61 @@ const DASH_JS = `
   function stat(label0, value, sub){
     var d = el("div"); d.appendChild(el("div", "k", label0)); d.appendChild(el("div", "v", value)); if (sub) d.appendChild(el("div", "s", sub)); return d;
   }
-  // the demo's display floor (src/demo.ts): counts below it show as the floor, the problem count with a "+"
-  function floor(T0, d){
-    if ((T0.detections || 0) < d.problems) T0.detections = d.problems;
-    if ((T0.interventions || 0) < d.fixed) T0.interventions = d.fixed;
+  // the demo's estimate (src/demo.ts): the week since install, spread over the period's buckets (by day, or by UTC hour
+  // for 24 h), replaces the measured counts the overview, problems, pages, actions, activity and visitors views draw
+  function spread(total, w){
+    var s = w.reduce(function(a, b){ return a + b; }, 0), raw = w.map(function(x){ return s ? total * x / s : 0; }), out = raw.map(Math.floor);
+    var left = total - out.reduce(function(a, b){ return a + b; }, 0);
+    raw.map(function(x, i){ return [x - out[i], i]; }).sort(function(a, b){ return b[0] - a[0]; }).slice(0, Math.max(0, left)).forEach(function(p){ out[p[1]]++; });
+    return out;
+  }
+  function kv(o){ return Object.keys(o).map(function(k){ return { key: k, count: o[k] }; }).sort(function(a, b){ return b.count - a.count; }); }
+  function demoStats(S, d){
+    var rows = S.series || [], hourly = S.range === "24h", part = hourly ? d.lastDay : 1, w = rows.map(function(){ return 0; });
+    if (hourly) rows.forEach(function(b, i){ w[i] = d.hours[+String(b.bucket).slice(11, 13)] || 0; });
+    else d.days.forEach(function(x, i){ var j = rows.length - d.days.length + i; if (j >= 0) w[j] = x; });
+    function n(x){ return Math.round(x * part); }
+    function sc(o){ var r = {}; Object.keys(o).forEach(function(k){ var v = n(o[k]); if (v) r[k] = v; }); return r; }
+    function wob(k){ return w.map(function(x, i){ return x * (1 + 0.3 * Math.sin(i * 1.7 + k)); }); }
+    function sumo(o){ return Object.keys(o).reduce(function(s, k){ return s + o[k]; }, 0); }
+    var T0 = S.totals, B = S.breakdowns, k = 0, per = {}, kinds = {}, issue = [], routes = {}, poss = {}, possIssue = [], possRoutes = {};
+    Object.keys(d.problems).forEach(function(t){
+      var c = 0; Object.keys(d.problems[t]).forEach(function(r){ var v = n(d.problems[t][r]); if (!v) return; c += v; issue.push({ key: t + "\\t" + r, count: v }); routes[r] = (routes[r] || 0) + v; });
+      if (c) { kinds[t] = c; per[t] = spread(c, wob(++k)); }
+    });
+    Object.keys(d.possible).forEach(function(t){
+      Object.keys(d.possible[t]).forEach(function(r){ var v = n(d.possible[t][r]); if (!v) return; poss[t] = (poss[t] || 0) + v; possIssue.push({ key: t + "\\t" + r, count: v }); possRoutes[r] = (possRoutes[r] || 0) + v; });
+    });
+    var pages = sc(d.pages), loads = sumo(pages), visitors = n(d.visitors), fixed = sc(d.fixed), nfixed = sumo(fixed), npos = sumo(poss), found = sumo(kinds);
+    var decisions = Math.round(loads * 1.45), clicks = sc(d.clicks), rage = sc(d.rage), dead = sc(d.dead);
+    var sLoads = spread(loads, w), sVis = spread(visitors, wob(7)), sFix = spread(nfixed, wob(9)), sPos = spread(npos, wob(11)), sDec = spread(decisions, w);
+    S.series = rows.map(function(b, i){
+      var det = Object.keys(per).reduce(function(s, t){ return s + per[t][i]; }, 0);
+      return { bucket: b.bucket, sessions: sLoads[i], decisions: sDec[i], detections: det, acted: sFix[i], possible: sPos[i], ix_views: sLoads[i], ix_sessions: sVis[i] };
+    });
+    S.typeSeries = rows.map(function(b, i){ var c = {}; Object.keys(per).forEach(function(t){ if (per[t][i]) c[t] = per[t][i]; }); return { bucket: b.bucket, counts: c }; });
+    S.previous = { sessions: 0, detections: 0, acted: 0, ix_views: 0, ix_sessions: 0 };
+    var failed = n(d.modelFailed);
+    ["sessions", "detections", "interventions", "possible", "decisions", "model_ready", "model_load_failed", "ix_views", "ix_sessions", "ix_engaged_ms", "ix_click", "ix_rage", "ix_dead"].forEach(function(m, i){
+      T0[m] = [loads, found, nfixed, npos, decisions, loads - failed, failed, loads, visitors, loads * d.engagedSec * 1000, sumo(clicks), sumo(rage), sumo(dead)][i];
+    });
+    if (!T0.modelLoadAvgMs) T0.modelLoadAvgMs = 3900;
+    var eng = {}; Object.keys(pages).forEach(function(r){ eng[r] = pages[r] * d.engagedSec * 1000; });
+    var add = { detect_diagnosis: kv(kinds), detect_issue: issue, detect_route: kv(routes), page_route: kv(pages), mode: [{ key: "guard", count: loads }],
+      intervention: kv(fixed), action_outcome: [{ key: "applied", count: nfixed }, { key: "undone", count: n(d.undone) }],
+      possible_diagnosis: kv(poss), possible_issue: possIssue, possible_route: kv(possRoutes),
+      ix_views: kv(pages), ix_engaged_ms: kv(eng), ix_ref: kv(sc(d.ref)), ix_device: kv(sc(d.device)), ix_browser: kv(sc(d.browser)), ix_os: kv(sc(d.os)),
+      ix_country: kv(sc(d.country)), ix_returning: kv(sc(d.returning)), ix_click: kv(clicks), ix_rage: kv(rage), ix_dead: kv(dead) };
+    Object.keys(add).forEach(function(m){ B[m] = add[m]; });
+    S.distinct = S.distinct || {}; S.distinct.detect_route = Object.keys(routes).length; S.distinct.page_route = Object.keys(pages).length;
+    S.visits = { sessions: visitors, pages: loads, bounces: n(d.bounces), entry: kv(sc(d.entry)), exit: kv(sc(d.exit)) };
+    var now = Date.parse(S.generated) || Date.now();
+    S.recent = d.recent.map(function(r, i){
+      var t = new Date(now - (3 + i * 7 + (i * 5) % 4) * 60000).toISOString(), c = 0.81 + ((i * 37) % 17) / 100;
+      return r[2] ? { t: t, route: r[1], diagnosis: r[0], kind: "acted", executed: true, ran: r[2], action: r[2], confidence: c, mode: "guard", trigger: "delivery" }
+        : { t: t, route: r[1], diagnosis: r[0], kind: "detect", confidence: c, mode: "guard", trigger: "delivery" };
+    });
+    S.lastEvent = S.recent.length ? S.recent[0].t : S.lastEvent;
   }
   // the app's status: Healthy with no problems in the period; Critical when 100 or more were not fixed live, or
   // problems not fixed live reached 5% of page loads; otherwise Needs attention
@@ -1688,6 +1740,7 @@ const DASH_JS = `
 
   function render(S){
     shownS = S;
+    if (P.demo && S.lastEvent) demoStats(S, P.demo);
     var live = !!S.lastEvent, st = document.getElementById("status"), stt = document.getElementById("statust"), hs = document.getElementById("hstatus");
     if (st) st.classList.toggle("on", live);
     if (stt) stt.textContent = live ? "Last event " + ago(S.lastEvent) : "Waiting for the first event";
@@ -1704,7 +1757,6 @@ const DASH_JS = `
     document.getElementById("content").classList.toggle("hidden", !live);
     ["period", "mdcopy", "verdict"].forEach(function(id){ var n = document.getElementById(id); if (n) n.classList.toggle("hidden", !live); });
     if (!live) return;
-    if (P.demo) floor(S.totals, P.demo);
     verdict(S); summary(S); tiles(S); usage(S); advisor(S); trend(S); possibleTrend(S); cards(S); possibleCards(S); pages(S); acted(S); health(S); stages(S); agentLog(S); loop(S); recent(S); visits(S); advanced(S);
     var B2 = S.breakdowns, T2 = S.totals;
     function put(id, t){ var n = document.getElementById(id); if (n) n.textContent = t; }
@@ -1714,6 +1766,11 @@ const DASH_JS = `
     put("c-did", fmt(T2.interventions));
   }
 
+  if (P.demo) {
+    Object.keys(P.demo.types).forEach(function(k){ var t = P.demo.types[k]; TYPES[k] = { name: t.name, c: t.c, what: t.what, fix: t.fix }; STEPS[k] = function(r){ return t.step.replace("{page}", r); }; });
+    Object.keys(P.demo.actions).forEach(function(k){ ACTIONS[k] = P.demo.actions[k]; });
+    SLOTS = P.demo.slots;
+  }
   document.getElementById("pname").textContent = P.name;
   // Views: each rail or product-menu link opens one view (the parts marked data-v with it; a part may name several);
   // the header stays. The hash names the link, so a view can be linked to and the back button works. #connect (and
@@ -2140,7 +2197,7 @@ export function dashboardPage(
     : opts.endpoint
       ? { ...project, endpoint: opts.endpoint }
       : project;
-  const demo = demoFloor(project.name);
+  const demo = demoData(project.name);
   const data = demo ? { ...base, demo } : base;
   const t = esc(project.token);
   const keep = opts.keepDays ?? 90;
