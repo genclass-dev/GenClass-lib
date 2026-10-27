@@ -1,5 +1,5 @@
 // The live Worker behind snowday-predictor.ca (Dizon account): same name, compatibility date and ASSETS binding.
-// Deploy with XDG_CONFIG_HOME=~/.config-dizon CLOUDFLARE_ACCOUNT_ID=4daefdf7440d182204be114a9c9f5074 npx wrangler@4 deploy
+// Deploy with npm run deploy (package.json: wrangler with the Dizon login, XDG_CONFIG_HOME=~/.config-dizon).
 {
   "name": "snowday-predictor",
   "main": "worker.js",

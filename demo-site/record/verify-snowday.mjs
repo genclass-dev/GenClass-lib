@@ -4,8 +4,9 @@
 // five bugs in observe (they must show) and in guard (they must not):
 //   1 stale board search (the first letter's answer lands last)     2 double vote   3 white text on white
 //   4 click block Predict leaves after a mistyped postal code         5 scroll lock the notice leaves behind
-// Usage: node demo-site/record/verify-snowday.mjs [--keep] [--src <dir>]  (--src: an already integrated copy, e.g.
-// after the agent's fixes; the bugs are then expected fixed in observe too). Build the runtime first.
+// Usage: node demo-site/record/verify-snowday.mjs [--keep] [--src <dir>] [--port <n>]  (--src: an already integrated copy, e.g.
+// after the agent's fixes; the bugs are then expected fixed in observe too; --port: not 8788, while the demo's dev server
+// runs there). Build the runtime first.
 import { spawn, spawnSync } from "node:child_process";
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -18,7 +19,7 @@ const args = process.argv.slice(2);
 const SRC = args.includes("--src") ? args[args.indexOf("--src") + 1] : join(ROOT, "demo-site", "snowday-before");
 const integrated = args.includes("--src");
 const WORK = join(REC, "out", "verify-snowday");
-const PORT = 8788;
+const PORT = args.includes("--port") ? Number(args[args.indexOf("--port") + 1]) : 8788;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const sh = (cmd, cwd = ROOT) => spawnSync("bash", ["-lc", cmd], { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
 
