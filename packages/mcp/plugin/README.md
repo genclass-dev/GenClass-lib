@@ -27,17 +27,18 @@ page of the dev server. The page side needs `@genclass/runtime` 0.3.0-beta.1 or 
 
 | part | file | what it does |
 |---|---|---|
-| MCP server `genclass` | `.mcp.json` | runs `npx -y @genclass/mcp@0.2.1`: nine tools (`genclass_status`, `genclass_findings`, `genclass_explain`, `genclass_explore`, `genclass_replay`, `genclass_analytics`, `genclass_setup`, `genclass_scan`, `genclass_clear`) and a bridge on 127.0.0.1:47357 that your app's pages connect to |
-| `UserPromptSubmit` hook | `hooks/hooks.json` | runs `npx -y @genclass/mcp@0.2.1 hook` before each prompt: up to five findings recorded since the last prompt are added to the prompt as context |
+| MCP server `genclass` | `.mcp.json` | runs the GenClass MCP server, `@genclass/mcp@0.2.1` (vendored as `server/cli.mjs` in the plugin repository and run with `node`; the copy inside GenClass-lib runs `npx -y @genclass/mcp@0.2.1`): nine tools (`genclass_status`, `genclass_findings`, `genclass_explain`, `genclass_explore`, `genclass_replay`, `genclass_analytics`, `genclass_setup`, `genclass_scan`, `genclass_clear`) and a bridge on 127.0.0.1:47357 that your app's pages connect to |
+| `UserPromptSubmit` hook | `hooks/hooks.json` | runs the same server's `hook` command before each prompt: up to five findings recorded since the last prompt are added to the prompt as context |
 | skill `genclass` | `skills/genclass/SKILL.md` | the procedure once Claude reaches for the tools (the explore arguments and Playwright pairing, how to read a report, what to say when done, what to do when the tools are missing); its description carries the triggers (an intermittent frontend bug; after changing code that fetches, submits, autosaves, polls or debounces; before calling a UI change done), as do the server's instructions. Without the plugin, `npx -y @genclass/mcp@0.2.1 init` writes the same file to `.claude/skills/genclass/SKILL.md` |
 
-The launcher is pinned to the plugin's version, so the plugin runs the exact release it was reviewed with.
-`package.json` and `package-lock.json` next to `.mcp.json` record what that launcher resolves to (the version, its
-registry tarball and its sha512 integrity), for the directory's checks and for a Claude Code that installs a plugin's
-lockfile (`npm ci --ignore-scripts`) when it installs the plugin.
+In the plugin repository the server is vendored: `server/cli.mjs` is the published `@genclass/mcp@0.2.1` build (its
+`dist/cli.js`, byte for byte, fetched from npm by the daily sync), `server/genclass-mcp.mjs` is the package's command
+importing it, and `.mcp.json` and the hook run them with `node` from `${CLAUDE_PLUGIN_ROOT}`, so installing the plugin
+installs nothing and runs the exact release it was reviewed with; there is no `package.json` or lockfile. The copy of
+this folder inside GenClass-lib runs `npx -y @genclass/mcp@0.2.1` instead (nothing built is committed there).
 `plugin.json` and `mcp.json` at this folder's root are the same server in the
 [Agent Plugins](https://agent-plugins.org) format, for Cursor, Codex and other clients that read it (server and skill,
-no hook).
+no hook); that format has no plugin-root variable, so they keep `npx`.
 
 ## What the hook sends, and where
 
@@ -73,8 +74,8 @@ diagnostics, which `GenClass.init({ telemetry: false })` turns off ([PRIVACY.md]
 
 This folder is `packages/mcp/plugin` in [genclass-dev/GenClass-lib](https://github.com/genclass-dev/GenClass-lib).
 The repository [genclass-dev/genclass-plugin](https://github.com/genclass-dev/genclass-plugin) is this folder at a
-repository root with the marketplace files, assembled by `node packages/mcp/scripts/plugin-repo.mjs` and re-synced
-daily, so issues and pull requests go to GenClass-lib.
+repository root with the marketplace files and the vendored server, assembled by
+`node packages/mcp/scripts/plugin-repo.mjs` and re-synced daily, so issues and pull requests go to GenClass-lib.
 
 ## License
 
