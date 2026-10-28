@@ -4,18 +4,14 @@
 // (`npm run sync -w @genclass/mcp`) the test rewrites those files from package.json instead of failing. The same sync
 // keeps the repo-root copy of the skill (skills/genclass/SKILL.md, what skill directories such as skills.sh read)
 // byte-identical to the plugin's. The second describe checks the skill and the server's instructions: the
-// instructions carry the triggers, the skill the procedure (docs/runtime/AGENT.md section 4.2).
-// The plugin folder also ships the launcher's lockfile for Anthropic's directory (its "Launcher lock missing" warning:
-// a package.json and package-lock.json next to the manifest that declares the server, with exact versions, registry
-// sources and hashes): plugin/package.json names @genclass/mcp at package.json's version, plugin/package-lock.json
-// what npm resolved that to. Only `npm install --package-lock-only --ignore-scripts` in packages/mcp/plugin writes the
-// lock, and only once npm serves the version, so a version bump leaves it at the previous release until the new one
-// is published: the lock pin allows that while npm does not serve package.json's version (asked with `npm view` in
-// that state only; an unreachable npm counts as unknown, and the lagging lock passes with a note that vitest shows
-// with --silent=false), fails once npm serves it, and the sync regenerates the lock with that npm command. A release
-// is therefore: bump, sync, tag; after the publish, sync again and commit.
+// instructions carry the triggers, the skill the procedure (docs/runtime/AGENT.md section 4.2). The last describe
+// checks what scripts/plugin-repo.mjs assembles for the plugin's own repository, genclass-dev/genclass-plugin: the
+// plugin folder byte for byte except the two Claude Code launchers, which there run the server vendored under
+// server/ (the package's bin and dist/cli.js: from `--server <package dir>` here, this package when it is built and a
+// stub otherwise; from npm in the daily sync), and nothing Anthropic's directory holds a plugin for: no package.json,
+// no lockfile, nothing to install.
 import { execFileSync } from "node:child_process";
-import { existsSync, lstatSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -31,13 +27,11 @@ const SYNC = process.env.GENCLASS_SYNC === "1";
 
 type Json = Record<string, any>;
 
-/** A file and what it must hold for version V: a JSON edit (compared as data), a text edit (compared as text), or
- * the launcher's lockfile, which only npm writes (checkLock; the header says when it may lag). */
+/** A file and what it must hold for version V: a JSON edit (compared as data) or a text edit (compared as text). */
 interface Pin {
   file: string;
   json?: (cur: Json) => Json;
   text?: (cur: string) => string;
-  lock?: true;
 }
 
 /** `@genclass/mcp@<any version>` in prose and code blocks. */
@@ -68,9 +62,6 @@ const PINS: Pin[] = [
     file: "packages/mcp/plugin/hooks/hooks.json",
     json: (j) => ({ ...j, hooks: { ...j.hooks, UserPromptSubmit: j.hooks.UserPromptSubmit.map((g: Json) => ({ ...g, hooks: g.hooks.map((h: Json) => (/@genclass\/mcp\b/.test(h.command) ? { ...h, command: hookCommand(V) } : h)) })) } }),
   },
-  // the launcher's lockfile (see the header): package.json names the version, the lock what npm resolved it to
-  { file: "packages/mcp/plugin/package.json", json: (j) => ({ ...j, dependencies: { ...j.dependencies, [PACKAGE]: V } }) },
-  { file: "packages/mcp/plugin/package-lock.json", lock: true },
   { file: "packages/mcp/plugin/plugin.json", json: (j) => ({ ...j, version: V }) },
   { file: "packages/mcp/plugin/mcp.json", json: (j) => ({ ...j, mcpServers: { ...j.mcpServers, genclass: { type: "stdio", ...serverConfig(V) } } }) },
   { file: ".cursor-plugin/marketplace.json", json: (j) => ({ ...j, plugins: j.plugins.map((p: Json) => (p.name === "genclass" ? { ...p, version: V } : p)) }) },
@@ -91,83 +82,9 @@ function read(file: string): string {
   return readFileSync(join(repo, file), "utf8");
 }
 
-const PLUGIN_DIR = join(pkgDir, "plugin");
-const REGISTRY = "https://registry.npmjs.org/";
-const EXACT = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?$/;
-/** npm's codes for a version the registry does not serve (`npm view`: E404; `npm install`: ETARGET). */
-const UNPUBLISHED = new Set(["E404", "ETARGET"]);
-
-/** Runs npm in `cwd` with its output captured: `code` is "ok", npm's error code, or "unknown" when it gave none. */
-function npm(args: string[], cwd: string): { code: string; out: string } {
-  try {
-    return { code: "ok", out: execFileSync("npm", args, { cwd, stdio: "pipe", timeout: 60_000, shell: process.platform === "win32" }).toString() };
-  } catch (e) {
-    const err = e as { stdout?: Buffer; stderr?: Buffer; message: string };
-    const out = `${err.stdout ?? ""}${err.stderr ?? ""}` || err.message;
-    return { code: /(?:npm (?:error|ERR!) code |"code":\s*")(E[A-Z0-9_]+)/.exec(out)?.[1] ?? "unknown", out };
-  }
-}
-
-/** Whether npm serves @genclass/mcp at `v`; null when npm could not say (unreachable, for one). */
-function npmServes(v: string): boolean | null {
-  const r = npm(["view", `${PACKAGE}@${v}`, "version", "--json"], PLUGIN_DIR);
-  if (r.code === "ok") return r.out.includes(`"${v}"`);
-  if (UNPUBLISHED.has(r.code)) return false;
-  console.warn(`manifests.test: npm could not say whether ${PACKAGE}@${v} is published (${r.code}), so the plugin's lockfile is checked at its own version only\n${r.out}`);
-  return null;
-}
-
-/** What the lock must hold at version `v` (the directory's words: exact versions, registry sources and hashes):
- * lockfileVersion 3, the root's one dependency on @genclass/mcp at v, that entry resolved to v's registry tarball, and
- * every entry with an exact version, a registry source and a sha512 integrity. The problems; none when it holds. */
-function lockProblems(lock: Json, v: string): string[] {
-  const out: string[] = [];
-  if (lock.lockfileVersion !== 3) out.push(`lockfileVersion ${JSON.stringify(lock.lockfileVersion)}, want 3`);
-  const deps = lock.packages?.[""]?.dependencies;
-  if (JSON.stringify(deps) !== JSON.stringify({ [PACKAGE]: v })) out.push(`root dependencies ${JSON.stringify(deps)}, want ${PACKAGE} at ${v}`);
-  const main = `node_modules/${PACKAGE}`;
-  const entries = Object.entries(lock.packages ?? {}).filter(([k]) => k !== "") as [string, Json][];
-  if (!entries.some(([k]) => k === main)) out.push(`no ${main} entry`);
-  for (const [k, e] of entries) {
-    if (!EXACT.test(String(e.version))) out.push(`${k}: version ${JSON.stringify(e.version)} is not exact`);
-    if (typeof e.resolved !== "string" || !e.resolved.startsWith(REGISTRY)) out.push(`${k}: resolved ${JSON.stringify(e.resolved)} is not a registry source`);
-    if (!/^sha512-[A-Za-z0-9+/]+={0,2}$/.test(String(e.integrity))) out.push(`${k}: no sha512 integrity`);
-  }
-  const m = lock.packages?.[main];
-  if (m && m.version !== v) out.push(`${main}: version ${m.version}, want ${v}`);
-  const tarball = `${REGISTRY}${PACKAGE}/-/${PACKAGE.split("/")[1]}-${v}.tgz`;
-  if (m && m.resolved !== tarball) out.push(`${main}: resolved ${m.resolved}, want ${tarball}`);
-  return out;
-}
-
-/** The lock pin: at V, or, between a version bump and its release while npm does not serve V, at the previous release
- * and consistent at that version. With GENCLASS_SYNC=1 a lock that is not at V is regenerated by npm first. */
-function checkLock(file: string): void {
-  const path = join(repo, file);
-  const lock = (): Json => (existsSync(path) ? JSON.parse(readFileSync(path, "utf8")) : {});
-  let problems = lockProblems(lock(), V);
-  let unpublished = false;
-  if (problems.length && SYNC) {
-    const r = npm(["install", "--package-lock-only", "--ignore-scripts", "--no-audit", "--no-fund"], PLUGIN_DIR);
-    if (r.code === "ok") problems = lockProblems(lock(), V);
-    else if (UNPUBLISHED.has(r.code)) unpublished = true;
-    else throw new Error(`npm could not regenerate ${file} (${r.code}):\n${r.out}`);
-  }
-  if (problems.length) {
-    const own = lock().packages?.[`node_modules/${PACKAGE}`]?.version as string | undefined;
-    if (own && own !== V && EXACT.test(own) && (unpublished || npmServes(V) !== true)) {
-      console.warn(`manifests.test: ${file} is at ${own} while npm does not serve ${PACKAGE}@${V}; after the release, npm run sync -w @genclass/mcp regenerates it`);
-      expect(lockProblems(lock(), own), `${file} at ${own}`).toEqual([]);
-      return;
-    }
-  }
-  expect(problems, `${file}: npm install --package-lock-only --ignore-scripts in packages/mcp/plugin writes it (npm run sync -w @genclass/mcp does that once npm serves ${PACKAGE}@${V})`).toEqual([]);
-}
-
 describe("versions and pinned launchers (every manifest names package.json's version)", () => {
   for (const p of PINS) {
     it(p.file, () => {
-      if (p.lock) return checkLock(p.file);
       const cur = read(p.file);
       if (p.json) {
         const want = p.json(JSON.parse(cur));
@@ -178,7 +95,7 @@ describe("versions and pinned launchers (every manifest names package.json's ver
         if (SYNC && want !== cur) writeFileSync(join(repo, p.file), want);
         else expect(cur).toBe(want);
       }
-    }, p.lock ? 120_000 : undefined); // the lock pin may run npm twice
+    });
   }
 
   it("the server reports package.json's version", () => {
@@ -202,6 +119,10 @@ describe("versions and pinned launchers (every manifest names package.json's ver
     const p = JSON.parse(read("packages/mcp/plugin/.claude-plugin/plugin.json"));
     for (const k of ["license", "version", "description", "author"]) expect(p[k], k).toBeTruthy();
     for (const k of ["homepage", "documentationUrl", "supportUrl", "privacyPolicyUrl"]) expect(p[k], k).toMatch(/^https:\/\//);
+  });
+
+  it("the plugin folder ships no package.json, lockfile or node_modules (the directory holds a lockfile install for review; the plugin's repository vendors the server instead)", () => {
+    for (const f of ["package.json", "package-lock.json", "node_modules"]) expect(existsSync(join(pkgDir, "plugin", f)), f).toBe(false);
   });
 
   it("every client block names the pinned package and nothing else", () => {
@@ -252,7 +173,7 @@ describe("the genclass skill and the server's instructions (AGENT.md section 4.2
     // the triggers live in the description and in INSTRUCTIONS; the body does not restate them
     expect(body).not.toContain('"sometimes"');
     expect(body).not.toMatch(/\bUse when\b/);
-    expect(skill).not.toContain("\u2014");
+    expect(skill).not.toContain("—");
   });
 
   it("the root copy for skill directories (skills/genclass/SKILL.md) is byte-identical to the plugin's", () => {
@@ -263,7 +184,7 @@ describe("the genclass skill and the server's instructions (AGENT.md section 4.2
     expect(INSTRUCTIONS.length).toBeLessThan(4096);
     for (const w of SYMPTOMS) expect(INSTRUCTIONS.slice(0, 500), w).toContain(w);
     expect(INSTRUCTIONS).toContain("genclass skill");
-    expect(INSTRUCTIONS).not.toContain("\u2014");
+    expect(INSTRUCTIONS).not.toContain("—");
   });
 });
 
@@ -287,16 +208,74 @@ function walk(dir: string, rel = ""): string[] {
   });
 }
 
-describe("the plugin's own repository (packages/mcp/scripts/plugin-repo.mjs assembles genclass-dev/genclass-plugin)", () => {
-  const out = mkdtempSync(join(tmpdir(), "genclass-plugin-repo-"));
-  execFileSync(process.execPath, [join(pkgDir, "scripts", "plugin-repo.mjs"), out], { stdio: "pipe" });
-  const at = (f: string) => readFileSync(join(out, f), "utf8");
+/** A package folder with the shape plugin-repo.mjs vendors (package.json, bin/genclass-mcp.mjs, dist/cli.js) at V,
+ * whose runCli only prints the version. For when this package is not built. */
+function stubPackage(): string {
+  const dir = mkdtempSync(join(tmpdir(), "genclass-mcp-stub-"));
+  mkdirSync(join(dir, "dist"));
+  mkdirSync(join(dir, "bin"));
+  writeFileSync(join(dir, "package.json"), JSON.stringify({ name: PACKAGE, version: V }));
+  writeFileSync(join(dir, "dist", "cli.js"), `var VERSION = "${V}";\nasync function runCli(args, io) {\n  io.out(\`\${VERSION}\\n\`);\n  return 0;\n}\nexport { runCli };\n//# sourceMappingURL=cli.js.map\n`);
+  writeFileSync(join(dir, "bin", "genclass-mcp.mjs"), readFileSync(join(pkgDir, "bin", "genclass-mcp.mjs")));
+  return dir;
+}
 
-  it("is the plugin folder at the root, byte for byte, plus the licence and the Gemini manifest", () => {
-    const plugin = join(pkgDir, "plugin");
-    for (const f of walk(plugin)) expect(readFileSync(join(out, f)), f).toEqual(readFileSync(join(plugin, f)));
+describe("the plugin's own repository (packages/mcp/scripts/plugin-repo.mjs assembles genclass-dev/genclass-plugin)", () => {
+  const plugin = join(pkgDir, "plugin");
+  const script = join(pkgDir, "scripts", "plugin-repo.mjs");
+  // the server to vendor: this package when it is built (CI builds before the tests), a stub of the same shape otherwise
+  const server = existsSync(join(pkgDir, "dist", "cli.js")) ? pkgDir : stubPackage();
+  const out = mkdtempSync(join(tmpdir(), "genclass-plugin-repo-"));
+  execFileSync(process.execPath, [script, out, "--server", server], { stdio: "pipe" });
+  const at = (f: string) => readFileSync(join(out, f), "utf8");
+  /** The two files the repository changes from the plugin folder. */
+  const LAUNCHERS = [".mcp.json", "hooks/hooks.json"];
+  const BIN = "${CLAUDE_PLUGIN_ROOT}/server/genclass-mcp.mjs";
+
+  it("is the plugin folder at the root, byte for byte except the two Claude Code launchers, plus the licence and the Gemini manifest", () => {
+    const files = walk(plugin);
+    for (const f of LAUNCHERS) expect(files).toContain(f);
+    for (const f of files) if (!LAUNCHERS.includes(f)) expect(readFileSync(join(out, f)), f).toEqual(readFileSync(join(plugin, f)));
     expect(at("LICENSE")).toBe(read("LICENSE"));
     expect(at("gemini-extension.json")).toBe(read("gemini-extension.json"));
+  });
+
+  it(".mcp.json and the hook run the vendored server from ${CLAUDE_PLUGIN_ROOT}, and nothing else in them changes", () => {
+    const mcp = JSON.parse(at(".mcp.json"));
+    const srcMcp = JSON.parse(readFileSync(join(plugin, ".mcp.json"), "utf8"));
+    expect(mcp.mcpServers.genclass).toEqual({ command: "node", args: [BIN] });
+    expect({ ...mcp, mcpServers: { ...mcp.mcpServers, genclass: srcMcp.mcpServers.genclass } }).toEqual(srcMcp);
+    const hooks = JSON.parse(at("hooks/hooks.json"));
+    const srcHooks = JSON.parse(readFileSync(join(plugin, "hooks/hooks.json"), "utf8"));
+    const entries = hooks.hooks.UserPromptSubmit.flatMap((g: Json) => g.hooks);
+    expect(entries.map((h: Json) => h.command)).toEqual([`node "${BIN}" hook`]);
+    expect(entries[0]).toMatchObject({ type: "command", timeout: srcHooks.hooks.UserPromptSubmit[0].hooks[0].timeout });
+    for (const f of LAUNCHERS) {
+      expect(at(f), f).not.toContain("npx");
+      expect(at(f), f).not.toContain("@genclass/mcp");
+    }
+  });
+
+  it("server/cli.mjs is the package's dist/cli.js byte for byte, server/genclass-mcp.mjs its bin importing that file", () => {
+    expect(readFileSync(join(out, "server/cli.mjs"))).toEqual(readFileSync(join(server, "dist", "cli.js")));
+    const bin = at("server/genclass-mcp.mjs");
+    const orig = readFileSync(join(server, "bin", "genclass-mcp.mjs"), "utf8");
+    expect(bin.startsWith("#!/usr/bin/env node\n")).toBe(true);
+    expect(bin).toContain(`Vendored from ${PACKAGE}@${V}`);
+    expect(bin).toContain('from "./cli.mjs"');
+    expect(bin).not.toContain("../dist/cli.js");
+    // the two note lines after the shebang are the only addition
+    const lines = bin.split("\n");
+    expect([lines[0], ...lines.slice(3)].join("\n")).toBe(orig.replace('from "../dist/cli.js"', 'from "./cli.mjs"'));
+  });
+
+  it("the vendored server runs: --version prints package.json's version", () => {
+    const v = execFileSync(process.execPath, [join(out, "server/genclass-mcp.mjs"), "--version"], { stdio: "pipe" }).toString().trim();
+    expect(v).toBe(V);
+  });
+
+  it("the Agent Plugins mcp.json keeps the pinned npx launcher (that format has no plugin-root variable; Codex and Cursor read it)", () => {
+    expect(JSON.parse(at("mcp.json")).mcpServers.genclass).toEqual({ type: "stdio", ...serverConfig(V) });
   });
 
   it("its marketplace files point at the root and carry package.json's version", () => {
@@ -309,21 +288,46 @@ describe("the plugin's own repository (packages/mcp/scripts/plugin-repo.mjs asse
     expect(cursor.plugins[0]).toMatchObject({ name: "genclass", source: "./", version: V });
   });
 
-  it("has nothing Anthropic's directory blocks or holds: no symlinks, no system files, every non-image file under 256 KiB, 512 files or fewer", () => {
-    // claude.com/docs/plugins/pre-submission-checklist
+  it("has nothing Anthropic's directory blocks or holds: no symlinks, no system files, no package.json, lockfile or node_modules, every non-image file under 256 KiB, 512 files or fewer", () => {
+    // claude.com/docs/plugins/pre-submission-checklist, and the directory's hold texts of 2026-10-28
     const files = walk(out);
     expect(files.length).toBeLessThanOrEqual(512);
     for (const f of files) {
       expect(lstatSync(join(out, f)).isSymbolicLink(), `${f} is a symlink`).toBe(false);
-      expect(/(^|\/)(\.DS_Store|Thumbs\.db|desktop\.ini|__MACOSX)/.test(f), f).toBe(false);
+      expect(/(^|\/)(\.DS_Store|Thumbs\.db|desktop\.ini|__MACOSX|package\.json|package-lock\.json|node_modules)(\/|$)/.test(f), f).toBe(false);
       if (!/\.(png|jpe?g|gif|webp|svg|woff2?|ttf|otf)$/i.test(f)) expect(statSync(join(out, f)).size, `${f} over 256 KiB`).toBeLessThanOrEqual(256 * 1024);
     }
   });
 
-  it("its workflow re-runs this script from GenClass-lib and touches nothing by hand", () => {
+  it("its workflow re-runs this script from GenClass-lib, stands still while npm does not serve the version, and touches nothing by hand", () => {
     const y = at(".github/workflows/sync.yml");
     expect(y).toContain("repository: genclass-dev/GenClass-lib");
     expect(y).toContain("node lib/packages/mcp/scripts/plugin-repo.mjs out");
     expect(y).toContain("--exclude .git --exclude .github");
+    expect(y).toContain('[ "$rc" = 3 ]');
+    expect(y).toContain("rm -rf lib out");
   });
+
+  it("without --server, vendors the release from npm (or exits 3 while npm does not serve package.json's version)", () => {
+    const dir = mkdtempSync(join(tmpdir(), "genclass-plugin-repo-npm-"));
+    try {
+      execFileSync(process.execPath, [script, dir], { stdio: "pipe", timeout: 120_000 });
+    } catch (e) {
+      const err = e as { status?: number | null; stdout?: Buffer; stderr?: Buffer };
+      const text = `${err.stdout ?? ""}${err.stderr ?? ""}`;
+      if (err.status === 3) {
+        console.warn(`manifests.test: ${text.trim()}`);
+        return;
+      }
+      if (/E(?:NOTFOUND|AI_AGAIN|CONNRESET|TIMEDOUT|NETUNREACH|CONNREFUSED)|FETCH_ERROR/.test(text)) {
+        console.warn(`manifests.test: npm is unreachable, so the fetch path of plugin-repo.mjs is not checked\n${text}`);
+        return;
+      }
+      throw e;
+    }
+    const cli = readFileSync(join(dir, "server/cli.mjs"), "utf8");
+    expect(cli).toContain(`VERSION = "${V}"`);
+    expect(cli.length).toBeGreaterThan(10_000);
+    expect(existsSync(join(dir, "server/genclass-mcp.mjs"))).toBe(true);
+  }, 150_000);
 });

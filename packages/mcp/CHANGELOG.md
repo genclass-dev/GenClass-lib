@@ -2,20 +2,26 @@
 
 ## Unreleased
 
-- **The plugin ships the launcher's lockfile.** `plugin/package.json` (private; its one dependency is `@genclass/mcp`
-  at this version) and `plugin/package-lock.json` (lockfileVersion 3: the version, its registry tarball and sha512
-  integrity) sit next to `.mcp.json`. Anthropic's directory asked for them on the plugin's first validation
-  (2026-10-28, the warning "Launcher lock missing": a lockfile with exact versions, registry sources and hashes is
-  required for the Verified badge), and its policy hold on pinned `npx` launchers prefers "a package that ships a
-  lockfile". Both files reach [genclass-dev/genclass-plugin](https://github.com/genclass-dev/genclass-plugin) through
-  its daily sync. Claude Code (2.1.311) installs what a plugin's lockfile lists when it installs the plugin
-  (`npm ci --ignore-scripts --workspaces=false --no-audit --no-fund` in the plugin's cache folder, so
-  `node_modules/@genclass/mcp` appears there); the launchers still run `npx -y @genclass/mcp@<version>`.
-  `test/manifests.test.ts` keeps both files at `package.json`'s version and requires the integrity. Only
-  `npm install --package-lock-only --ignore-scripts` in `plugin/` writes the lock, and only once npm serves the
-  version, so a release is: bump, `npm run sync -w @genclass/mcp`, tag; after the publish, the same sync again (it
-  regenerates the lock from npm) and a commit. In between, the test accepts the previous release's lock while npm
-  does not serve the new version (it asks `npm view` in that state only).
+- **The plugin's repository vendors the server, and the lockfile is gone.** In
+  [genclass-dev/genclass-plugin](https://github.com/genclass-dev/genclass-plugin), `.mcp.json` and the hook run
+  `node ${CLAUDE_PLUGIN_ROOT}/server/genclass-mcp.mjs` instead of `npx -y @genclass/mcp@<version>`: `server/cli.mjs`
+  is the published package's `dist/cli.js` at the plugin's version, byte for byte (`scripts/plugin-repo.mjs` fetches
+  it from npm with `npm install --ignore-scripts` into a temporary prefix; `--server <package dir>` takes a local
+  build instead), and `server/genclass-mcp.mjs` is the package's `bin/genclass-mcp.mjs` importing it. Why: Anthropic's
+  directory holds a plugin whose launcher runs `npx <package>` for a reviewer ("Runs a pinned npx or uvx package"),
+  and the lockfile this line had added for its "Launcher lock missing" warning (`plugin/package.json` and
+  `plugin/package-lock.json`) earned the note "Launcher locked" but a second hold, "Dependencies install from a
+  lockfile" (2026-10-28). The directory's own text names the way out: the package's built files inside the plugin,
+  each under 256 KiB, run from `${CLAUDE_PLUGIN_ROOT}`, with no `package.json` or lockfile; so both files are removed
+  again. The plugin folder in GenClass-lib keeps the `npx` launchers (nothing built is committed here, and the
+  marketplace in GenClass-lib still lists it), and the Agent Plugins `mcp.json` keeps `npx` everywhere, because that
+  format has no plugin-root variable (Codex and Cursor read it). The daily sync vendors the release of `package.json`'s
+  version; between a bump and its release the script exits 3 and the repository stays as it is (its workflow treats
+  that as nothing to do), so a release is: bump, `npm run sync -w @genclass/mcp`, tag, publish; the next sync vendors
+  the new build. `test/manifests.test.ts` checks the assembled tree (the plugin folder byte for byte except the two
+  launchers, the server byte for byte, no `package.json`, lockfile or `node_modules`, every file under 256 KiB) and
+  that the vendored server runs.
+
 - **The plugin has a repository of its own, [genclass-dev/genclass-plugin](https://github.com/genclass-dev/genclass-plugin)**:
   the plugin folder at the root, with marketplace files for Claude Code (`.claude-plugin/marketplace.json`), Codex
   (`.agents/plugins/marketplace.json`) and Cursor, the Gemini CLI manifest and the licence, assembled by
