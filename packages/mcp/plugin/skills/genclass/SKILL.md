@@ -72,8 +72,8 @@ Playwright's Chromium is missing, install it (`npx playwright install chromium`)
 The tools come from the GenClass MCP server, which runs on the developer's machine. When this session has none of
 them:
 
-- Add the server and restart the client. Claude Code: `claude mcp add genclass -- npx -y @genclass/mcp@0.2.0`
-  (other clients: `npx -y @genclass/mcp@0.2.0 config <client>` prints their lines).
+- Add the server and restart the client. Claude Code: `claude mcp add genclass -- npx -y @genclass/mcp@0.2.1`
+  (other clients: `npx -y @genclass/mcp@0.2.1 config <client>` prints their lines).
 - For the visual checks alone, no server needed: `npx @genclass/runtime@beta scan <url> --json` in a terminal.
 - In a chat app with no terminal on that machine, say so and give the developer the install line; GenClass cannot
   run there.

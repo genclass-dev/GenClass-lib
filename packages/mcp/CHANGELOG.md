@@ -1,7 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.2.1 (2026-10-27)
 
+- **The plugin has an icon** (`plugin/.claude-plugin/icon.png`, the genclass.dev mark, 512 by 512), which the Anthropic directory reads on the first save.
 - **The instructions carry the "when", the skill the "how"** ([docs/runtime/AGENT.md](../../docs/runtime/AGENT.md)
   section 4.2). The server's `instructions` now open with the symptom words ("sometimes", "randomly", "only in
   production", "on slow connections", a value that "flips back", stale or old results, lost edits, double submits,

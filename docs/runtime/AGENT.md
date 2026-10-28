@@ -40,7 +40,7 @@ results are in section 7 and in [RESULTS.md](RESULTS.md) section 16.
 ## 1. Setup
 
 ```bash
-claude mcp add genclass -- npx -y @genclass/mcp@0.2.0   # or: npx -y @genclass/mcp@0.2.0 init  (writes .mcp.json and .claude/skills/genclass/SKILL.md)
+claude mcp add genclass -- npx -y @genclass/mcp@0.2.1   # or: npx -y @genclass/mcp@0.2.1 init  (writes .mcp.json and .claude/skills/genclass/SKILL.md)
 ```
 
 Or as a Claude Code plugin from this repository's marketplace (`.claude-plugin/marketplace.json`; the plugin is
@@ -52,7 +52,7 @@ the procedure (section 4.2) and does not need the plugin: `init` writes it into 
 `npx skills add genclass-dev/GenClass-lib` installs the repository-root copy (`skills/genclass/SKILL.md`, kept
 identical to the plugin's by the version sync) through a skill directory. Other clients
 (Cursor, VS Code, Codex CLI, Gemini CLI, Windsurf, Cline, Goose, Zed, JetBrains, OpenCode): the install blocks in
-[packages/mcp/README.md](../../packages/mcp/README.md#install), or `npx -y @genclass/mcp@0.2.0 config <client>`.
+[packages/mcp/README.md](../../packages/mcp/README.md#install), or `npx -y @genclass/mcp@0.2.1 config <client>`.
 Every launcher is pinned to the release. `packages/mcp/server.json` is the entry for the official MCP Registry
 (published by the release workflow with GitHub OIDC after the npm package); the listings for other directories are
 drafted in [docs/adoption/listings/mcp.md](../adoption/listings/mcp.md).

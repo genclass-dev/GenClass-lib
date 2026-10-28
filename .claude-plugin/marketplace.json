@@ -10,7 +10,7 @@
       "name": "genclass",
       "source": "./packages/mcp/plugin",
       "description": "The GenClass MCP server, a prompt hook that brings new findings to each prompt, and a skill for intermittent and timing-dependent frontend bugs.",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "category": "development"
     }
   ]
