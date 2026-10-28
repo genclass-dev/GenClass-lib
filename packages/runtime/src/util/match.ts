@@ -109,6 +109,30 @@ export function routeMatches(m: string | RegExp | ((route: string) => boolean), 
   return false;
 }
 
+/**
+ * A route's second form for rule matching (OPTIONS-SPEC §4.3): percent-decoded, `;` path parameters dropped, dot
+ * segments resolved, repeated slashes collapsed, no trailing slash (except "/"). The browser never decodes
+ * `location.pathname`, while most servers route on the decoded path, so "/se%61rch", "/search/", "//search" and
+ * "/search;x=1" are "/search" to them. A route rule applies when it matches the raw path or this form; rules only lower
+ * the mode, so the broader match is safe. Case is kept: matching is case-sensitive. A malformed escape keeps the raw path.
+ */
+export function normalizeRoute(path: string): string {
+  let p = path;
+  try {
+    p = decodeURIComponent(p);
+  } catch {
+    /* a malformed escape: keep the raw path */
+  }
+  const out: string[] = [];
+  for (const raw of p.split("/")) {
+    const seg = raw.replace(/;.*$/, "");
+    if (seg === "" || seg === ".") continue;
+    if (seg === "..") out.pop();
+    else out.push(seg);
+  }
+  return "/" + out.join("/");
+}
+
 /** Labels: names only. [A-Za-z0-9 _-], ≤ 5 words, ≤ 40 chars. */
 export function sanitizeLabel(s: string): { label: string; changed: boolean } {
   const cleaned = String(s).replace(/[^A-Za-z0-9 _-]+/g, " ").replace(/\s+/g, " ").trim();

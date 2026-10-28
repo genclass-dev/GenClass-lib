@@ -400,6 +400,9 @@ walk, which missed the two shared chunks (2.74 + 0.19 KB).
 | limit in `bundle.test.ts` (measured at `bff4a71` + 1.5 KB, owner-approved for 0.3.0; not re-set: the release candidate was 0.13 / 0.10 KB under it, and with the vendor-name warning `/auto` is 0.03 KB under it) | 107.74 KB | 99.71 KB | none |
 | + measured visual checks' first-load stub: wave2/visual `6ae209f` merged (`release/0.3.0-visual`, merge `2c7014f`, PR head `be8cb7c`, run 38676978903; §13) | **108.25 KB** (102.28 + 3.05 + 2.74 + 0.19) | **100.13 KB** (94.15 + 3.05 + 2.74 + 0.19) | **128.56 KB** (376.5 KB minified) |
 | limit in `bundle.test.ts` for 0.3.0-beta.0, **owner-approved 2026-10-15** (the measured sizes + 0.05 / 0.07 KB) | 108.30 KB | 100.20 KB | none |
+| + interaction analytics' first-load stub (§15; limits owner-approved 2026-10-18) | 108.53 KB | 100.40 KB | not measured |
+| + review of the mode-raise fix: `normalizeRoute`, the `mode` validation and its warning, the sample bucket's `act@<sample>` form, `readWindowConfig`'s mode check (branch `security/advisory-mode-raise`, 0.3.0-beta.5; local, 2026-10-27, `test/first-load-size.mjs` and gzip -9 against main `49c8c03`'s dist: 108.36 / 100.28 / 128.55 KB) | **108.63 KB** (+0.27) | **100.46 KB** (+0.17) | **128.83 KB** (387.4 KB minified, +0.28) |
+| limit in `bundle.test.ts` for 0.3.0-beta.5, owner OK 2026-10-28 (`/auto`: CI's Node 22 gzip measures 108.83 KB where Node 25 measures 108.63 KB, so the limit follows CI plus 0.07 KB; the main entry keeps its limit, 0.02 KB under it) | 108.90 KB | 100.48 KB | none |
 
 Removing the vendor adapters changes no first load (they were lazy chunks of `/auto` and files the script tag loaded
 from the CDN). The one warning for the names `sentry`, `posthog` and `datadog` (`src/cdn/sinks.ts` `applySinks`: the

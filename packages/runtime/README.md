@@ -271,7 +271,8 @@ returns an inert runtime.
 
 It exposes `window.GenClass`, discovers the app's state like the import does, and loads the model worker, ONNX
 Runtime Web and the overlay on demand from the same version on the CDN. `data-mode` takes `observe` (the default), `guard` or `heal`; `data-devtools="local"` shows the
-overlay only on localhost; `data-manual` skips the automatic `GenClass.init()`. Since `0.3.0`: `data-token="gc_..."`
+overlay only on local hosts (loopback, `*.localhost`, `*.local`, `*.test` and `file:`, so also in a Capacitor, Tauri or
+Electron build that ships it); `data-manual` skips the automatic `GenClass.init()`. Since `0.3.0`: `data-token="gc_..."`
 (your app's token), `data-scope="functions"` and `window.GenClass.protect`. Keep the version pinned, as above: the
 unversioned URL serves npm's `latest` (the older `0.2.x` until `0.3.0` is stable); the plain-HTML path of `init`
 writes a pinned jsDelivr URL with SRI.

@@ -68,6 +68,9 @@ infrastructure we do not operate.
 - [packages/runtime/TELEMETRY.md](packages/runtime/TELEMETRY.md) and [PRIVACY.md](PRIVACY.md): what leaves the page.
 - [Verifying a published tarball](#verifying-a-published-tarball) (below): how to check that a published tarball was
   built from this repository.
+- Advisories: [docs/security/](docs/security/). Latest: [2026-10, a link could raise the mode](docs/security/2026-10-mode-raise.md),
+  fixed in `0.3.0-beta.2` (`0.2.3` pending); the four further findings from the review of that fix (route look-alikes,
+  an invalid `mode`, a stale sample bucket, aggressiveness level names) are fixed in `0.2.3` and `0.3.0-beta.5` (both pending).
 
 Recommended for production: keep the default `observe` mode until you have looked at what GenClass reports for your
 app; set `mode` explicitly (a URL parameter can then only lower it); keep payment, checkout and sign-in endpoints

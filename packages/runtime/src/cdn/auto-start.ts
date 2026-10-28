@@ -23,7 +23,7 @@ export function startAuto(defaults: InitOptions = {}): Runtime {
   if (typeof g.window !== "object" || typeof g.document !== "object" || !g.document) return GenClass.init(defaults);
   const doc = g.document as Document;
   // automatic state discovery is on by default here (installed now, before the framework's modules run)
-  const { init, devtools, sinks } = splitConfig(mergeConfig(AUTO_DEFAULTS, defaults, readMetaConfig(doc, { location: g.location, warn: (m) => g.console?.warn?.(m) }), readWindowConfig(g.window)));
+  const { init, devtools, sinks } = splitConfig(mergeConfig(AUTO_DEFAULTS, defaults, readMetaConfig(doc, { location: g.location, warn: (m) => g.console?.warn?.(m) }), readWindowConfig(g.window, (m) => g.console?.warn?.(m))));
   // sinks by name (meta tag, window.GENCLASS_CONFIG) become one lazy proxy; a webhook URL joins requests.ignore
   const rt = GenClass.init(applySinks(init, sinks, resolveSinks, (m) => g.console?.warn?.(`[GenClass] ${m}`), globalThis as unknown as Record<string, unknown>));
   const dt = devtoolsOptions(devtools, g.location);
