@@ -80,10 +80,11 @@ export const CLIENTS: ClientInstall[] = [
     match: /^claude-code$/i,
     block: (v) =>
       [
-        "As a plugin (the server, a prompt hook that brings new findings to each prompt, and a skill that tells Claude when to use it):",
+        "As a plugin (the server, a prompt hook that brings new findings to each prompt, and the `genclass` skill with the procedure):",
         fence("", "/plugin marketplace add genclass-dev/GenClass-lib\n/plugin install genclass@genclass"),
-        "Or the server alone (`--scope project` writes `.mcp.json` for everyone on the project; `--scope user` for all your projects):",
-        fence("bash", `claude mcp add --scope project ${NAME} -- npx -y ${pinned(v)}\n# or: npx -y ${pinned(v)} init --hook   (.mcp.json, plus the prompt hook in .claude/settings.json)`),
+        "Or the server alone (`--scope project` writes `.mcp.json` for everyone on the project; `--scope user` for all your projects). `init` also writes the skill to `.claude/skills/genclass/SKILL.md` (`--no-skill` leaves it out):",
+        fence("bash", `claude mcp add --scope project ${NAME} -- npx -y ${pinned(v)}\n# or: npx -y ${pinned(v)} init --hook   (.mcp.json and the skill, plus the prompt hook in .claude/settings.json)`),
+        "Or just the skill (no server; `skills/genclass/SKILL.md` at the repository root, for skill directories): `npx skills add genclass-dev/GenClass-lib`",
       ].join("\n\n"),
   },
   {

@@ -73,4 +73,8 @@ Ask for `genclass_findings` after reproducing a bug, `genclass_explore` after ch
 `genclass_replay` to confirm a bug before fixing it and its fix after, and `genclass_scan {url}` to audit a page for
 visual bugs before calling a UI change done (it needs Playwright's Chromium: `npx playwright install chromium`; the
 same audit from a terminal is `npx @genclass/runtime@beta scan <url>`). The server's instructions and each tool's
-description say when to use what. More: https://github.com/genclass-dev/GenClass-lib/tree/main/packages/mcp
+description say when to use what; the procedure (explore arguments, how to read a report, what to say when done) is
+the `genclass` skill: `npx -y @genclass/mcp@0.2.0 init` writes it to `.claude/skills/genclass/SKILL.md` for Claude
+Code (`--no-skill` leaves it out), and `npx skills add genclass-dev/GenClass-lib` installs the repository-root copy
+(`skills/genclass/SKILL.md`) through a skill directory, with no server. More:
+https://github.com/genclass-dev/GenClass-lib/tree/main/packages/mcp

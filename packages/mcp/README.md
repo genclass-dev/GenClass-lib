@@ -29,19 +29,21 @@ client it runs in.
 
 ### Claude Code
 
-As a plugin (the server, a prompt hook that brings new findings to each prompt, and a skill that tells Claude when to use it):
+As a plugin (the server, a prompt hook that brings new findings to each prompt, and the `genclass` skill with the procedure):
 
 ```
 /plugin marketplace add genclass-dev/GenClass-lib
 /plugin install genclass@genclass
 ```
 
-Or the server alone (`--scope project` writes `.mcp.json` for everyone on the project; `--scope user` for all your projects):
+Or the server alone (`--scope project` writes `.mcp.json` for everyone on the project; `--scope user` for all your projects). `init` also writes the skill to `.claude/skills/genclass/SKILL.md` (`--no-skill` leaves it out):
 
 ```bash
 claude mcp add --scope project genclass -- npx -y @genclass/mcp@0.2.0
-# or: npx -y @genclass/mcp@0.2.0 init --hook   (.mcp.json, plus the prompt hook in .claude/settings.json)
+# or: npx -y @genclass/mcp@0.2.0 init --hook   (.mcp.json and the skill, plus the prompt hook in .claude/settings.json)
 ```
+
+Or just the skill (no server; `skills/genclass/SKILL.md` at the repository root, for skill directories): `npx skills add genclass-dev/GenClass-lib`
 
 ### Claude Desktop
 
@@ -266,6 +268,25 @@ AI Assistant: Settings, Tools, AI Assistant, Model Context Protocol (MCP), Add, 
 
 Any other MCP client: a stdio server, command `npx`, arguments `-y @genclass/mcp@0.2.0`, no environment variables
 required.
+
+### The `genclass` skill
+
+The server's instructions (sent when it connects) tell the agent when to reach for GenClass: the symptom words
+("sometimes", "randomly", "only in production", "on slow connections", a value that "flips back", stale or old
+results, lost edits, double submits, sideways scrolling), the code changes that call for an explore, the scan before a
+UI change is done, and the first call for each. The procedure (the explore arguments, the Playwright pairing, how to
+read a report, what to say when done, what to do when the tools are missing) is the `genclass` skill,
+[`plugin/skills/genclass/SKILL.md`](plugin/skills/genclass/SKILL.md). Three ways to get it:
+
+- the plugin installs it with the server and the hook;
+- `npx -y @genclass/mcp@0.2.0 init` writes it to `.claude/skills/genclass/SKILL.md` in the project (`--no-skill`
+  leaves it out). The written file carries a `genclass:init` marker line: a rerun replaces a file with the marker and
+  leaves one without it (yours, or edited), and says which;
+- `npx skills add genclass-dev/GenClass-lib` installs the repository-root copy, `skills/genclass/SKILL.md`, through a
+  skill directory, with no server (the skill then says how to add one).
+
+To remove it: delete `.claude/skills/genclass/` (or the directory the skill tool wrote to); with the plugin,
+`/plugin uninstall genclass@genclass`.
 
 Then connect the app's development build (once). The agent link needs the newest runtime line, `@genclass/runtime`
 0.3.0-beta.1 or later: `npm install @genclass/runtime@beta` (a bare `npm install @genclass/runtime` gets npm's

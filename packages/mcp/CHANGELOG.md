@@ -1,5 +1,34 @@
 # Changelog
 
+## Unreleased
+
+- **The instructions carry the "when", the skill the "how"** ([docs/runtime/AGENT.md](../../docs/runtime/AGENT.md)
+  section 4.2). The server's `instructions` now open with the symptom words ("sometimes", "randomly", "only in
+  production", "on slow connections", a value that "flips back", stale or old results, lost edits, double submits,
+  sideways scrolling), all within the first 500 characters, keep one line per trigger saying what to call first, and
+  name the `genclass` skill so a client that has it loads it (2,712 characters, under the 4,096 ceiling). The skill
+  (`plugin/skills/genclass/SKILL.md`) no longer restates the triggers in its body: its frontmatter description is the
+  trigger, with the same words early, and the body is the procedure (the explore arguments, the Playwright pairing,
+  how to read "Compared: 6 of 6" against "No verdict" and "0 compared", that "Internal state only" and "Along the way
+  only" are not races, witness against explore race against model detection, the reporting rule) plus a new section
+  for when the `genclass_*` tools are missing (the pinned one-line install, or `npx @genclass/runtime@beta scan <url>
+  --json` for the visual checks alone; GenClass needs Claude Code or another MCP client on the developer's machine,
+  the chat app cannot run it).
+- **`init` writes the skill without the plugin.** `genclass-mcp init` now also writes `.claude/skills/genclass/SKILL.md`
+  into the project (the package's copy, resolved next to the built command, with a `genclass:init` marker line after
+  the frontmatter), so Claude Code loads the procedure on a project set up with `init` or `claude mcp add` alone. A
+  rerun replaces a file that carries the marker and leaves one that does not (yours, or edited), and says which;
+  `--no-skill` leaves the skill out; a `CLAUDE.md` without a `.claude/` folder still gets it under `.claude/skills/`.
+- **A repository-root copy for skill directories.** `skills/genclass/SKILL.md` is a byte-identical copy of the
+  plugin's skill, so `npx skills add genclass-dev/GenClass-lib` (skills.sh and directories that read a repository's
+  root `skills/` folder) finds it; `npm run sync -w @genclass/mcp` refreshes the copy and pins the install line in
+  both.
+- Tests: `test/manifests.test.ts` checks the skill's frontmatter (name, a one-line description of at most 1,024
+  characters with the symptom words early), that every `genclass_*` name in its body is a tool the server registers,
+  that the body has the procedure and the fallback and no em-dash, that the root copy is identical, and that the
+  instructions stay under 4,096 characters, put the symptom words in the first 500 and name the skill;
+  `test/cli.test.ts` covers the skill written by `init`, the rerun on a marked and an unmarked file, and `--no-skill`.
+
 ## 0.2.0 (2026-10-25)
 
 The `0.1.0` on npm (published 2026-10-25) is an earlier build: eight tools, no `genclass_scan`, no `GENCLASS_REPORT`.

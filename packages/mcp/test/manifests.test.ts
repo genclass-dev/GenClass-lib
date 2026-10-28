@@ -1,12 +1,16 @@
 // Every version and pinned launcher that ships with this package or that directories read (the server's VERSION, the
 // MCP Registry entry, the Claude Code plugin and its marketplace entry, the repo-root manifests, the README's
 // install section) equals package.json's version, and no launcher is unpinned. With GENCLASS_SYNC=1
-// (`npm run sync -w @genclass/mcp`) the test rewrites those files from package.json instead of failing.
+// (`npm run sync -w @genclass/mcp`) the test rewrites those files from package.json instead of failing. The same sync
+// keeps the repo-root copy of the skill (skills/genclass/SKILL.md, what skill directories such as skills.sh read)
+// byte-identical to the plugin's. The second describe checks the skill and the server's instructions: the
+// instructions carry the triggers, the skill the procedure (docs/runtime/AGENT.md section 4.2).
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { CLIENTS, hookCommand, installMarkdown, pinned, serverConfig } from "../src/clients.js";
 import { VERSION } from "../src/http.js";
+import { INSTRUCTIONS, TOOLS } from "../src/tools.js";
 
 const pkgDir = join(__dirname, "..");
 const repo = join(pkgDir, "..", "..");
@@ -57,6 +61,9 @@ const PINS: Pin[] = [
   { file: "gemini-extension.json", json: (j) => ({ ...j, version: V, mcpServers: { ...j.mcpServers, genclass: serverConfig(V) } }) },
   { file: "packages/mcp/README.md", text: (s) => section(s, installMarkdown(V)).replace(PINNED, pinned(V)) },
   { file: "packages/mcp/plugin/README.md", text: (s) => s.replace(PINNED, pinned(V)) },
+  { file: "packages/mcp/plugin/skills/genclass/SKILL.md", text: (s) => s.replace(PINNED, pinned(V)) },
+  // the root copy for skill directories: equal to the plugin's skill (read at check time: after the sync pinned it)
+  { file: "skills/genclass/SKILL.md", text: () => read("packages/mcp/plugin/skills/genclass/SKILL.md") },
   { file: "llms-install.md", text: (s) => s.replace(PINNED, pinned(V)) },
   { file: "docs/adoption/listings/mcp.md", text: (s) => s.replace(PINNED, pinned(V)) },
   { file: "docs/runtime/AGENT.md", text: (s) => s.replace(PINNED, pinned(V)) },
@@ -113,5 +120,59 @@ describe("versions and pinned launchers (every manifest names package.json's ver
       expect(b, c.id).toContain(`@genclass/mcp@${V}`);
       expect(/@genclass\/mcp(?![@\w/-])/.test(b.replace(/@genclass\/mcp@\d[^\s"'\],)]*/g, "")), c.id).toBe(false);
     }
+  });
+});
+
+/** The symptom words a client matches on: in the instructions' first 500 characters and early in the skill's description. */
+const SYMPTOMS = ['"sometimes"', '"randomly"', '"only in production"', '"on slow connections"', '"flips back"', "stale or old results", "lost edits", "double submits", "scrolls sideways"];
+
+describe("the genclass skill and the server's instructions (AGENT.md section 4.2: the instructions carry the triggers, the skill the procedure)", () => {
+  const skill = read("packages/mcp/plugin/skills/genclass/SKILL.md");
+  const parts = /^---\n([\s\S]*?)\n---\n([\s\S]*)$/.exec(skill);
+  const fields: Record<string, string> = {};
+  for (const line of parts?.[1].split("\n") ?? []) {
+    const i = line.indexOf(":");
+    if (i > 0) fields[line.slice(0, i).trim()] = line.slice(i + 1).trim();
+  }
+  const body = parts?.[2] ?? "";
+
+  it("the frontmatter parses: name genclass, one-line description of at most 1,024 characters (Claude Code's limit) with the symptom words early", () => {
+    expect(parts, "frontmatter between --- lines").not.toBeNull();
+    expect(fields.name).toBe("genclass");
+    expect(fields.description.length).toBeGreaterThan(80);
+    expect(fields.description.length).toBeLessThanOrEqual(1024);
+    // a plain YAML scalar: no ": " or " #" inside it, not opened with a quote it does not close
+    expect(fields.description).not.toMatch(/: | #/);
+    expect(fields.description).not.toMatch(/^["']/);
+    for (const w of SYMPTOMS) expect(fields.description.slice(0, 400), w).toContain(w);
+  });
+
+  it("every genclass_* name in the body is a tool the server registers", () => {
+    const names = [...new Set(body.match(/\bgenclass_[a-z_]+/g))];
+    expect(names.length).toBeGreaterThanOrEqual(6);
+    for (const n of names) expect(TOOLS.map((t) => t.name), n).toContain(n);
+  });
+
+  it("the body is the procedure (not the triggers again), with the fallback when the tools are missing, and no em-dash", () => {
+    for (const s of ["runs: 6, slow_ms: 600", "--repeat-each 8 --workers 1", "Compared: 6 of 6", "No verdict", "0 compared", "Internal state only", "Along the way only", '"not reproduced"', '"no race in N orders"', 'not "fixed"']) expect(body).toContain(s);
+    expect(body).toContain(`claude mcp add genclass -- npx -y @genclass/mcp@${V}`);
+    expect(body).toContain("npx @genclass/runtime@beta scan <url> --json");
+    expect(body).toMatch(/needs\s+Claude Code/);
+    expect(body).toContain("the chat app cannot");
+    // the triggers live in the description and in INSTRUCTIONS; the body does not restate them
+    expect(body).not.toContain('"sometimes"');
+    expect(body).not.toMatch(/\bUse when\b/);
+    expect(skill).not.toContain("\u2014");
+  });
+
+  it("the root copy for skill directories (skills/genclass/SKILL.md) is byte-identical to the plugin's", () => {
+    expect(read("skills/genclass/SKILL.md")).toBe(skill);
+  });
+
+  it("the instructions stay under 4,096 characters, put the symptom words in the first 500 and name the skill", () => {
+    expect(INSTRUCTIONS.length).toBeLessThan(4096);
+    for (const w of SYMPTOMS) expect(INSTRUCTIONS.slice(0, 500), w).toContain(w);
+    expect(INSTRUCTIONS).toContain("genclass skill");
+    expect(INSTRUCTIONS).not.toContain("\u2014");
   });
 });

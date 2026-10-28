@@ -22,7 +22,7 @@ page of the dev server. The page side needs `@genclass/runtime` 0.3.0-beta.1 or 
 |---|---|---|
 | MCP server `genclass` | `.mcp.json` | runs `npx -y @genclass/mcp@0.2.0`: nine tools (`genclass_status`, `genclass_findings`, `genclass_explain`, `genclass_explore`, `genclass_replay`, `genclass_analytics`, `genclass_setup`, `genclass_scan`, `genclass_clear`) and a bridge on 127.0.0.1:47357 that your app's pages connect to |
 | `UserPromptSubmit` hook | `hooks/hooks.json` | runs `npx -y @genclass/mcp@0.2.0 hook` before each prompt: up to five findings recorded since the last prompt are added to the prompt as context |
-| skill `genclass` | `skills/genclass/SKILL.md` | tells Claude when to use the tools (an intermittent frontend bug; after changing code that fetches, submits, autosaves, polls or debounces) and how to confirm a fix |
+| skill `genclass` | `skills/genclass/SKILL.md` | the procedure once Claude reaches for the tools (the explore arguments and Playwright pairing, how to read a report, what to say when done, what to do when the tools are missing); its description carries the triggers (an intermittent frontend bug; after changing code that fetches, submits, autosaves, polls or debounces; before calling a UI change done), as do the server's instructions. Without the plugin, `npx -y @genclass/mcp@0.2.0 init` writes the same file to `.claude/skills/genclass/SKILL.md` |
 
 The launcher is pinned to the plugin's version, so the plugin runs the exact release it was reviewed with.
 `plugin.json` and `mcp.json` at this folder's root are the same server in the
