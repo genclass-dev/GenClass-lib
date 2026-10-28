@@ -149,7 +149,7 @@ Playwright test that fails until the fix is in. Its `genclass_scan` tool audits 
 `scan <url>` above. Everything stays on your machine.
 
 ```bash
-claude mcp add genclass -- npx -y @genclass/mcp@0.2.0
+claude mcp add genclass -- npx -y @genclass/mcp@0.2.1
 ```
 
 ```ts

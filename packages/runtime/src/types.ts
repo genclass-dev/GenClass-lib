@@ -503,7 +503,12 @@ export type ModeOrOff = Mode | "off";
 export type RequestMatcher = string | RegExp | ((r: { url: string; method: string; channel: "fetch" | "xhr" | "ws" | "sse" }) => boolean);
 
 export interface RouteRule {
-  /** Exact path or glob ("/admin/*"), RegExp, or predicate over the route. */
+  /**
+   * Exact path or glob ("/admin/*"), RegExp, or predicate over the route. Matched against the raw `location.pathname`
+   * and against its normalised form (percent-decoded, `;` parameters dropped, dot segments and repeated slashes
+   * resolved, no trailing slash), so "/se%61rch", "/search/" and "//search" fall under a "/search" rule. Case-sensitive;
+   * "/admin/*" does not cover "/admin" itself (use "/admin*" or a RegExp).
+   */
   match: string | RegExp | ((route: string) => boolean);
   /** Demote only. */
   mode?: ModeOrOff;
@@ -824,7 +829,7 @@ export interface InitOptions {
    * "guard" (opt-in) takes minimal guard-tier actions at very high confidence; "heal" is experimental. The URL
    * switches (`?genclass=`, `?genclass-mode=`) and `localStorage.genclass` may only lower it, with or without `debug`;
    * `?genclass=` and `localStorage.genclass` may raise it only on a development host (http(s) on localhost, 127.0.0.1,
-   * [::1] or *.localhost with an explicit port, or *.test).
+   * [::1] or *.localhost with an explicit port, or *.test). Any other value runs as "observe", with one warning.
    */
   mode?: Mode;
   /** false: no model (observe-only). */
@@ -839,8 +844,9 @@ export interface InitOptions {
   /** Default true. A predicate / Promise / subscribable flag; while false nothing is decided or downloaded. */
   enabled?: boolean | (() => boolean | Promise<boolean>) | EnabledSource;
   /**
-   * Fraction of sessions allowed to act (default 1); the rest observe. `?genclass-sample=0` makes a session observe; no
-   * URL value makes it act.
+   * Fraction of sessions allowed to act (default 1); the rest observe. The bucket is drawn once per session and kept in
+   * sessionStorage with the `sample` it was drawn under; a change of `sample` draws it again, and 0 never reads it.
+   * `?genclass-sample=0` makes a session observe; no URL value makes it act.
    */
   sample?: number;
   /** Per-route mode and aggressiveness (demote only); the first matching rule wins. */

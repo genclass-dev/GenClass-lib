@@ -104,12 +104,13 @@ and the rules for coding agents working on GenClass itself.
 - **late revert**: in guard and heal, a state write that already applied and that the model then answers `discard`
   for is reverted, but only within 800 ms of applying (`LATE_REVERT_MS`), if nothing has overwritten it and its
   operation has written nothing else since. It is reported as such and can be undone.
-- **local or private host**: a page host where the default telemetry stays off and `?genclass=` or
-  `localStorage.genclass` may raise the mode: `localhost` and `*.localhost`, `*.local`, `*.test`, `*.internal`,
-  `*.home.arpa`, single-label intranet names, loopback, private, link-local, CGNAT and 0/8 addresses, and an empty
-  host name such as a `file:` page's (`isLocalHost` in `src/telemetry/config.ts`;
-  [THREAT-MODEL.md T8](THREAT-MODEL.md#t8-configuration-by-url-storage-and-meta-tags)). An intranet or VPN-only
-  production app is on one. The measured visual checks use a narrower set, local development URLs.
+- **local or private host**: a page host where the default telemetry stays off: `localhost` and `*.localhost`,
+  `*.local`, `*.test`, `*.internal`, `*.home.arpa`, single-label intranet names, loopback, private, link-local, CGNAT
+  and 0/8 addresses, and an empty host name such as a `file:` page's (`isLocalHost` in `src/telemetry/config.ts`). An
+  intranet or VPN-only production app is on one. Not the same as a **development host** (`src/devhost.ts`: http(s) on
+  `localhost`, `127.0.0.1`, `[::1]` or `*.localhost` with an explicit port, or `*.test`), the narrower set where
+  `?genclass=` or `localStorage.genclass` may raise the mode and where the measured visual checks are on by default
+  ([THREAT-MODEL.md T8](THREAT-MODEL.md#t8-configuration-by-url-storage-and-meta-tags)).
 - **protected request**: a request matched by `requests.protect` (for example `protectPreset("payments", "auth")`).
   It is observed and reported but never acted on, nor is anything its response causes.
 - **measured visual check**: a deterministic measurement of a visual or CSS bug (unreadable text, a broken image, a

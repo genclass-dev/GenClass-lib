@@ -1,6 +1,6 @@
 {
   "name": "genclass",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "See what happens inside your app's pages in causal order, find race conditions by replaying different response orders, reproduce a bug exactly and prove the fix with a generated Playwright test. Local only.",
   "author": {
     "name": "GenClass",

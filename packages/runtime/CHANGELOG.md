@@ -1,5 +1,50 @@
 # Changelog
 
+## Unreleased (0.3.0-beta.5)
+
+Security fixes from the adversarial review of the mode-raise fix (`0.3.0-beta.2`); the same four fixes are in `0.2.3`
+on the stable line (tag `v0.2.3`). Nothing else changed: no model-visible text (`situation-v2.3`), telemetry and its
+opt-outs are unchanged, and the default model is unchanged.
+
+### Security
+
+- **A look-alike path no longer steps out of a route rule.** `routes[]` matched the raw `location.pathname`, which the
+  browser never percent-decodes, while most servers route on the decoded path: a link to `/se%61rch`, `/search/`,
+  `//search` or `/search;x=1` reached the `/search` page with the app's global mode although a rule scoped `/search`
+  to `off` or `observe` (a rule can only lower the mode, so the visitor got the global mode, never more). A rule now
+  matches the raw path or its normalised form (percent-decoded, `;` parameters dropped, dot segments and repeated
+  slashes resolved, no trailing slash; `util/match.ts normalizeRoute`); `status.scope.route` is still the raw path.
+  Matching is case-sensitive, and `/admin/*` does not cover `/admin` itself (use `/admin*` or a RegExp); both are now
+  documented. Affected: every version with `routes` (`0.1.0-beta.1` to `0.2.2`, `0.3.0-beta.0` to `0.3.0-beta.4`).
+  Tests: `test/status-scope.test.ts`; docs: OPTIONS-SPEC §4.3, API.md, THREAT-MODEL T8.
+- **An invalid `mode` ran as heal.** `mode: "HEAL"`, `"Guard"`, `"heal "`, an object or a number (a typo in an
+  env-driven config, or `window.GENCLASS_CONFIG`, which was copied unchecked) fell through the mode ranking and the
+  gate's `modeAllows` and ran guard- and heal-tier actions, which `?genclass-mode=observe` could not lower. Now any
+  value but `observe`, `guard` or `heal` runs as `observe`, with one warning (`window.GENCLASS_CONFIG.mode` is
+  validated like the meta tag and the data attributes already were), and `modeAllows` permits a non-passive tier only
+  for `guard` and `heal`, so the gate fails closed. App configuration only, never reachable from a URL. Affected: every
+  version (`0.1.0-alpha.0` to `0.2.2`, `0.3.0-beta.0` to `0.3.0-beta.4`; `window.GENCLASS_CONFIG` since `0.1.0-beta.0`).
+  Tests: `test/options.test.ts`, `test/policy.test.ts`; docs: OPTIONS-SPEC §3, API.md, THREAT-MODEL T8.
+- **A stored sample verdict overrode `sample: 0`.** The act/observe bucket is frozen in
+  `sessionStorage["genclass:bucket"]`, and a tab that drew `act` under `sample: 0.5` kept acting after a deploy set
+  `sample: 0`, until it closed (a same-origin script could write the value too). Now `sample: 0` never reads the
+  storage, and a verdict is stored with the sample it was drawn under (`act@0.5`) and reused only under that sample: a
+  change of `sample` draws again. Open tabs are re-bucketed once on upgrade. Affected: every version with `sample`
+  (`0.1.0-beta.1` to `0.2.2`, `0.3.0-beta.0` to `0.3.0-beta.4`). Tests: `test/options.test.ts`; docs: OPTIONS-SPEC
+  §4.2, INTERCEPTION.md.
+- **Hardening: `aggressiveness` level names.** The three names were looked up with `in` on a plain object, so
+  `"constructor"`, `"__proto__"`, `"valueOf"` or another `Object.prototype` member name (from the option, a route rule
+  or `?genclass-aggr=`) gave a function instead of a number, and NaN gate thresholds downstream (which clear nothing,
+  so the page acted on and reported nothing at that gate; from the URL the value was never applied). Only `cautious`,
+  `balanced` and `eager` are names now; anything else is `balanced`, as documented. Test: `test/gates.test.ts`.
+- **Docs: `devtools: "local"` is wider than the development-host test.** It mounts the overlay on every host
+  `isLocalHost` counts as local (`file:`, loopback with or without a port, `*.localhost`, `*.local`, `*.test`), so a
+  Capacitor, Tauri or Electron build that ships it gets the overlay, whose mode switch raises the mode for whoever is at
+  the device. Unchanged in code; documented in THREAT-MODEL T8 and the README. Set `devtools` per environment.
+- **Docs: OPTIONS-SPEC §3 and THREAT-MODEL T8 now describe the URL switches as `0.3.0-beta.2` left them** (lower-only
+  on every host, `debug` as console logging only, raising only on a development host); they still carried the
+  pre-fix wording.
+
 ## 0.3.0-beta.4 (2026-10-27)
 
 - **The devtools pill counts measured checks** (`src/devtools/`, VISUAL.md 9.3). The collapsed pill showed only

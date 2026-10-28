@@ -40,14 +40,19 @@ results are in section 7 and in [RESULTS.md](RESULTS.md) section 18.
 ## 1. Setup
 
 ```bash
-claude mcp add genclass -- npx -y @genclass/mcp@0.2.0   # or: npx -y @genclass/mcp@0.2.0 init  (writes .mcp.json)
+claude mcp add genclass -- npx -y @genclass/mcp@0.2.1   # or: npx -y @genclass/mcp@0.2.1 init  (writes .mcp.json and .claude/skills/genclass/SKILL.md)
 ```
 
 Or as a Claude Code plugin from this repository's marketplace (`.claude-plugin/marketplace.json`; the plugin is
-`packages/mcp/plugin`: the server, a `UserPromptSubmit` hook and a skill whose description tells Claude when to use
-it): `/plugin marketplace add genclass-dev/GenClass-lib`, then `/plugin install genclass@genclass`. Other clients
+`packages/mcp/plugin`: the server, a `UserPromptSubmit` hook and the `genclass` skill):
+`/plugin marketplace add genclass-dev/GenClass-lib`, then `/plugin install genclass@genclass`. The server's
+`instructions` carry the triggers (the symptom words, the code changes that call for an explore, the scan before a UI
+change is done) and the first call for each, so every client that passes them on gets the "when"; the skill carries
+the procedure (section 4.2) and does not need the plugin: `init` writes it into the project, and
+`npx skills add genclass-dev/GenClass-lib` installs the repository-root copy (`skills/genclass/SKILL.md`, kept
+identical to the plugin's by the version sync) through a skill directory. Other clients
 (Cursor, VS Code, Codex CLI, Gemini CLI, Windsurf, Cline, Goose, Zed, JetBrains, OpenCode): the install blocks in
-[packages/mcp/README.md](../../packages/mcp/README.md#install), or `npx -y @genclass/mcp@0.2.0 config <client>`.
+[packages/mcp/README.md](../../packages/mcp/README.md#install), or `npx -y @genclass/mcp@0.2.1 config <client>`.
 Every launcher is pinned to the release. `packages/mcp/server.json` is the entry for the official MCP Registry
 (published by the release workflow with GitHub OIDC after the npm package); the listings for other directories are
 drafted in [docs/adoption/listings/mcp.md](../adoption/listings/mcp.md).
@@ -192,10 +197,27 @@ after 30 minutes and are not restored after a restart.
 | `genclass_scan` | `{url, phone?, hosted?}`: audits any page (no `connectAgent` needed) by running `@genclass/runtime`'s `scan <url> --json` (the project's own runtime when it has the command, else `npx -y @genclass/runtime@beta`) in the project's folder: headless Chromium through Playwright at desktop and phone sizes, the 23 measured visual checks in observe mode; a score and each problem with its element, selector and suggested CSS fix, plus the JSON report (`structuredContent`). `--local` unless `hosted: true` (the genclass.dev page check, public pages only), so the URL leaves the machine only when the agent asks |
 | `genclass_clear` | forget runs and/or findings (runs findings still need are kept) |
 
-The server's `instructions` (sent at initialize) tell the agent when to reach for these on its own: an intermittent bug
-report; after changing code that fetches, submits, autosaves, polls, debounces or listens to a socket; before calling a
-UI change done (`genclass_scan` on the page, also after CSS or layout changes and on sites the agent does not own); and
-to confirm a bug before fixing it and prove the fix after.
+The server's `instructions` (sent at initialize, under 4,096 characters; the one piece of guidance every MCP client
+passes on, where tool descriptions may be deferred until a tool search) carry the "when" and the first call for each:
+the symptom words in the first 500 characters ("sometimes", "randomly", "only in production", "on slow connections", a
+value that "flips back", stale or old results, lost edits, double submits, sideways scrolling) and `genclass_findings`
+then `genclass_explain`; after changing code that fetches, submits, autosaves, polls, debounces, paginates or listens
+to a socket, `genclass_explore`; before fixing a finding, `genclass_replay`, and again after the fix; before calling a
+UI change done (also after CSS or layout changes and on sites the agent does not own), `genclass_scan`. They name the
+`genclass` skill so a client that has it loads it.
+
+The skill (`packages/mcp/plugin/skills/genclass/SKILL.md`; the plugin installs it, `genclass-mcp init` writes it to
+`.claude/skills/genclass/SKILL.md`, and `skills/genclass/SKILL.md` at the repository root is the identical copy skill
+directories read) carries the "how", which always-loaded context cannot afford: the explore arguments
+(`runs: 6, slow_ms: 600`), the Playwright pairing (`--repeat-each 8 --workers 1`), how to read a report
+("Compared: 6 of 6" against "No verdict" and "0 compared"; "Internal state only" and "Along the way only" are not
+races), what a witness, an explore race and a model detection each are, the reporting rule ("reproduced",
+"not reproduced" or "no race in N orders", never "fixed" unless a replay or explore showed it), and what to do when
+the `genclass_*` tools are missing (the one-line install, or `npx @genclass/runtime@beta scan <url> --json` for the
+visual checks alone). Its frontmatter description repeats the triggers, since that is what a client matches a skill
+on; its body does not. `packages/mcp/test/manifests.test.ts` checks the frontmatter, that every `genclass_*` name in
+the body is a registered tool, the description's length (Claude Code's 1,024), that the root copy is identical, and
+that the instructions stay under 4,096 characters, put the symptom words first and name the skill.
 
 ### 4.3 Agent API
 
@@ -205,8 +227,11 @@ start), `clear`. Local processes of the same user only (section 6).
 
 ### 4.4 Command and push
 
-- `genclass-mcp` runs the server on stdio. `genclass-mcp init [--hook]` adds it to `.mcp.json` (merging) and, with
-  `--hook`, a `UserPromptSubmit` hook to `.claude/settings.json`. `genclass-mcp status` prints the bridge's status.
+- `genclass-mcp` runs the server on stdio. `genclass-mcp init [--hook] [--no-skill]` adds it to `.mcp.json`
+  (merging), writes the `genclass` skill to `.claude/skills/genclass/SKILL.md` (the package's copy with a
+  `genclass:init` marker line after the frontmatter; a rerun replaces a file that carries the marker and leaves one
+  that does not, saying which; `--no-skill` leaves it out) and, with `--hook`, a `UserPromptSubmit` hook to
+  `.claude/settings.json`. `genclass-mcp status` prints the bridge's status.
 - **Push.** New findings are sent as Claude Code channel events (`notifications/claude/channel`, the experimental
   `claude/channel` capability; research preview, enabled with
   `claude --dangerously-load-development-channels server:genclass`), at most 3 every 3 s. Without channels, the

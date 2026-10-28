@@ -106,7 +106,7 @@ and `0.3.0-beta.0` have no analytics and ignore the option silently: install `@g
 
 ```ts
 interface InitOptions {
-  mode?: "observe" | "guard" | "heal";                 // default "observe"; "guard" is opt-in, "heal" experimental
+  mode?: "observe" | "guard" | "heal";                 // default "observe"; "guard" is opt-in, "heal" experimental; any other value runs as observe, with a warning
   model?: {                                             // or false: no model (observe only)
     baseUrl?: string;                                   // directory with model.json (default: jsDelivr CDN)
     device?: "auto" | "webgpu" | "wasm";                // default "auto"
@@ -158,7 +158,10 @@ interface InitOptions {
                                                         // [true]; false: nothing installed, model never downloaded; a predicate/source forces preload "lazy"
   sample?: number;                                      // [1] fraction of sessions that act (stable per session); the rest observe
   routes?: { match: string | RegExp | ((route: string) => boolean); mode?: Mode | "off"; aggressiveness?: Aggressiveness }[];
-                                                        // first match wins; demote only
+                                                        // first match wins; demote only. Matched against the raw pathname and its normalised
+                                                        // form (percent-decoded, no ";" parameters, no trailing or repeated slashes), so
+                                                        // "/se%61rch" and "/search/" fall under "/search"; case-sensitive; "/admin/*" does
+                                                        // not cover "/admin" itself (use "/admin*" or a RegExp)
   requests?: {
     ignore?: RequestMatcher[];                          // not observed at all (native pass-through)
     protect?: (RequestMatcher | `preset:${string}`)[];  // observed, never held/retried/cached/discarded, nor what its response causes;
@@ -211,8 +214,9 @@ mode/allow/deny/requireDiagnosis (at the effective mode) → thresholds → `pol
 (`limit:perMinute|perSubject|perSession`; defaults 60/min global, 10/min per subject, 200 per session) → `onBeforeAction` (`vetoed`, `would-veto`, or
 `limit:hold` past the budget) → execute. effectiveMode = min(mode, sample cap, breaker cap, route rule); URL overrides
 (`?genclass`, `?genclass-mode`, `?genclass-aggr`, `?genclass-sample`, `localStorage.genclass`) only demote, from the
-app's mode or from `observe` when it sets none; `debug: true` lets each of them raise, and `?genclass=` /
-`localStorage.genclass` may also raise on a local or private host ([Init and modes](#init-and-modes)). Before 0.2.2,
+app's mode or from `observe` when it sets none; `?genclass=` / `localStorage.genclass` may also raise on a development
+host (http(s) on a loopback name with an explicit port, or `*.test`; `src/devhost.ts`), and since 0.2.3 and 0.3.0-beta.2
+`debug: true` raises nothing ([Init and modes](#init-and-modes)). Before 0.2.2,
 `?genclass=guard` opted a visitor into guard when the app set no mode. `policy.holdBudgetMs` is a hard ceiling that
 includes defers, the wait for a response or request body, a held write's deferred re-decisions and the veto hook.
 

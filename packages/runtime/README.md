@@ -466,6 +466,8 @@ It exposes `window.GenClass` and loads the model worker and the overlay on deman
 ([every attribute](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/INSTALL.md#which-attributes-does-the-script-tag-take)).
 Keep the version pinned: the unversioned URL serves npm's `latest` (the older `0.2.x` until `0.3.0` is stable); on a
 plain HTML page `init` writes a pinned jsDelivr URL with SRI and, from `0.3.0-beta.2`, `defer`.
+`data-devtools="local"` shows the overlay on local hosts (loopback with or without a port, `*.localhost`, `*.local`,
+`*.test` and `file:`), so also in a Capacitor, Tauri or Electron build that ships it: set it per environment.
 
 **4. By hand:** `npm install @genclass/runtime@beta`, then first in your entry file:
 
@@ -554,7 +556,7 @@ Claude Code and other coding agents, and lets the agent:
 - **keep the proof:** a generated Playwright test that sets the same order and fails while the bug is there.
 
 ```bash
-claude mcp add genclass -- npx -y @genclass/mcp@0.2.0
+claude mcp add genclass -- npx -y @genclass/mcp@0.2.1
 ```
 
 ```ts
@@ -804,9 +806,11 @@ tell the model what a bug looks like.
 - **Reporting and loading**: `sinks`, `session` (tags, never shown to the model), `report: "interventions"`,
   `rt.summary()`; `model.loadIf`, `model.preload`, `model.maxDecisionsPerMinute`, `model.unloadAfterIdleMs`.
 
-URL overrides can only lower settings. `?genclass=observe|guard|heal` may also raise the mode with `debug: true` or on
-a development host (`localhost`, `*.local`, `*.test`, private networks); `?genclass-mode`, `?genclass-aggr` and
-`?genclass-sample=1` may raise only with `debug: true`. `rt.status.effectiveMode` is the mode in force now.
+URL overrides can only lower settings. `?genclass=observe|guard|heal` and `localStorage.genclass` may also raise the
+mode on a development host (http(s) on `localhost`, `127.0.0.1`, `[::1]` or `*.localhost` with an explicit port, or
+`*.test`); since `0.3.0-beta.2` and `0.2.3`, `debug: true` no longer lets a link raise anything (it is console logging
+only), and `?genclass-mode`, `?genclass-aggr` and `?genclass-sample` only demote. `rt.status.effectiveMode` is the mode
+in force now.
 
 ```ts
 import { GenClass, protectPreset } from "@genclass/runtime";
