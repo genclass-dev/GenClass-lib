@@ -235,11 +235,14 @@ flows.
 **Threat.** Someone who can make a user open a link, or inject markup, changes GenClass's configuration.
 
 **Mitigations.** `?genclass-mode`, `?genclass-aggr` and `?genclass-sample=0` can only lower the mode, aggressiveness or
-sampling unless the app sets `debug: true`; `?genclass=off` turns GenClass off for that visitor only
-([runtime.ts](../../packages/runtime/src/runtime.ts) constructor, [index.ts](../../packages/runtime/src/index.ts)
-`initUnsafe`). Since 0.2.2 `?genclass=` and `localStorage.genclass` also only demote, from the app's mode or from
-`observe` when it sets none: a crafted link can no longer raise a production site to guard or heal. Raising from the
-URL needs `debug: true` or a development host (`localhost`, `*.local`, `*.test`, private networks). With the zero-code
+sampling, on every host, with or without `debug: true` (`debug` is console logging only); `?genclass=off` turns
+GenClass off for that visitor only ([runtime.ts](../../packages/runtime/src/runtime.ts) constructor,
+[index.ts](../../packages/runtime/src/index.ts) `initUnsafe`). Since 0.2.2 `?genclass=` and `localStorage.genclass`
+also only demote, from the app's mode or from `observe` when it sets none: a crafted link can no longer raise a
+production site to guard or heal. Raising from the URL needs a development host
+([devhost.ts](../../packages/runtime/src/devhost.ts): http(s) on `localhost`, `127.0.0.1`, `[::1]` or `*.localhost`
+with an explicit port, or `*.test`); before 0.3.0-beta.2 and 0.2.3, `debug: true` or a host that only looked local
+(`*.local`, an intranet name, a private address, Capacitor, Tauri, Electron) let a link raise the mode. With the zero-code
 entries (`/auto`, the script tag), only `<meta name="genclass">` tags inside `<head>` are read, so markup injected into
 the body cannot configure GenClass, and the model, onnxruntime-web and webhook sink URLs a meta tag names must be
 same-origin (cross-origin ones are ignored with a warning; [cdn/config.ts](../../packages/runtime/src/cdn/config.ts)
@@ -250,11 +253,26 @@ absolute once, at init ([cdn/sinks.ts](../../packages/runtime/src/cdn/sinks.ts))
 move it. An injected `sink=webhook:<url>` therefore cannot send the sink records (and their evidence text) to another
 origin. The other sink name, `console-json`, only prints to the page's own console. The runtime has no Sentry,
 PostHog or Datadog adapter, so an injected `sink=sentry` loads and sends nothing: it only prints one console warning.
+Route rules (`routes[]`, OPTIONS-SPEC §4.3) apply to the normalised path as well as the raw one, so a link to a
+look-alike path (`/se%61rch`, `/search/`, `//search`, `/search;x=1`) cannot step out of a rule that scopes `/search`
+to `off` or `observe` (since 0.2.3 and 0.3.0-beta.5; a rule only lowers the mode, so the escape gave the visitor the
+app's global mode, never more; [util/match.ts](../../packages/runtime/src/util/match.ts) `normalizeRoute`). An invalid
+`mode` value (`"HEAL"`, an object, from `GenClass.init` or `window.GENCLASS_CONFIG`) runs as `observe` with a warning
+instead of falling through the gate as heal (since 0.2.3 and 0.3.0-beta.5; app configuration only, never a URL). The
+sampling bucket in `sessionStorage` is reused only under the `sample` it was drawn under, and `sample: 0` never reads
+it, so a stale or injected `act` verdict cannot lift a sampled-out session (since 0.2.3 and 0.3.0-beta.5).
 
 **Residual.** Markup injected into `<head>` can still set the mode and same-origin sinks (not a cross-origin model or
 webhook): pages that let untrusted HTML into `<head>` should configure through `window.GENCLASS_CONFIG` (it wins) or
-`GenClass.init(options)`. A same-origin endpoint that forwards elsewhere is the site's own. An app that sets
-`debug: true` in production lets the URL raise its mode.
+`GenClass.init(options)`. A same-origin endpoint that forwards elsewhere is the site's own. A production app served
+from a loopback name with an explicit port (an Electron app with an embedded server, a self-hosted local tool on
+`http://127.0.0.1:<port>`) counts as a development host, so a crafted link can raise its mode with `?genclass=`; such
+apps should not rely on the URL switch being demote-only. `devtools: "local"` (and `data-devtools="local"`) mounts the
+overlay on every host [cdn/config.ts](../../packages/runtime/src/cdn/config.ts) `isLocalHost` counts as local
+(`file:`, loopback with or without a port, `*.localhost`, `*.local`, `*.test`), which is wider than the development-host
+test above: a Capacitor, Tauri or Electron build that ships it gets the overlay, and whoever is at the device can open
+it (Alt+Shift+G) and raise the mode for that session, as any script in the origin can (T1). Not reachable from a link.
+Set `devtools` per environment and do not ship `"local"` in such builds.
 
 ## T9. Cached and shared responses
 

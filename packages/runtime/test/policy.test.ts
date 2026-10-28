@@ -43,6 +43,10 @@ describe("policy gate (CONTRACT §8)", () => {
     expect(modeAllows("guard", "heal")).toBe(false);
     expect(modeAllows("heal", "heal")).toBe(true);
     expect(modeAllows("observe", "passive")).toBe(true);
+    // a value that is not a mode fails closed (review of the mode-raise fix: it used to permit every tier)
+    expect(modeAllows("HEAL" as never, "heal")).toBe(false);
+    expect(modeAllows("" as never, "guard")).toBe(false);
+    expect(permittedActions(policyConfig({}), "Guard" as never, REQ).map((a) => a.name)).toEqual([]);
     const c = policyConfig({});
     expect(permittedActions(c, "observe", REQ).map((a) => a.name)).toEqual([]);
     expect(permittedActions(c, "guard", REQ).map((a) => a.name)).toEqual(["coalesce", "delay"]);

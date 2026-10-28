@@ -14,7 +14,8 @@ Everything below was checked against the tags, the npm tarballs and the commits 
 | Package | `@genclass/runtime` |
 | Affected versions | `>= 0.1.0-alpha.0, <= 0.2.2` (every 0.1.x prerelease, 0.2.0, 0.2.1, 0.2.2, npm's `latest`); `>= 0.3.0-beta.0, <= 0.3.0-beta.1` |
 | Patched versions | `0.3.0-beta.2` (npm dist-tag `beta`, 2026-10-25); `0.2.3` on dist-tag `latest` (pending, not published at the time of this draft) |
-| Not affected | `0.0.0-stage` (a placeholder package with no code), `0.3.0-beta.2` and later |
+| Not affected | `0.0.0-stage` (a placeholder package with no code), `0.3.0-beta.2` and later (for the review findings F1 to F4 below: `0.2.3`, `0.3.0-beta.5` and later) |
+| Review findings | F1 to F4 under "Further findings from the review of the fix" (2026-10-27): patched in `0.2.3` (tagged `v0.2.3`, npm pending) and `0.3.0-beta.5` (pending). F1 is reachable from a link and bounded by the app's own global mode; F2 and F3 need the app's configuration or a script in the origin; F4 is hardening |
 | Severity | Medium, CVSS 3.1 5.4 (`CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:L/A:L`), see "Severity" |
 | CWE | CWE-15 (External Control of System or Configuration Setting); secondary CWE-489 (Active Debug Code) for the `debug` bypass |
 | Credits | the GenClass maintainers (found while testing 0.3.0-beta.0 in a pilot app, 2026-10-17) |
@@ -167,10 +168,11 @@ GHSA ranges: `>= 0.1.0-alpha.0, <= 0.2.2` and `>= 0.3.0-beta.0, < 0.3.0-beta.2`.
 
 - `0.3.0-beta.2` (npm dist-tag `beta`), published 2026-10-25; `0.3.0-beta.3` and `0.3.0-beta.4` carry the fix.
   `npm install @genclass/runtime@beta`; script tags: pin `@0.3.0-beta.4` (or the newest beta).
-- `0.2.3` (npm dist-tag `latest`): pending. Until it is published, a project on the stable line should either move to
-  `@beta` or apply the workarounds below. (owner: publish 0.2.3 from a `v0.2.3` tag through `release.yml`, then fill
-  the form's patched version for the `<= 0.2.2` range; until then the form can state "no patched version on the 0.2
-  line yet".)
+- `0.2.3` (npm dist-tag `latest`): tagged `v0.2.3` (commit `8694211`, 2026-10-27, on origin), not on npm at the time
+  of this draft (`latest` is still `0.2.2`). Until it is published, a project on the stable line should either move to
+  `@beta` or apply the workarounds below. (owner: `release.yml` publishes from the `v0.2.3` tag; then fill the form's
+  patched version for the `<= 0.2.2` range; until then the form can state "no patched version on the 0.2 line yet".)
+  `@beta` (`0.3.0-beta.4`) carries the headline fix but not F1 to F4 until `0.3.0-beta.5`.
 
 Where the fix lives: `packages/runtime/src/devhost.ts` (new), `src/index.ts` (`initUnsafe`), `src/runtime.ts`
 (constructor and `sampleBucket`), `src/visual/start.ts` (re-exports `devHost`), `test/mode-switch.test.ts` (new) and
@@ -213,6 +215,90 @@ Notes on the table:
 - The `?genclass-mode` / `-aggr` / `-sample` switches never raised anything without `debug` in any version
   (`runtime.ts`, the rank and level comparisons), and `?genclass-sample=0` always lowered.
 
+## Further findings from the review of the fix (2026-10-27)
+
+An adversarial review of the 0.2.3 backport found four more ways page-controlled input widened GenClass's behaviour.
+They are fixed in commit `8694211` on `release/0.2.3` (tag `v0.2.3`) and ported to `main` for `0.3.0-beta.5` (branch
+`security/advisory-mode-raise`). None changes the headline vector; each is listed with its own conditions and affected
+versions. Evidence is the named function at `git show <tag>:packages/runtime/src/<path>`; the version ranges were
+checked against every `v*` tag (`routes`, the sample bucket, `?genclass-mode` and the named aggressiveness levels all
+arrived in `0.1.0-beta.1`; `window.GENCLASS_CONFIG` in `0.1.0-beta.0`; the `mode` option and `modeAllows` exist in
+every version).
+
+### F1. A look-alike path stepped out of a route rule (`routes[]`)
+
+- **What.** `routes[]` lets an app lower the mode on some paths (`{ match: "/checkout", mode: "observe" }`). A rule was
+  matched against the raw `location.pathname`, which the browser never percent-decodes, while most servers route on
+  the decoded path and tolerate a trailing slash, repeated slashes, dot segments and `;` parameters. A link to
+  `/checkout/`, `//checkout`, `/che%63kout`, `/checkout;x=1` or `/x/../checkout` reached the checkout page with the
+  app's global mode instead of the rule's (`runtime.ts` `computeScope`, `util/match.ts` `routeMatches`).
+- **Reachable from a link**: yes, the headline vector (AV:N, UI:R, one visitor's page load). **Bound**: a rule only
+  lowers the mode, so the visitor got the app's own global mode (`guard` or `heal` only where the app opted into it),
+  never more; `requests.protect`, the cross-origin rule and the other bounds above still hold.
+- **Affected**: every version with `routes`: `0.1.0-beta.1` to `0.2.2` and `0.3.0-beta.0` to `0.3.0-beta.4`
+  (`0.1.0-alpha.0`, `0.1.0-alpha.1` and `0.1.0-beta.0` have no route rules).
+- **Fix**: a rule matches the raw path or its normalised form (`util/match.ts` `normalizeRoute`: percent-decoded, `;`
+  parameters dropped, dot segments and repeated slashes resolved, no trailing slash); `status.scope.route` stays raw;
+  matching stays case-sensitive, and `/admin/*` still does not cover `/admin` itself (both now documented). Tests:
+  `test/status-scope.test.ts` (ten look-alike forms, globs, RegExp and predicate rules, and a scripted guard-tier action
+  that does not run under an observe rule on `/se%61rch`).
+
+### F2. An invalid `mode` ran as heal
+
+- **What.** `mode` was not validated: `"HEAL"`, `"Guard"`, `"heal "`, an object or a number from `GenClass.init()` /
+  `createRuntime()`, or from `window.GENCLASS_CONFIG` (copied unchecked by `cdn/config.ts` `readWindowConfig`), was
+  stored as the mode. `MODE_RANK[mode]` is then `undefined`, so no URL switch could lower it (`?genclass-mode=observe`
+  compares against `undefined` and does nothing), and the gate's `modeAllows` fell through its `observe` and `guard`
+  branches to `return true`, permitting guard- and heal-tier actions (`decide/policy.ts`).
+- **Reachable from a link**: no. It needs the app's configuration (a typo in an env-driven value such as
+  `mode: process.env.GENCLASS_MODE`) or a script in the origin that sets `window.GENCLASS_CONFIG` before GenClass starts
+  (such a script can call `setMode("heal")` directly, T1). The meta tag and the script tag's `data-mode` were already
+  validated (`cdn/config.ts` `fromPairs`, `MODES.includes`), so injected markup could not use it.
+- **Affected**: every version: `0.1.0-alpha.0` to `0.2.2` and `0.3.0-beta.0` to `0.3.0-beta.4` (`modeAllows` has the
+  same fall-through in `0.1.0-alpha.0`; `window.GENCLASS_CONFIG` since `0.1.0-beta.0`).
+- **Fix**: the constructor and `readWindowConfig` accept only `observe`, `guard` and `heal`; anything else runs as
+  `observe` with one warning; `modeAllows` permits a non-passive tier only for `guard` and `heal`, so the gate fails
+  closed. Tests: `test/options.test.ts`, `test/policy.test.ts`.
+
+### F3. A stored sample verdict overrode `sample: 0`
+
+- **What.** The act/observe bucket (`sample`, OPTIONS-SPEC §4.2) is drawn once and frozen in
+  `sessionStorage["genclass:bucket"]` as `act` or `observe`. `sampleBucket` read the stored value before looking at
+  `sample`, so a tab that drew `act` under `sample: 0.5` kept acting after a deploy set `sample: 0` (until the tab
+  closed), and a same-origin script could write `act` to lift a session the app had sampled out (`runtime.ts`
+  `sampleBucket`).
+- **Reachable from a link**: no (`?genclass-sample=0` always lowered, and no URL value writes storage). It needs a
+  deploy that lowers `sample` while tabs are open, or script access to the origin's `sessionStorage` (T1).
+- **Affected**: every version with `sample`: `0.1.0-beta.1` to `0.2.2` and `0.3.0-beta.0` to `0.3.0-beta.4`.
+- **Fix**: `sample: 0` (like `1`) never reads or writes the storage; a verdict is stored with the sample it was drawn
+  under (`act@0.5`) and reused only under that sample. Open tabs are re-bucketed once on upgrade. Tests:
+  `test/options.test.ts`.
+
+### F4. `aggressiveness` level names were looked up with `in` (hardening)
+
+- **What.** `aggressivenessLevel` checked a string with `a in LEVEL_AT` on a plain object, so an `Object.prototype`
+  member name (`"constructor"`, `"__proto__"`, `"valueOf"`) returned a function instead of a number. From the option or
+  a route rule it reached the gate as the level and produced `NaN` thresholds; from `?genclass-aggr=` the lower-only
+  comparison rejected it, so a link had no effect.
+- **Impact**: nothing found that widens behaviour: a `NaN` threshold clears nothing (`decide/policy.ts`: `!(mass >= th)`
+  and `p >= g.report` both reject), so the page acted on and reported nothing at that gate. Listed as hardening.
+- **Affected**: `0.1.0-beta.1` to `0.2.2` and `0.3.0-beta.0` to `0.3.0-beta.4` (the `in` lookup arrived with the named
+  levels in `0.1.0-beta.1`).
+- **Fix**: only `cautious`, `balanced` and `eager` are names (`LEVEL_NAMES.includes`); anything else is `balanced`, as
+  documented. Test: `test/gates.test.ts`.
+
+### Patched versions for F1 to F4
+
+- `0.2.3` (stable line): commit `8694211`, tag `v0.2.3` on origin (2026-10-27); not on npm at the time of this draft.
+- `0.3.0-beta.5` (beta line): the port to `main` on branch `security/advisory-mode-raise`; not tagged or published at
+  the time of this draft. `0.3.0-beta.2` to `0.3.0-beta.4` carry the headline fix but not F1 to F4.
+
+GHSA ranges: F1, F3 and F4 `>= 0.1.0-beta.1, <= 0.2.2` and `>= 0.3.0-beta.0, <= 0.3.0-beta.4`; F2
+`>= 0.1.0-alpha.0, <= 0.2.2` and `>= 0.3.0-beta.0, <= 0.3.0-beta.4`. (owner: either widen this advisory's affected
+range to `<= 0.3.0-beta.4` with `0.3.0-beta.5` as the patched version once it is published and name F1 to F4 in it, or
+publish F1, the only one reachable from a link, as its own advisory and keep F2 to F4 in the CHANGELOG. The version
+tables above are for the headline issue only.)
+
 ## Severity
 
 `CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:L/A:L`, base score 5.4 (Medium).
@@ -231,6 +317,13 @@ Notes on the table:
 Conservative reading: this is a per-visitor, per-page-load downgrade of a safety setting, with no data exposure and no
 cross-user effect. The versions with no condition at all (0.1.0-alpha.0 to 0.1.0-beta.0) are unsupported and were on
 npm for days; the same vector applies to them with the same impact.
+
+The review's findings (F1 to F4) do not change the score. F1 shares the headline vector (a link, one visitor's page
+load, UI:R) with a smaller effect: the app's own global mode on a path it had scoped lower, never a mode the app did
+not opt into, so I:L / A:L still bound it; published on its own it would carry the same vector and score (5.4, or 4.2
+with AC:H), with that bound noted. F2 and F3 need the app's configuration or script access to the origin (out of
+scope: such a script can call `setMode("heal")` directly), so on their own they are AV:L with PR:H at most, below the
+headline score; F4 widens nothing.
 
 ## Workarounds
 
@@ -264,6 +357,11 @@ For an affected version that cannot be upgraded yet (the stable line until `0.2.
 6. **Limit what a raised mode could touch**: keep payment, checkout and sign-in endpoints under `requests.protect`
    (`protectPreset("payments", "auth")`), deny actions you never want with `policy.deny`, and leave `visual.fix` off.
    These are the production recommendations in SECURITY.md and INTERCEPTION.md and they apply in every mode.
+7. **For the review's findings on an affected version** (until `0.2.3` or `0.3.0-beta.5`): F1, use a predicate rule
+   that decodes the path and strips `;` parameters and trailing or repeated slashes before comparing, or keep the
+   app's global mode at the lowest level it needs rather than relying on a rule to lower it on one path; F2, set
+   `mode` from a checked value (`["observe", "guard", "heal"].includes(v) ? v : "observe"`); F3, a deploy that lowers
+   `sample` to 0 should also set `mode: "observe"` until the open tabs have closed.
 
 ## Credits
 
@@ -284,7 +382,9 @@ Found by the GenClass maintainers while testing `0.3.0-beta.0` in a pilot app on
 | 2026-10-24 | the fix's code and tests ported onto `main` (`5a6b48f`, merge `c2379a7`) |
 | 2026-10-25 | `0.3.0-beta.2` tagged and published with the fix (npm dist-tag `beta`) |
 | 2026-10-26, 2026-10-27 | `0.3.0-beta.3`, `0.3.0-beta.4` carry it |
-| pending | `0.2.3` on npm's `latest`; this advisory; docs on `main` updated (see the notes below) |
+| 2026-10-27 | the adversarial review of the 0.2.3 backport finds F1 to F4; fixed in `8694211` on `release/0.2.3`, tagged `v0.2.3` (not yet on npm) |
+| 2026-10-27 | F1 to F4 ported to `main` for `0.3.0-beta.5` (branch `security/advisory-mode-raise`), with the docs below |
+| pending | `0.2.3` on npm's `latest`; `0.3.0-beta.5` tagged and published; this advisory; docs on `main` updated (see the notes below) |
 
 ## References
 
@@ -295,6 +395,10 @@ Found by the GenClass maintainers while testing `0.3.0-beta.0` in a pilot app on
 - `packages/runtime/INTERCEPTION.md` ("What each mode may change", "What it never does", "Actions: preconditions and
   reversibility"), `docs/runtime/THREAT-MODEL.md` T8, `SECURITY.md` ("Recommended for production").
 - `packages/runtime/CHANGELOG.md`, the `0.2.2` security entry (the earlier, partial fix).
+- Review findings F1 to F4: commit `8694211` (`release/0.2.3`, tag `v0.2.3`); the `main` port on branch
+  `security/advisory-mode-raise`; `packages/runtime/CHANGELOG.md` "Unreleased (0.3.0-beta.5)" and "0.2.3";
+  `packages/runtime/src/util/match.ts` `normalizeRoute`, `src/runtime.ts` (constructor, `sampleBucket`,
+  `computeScope`), `src/cdn/config.ts` `readWindowConfig`, `src/decide/policy.ts` (`aggressivenessLevel`, `modeAllows`).
 
 ## Notes for the owner before publishing (not part of the advisory text)
 
@@ -314,3 +418,12 @@ Found by the GenClass maintainers while testing `0.3.0-beta.0` in a pilot app on
   release goes through `.github/workflows/release.yml` on a `v0.2.3` tag whose version equals
   `packages/runtime/package.json` on that branch.
 - The CVSS Attack Complexity choice (L, 5.4, or H, 4.2) is yours; the table above explains both.
+- F1 to F4 are on no published version yet: `0.2.3` is tagged, `0.3.0-beta.5` is not. Decide whether this advisory
+  covers them (then its affected range becomes `<= 0.3.0-beta.4` and the patched versions `0.2.3` / `0.3.0-beta.5`) or
+  F1 gets its own; F2 to F4 can stay CHANGELOG entries either way.
+- The `main` port of F1 to F4 raises `packages/runtime/test/bundle.test.ts`'s `/auto` first-load limit from 108.6 to
+  108.7 KB (the fixes add 0.27 KB to `/auto` and 0.17 KB to the main entry; RESULTS.md section 10), pending your OK as
+  the earlier limits were. It also brings OPTIONS-SPEC §3 and THREAT-MODEL T8 in line with `0.3.0-beta.2`'s code (the
+  stale `debug` wording listed above); CONTRACT.md line 540, the README's `?genclass-sample=1` recipe and
+  INTERCEPTION.md's "raises only with `debug: true`" sentence are still as listed and need your OK (CONTRACT) or a
+  separate docs change.

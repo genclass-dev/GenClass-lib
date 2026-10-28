@@ -89,7 +89,12 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
   // 0.29 KB to /auto and 0.27 KB to the main entry over main (108.25 / 100.13 KB; 108.53 / 100.40 KB with it, measured
   // with test/first-load-size.mjs on the train VM, 2026-10-18); the recording itself is a lazy chunk (dist/analytics/index.js, asserted below). The
   // limits are the measured sizes plus 0.05 / 0.07 KB, as before. Both sizes are printed before either is asserted.
-  const LIMIT_KB: Record<string, number> = { "auto.js": 108.6, "index.js": 100.48 };
+  // Review of the mode-raise fix (branch security/advisory-mode-raise, 0.3.0-beta.5; the /auto limit below is pending
+  // the owner's OK): normalizeRoute, the mode validation and its warning, the sample bucket's act@<sample> form and
+  // readWindowConfig's mode check add 0.27 KB to /auto and 0.17 KB to the main entry over main at 49c8c03 (108.63 /
+  // 100.46 KB, test/first-load-size.mjs against main's dist, 2026-10-27; docs/runtime/RESULTS.md section 10). /auto's
+  // limit is that size plus 0.07 KB; the main entry stays 0.02 KB under its limit, which is unchanged.
+  const LIMIT_KB: Record<string, number> = { "auto.js": 108.7, "index.js": 100.48 };
   it("first-load cost of /auto and the main entry, minified + gzip: under the limits", async () => {
     const { build } = await import("esbuild");
     const uses: Record<string, string> = { "auto.js": "", "index.js": "GenClass.init({});" };
