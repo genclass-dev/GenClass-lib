@@ -147,6 +147,36 @@ support.claude.com "Anthropic Software Directory Policy".
   Support: `supportUrl` (GitHub issues). Tool annotations: every tool has `title`, `readOnlyHint`, `destructiveHint`
   and `openWorldHint`. Test account: none needed (no account exists); for a reviewer's page to test against, the
   end-to-end app is `packages/mcp/test/e2e/app`. Example prompts: the three above.
+- **Submitted (2026-10-28).** From Karanvir's Max account (the browser pane's sign-in; the listing belongs to that
+  account's organization), repository `genclass-dev/genclass-plugin`, `main` at e911b25, plugin page
+  `claude.ai/directory/manage/plugins/20878d40-42c5-4300-a1d6-f09b9cc291eb`. The portal's validation: 7 checks
+  passed, 4 warnings, 2 policy holds. The warnings: `documentationUrl`, `supportUrl` and `privacyPolicyUrl` in
+  `plugin.json` ("the directory reads them, Claude Code ignores them, no action needed") and "Launcher lock missing"
+  (above). Notes, not warnings: the server is local, so not on claude.ai; the agent-plugins `plugin.json` is ignored;
+  the icon passed without a code check. "MCP server command wasn't read" did not appear. The holds: "Runs a pinned npx
+  or uvx package", one for `.mcp.json` and one for the hook. Listed on Claude Code and Cowork; the Claude apps surface
+  was unticked because the skill says the chat app cannot run the server. Data handling: no personal data, no skill
+  sends data elsewhere, nothing retained, not for under-18s. Contact: mehar@daybot.ca. Auto-publish was switched on,
+  but the page says it does not apply until an Anthropic reviewer has published a version. Updates: the push webhook
+  ("Set up push updates" on the plugin's page gives the payload URL and a secret shown once; "Rotate secret" on its
+  Settings tab replaces it) was added to the repository the same day with
+  `gh api -X POST repos/genclass-dev/genclass-plugin/hooks` (content type JSON, the push event only, active);
+  GitHub's ping delivery returned 200 and the page shows "Webhook connected". State: the security scan passed within
+  4 minutes of submitting; since then "In review" ("Held for: Content policy review", reason "Runs a pinned npx or
+  uvx package"); "Live" needs a reviewer, and the first version always does.
+- **Lockfile re-validation (2026-10-28).** PR #125 (merged as d15192a) reached the plugin repository through the sync
+  workflow as 68507fa (`package.json` and `package-lock.json` added, the README updated). The webhook's push delivery
+  returned 200 and the page showed "last push just now", and "Check for new commits" was pressed, but the directory
+  took the new version "via scheduled check" about 9 minutes after the push (the page says its own check runs about
+  every 6 hours with or without a webhook). It fetched 17 files (177.7 kB); validation "Passed with warnings: 4
+  notes", and "Launcher lock missing" became the note "Launcher locked"; the scan passed in 2 minutes; compared with
+  e911b25, "2 new findings, 1 fixed". The version is held for a reviewer with two reasons now: "Runs a pinned npx or
+  uvx package" (2 findings, as before) and the new "Dependencies install from a lockfile" on `package-lock.json`:
+  "No action needed: a reviewer clears this hold. Keep a lockfile that pins an npx-launched server; to avoid the
+  install entirely, bundle the dependencies into built files of under 256 KiB each and remove both package.json and
+  the lockfile." So the lockfile earns the lock note, not fewer holds; only the vendored server (above) avoids both.
+  The three `plugin.json` URL fields, "Uses hooks" and "Runs a local program for an MCP server" are listed as
+  warnings for information only. The tracked branch cannot change while the plugin is under review.
 
 ## 4. punkpeye/awesome-mcp-servers
 
