@@ -1,14 +1,28 @@
-# Interaction analytics: design
+# GenClass interaction analytics: design
 
-Status: design written 2026-10-17 and **approved by the owner the same day** with every recommendation in
+GenClass interaction analytics count page views, engaged time, scroll depth and clicks (including rage and dead
+clicks) per element, for an app's own dashboard on genclass.dev. They are off by default, need telemetry on and the
+app's token (or a custom telemetry endpoint), are turned off by every telemetry opt-out and Global Privacy Control,
+never record element text, and never reach the model or a decision. Status: merged into `main` on 2026-10-18 and
+shipped in `@genclass/runtime` 0.3.0-beta.1 (2026-10-22, npm's `beta` dist-tag); visits, funnels, navigation paths
+and the version check (sections 1.2, 3.1, 11 and 4.1) followed in 0.3.0-beta.2 (2026-10-25); the newest release is
+0.3.0-beta.4 (2026-10-27). npm's `latest`, 0.2.2, has no analytics (section 4.1).
+
+Design written 2026-10-17 and **approved by the owner the same day** with every recommendation in
 [section 9](#9-decisions-for-the-owner) (AGENTS.md rule 8: widening what telemetry sends needs that OK). **Built**
 2026-10-18 on branch `feat/interaction-analytics`: the runtime (`packages/runtime/src/analytics/`), the collector
 and the dashboard (`telemetry-worker/`), and the admin filter for genclass.dev (`site/src/admin.js`); the differences
-from this note are in [section 10](#10-implementation-notes). Not released: genclass.dev needs a runtime release
-first (section 7).
+from this note are in [section 10](#10-implementation-notes). First-load cost:
+[RESULTS.md section 15](RESULTS.md#analytics). Adopting them on genclass.dev itself is section 7: the site pinned
+0.2.2 when this was written, and its pages were unchanged as of 2026-10-25 (sections 10 and 11.3).
+
+**Where the genclass.dev paths are now.** Since 2026-10-18 the website and its admin (`site/`) live in the private
+repository `genclass-dev/genclass-site`, which includes this repository as its `lib/` submodule. The paths `site/...`
+in sections 6, 7 and 10 (`site/src/admin.js`, `site/src/worker.js`, `site/src/pages/privacy.html`) are in that
+repository; `telemetry-worker/` and `billing/plans.json` stay here.
 
 **Product analytics (2026-10-25).** The owner asked for analytics "like PostHog in the dashboard ... choose the most
-easy and reliable way". Section [1.2](#12-visits-sources-devices-unreleased) adds visits, where they came from,
+easy and reliable way". Section [1.2](#12-visits-sources-devices-2026-10-25) adds visits, where they came from,
 devices, countries, new or returning, entry and exit pages and funnels, inside the same `analytics: true` opt-in and
 the same no-text rule; section [3.1](#31-visits-and-funnels) says how the collector counts them.
 
@@ -92,7 +106,7 @@ is queued when a view ends, when the tab is hidden (before the existing hidden f
 `summary`, and only if something changed. At most 50 element keys per event for `clicks` and 20 each for `rage` and
 `dead`; the rest are added up under `(other)`. A view of a few minutes sends one or two events of well under 2 KB.
 
-### 1.2 Visits, sources, devices (Unreleased)
+### 1.2 Visits, sources, devices (2026-10-25)
 
 Built 2026-10-25 (branch `dash-analytics`) on the owner's request above, inside `analytics: true`; nothing changes
 without it.
@@ -219,9 +233,9 @@ GenClass.init({ token: "gc_…", analytics: true });
 ### 4.1 Which runtime: loud, never silent
 
 Interaction analytics first shipped in `@genclass/runtime` **0.3.0-beta.1**, on npm's `beta` dist-tag (install it with
-`npm install @genclass/runtime@beta`, `npx @genclass/runtime@beta init`, or a script tag pinned to
-`@0.3.0-beta.1`). npm's `latest` is still `0.2.2` until 0.3.0 is stable, and `0.2.x` and `0.3.0-beta.0` have no
-analytics: they ignore `analytics: true` without a word (reproduced on 0.2.2 in jsdom: no warning, no
+`npm install @genclass/runtime@beta`, `npx @genclass/runtime@beta init`, or a script tag pinned to the exact version,
+`@0.3.0-beta.4` on 2026-10-27). npm's `latest` is still `0.2.2` until 0.3.0 is stable, and `0.2.x` and `0.3.0-beta.0`
+have no analytics: they ignore `analytics: true` without a word (reproduced on 0.2.2 in jsdom: no warning, no
 `runtime.analytics`, nothing sent; a TypeScript app gets a type error for the unknown option). Those releases cannot
 change, so every path that the newest line controls says it instead:
 
@@ -315,8 +329,9 @@ a consent banner (section 7 step 4).
    default-on clickstream from every app using GenClass would change what the library is.
 3. **Element key sources**: data attributes, then ids, then link targets, then stable class names, then a structural
    path. Recommended. The stricter alternative drops ids and class names (more `nth-of-type` paths, less readable).
-4. **Storage**: `interactions` events stored in R2 with the batch (90 days, and in the paid export), but never used
-   for model training. The alternative strips them from R2 and keeps only the dashboard counters.
+4. **Storage**: `interactions` events stored in R2 with the batch (90 days, 1 year on the Enterprise plan, and in
+   the data export, which was a paid feature when this was written and is on every plan since 2026-10-19), but never
+   used for model training. The alternative strips them from R2 and keeps only the dashboard counters.
 5. **genclass.dev**: which of the two options in section 7 step 3, and how to handle consent for EU, EEA and UK
    visitors (section 7 step 4).
 

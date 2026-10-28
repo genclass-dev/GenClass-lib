@@ -9,7 +9,7 @@
     "url": "git+https://github.com/genclass-dev/GenClass-lib.git",
     "directory": "packages/playwright"
   },
-  "homepage": "https://genclass.dev",
+  "homepage": "https://github.com/genclass-dev/GenClass-lib/tree/main/packages/playwright#readme",
   "bugs": { "url": "https://github.com/genclass-dev/GenClass-lib/issues" },
   "keywords": [
     "playwright",
@@ -19,7 +19,12 @@
     "stale-response",
     "duplicate-request",
     "genclass",
-    "e2e"
+    "e2e",
+    "reporter",
+    "test-reporter",
+    "github-actions",
+    "pull-request",
+    "ci"
   ],
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

@@ -142,7 +142,7 @@ opt-outs are unchanged, and the default model is unchanged.
   that long, EventSource and WebSocket are not checked. Same rules as the other visual checks: on by default on
   development hosts, `visual: true` elsewhere, report-only, never a situation or model input, nothing sent. It lives
   in the lazily loaded checks chunk: no first-load bytes. Demos: 0 false reports in 120 clean and chaos runs, 11 of 18
-  planted 60 s hangs found (polls on a learned schedule are skipped by design; RESULTS.md §21).
+  planted 60 s hangs found (polls on a learned schedule are skipped by design; RESULTS.md §23).
 - **`init` writes `defer` on the plain-HTML script tag**, so a slow or blocked CDN no longer holds up rendering.
   GenClass then starts after classic scripts without `defer` or `async` (their requests during page load are not
   seen), still before deferred and module scripts; model loading is unchanged (idle after `load`). `--sync` writes the
@@ -220,8 +220,8 @@ model-visible text changed (`situation-v2.3`); the default model is still `@genc
   first load stays within its limits (108.54 / 100.40 KB).
   It wraps the runtime's delivery gate and request ignore list while connected and restores both on `disconnect()`;
   nothing it records reaches a situation, a decision, the event log or the model (no model-visible text changed,
-  `situation-v2.3`), and telemetry is unchanged. INTERCEPTION.md, THREAT-MODEL.md (T10), API.md, CONTRACT.md §16,
-  RESULTS.md section 16.
+  `situation-v2.3`), and telemetry is unchanged. INTERCEPTION.md, THREAT-MODEL.md (T13), API.md, CONTRACT.md §16,
+  RESULTS.md section 18.
 - **Fix: a reused XHR object could get the next request's response early.** When the app aborted an XHR whose
   completion listeners the runtime held for a delivery decision (guard or heal) and sent a new request on the same
   object, releasing the old, held delivery ran the listeners queued for the new request before its own decision. The
@@ -236,7 +236,7 @@ model-visible text changed (`situation-v2.3`); the default model is still `@genc
   no longer names Inter or JetBrains Mono, so a page that declares either as a web font no longer downloads it for
   the overlay. The tab row scrolls sideways instead of hiding Expectations and Now past the panel's edge, and the
   header no longer clips the name. Every view, control and string is the same; no model-visible text changed.
-- **Interaction analytics, off by default (`analytics: true`; [docs/runtime/ANALYTICS.md](../../docs/runtime/ANALYTICS.md)).**
+- **Interaction analytics, off by default (`analytics: true`; [docs/runtime/ANALYTICS.md](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/ANALYTICS.md)).**
   An app that sets `analytics: true` with its token also sends `interactions` telemetry events for its dashboard: per
   page view, the route, engaged time (the tab visible, at most 30 s after the last input), scroll depth milestones
   (25 / 50 / 75 / 100 %), and clicks, rage clicks (3 within 1 s on one element) and dead clicks (a link or button
@@ -268,14 +268,35 @@ model-visible text changed (`situation-v2.3`); the default model is still `@genc
   and heal the first duplicate submit of every page load went through on a CPU about 15% slower than the VM's. The
   warm-up now times a second pass on every device: `status.latency` comes from it, `status.warmupMs` is still the
   first, cold pass. A load on WASM takes one more warm-up pass (a ~430-token situation, warm). No model-visible text
+  changed.
 - **Release notes: the npm registry's empty `readme` field.** Since 0.3.0-beta.0 went to `beta`, the registry's
   top-level `readme` for the package (`npm view @genclass/runtime readme`) is empty: the registry empties it on every
   publish to a tag other than `latest` and fills it again on the next `latest` publish, as it does for react,
   typescript, next and vitest. The npm and jsDelivr package pages are not affected; they show each version's full
   README. `.github/workflows/release.yml` now says so. No package contents, runtime code or model-visible text
   changed.
+- **Docs and package metadata.** The npm description, keywords and author are new, and `CHANGELOG.md` now ships in
+  the package. The README is shorter: the full install guide, the dashboard and the sinks moved to
+  [INSTALL.md](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/INSTALL.md),
+  [DASHBOARD.md](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/DASHBOARD.md) and
+  [SINKS.md](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/SINKS.md), next to a new
+  [FAQ](https://github.com/genclass-dev/GenClass-lib/blob/main/FAQ.md) and a
+  [docs index](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/README.md) with a glossary.
+  TELEMETRY.md gives the six larger events (`session`, `model`, `decision`, `detect`, `summary`, `interactions`) a
+  section each, adds `init --no-telemetry` (with its one exception: in an Astro layout where GenClass is inline in
+  `<head>`, add the `telemetry=off` meta tag yourself) and the `genclass` kill switch to its opt-out table and opens
+  with a version note. It now also lists two things that were already sent: a decision that would have acted in
+  shadow mode is always sent (never sampled), and `summary.runtime` carries the model state and the longest hold
+  (`heldMs.max`). INTERCEPTION.md also opens with a version note, lists the webhook sink's requests (and the chunks
+  the zero-code entries load for a named sink) and corrects four rows: learned state is stored only with
+  `learn.expectations` or `learn.persist`, only routine decision records are sampled and capped (0.3.0), the devtools
+  overlay listens for theme changes only with `theme: "auto"`, and a `?genclass=` value in the URL takes precedence
+  over the `genclass` kill switch in localStorage. It also marks the model's default device floor and
+  `inlineFallback: false` as 0.3.0 only. Links that leave the package point at GitHub.
+  The unscoped `genclass-runtime` alias is documented as deprecated in this repository (it is not yet marked
+  deprecated on the npm registry). Nothing that is sent changed; no runtime code and no model-visible text changed.
 
-## 0.3.0-beta.0 (unreleased)
+## 0.3.0-beta.0 (2026-10-15)
 
 The first 0.3.0 prerelease, for the `beta` dist-tag (release.yml publishes a prerelease version to the dist-tag
 named after it; `latest` stays where it is until the owner moves it). No model-visible text changed: the situation
@@ -718,7 +739,7 @@ observer does not record the runtime's own writes.
 
 ### Measured visual checks
 
-- **New: measured visual checks** ([docs/runtime/VISUAL.md](../../docs/runtime/VISUAL.md)). GenClass now finds visual
+- **New: measured visual checks** ([docs/runtime/VISUAL.md](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/VISUAL.md)). GenClass now finds visual
   and CSS bugs that never throw an error: text you cannot read because it is nearly the colour of its background
   (below 1.5:1, including on hover, on focus and in dark mode), images, CSS background images, stylesheets, web fonts,
   icon fonts and media that failed to load, styles and images a Content-Security-Policy blocked, `[object Object]`,
@@ -766,7 +787,7 @@ observer does not record the runtime's own writes.
     the visitor is not using, layout shifts and failed CSS images outside Chromium, low contrast that is readable but
     below WCAG AA.
   - **Measured** by a new bench (`bench/visual`, GitHub Actions only;
-    [RESULTS.md section 14](../../docs/runtime/RESULTS.md)): 0 false reports in 128 views of the demos, templates and
+    [RESULTS.md section 14](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/RESULTS.md#visual-bench)): 0 false reports in 128 views of the demos, templates and
     compat apps (desktop and phone, light and dark), and recall 1.00 on planted faults for 19 of the 23 kinds
     (`click-blocked` and `scroll-lock-stuck` 0.67, `pointer-events-leak` 0.94, `css-var-undefined` 0.96; run 5). On
     about 40 public home pages the checks

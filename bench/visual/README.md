@@ -89,6 +89,6 @@ gh run download <id> --repo genclass-dev/GenClass-lib --name visual-summary
 On the visual branch, a push that changes `bench/visual/` starts it (`[smoke]` in the commit message: two pages per
 group). Locally, `summarize.mjs` runs on downloaded artifacts: `node bench/visual/summarize.mjs <downloaded artifacts>
 --labels bench/visual/labels.json`. The demos and templates groups also run on a machine with Chromium and 16 GB
-(2026-10-25, RESULTS.md section 22): `node bench/visual/build.mjs`, `node bench/visual/corpus.mjs prepare demos`
+(2026-10-25, RESULTS.md section 24): `node bench/visual/build.mjs`, `node bench/visual/corpus.mjs prepare demos`
 (templates: with `VISUAL_BENCH_WORK=<dir>`, which `npm install`s each starter), then `node bench/visual/run.mjs
 --group demos --parts clean,cost,faults`. The public sites run only in the workflow.

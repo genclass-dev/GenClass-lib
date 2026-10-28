@@ -1,5 +1,9 @@
 # Changelog
 
+Changes to `@genclass/playwright`, the Playwright reporter for
+[`@genclass/runtime`](https://www.npmjs.com/package/@genclass/runtime) race files. Version 0.1.0 is not on npm yet;
+everything below is unreleased.
+
 ## Unreleased
 
 - **The fixture**, `@genclass/playwright/fixture`: Playwright's `test` (`test.extend`) and `expect`, with a
@@ -49,3 +53,8 @@
   then whole tests, with a note saying what was left out; the counts include everything.
 - The "model was not ready" note is only for files that flagged nothing, and no longer says those runs could not
   flag anything (a file can carry detections with state `unloaded`).
+- Docs: the README opens with what the package is and links `@genclass/runtime` on npm; the config example imports
+  `defineConfig`; the measured double-submit list names all 14 data layers and the runtime build the matrix ran;
+  the privacy note gives the versions that send diagnostics from local hosts (`0.1.0-beta.3` to `0.2.1`); links
+  outside the package are absolute, so they work on npm. `homepage` points at the README, and the package
+  description says the race files come from the GenClass Playwright fixture, which is not released yet.

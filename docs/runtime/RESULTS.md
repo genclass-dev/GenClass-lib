@@ -1,24 +1,73 @@
 # GenClass Runtime: results, comparisons and training log
 
-Updated 2026-10-08. All numbers are measured on held-out data. Every recall or fix rate is reported next to its
+This page collects the measured numbers for GenClass Runtime (`@genclass/runtime`) and its model
+(`@genclass/runtime-model`): model quality, false interventions, detection rates, demo and real-app runs, the
+compatibility matrix, first-load size, browser cost and the measured visual checks. The READMEs and the model card
+quote these numbers; the raw reports they come from are listed below. The current releases are runtime 0.2.2 (npm
+`latest`) and 0.3.0-beta.0 (`beta`) with model 0.2.0, but the measurements span runtimes from before 0.1.0-alpha.1
+to 0.3.0-beta.0, release branches and unreleased work on `main`. Measured on 0.2.2 or on the branches that became
+0.3.0-beta.0: the CI first-load and telemetry-volume numbers (§8 to §11), the dashboard counts (§12) and the visual
+checks (§13, §14). The demo, real-app, compatibility-matrix and browser-cost numbers come from earlier runtimes and
+were not re-run; the model numbers are held-out evaluations of each model, with model 0.2.0 the current one. Each
+section says what it measured and on which model, runtime version or branch.
+
+Updated 2026-10-22 (the summary below and sections 16 and 17 added, and the numbers that were recorded only in the
+READMEs and the model card added to sections 1, 2 and 8; the newest measurement is section 15, 2026-10-18). Model
+numbers are measured on held-out data. Every recall or fix rate is reported next to its
 false-intervention rate (FIR): the share of cases where doing nothing was best but the gate fired anyway. The raw
-reports are in `training/EVAL.md`, `sim/SEPARABILITY.md`, `realapps/README.md` and
-`demos/results.md`.
+reports are in `training/EVAL.md`, `sim/SEPARABILITY.md`, `realapps/README.md`, `demos/results.md` and
+[`compat/RESULTS.md`](../../compat/RESULTS.md).
+
+## Current numbers in one place
+
+The headline numbers for the current releases, each checked against the section it names. On npm (dist-tags on
+2026-10-22): `@genclass/runtime` 0.2.2 (`latest`) and 0.3.0-beta.0 (`beta`), with the model
+`@genclass/runtime-model@0.2.0` (training run `r17-v2dT`) at its default profile, `balanced`. Rows further down for
+round 1, `r17-v2a` to `r17-v2c` and model 0.1.0 (`r17-v2b`) are superseded and kept as the record.
+
+| measure | number | section |
+|---|---|---|
+| Observe (the default): problems detected with the right diagnosis, held-out real apps | likely tier (report gate 0.90 at `balanced`; what `rt.on("detect")`, `report` listeners and the console's default level get, and all that 0.2.2 reports): duplicate submits 75%, stale overwrites 30% (`situation-v2.3` slice; 21% on `situation-v2`), genuine broken state 6%. 0.3.0-beta.0's observe default (`detect: "possible"`) also records possible detections, at the `eager` report gate 0.70, to `console.debug`, the devtools and telemetry (`tier: "possible"`): likely and possible together 77% / 45% (40% on `situation-v2`) / 13%, the `eager` profile's measured rates, not measured end to end on 0.3.0 | §1, §11 |
+| Observe: false detections | likely tier: the 0.2.0 fit held them to at most 2% (real apps) and 3% (simulated) of clean decisions, met on held-out test; the exact rate is not published. Possible tier (the 0.3.0 observe default): at most 5% / 6% for likely and possible together; the share of possible detections that are false is not measured. Compatibility matrix (likely tier, `balanced`): 49 false findings in 880 runs on correct apps. Bench demos (observe, model 0.2.0): 2 of 30 clean trials had a detection at `balanced`, 3 of 29 at `eager` | §11, §16 |
+| Guard (opt-in): false-intervention rate (FIR) | 0.13% of held-out simulated cases where doing nothing was best; 0.00% on held-out real apps. `cautious` 0.005%, `eager` 0.54% | §1 |
+| Guard: recall, at the FIR above | acts on 7.8% of clear simulated cases and 7.5% of actionable real-app cases | §1 |
+| Heal (experimental): FIR and recall | FIR 0.59% simulated, 0.00% real apps; acts on 7.1% of clear simulated and 10.4% of actionable real-app cases | §1 |
+| Project targets | guard FIR ≤ 0.1% and heal FIR ≤ 0.5%: `cautious` meets both, `balanced` is slightly over both (it was fitted to guard ≤ 0.3% and heal ≤ 1%, and meets those), `eager` is well over | §1 |
+| Six demos under network chaos (model 0.2.0, runtime 0.1.0-beta.4, `balanced`) | bug rate 72% without GenClass, 70% observe, 72% guard, 73% heal: no mode lowered it (differences under about 5 points are noise); 0 false interventions in 30 clean trials each in guard and heal | §5 |
+| Correct apps left unchanged (always-passive model in heal mode, compared with observe mode, not with running without GenClass; runtime as of 0.1.0-alpha.1, not re-run since) | 0 of 396 clean runs changed (66 real apps × 6 seeds); with network chaos, 3 of 198 | §4 |
+| Compatibility matrix (7 apps: 6 frameworks and plain HTML; 15 data layers, 8 scenarios, 10 seeds, every mode; 2026-10-10, runtime commit `d04eff3`: the 0.1.0-beta.4 code plus the "Model ready" log fix; 0.2.0's audit trail, protect presets and hold-budget ceilings and 0.2.1's first-request hold were not run through the matrix; it was not re-run on 0.2.2 or 0.3.0-beta.0) | 0 bugs introduced in 3,510 runs; 0 actions on correct apps in 1,760 guard and heal runs; 10 double submits prevented, all by heal `block` on one data layer | §16 |
+| Browsers measured | Chromium only (the demos, the compatibility matrix, the visual checks); Firefox and Safari are not measured | §5, §13, §14, §16 |
+| First-load JavaScript, minified and gzipped | 0.3.0-beta.0 (the published build, tag `v0.3.0-beta.0`): 108.25 KB for `/auto`, 100.13 KB for the main entry, 128.56 KB for the script tag. 0.2.2: 99.17 / 91.70 KB. With the interaction-analytics stub (branch `feat/interaction-analytics`, train VM, 2026-10-18, since merged into `main` and unreleased; current `main` not re-measured): 108.529 / 100.395 KB | §9, §10, §15 |
+| Model files and speed | q8 10.16 MB (WASM), fp16 13.57 MB (WebGPU with `shader-f16`); 8.8M parameters; about 182 / 330 / 599 ms per pass at 500 / 780 / 1,170 tokens on one WASM thread (a least-squares fit over runs of onnxruntime-web 1.30 in Node on the training VM, not in a browser; `training/ortweb/validate.mjs`) | §2 |
+| Browser cost on a pilot app (0.1.0-beta.3, model 0.2.0, 4× CPU throttling) | +190 to 280 MB renderer memory while the model is loaded; 12.7 MB downloaded on a first visit on WASM (the READMEs say about 13 MB); no measurable change to the load event, LCP or long tasks | §17 |
+| Telemetry volume, one tab at the model's maximum decision rate for an hour (scripted decider, observe mode, situation text off as by default; release review commit `9d567a0`, not the published build) | 251.9 KB in 165 requests when every decision is routine; 2,068.5 KB in 361 requests when every decision is a detection | §10 |
+| Measured visual checks (deterministic, not the model) | fixture pages: 35 of 35 planted faults found, 0 false reports. Bench: 0 false reports and 0 fixes in 128 page views of the demos, templates and compat apps; recall 1.00 on 20 of 23 planted fault kinds (run 4), 19 of 23 (run 5); public sites: 8 findings in 96 loads in run 4 (5 confirmed real, 0 check errors, 3 unconfirmed), 6 findings in 97 loads in run 5 (after the review; not looked at) | §13, §14 |
+| Flow expectations (opt-in) | false-report rate not measured yet | §5 |
+| Coding agents: `genclass_explore` and `genclass_replay` on one real page (train VM, headless Chromium, 2026-10-20; one page, one bug class, not a recall figure) | explore found the stale-results race in 5 of 6 reordered runs of the buggy page and reported nothing on the fixed page (0 of 6 differ: no false report); replay reproduced it before the fix and not after; the generated Playwright test failed before and passed after | §18 |
 
 ## 1. Model stages compared (held-out simulated apps)
 
-| Stage | Data | Diagnosis | Action | Guard FIR | Heal FIR | Recall on clear stale/duplicate cases |
+| Stage | Data | Diagnosis | Action | Guard FIR | Heal FIR | Recall on clear cases (see the note below) |
 |---|---|---|---|---|---|---|
 | GenClass 0.1 (no runtime training) | none | 8.0% | 37.6% | ~0% | 0.0–0.33% | ~0% |
 | Stage 1: curriculum only, R17 (tested on simulated apps) | 1.2M curriculum rows | 44% | 48% | 9.7% | 18.4% | n/a (over-intervenes) |
-| Stage 2 pilot, R17 | 224k pre-freeze sim rows, mushy labels | 91.1% | 78.3% | 0.00% | 0.08% | ~1% |
-| **Final round 1, R17** (format v1) | 448k sim rows (phase A) | **90.5%** | **81.9%** | **0.05%** | **0.24%** | **7.7%** |
-| Final round 1, R32 (format v1) | same | 89.7% | 81.8% | 0.05% | 0.22% | 5.9% |
-| **r17-v2a** (format v2, first round) | 2B tokens of v2 sim gold + v2 curriculum | 84.4% | 77.9% | **0.00%** | 0.46% | 3.1% (heal clear-case 11.3%) |
-| **r17-v2b** (+1B tokens with real-app gold) | sim 84.2% / real 83.6% | sim 77.8% / real 80.0% | 0.02% sim, 0.00% real (derived gates) | 0.23% sim, 0.00% real | heal 6.0% clear; real duplicate 8.2% (14% held-out apps) |
-| 150M teacher (t150-v2a, 1B tokens, v2 + real gold) | sim 81.8% / real 82.0% | sim 76.5% / real 78.1% | – | – | lower than r17-v2b everywhere, so distillation was skipped |
-| **r17-v2c** (+ on-policy round a, v2.2 retry labels) | sim 84.4% / real 83.7% | sim 77.8% / real 79.9% | 0.02% sim, 0.00% real | 0.22% sim, 0.00% real | guard recall on clear 2.1% (v2b 0.6%); heal gain 5.6% (v2b 3.8%); real duplicate 11.2% |
-| Next: r17-v2d (mass gate) vs r17-v2dT (gain gate), winner ships as model 0.2.0 | 10.4M sim gold + 51M unlabeled + 616k real | in progress | | | | |
+| Stage 2 pilot, R17 | 224k pre-freeze sim rows, mushy labels | 91.1% | 78.3% | 0.00% | 0.08% | ~1% (heal recall on every row where acting was best, not clear cases only: 1.4%) |
+| Final round 1, R17 (format v1) | 448k sim rows (phase A) | 90.5% | 81.9% | 0.05% | 0.24% | 7.7% |
+| Final round 1, R32 (format v1) | same | 89.7% | 81.8% | 0.05% | 0.22% | 6.8% |
+| r17-v2a (format v2, first round) | 2B tokens of v2 sim gold + v2 curriculum | 84.4% | 77.9% | 0.00% | 0.46% | heal 11.3% (all clear cases, fixed gates; `training/EVAL.md`, `sim2e`) |
+| r17-v2b (its gates were refit at 10:30 and that refit shipped as model 0.1.0: guard FIR 0.01%, heal 0.07%, "Model 0.2.0" table) | from r17-v2a, +1B tokens: sim v2 gold 70%, real-app gold 18% (eval-set rows left out), curriculum replay 12% | sim 84.2% / real 83.6% | sim 77.8% / real 80.0% | 0.02% sim, 0.00% real (first derived gates) | 0.23% sim, 0.00% real (first derived gates) | heal 6.0% clear, real-app action cases 9.5% (derived gates; `training/EVAL.md`); at the fixed heal gate 0.8 (heal FIR 0.50% `sim2e`, 0.31% `real2e`, 0.00% on the eval set's clean rows): real duplicate 8.2% (14% on held-out apps) |
+| 150M teacher (t150-v2a) | 1B tokens of v2 sim gold and real-app gold | sim 81.8% / real 82.0% | sim 76.5% / real 78.1% | – | – | lower than r17-v2b everywhere, so distillation was skipped |
+| r17-v2c (its q8 export, in the head-to-head for model 0.2.0) | + on-policy round a, v2.2 retry labels (`training/configs/mix_v2c.json`) | sim 85.2% / real 84.0% | sim 77.8% / real 79.9% | 0.016% sim, 0.00% real | 0.21% sim, 0.00% real | guard 1.8% clear; heal 6.0% clear, real-app action cases 9.8% |
+| **r17-v2dT (gain gate), shipped as `@genclass/runtime-model@0.2.0`**, profile `balanced` | from r17-v2c, 1.5B tokens in all (the same data and schedule as v2d): sim v2 gold (`sim2r`), the `situation-v2.3` sim gold, on-policy round a, real-app gold (v2c plus the v2d and v2.3 top-ups), curriculum replay (8% of the mix, `training/configs/mix_v2dT.json`), both eval sets left out; action labels are gain distributions (softmax(gain/τ = 1)) | sim 85.4% / real 85.5% | sim 73.9% / real 77.8% (gain labels: not comparable with the rows above) | **0.13% sim, 0.00% real** | **0.59% sim, 0.00% real** | all clear cases: guard 7.8% (real-app action cases 7.5%); heal 7.1% (real 10.4%); all three profiles in "Model 0.2.0" below |
+
+Recall column: the share of clear cases (the gold label puts at least 0.9 on one permitted action other than doing
+nothing) on which the gate acted. The two final round 1 rows count the clear stale and duplicate cases only (R17 7.7%
+of 220 rows; on all clear cases R17 acted on 4.2% in guard and 6.1% in heal, R32 on 3.5% and 5.9%). From r17-v2b on,
+the cells count all clear cases in the mode named, with real-app recall where given (`training/EVAL.md`). r17-v2a's
+cell (heal, 11.3%) counts all clear cases at the fixed gates of its row. The r17-v2c row is the q8
+export measured in the head-to-head (`training/EVAL.md`, "Head-to-head for `@genclass/runtime-model@0.2.0`"), with
+gates fitted on dev at 0.8 × each limit; an earlier PyTorch evaluation of r17-v2c, recorded only in commit `f9509b8`
+without its report, is not used here.
 
 ### r17-v2a on held-out data (details)
 
@@ -26,13 +75,16 @@ reports are in `training/EVAL.md`, `sim/SEPARABILITY.md`, `realapps/README.md` a
 |---|---|---|---|---|---|---|
 | Sim test (`sim2e`) | 84.4% | 77.9% | 0.00% | 0.46% | heal 6.8% | heal 45% on clear cases (harm 1.8% of rows) |
 | Held-out app features (`sim2f`) | 81.0% | 77.4% | 0.00% | 0.75% | heal 6.8% | – |
-| **Real apps, eval set (16,600)** | – | – | **0.00%** | **0.00%** | duplicate 0.6%, stale 1.0% | **duplicate 35% (64% on held-out apps)**, broken state 10%, stale 9%, with FIR 0.05–0.35% |
+| Real apps, eval set (16,600) | – | – | 0.00% | 0.00% | duplicate 0.6%, stale 1.0% | duplicate 35% (64% on held-out apps), broken state 10%, stale 9%, with FIR 0.05–0.35% |
 
 **Reading.** v2 kept v1's safety and made the model much better at ranking, but the fixed 0.9/0.8 gates were
-chosen before labels became expected costs and now block nearly every action. Next:
+chosen before labels became expected costs and now block nearly every action. The next steps planned then:
 - **Thresholds:** derive per-tier, per-trigger gate thresholds from held-out data (FIR ≤ 0.1% guard / 0.5% heal on
   clean real-app and sim traffic; fit on dev, verify on test) and ship them in the model's meta.json.
 - **Training:** finish the 150M teacher (with real-app gold), distil, and run DAgger rounds.
+
+What happened: the derived gates below; the teacher came out weaker than r17-v2b, so nothing was distilled; on-policy
+(DAgger) rounds a and b; then r17-v2c, r17-v2d and r17-v2dT (§7).
 
 ### Data-derived gate thresholds (r17-v2a)
 
@@ -52,16 +104,27 @@ limited by the model's discrimination, which is what the 150M teacher, distillat
 
 ### Observe mode: detection quality (r17-v2b)
 
+Model 0.1.0, superseded: model 0.2.0's detection rates are in the "Model 0.2.0" table below and in §11.
+
 A *detection* is GenClass reporting a problem, such as "this response overwrote newer state", without changing
 anything. This is the phase-1 product. Detections fire when the top diagnosis is not `expected` and its probability
 is ≥ `gate.report`.
 
 | Held-out test set | Report threshold | Detected | Precision | False detections on clean real-app traffic |
 |---|---|---|---|---|
-| Real apps never trained on (eval set) | 0.70 | duplicate submits **76%**, stale overwrites **43%**, broken state 27% | 0.96 | 0.62% |
-| Real apps never trained on (eval set) | **0.85 (shipped)** | duplicate ~76%, stale 28% | higher | **0.36%** |
+| Real apps never trained on (eval set) | 0.70 | duplicate submits 76%, stale overwrites 43%, broken state 27% | 0.96 | 0.62% |
+| Real apps never trained on (eval set) | 0.85 (shipped in model 0.1.0) | duplicate ~76%, stale 28% | higher | 0.36% |
 | Simulated apps (sim2e) | 0.70 | 50.9% of anomalies | 0.91 | gold-expected rows: 2.59% (over the 2% limit) |
 | Simulated apps (sim2e) | 0.85 | – | – | 1.11% |
+
+Model 0.1.0's card ([`MODEL_CARD.md` at `1f0f617`](https://github.com/genclass-dev/GenClass-lib/blob/1f0f617/packages/runtime-model/MODEL_CARD.md),
+tag `runtime-model-v0.1.0`, "Observe mode: detections at report 0.85") also counts false detections on every held-out
+test decision whose correct diagnosis was `expected`: 1.41% simulated (149 / 10,582: `sim2e` 1.11%, `sim2f` 1.72%)
+and 3.78% real apps (305 / 8,079). On the `real2e` test slice, 240 of its 303 false detections came from one held-out
+app, flagged as `stale` on its `article.inProgress` field; without that app the slice is 1.05% (63 / 6,006). The same
+card: 65.0% (simulated) and 60.7% (real) of problem decisions were flagged, and 94.1% and 89.5% of flags had the right
+diagnosis; that one app's 240 false detections were 25% of its 955 clean decisions; at report 0.9, 0.89% (simulated)
+and 3.44% (real) of clean decisions were flagged, with 58% and 52% of problems flagged.
 
 Per-class precision / recall at 0.70 on sim2e:
 
@@ -75,8 +138,12 @@ Per-class precision / recall at 0.70 on sim2e:
 | inconsistent | 0.97 | 0.53 |
 | conflict | 0.89 | 0.54 |
 
-The shipped threshold, 0.85, was chosen after the dev-fitted 0.70 failed the simulated false-detection limit on
-test, so that one choice is test-informed. Future exports fit with a stricter dev margin.
+In r17-v2b's first fit, 0.85 was chosen after the dev-fitted 0.70 failed the simulated false-detection limit on
+test, so that choice was test-informed. In the refit published as model 0.1.0, 0.85 is the dev fit itself; that
+refit's one test-informed choice is the heal failure gate, 0.95 (`training/EVAL.md`). On the shipped model's own
+traffic (on-policy round b test) the refit's 0.85 gave 3.1% false detections on simulated gold-`expected` rows, over
+the 2% limit. The refit and the 0.2.0 head-to-head fitted at 0.8 × each limit on dev; model 0.2.0's final fit
+used the limits themselves, with the real-app certification set added to dev ("Model 0.2.0" below).
 
 ### On-policy round a (the model acting inside the simulator)
 
@@ -106,8 +173,8 @@ Compared with round a:
 - **delivery** now acts: 99 acts, 18% false.
 
 Remaining issues:
-- the **heal transition gate (0.55) is too loose on-policy**: 41% of its acts are false. Gates are being refitted on
-  on-policy dev data, falling back to the tier default where evidence is thin;
+- the **heal transition gate (0.55) is too loose on-policy**: 41% of its acts are false. Model 0.2.0's gates were
+  refitted with on-policy dev data, falling back to the tier default where evidence is thin ("Model 0.2.0" below);
 - **request** acts are 19% false, mostly coalescing deliberate repeated clicks.
 
 ### Head-to-head for model 0.2.0 (all on the shipped q8 outputs)
@@ -133,9 +200,9 @@ At equal safety (one global threshold swept on the same test records), v2dT capt
 v2dT also leads guard-mode real-app recall at FIR ≤ 0.5%: 14.1%, against 3.1–3.4%.
 
 **Why v2dT ships conservatively.** There are too few clean real-app dev rows to certify per-trigger margins, so the
-fit falls back to strict defaults. The same thin evidence pushes `gate.report` up to 0.97–0.99. Next: a large
-real-app certification dev set (dev apps only), then refit all three, then pick 0.2.0 by its shipped operating
-point.
+fit falls back to strict defaults. The same thin evidence pushes `gate.report` up to 0.97–0.99. The next step, a
+large real-app certification dev set (dev apps only), a refit of all three and a choice of 0.2.0 by its shipped
+operating point, is "Model 0.2.0" below.
 
 **Quantization.** The q8 export was fixed by moving to MatMulNBits block 16: 223/223 decisions match PyTorch,
 the file is 10.16 MB, and it is fp16-free.
@@ -156,10 +223,16 @@ The 0.1.0 row comes from the earlier, stricter fit without the certification set
 like-for-like. FIR on real apps is 0.00% for every profile.
 
 Why v2dT: v2d is better in heal mode (gain 8.1% vs 5.7%, real recall 21.8% vs 10.4%), and v2dT is better in guard
-mode (6.7% vs 4.2%). Guard is the default mode, so v2dT ships. Choosing the model per mode is an open item.
+mode (6.7% vs 4.2%). v2dT ships because guard is the first mode that acts (observe only reports). When 0.2.0 was
+chosen, guard was the default of the branch it shipped from (runtime 0.1.0-beta.1); observe has been the default
+again since 0.1.0-beta.2 (CHANGELOG). Choosing the model per mode is an open item.
 
-Targets: guard FIR ≤ 0.1% (met), heal FIR ≤ 0.5% (met), calibration error ≤ 0.02 (not yet measured for 0.2.0; r17-v2b: 0.021–0.023),
-diagnosis ≥ 95% (not yet), clear-case recall ≥ 80% (not yet).
+Targets: guard FIR ≤ 0.1% and heal FIR ≤ 0.5%. `cautious` meets both (0.005% / 0.26%); `balanced`, the default, is
+slightly over both (0.13% / 0.59%); `eager` is well over (0.54% / 1.84%). FIR on held-out real apps is 0.00% for every
+profile. Each profile was fitted to limits of its own, and all three meet them on held-out test: `cautious` guard
+FIR ≤ 0.1%, heal ≤ 0.5%, report false ≤ 1% real / 2% simulated; `balanced` guard ≤ 0.3%, heal ≤ 1%, report ≤ 2% / 3%;
+`eager` guard ≤ 1%, heal ≤ 3%, report ≤ 5% / 6% (`training/EVAL.md`). Calibration error ≤ 0.02 (not yet measured
+for 0.2.0; r17-v2b: 0.021–0.023), diagnosis ≥ 95% (not yet), clear-case recall ≥ 80% (not yet).
 
 The stage-1 row comes from the 200 sim sample rows (`training/EVAL.md`). On its own curriculum test set, stage 1
 scores 98% / 98% with 0% FIR.
@@ -172,9 +245,30 @@ scores 98% / 98% with 0% FIR.
 | R32 (GenClass 0.1 / ettin-32m, pruned) | 22.5 MB | 569 / 954 / 1,580 | 89.7% / 81.8% / 0.05% |
 | GenClass 0.1 (original) | 57 MB | ≈ 900 at 780 | not trained for this |
 
-**Decision:** R17 is the default on every device. It matches R32 at about a third of the size and latency. Both
-q8 exports are fp16-free, so they run on WebGPU without `shader-f16`, and agree with PyTorch on 223/223 decisions
-in onnxruntime-web.
+**Decision:** R17 is the default on every device. It matches R32 at under half the size and about a third of the
+latency. Both q8 exports are fp16-free, so they run on WebGPU without `shader-f16`, and agree with PyTorch on 223/223
+decisions in onnxruntime-web.
+
+Sources: the R17 row is the delivered round-1 export in `training/EVAL.md`. The R32 latencies are the delivered
+round-1 R32 export, measured the same way and recorded in the training log (`training/LOG.md` at commit `fcd1e68`,
+taken out of the public tree in `66c0f03`); `training/EVAL.md` has only the earlier stage-1c R32 export, at
+499 / 879 / 1,539 ms. Against either, R17 takes 31% to 38% of R32's time.
+
+**The shipped export** (`@genclass/runtime-model@0.2.0`, `r17-v2dT`; `packages/runtime-model/MODEL_CARD.md`,
+`training/EVAL.md`): q8 10,160,186 bytes (MatMulNBits 8-bit, block 16, which restored parity with PyTorch on 223/223
+decisions) and fp16 13,569,879 bytes; 8.8M parameters (8.1M encoder + 0.7M heads after vocabulary pruning); about
+182 / 330 / 599 ms at 500 / 780 / 1,170 tokens on one WASM thread (a least-squares fit over runs of onnxruntime-web
+1.30 in Node on the training VM, not in a browser; `training/ortweb/validate.mjs`). The 9.58 MB size and the
+latencies in the R17 row above are the round-1 export, obtained the same way, at MatMulNBits block 32, the q8
+format `training/README.md` describes and still the default of `training/export_runtime.py` (`--block 32`); the 0.2.0
+exports were made with block 16 (`training/EVAL.md`).
+
+**Other latencies.** On WebGPU, on one Apple GPU with model 0.2.0, a warm-up pass on a situation of about 430 tokens
+took 49–74 ms and the first real decision 137 ms (`packages/runtime/CHANGELOG.md`, 0.2.2; the model card); there is
+no systematic WebGPU benchmark. Four WASM threads on a crossOriginIsolated page were about 3× faster than one with
+GenClass 0.1's 32M-parameter q8 model, in headless Chromium on the shared train VM: 271–360 ms against 837–981 ms at
+780 sequence tokens, and 464–556 ms against 1,452–1,791 ms at 1,174 (`packages/runtime/src/model/README.md`); threads
+have not been re-measured with model 0.2.0.
 
 ## 3. Why round 1 was timid (format v1 vs v2)
 
@@ -201,15 +295,20 @@ separability (100k rows, v1 → v2):
 
 ## 4. "Never make a correct app worse" (runtime design comparison)
 
-GenClass with an always-passive model, compared against observe mode:
+GenClass in heal mode with an always-passive model, compared against observe mode (v1: `realapps/README.md`, Pilot,
+"Interference: 4 of 198 clean runs changed"; v2: `packages/runtime/CHANGELOG.md`, 0.1.0-alpha.1):
 
-| Runtime | Real apps, clean runs changed | Conduit (React/Redux RealWorld) | Demos (guard, zero actions) |
+| Runtime | Real apps (66), clean runs changed | Conduit (React/Redux RealWorld) | Demos (guard, zero actions) |
 |---|---|---|---|
-| v1 (store-write holds) | 4/198 (2 apps) | **never renders its home feed** | board 11 card jump-backs, editor 37 overwritten keystrokes, checkout 24 reset quantities, search clean latency 6 → 389 ms |
-| **v2 (network-boundary decisions)** | **0/396** | identical, 0/30 | holds only at delivery; clean typeahead makes 0 model calls and holds for 0 ms |
+| v1 (store-write holds) | 4/198 (2 apps; 66 apps × 3 seeds) | **never renders its home feed** | board 11 card jump-backs, editor 37 overwritten keystrokes, checkout 24 reset quantities, search clean latency 6 → 389 ms |
+| **v2 (network-boundary decisions)** | **0/396** (66 apps × 6 seeds) | identical, 0/30 | holds only at delivery; clean typeahead makes 0 model calls and holds for 0 ms |
 
 Chaos runs under v2: 3/198 changed. A request held about 25 ms drew a different simulated network outcome (open
-item).
+item). The v2 runs used the runtime as of 0.1.0-alpha.1 (2026-10-08) and were not re-run on later versions. They
+compare final page text (inputs and alerts excluded) and server state, not request timing or store contents; the
+baseline is observe mode, not running without GenClass. realapps' own sweeps on the same `situation-v2` runtime (tag
+`6e5e86e`), before its production run, found 0 of 132 and 0 of 256 clean runs changed (`realapps/README.md`,
+"Production on `situation-v2`"). §16 has the later compatibility matrix, which compares every mode with no GenClass.
 
 ## 5. Demos
 
@@ -252,8 +351,8 @@ production names are minified) and `er` (minified `MenuBrowser`). The nine exist
 (12 per mode over 27 trials: failure 9, request 3; detections 9), since each of its page loads sees at most one response
 per request kind that changes state. New scenario `order-poll-reorder-2` (another device removes a line, the guest
 removes the other while the next ticket poll is answered 3 s late): **3 / 3 delivery decisions with discovery, 0 / 3
-with `autoState: false`**, all `expected` (correct: the app drops stale polls; no bug in any mode). Overhead: see the
-package README "Costs" (+7 KB first-load JS, walk p95 under 2 ms at 4× throttling, +0.5 MB heap, no new long tasks).
+with `autoState: false`**, all `expected` (correct: the app drops stale polls; no bug in any mode). Overhead: §17
+(+7 KB first-load JS, walk p95 under 2 ms at 4× throttling, +0.5 MB heap, no new long tasks).
 
 ### Flow expectations (0.3.0, opt-in: `learn.expectations`): not yet measured
 
@@ -281,8 +380,8 @@ run 38455195053 on branch `wave1/expectations`, 2026-10-13, after the review fix
 | board | 57% | 63% | 77% | 0 |
 | decisions | 83% | 97% | 97% | 0 |
 
-Guard executed 0 actions. Heal took 156 actions, which fixed nothing. These numbers are re-measured with the
-trained v2 model once it exists.
+Guard executed 0 actions. Heal took 156 actions, which fixed nothing. The trained model, 0.2.0, was measured on the
+same six demos on 2026-10-09 (the first table in this section).
 
 ## 6. Data volume
 
@@ -295,7 +394,7 @@ trained v2 model once it exists.
 | Sim on-policy round a (model r17-v2a acting in the sim; DAgger) | **1,248,131** (448k at shipping gate, 672k at explore gate 0.5) | done |
 | Sim on-policy round b (r17-v2b with its own gates, v2.3) | **1,094,953** | done |
 | Sim v2 unlabeled (for teacher labelling) | **51,272,078** | done (~21k rows/s per node) |
-| Real-browser v2 gold (158 apps, 40+ stacks) | **616,437** (+523k unlabeled) | done; determinism 3,030/3,030, interference 0/256 |
+| Real-browser v2 gold (128 apps: 96 in `v2c1..4`, plus 32 in the `v2d` top-up, wave 4) | **616,437** (+523k unlabeled) | done; determinism 3,030/3,030 (96 apps × 30 seeds) and 640/640 (128 apps), interference 0/256 |
 | Real-browser v2.3 top-up (relation-learner fixes) | **221,186** (real total 837,623) | done; real inconsistency triggers 18.3% → 2.6% of decisions, genuine share 10% → 40% |
 | Real-app eval set (unambiguous) | **16,600** (clean-benign 4,000, benign-salient 4,000, duplicate 4,000, genuine break 3,085, stale 1,515) | done |
 
@@ -311,7 +410,7 @@ trained v2 model once it exists.
 | 10-08 00:35 | Auto-shutdown disabled with the owner's OK. Quota raised to 2,048 vCPU; nodes c12–c23 added. |
 | 10-08 02:00–04:00 | Separability analysis led to the S1/S2 label fixes and the F1–F9 facts. Runtime batches 4–5 (network-boundary decisions). |
 | 10-08 ~04:00 | `situation-v2` frozen. v2 generation launched: ~10M gold + ~50M unlabeled in the sim, ~495k real-browser rows. |
-| next | 150M teacher on v2 gold, teacher labels on unlabeled rows, distil R17/R32, DAgger rounds (SIM `--on-policy`), EVAL. |
+| 10-08 06:10–18:12 | v2 rounds (§1, `training/EVAL.md`): r17-v2a at 06:10; r17-v2b at 07:10, its gates refit on on-policy dev data at 10:30 and published as `@genclass/runtime-model@0.1.0` at 13:38 (npm); the 150M teacher came out weaker than r17-v2b, so nothing was distilled; on-policy (DAgger) rounds a and b in the sim; r17-v2c; the head-to-head of v2c, v2d and v2dT at 11:45; at 16:30 the refit with the real-app certification set chose r17-v2dT, published as `@genclass/runtime-model@0.2.0` at 18:12 (npm). |
 
 Compute: Azure CPU nodes (F80 and D64 sizes); the day-by-day record is kept internally.
 
@@ -346,6 +445,14 @@ if either default case reaches 300 KB. A real page sends far fewer decisions to 
 so these are upper bounds for one tab, not typical volumes. **Superseded for 0.3.0 by §10:** detections are no
 longer sampled or capped, so the "every one a detection, defaults" case now sends every record.
 
+**Hot-path timings** (`packages/runtime/test/review-perf.test.ts`, run in CI, reported, not blocking; budgets: a
+keystroke write under 1 ms, an async write under 2 ms, a Redux-style dispatch under 1 ms (2 ms from async work), a
+settled point under 16 ms). The last recorded run is from a shared VM on 2026-10-07, on the runtime just before
+0.1.0-alpha.1 (commit `bac4409`, `packages/runtime/STATUS.md` at that commit), and has not been re-recorded since: a
+keystroke write to a store holding a 5,000-item array 0.22 ms, an async write 0.14 ms, a Redux-style dispatch on
+5,000 entities 0.71 ms (0.70 ms from async work), a settled point 0.3 ms (+2.3 ms with an unchanged 5,000-item
+adapter store).
+
 ## 9. Install footprint (first-load JavaScript, CI)
 
 `packages/runtime/test/bundle.test.ts` bundles the built `dist/` the way an app's bundler would (esbuild, minified,
@@ -366,6 +473,8 @@ adapters, their name table and the fan-out are absent from both first loads (ass
 0.03 KB under the `/auto` limit and 0.17 KB under the main entry's, so the next change that adds to the first load
 needs a smaller first load or a new limit. The 0.3.0-beta.0 sizes and limits are in §10. The Sentry, PostHog and
 Datadog adapters measured here were lazy chunks, outside both first loads; they are not shipped (§10, last rows).
+
+<a id="first-load"></a>
 
 ## 10. Release 0.3.0-beta.0: first load and telemetry volume (CI)
 
@@ -390,7 +499,7 @@ walk, which missed the two shared chunks (2.74 + 0.19 KB).
 | + sink adapters, sinks by name (`53b04f2`, run 38462380432; the Sentry, PostHog and Datadog adapters in it were removed before release and never shipped, last rows) | 102.94 KB in 3 files | 94.79 KB in 3 files | 117.96 KB |
 | + flow expectations, `src/learn/flows.ts` lazy (`fcefedb`, run 38463736575) | 106.16 KB in 4 files | 98.13 KB in 4 files | 126.03 KB |
 | + even sampling draw (`c2f0b54`, run 38464240236) | 106.23 KB | 98.20 KB | 126.11 KB |
-| **0.3.0-beta.0** (`bff4a71`, run 38465242176) | **106.24 KB** (100.26 + 3.05 + 2.74 + 0.19) | **98.21 KB** (92.24 + 3.05 + 2.74 + 0.19) | **126.12 KB** (369.4 KB minified) |
+| version bump to 0.3.0-beta.0 (`bff4a71`, run 38465242176; not the published build, which is the visual-checks row below) | 106.24 KB (100.26 + 3.05 + 2.74 + 0.19) | 98.21 KB (92.24 + 3.05 + 2.74 + 0.19) | 126.12 KB (369.4 KB minified) |
 | + telemetry 429 back-off, no sampling settings in `session` (`7c7c6d6`, run 38477010836) | **106.59 KB** (100.62 + 3.05 + 2.74 + 0.19) | **98.57 KB** (92.59 + 3.05 + 2.74 + 0.19) | **126.45 KB** (370.5 KB minified) |
 | + detection tiers, deferred decisions, review fixes (wave2/detect-observe `dd20233`, run 38482297879; §11) | 107.56 KB | 99.59 KB | 127.89 KB |
 | **release candidate**: + main (accounts and the CLI commands: no browser code) and wave2/dash-detect (the worker only) (`18e89f0`, run 38485063587) | **107.56 KB** (101.59 + 3.05 + 2.74 + 0.19) | **99.59 KB** (93.62 + 3.05 + 2.74 + 0.19) | **127.89 KB** (374.9 KB minified) |
@@ -398,7 +507,7 @@ walk, which missed the two shared chunks (2.74 + 0.19 KB).
 | + no vendor sink adapters: the Sentry, PostHog and Datadog adapters removed (never shipped), one console warning for those names in a page config (wave2/no-vendor-sinks `31ddc98`, run 38491077597) | **107.73 KB** (101.75 + 3.05 + 2.74 + 0.19) | **99.61 KB** (93.64 + 3.05 + 2.74 + 0.19) | **128.01 KB** (375.2 KB minified) |
 | + that warning reworded to claim no paid feature: "Sentry, PostHog and Datadog forwarding is not in the free runtime" (`eea042b`, run 38494904699) | **107.71 KB** (101.74 + 3.05 + 2.74 + 0.19) | **99.61 KB** (93.64 + 3.05 + 2.74 + 0.19) | **128.00 KB** (375.1 KB minified) |
 | limit in `bundle.test.ts` (measured at `bff4a71` + 1.5 KB, owner-approved for 0.3.0; not re-set: the release candidate was 0.13 / 0.10 KB under it, and with the vendor-name warning `/auto` is 0.03 KB under it) | 107.74 KB | 99.71 KB | none |
-| + measured visual checks' first-load stub: wave2/visual `6ae209f` merged (`release/0.3.0-visual`, merge `2c7014f`, PR head `be8cb7c`, run 38676978903; §13) | **108.25 KB** (102.28 + 3.05 + 2.74 + 0.19) | **100.13 KB** (94.15 + 3.05 + 2.74 + 0.19) | **128.56 KB** (376.5 KB minified) |
+| + measured visual checks' first-load stub: wave2/visual `6ae209f` merged (`release/0.3.0-visual`, merge `2c7014f`, PR head `be8cb7c`, run 38676978903; §13) = the published 0.3.0-beta.0 (tag `v0.3.0-beta.0`, `a86c928`; the only later `src/` change there is a comment) | **108.25 KB** (102.28 + 3.05 + 2.74 + 0.19) | **100.13 KB** (94.15 + 3.05 + 2.74 + 0.19) | **128.56 KB** (376.5 KB minified) |
 | limit in `bundle.test.ts` for 0.3.0-beta.0, **owner-approved 2026-10-15** (the measured sizes + 0.05 / 0.07 KB) | 108.30 KB | 100.20 KB | none |
 | + interaction analytics' first-load stub (§15; limits owner-approved 2026-10-18) | 108.53 KB | 100.40 KB | not measured |
 | + review of the mode-raise fix: `normalizeRoute`, the `mode` validation and its warning, the sample bucket's `act@<sample>` form, `readWindowConfig`'s mode check (branch `security/advisory-mode-raise`, 0.3.0-beta.5; local, 2026-10-27, `test/first-load-size.mjs` and gzip -9 against main `49c8c03`'s dist: 108.36 / 100.28 / 128.55 KB) | **108.63 KB** (+0.27) | **100.46 KB** (+0.17) | **128.83 KB** (387.4 KB minified, +0.28) |
@@ -417,7 +526,8 @@ to the main entry, measured by `test/first-load-size.mjs` against `release/0.3.0
 `visual-browser` job (107.711 to 108.248 KB, 99.614 to 100.126 KB; the job fails at 0.6 KB of growth). The checks
 themselves are one lazy file (`dist/visual/index.js`, about 35 KB gzip), outside every first load; the script tag
 loads it by URL, and the script-tag file grows by 0.56 KB. Both entries are over the 107.74 / 99.71 KB limits, so
-`bundle.test.ts` carries 108.30 / 100.20 KB on `release/0.3.0-visual` until the owner decides.
+`bundle.test.ts` carried 108.30 / 100.20 KB for 0.3.0-beta.0; the owner approved these limits on 2026-10-15 (the
+table above). The interaction-analytics stub later raised them to 108.6 / 100.48 KB (§15).
 
 The flow expectations were +7.3 KB on `/auto` when `src/learn/flows.ts` was in the first load (106.5 KB vs 0.2.2's
 99.17 KB on wave1/expectations, run 38455195053). Imported lazily, and only with `learn.expectations: true`, they
@@ -436,7 +546,7 @@ routine records per page load):
 |---|---|---|---|
 | `738a05b` (38461782967) | 242.4 KB, 106 requests | 2,064.7 KB, 361 requests | 2,064.7 KB, 361 requests |
 | `c2f0b54` (38464240236), the even draw below | 249.0 KB, 162 requests | 2,064.7 KB, 361 requests | 2,064.7 KB, 361 requests |
-| `bff4a71` (38465242176), 0.3.0-beta.0 (a longer version string in every envelope) | 250.3 KB, 163 requests | 2,067.1 KB, 361 requests | 2,067.1 KB, 361 requests |
+| `bff4a71` (38465242176), the version bump to 0.3.0-beta.0 (a longer version string in every envelope) | 250.3 KB, 163 requests | 2,067.1 KB, 361 requests | 2,067.1 KB, 361 requests |
 | **`7c7c6d6` (38477010836)**: 429 back-off; `session` without `decisionSample` / `maxDecisions` (about 40 bytes once per page load, below the 0.1 KB rounding) | **250.3 KB, 163 requests** | **2,067.1 KB, 361 requests** | 2,067.1 KB, 361 requests |
 | **release candidate `18e89f0` (38485063587)**: with wave2/detect-observe (§11) | **251.9 KB, 165 requests** | **2,068.5 KB, 361 requests** | 2,068.5 KB, 361 requests |
 | release candidate `f363e92` (38485289326), docs only | 250.9 KB, 157 requests | 2,068.5 KB, 361 requests | 2,068.5 KB, 361 requests |
@@ -462,6 +572,8 @@ limit in production is not measured.
 
 **Not measured here:** browser timings, the install suite (`test/install/run-all.sh`, VM only), the demos'
 clean-trial gate for the flow expectations (§5), and any number with the model.
+
+<a id="observe-detection"></a>
 
 ## 11. Observe-mode detection in 0.3.0: the "possible" tier and deferred situations
 
@@ -531,7 +643,7 @@ likely reports (they are capped at the possible tier, below).
 **What CI measured on this branch** (GitHub Actions `ci.yml`, run 38471973596, commit `8501528` on
 `wave2/detect-observe`; no model involved, so no recall or false-detection rate applies to these):
 
-| | 0.3.0-beta.0 (§10, run 38465242176) | with this change (run 38471973596) | limit (unchanged) |
+| | 0.3.0-beta.0 version bump (§10, run 38465242176) | with this change (run 38471973596) | limit (unchanged) |
 |---|---|---|---|
 | first load, `/auto` | 106.24 KB | 107.66 KB (101.69 + 3.05 + 2.74 + 0.19) | 107.74 KB |
 | first load, main entry `GenClass.init({})` | 98.21 KB | 99.69 KB (93.72 + 3.05 + 2.74 + 0.19) | 99.71 KB |
@@ -565,7 +677,8 @@ no recall or false-detection rate applies to these numbers.
 **Deploy order for the aggregates** (no deploy from this branch): the telemetry-worker dashboard
 (`telemetry-worker/src/dashboard.ts`, `possible_detections`) and the maintainers' admin aggregates
 (`site/src/admin.js`, `possible_detections` and recent rows of kind `possible`; the live demo counter in
-`site/public/live.js` skips them) both count `tier: "possible"` apart from detections. Both must be deployed before a
+`site/public/live.js` skips them; since 2026-10-18 `site/` is in the private repository `genclass-dev/genclass-site`)
+both count `tier: "possible"` apart from detections. Both must be deployed before a
 0.3.0 runtime reports to them; an older aggregate counts every possible detection, deferred ones included, as a
 detection, and the tiers cannot be separated afterwards (the admin `daily` metric has no tier).
 
@@ -576,6 +689,7 @@ preload, plus hidden-tab trials with background pollers) that would show how man
 how many false ones come with them, which is what lifting the possible-tier cap on deferred decisions needs; the
 likely reports the three fixes add on correct apps (compat, observe, slow WASM and slow-body scenarios); and guard/heal
 FIR with `model.unloadAfterIdleMs`.
+
 ## 12. Dashboard counts and the possible-issues tier (telemetry-worker, 2026-10-13)
 
 Branch `wave2/dash-detect` (merged with `release/0.3.0`). The worker takes each page load's totals (page loads,
@@ -613,8 +727,10 @@ records that arrived. Routine records are sampled (1 in 4, at most 200 per page 
 non-routine decisions; the session event no longer carries the sampling settings (§10), so the worker cannot
 reweight, and the page now labels them as records ("average of N decision records received").
 
-Not measured: anything on production data. No released runtime sends a token yet (`0.3.0` will), so no real page
-load reaches a dashboard, and no released runtime sends `tier`.
+Not measured: anything on production data. When this was measured no released runtime sent a token or `tier`, so no
+real page load reached a dashboard; 0.3.0-beta.0 (npm `beta`) is the first release that sends both.
+
+<a id="visual-checks"></a>
 
 ## 13. Measured visual checks (v1; CI on GitHub runners, Chromium, 2026-10-13, branch `wave2/visual`)
 
@@ -627,12 +743,14 @@ checks work as designed. Section 14 has the bench on the demos, templates, compa
 | planted faults found on the fixture pages | 35 of 35 (every planted fault, on its element, 23 kinds) | `visual.spec.ts`, 24 tests passed |
 | findings on clean fixture pages (false reports) | 0 on the clean page at 1280 x 800 and at 390 x 844 (phone), 0 on the light variant of the dark-mode page, 0 on a 10,000-element page, 0 besides the planted fault on every other page | same |
 | runtime fixes on fixture pages | text colour, `pointer-events` and scroll lock applied, verified, undone; 0 CSP violations from the owned rule under `style-src 'self'` | same |
-| first-load growth against main (minified + gzip) | first build, against an older main: `/auto` +486 B (99.649 KB), main entry +431 B (92.118 KB); limit 512 B. After the review, against main of 2026-10-13 (app tokens, `protect()`; CI run 38497342999): `/auto` +582 B (101.244 KB, over main's 101 KB ceiling), main entry +524 B (93.699 KB of 94 KB). The narrow development-host rule and the hidden-tab gate account for about 100 B. Ceilings raised on the branch to 101.5 KB and 0.6 KB growth; the owner approved the 0.6 KB growth gate with the 0.3.0-beta.0 limits (108.30 / 100.20 KB) on 2026-10-15. Merged into 0.3.0-beta.0 (`release/0.3.0-visual`, CI run 38676978903), against `release/0.3.0`: `/auto` +550 B (108.248 KB), main entry +524 B (100.126 KB); limits 108.30 / 100.20 KB in `bundle.test.ts`, also pending (§10) | `test/first-load-size.mjs` in the `visual-browser` job, `test/bundle.test.ts` |
+| first-load growth against main (minified + gzip) | first build, against an older main: `/auto` +486 B (99.649 KB), main entry +431 B (92.118 KB); limit 512 B. After the review, against main of 2026-10-13 (app tokens, `protect()`; CI run 38497342999): `/auto` +582 B (101.244 KB, over main's 101 KB ceiling), main entry +524 B (93.699 KB of 94 KB). The narrow development-host rule and the hidden-tab gate account for about 100 B. Ceilings raised on the branch to 101.5 KB and 0.6 KB growth; the owner approved the 0.6 KB growth gate with the 0.3.0-beta.0 limits (108.30 / 100.20 KB) on 2026-10-15. Merged into 0.3.0-beta.0 (`release/0.3.0-visual`, CI run 38676978903), against `release/0.3.0`: `/auto` +550 B (108.248 KB), main entry +524 B (100.126 KB); limits 108.30 / 100.20 KB for 0.3.0-beta.0, approved by the owner on 2026-10-15 (§10); raised to 108.6 / 100.48 KB on 2026-10-18 for interaction analytics (§15) | `test/first-load-size.mjs` in the `visual-browser` job, `test/bundle.test.ts` |
 | lazy chunk `dist/visual/index.js` | about 35 KB gzip (97 KB minified) | esbuild, minified |
 | a 10,000-element page | 2 passes, 72.9 to 127.8 ms of check time in all (two runs), longest slice 8.5 ms (budget 8 ms per slice), no partial pass; after the review: 106.7 ms, longest slice 8.4 ms | `big.html` |
 | the same page with hover, clicks and scrolling (after the review) | 137.1 ms of check time in all, longest slice 8.7 ms, no long task (50 ms or more) on the page once the checks ran | `big.html`, CI run 38497342999 |
 | 5,000 stylesheet rules with `var()` (after the review) | 49 ms of check time, longest slice 10.9 ms, no long task | `big-css.html`, same run |
 | correct pages a review found reported as broken (after the review) | 0 findings on each: dark mode from the `color-scheme` meta tag and a dark-only page (both schemes), white text over `pointer-events: none` overlay, canvas, video and a full-screen particles canvas, a dialog that scrolls inside, a web-component app, a full-page section scroller, a busy shield during a 6 s request; a fix undone when its background changed; a scroll lock held since load reported and not removed | `visual.spec.ts`, 44 tests passed |
+
+<a id="visual-bench"></a>
 
 ## 14. Visual bench: false reports, recall and cost (GitHub runners, Chromium 153, 2026-10-13, branch `wave2/visual`)
 
@@ -793,21 +911,99 @@ longest slice at most budget + 4 ms (12 ms): p95 8.9 ms on local pages, 57.1 ms 
 code change before run 4 (popup triggers for two interaction checks) did not touch cost, so run 4 is the outlier, not
 an improvement.
 
+<a id="analytics"></a>
+
 ## 15. Interaction analytics: first-load cost (train VM, 2026-10-18, branch `feat/interaction-analytics`)
 
 `test/first-load-size.mjs` against the merge base with main (`e22fc24`), minified + gzip as an app's bundler ships
 them, measured on the train VM (not CI):
 
-| entry | main | with the analytics stub | growth |
+| entry | merge base `e22fc24` | with the analytics stub | growth |
 |---|---|---|---|
 | `/auto` | 108.248 KB | 108.529 KB | 288 B |
 | main entry (`GenClass.init({})`) | 100.126 KB | 100.395 KB | 275 B |
 
-`test/bundle.test.ts` measures the same build at 108.53 / 100.39 KB (script tag 128.83 KB). The
-recording itself is `dist/analytics/index.js` (12.5 KB minified, not gzipped), loaded only when an app turns
+`test/bundle.test.ts` measures the same build at 108.53 / 100.39 KB (script tag 128.83 KB); the comment in that test
+rounds the main entry's 100.395 KB to 100.40 KB. The merge base predates the WASM warm-up fix (`042c813`, which
+changes `src/runtime.ts` and `src/model/backend.ts`) that reached `main` before this branch did, so current `main` is
+not measured here. The recording itself is `dist/analytics/index.js` (12.5 KB minified, not gzipped), loaded only when an app turns
 analytics on. No detection numbers: analytics never feed a decision, so recall and FIR do not change.
 
-## 16. Coding agents: explore and replay on a real page (train VM, 2026-10-20, branch `feat/agent-loop`)
+The branch raised the `bundle.test.ts` limits to 108.6 / 100.48 KB, approved by the owner on 2026-10-18, and was
+merged into `main` the same day (pull request #53). Not released yet: it is in the CHANGELOG's unreleased
+0.3.0-beta.1. Design: [ANALYTICS.md](ANALYTICS.md).
+
+<a id="compatibility"></a>
+
+## 16. Compatibility matrix (summary)
+
+Does adding GenClass break an app? This is a summary of [`compat/RESULTS.md`](../../compat/RESULTS.md), which a script
+generates from a run on 2026-10-10 (5,850 trials, 0 incomplete) and which is not edited by hand; that page has every
+cell, every finding and the method. No model accuracy is reported there: it counts bugs, actions and findings on
+idiomatic apps.
+
+Setup: `@genclass/runtime` packed from commit `d04eff3` (version string 0.1.0-beta.4, never published: the
+0.1.0-beta.4 code plus the "Model ready" log fix; it does not contain 0.2.0's audit trail, protect presets, hold-budget
+ceilings and invariant fixes (`e84ddc7`, committed on another branch) and predates 0.2.1's first-request hold and
+telemetry defaults (`5a90f15`), which were not run through the matrix, nor was any later release (0.2.2,
+0.3.0-beta.0); the version note in `compat/RESULTS.md` calls it the code released as 0.2.0, which the
+git history does not support: `e84ddc7` is not an ancestor of `d04eff3`), model 0.2.0 (`genclass-runtime-r17` 2.0.0-rc4t) on
+WASM at `balanced`, headless Chromium 153, telemetry off. 7 apps (React 19 + Vite 8, Next.js 16 App Router, Vue 3 +
+Vite 8, SvelteKit 3, Angular 22, Solid 1.9 + Vite 8, plain HTML with the CDN script tag), 15 data layers, 8 scenarios
+(a and b carry a latent app bug; c to h are correct apps), 10 seeds per cell, in observe, guard and heal, each run
+paired with a run without GenClass on the same seed.
+
+| measured | result |
+|---|---|
+| cells (app × data layer × scenario × mode) left as correct as without GenClass on every seed | 350 of 351 |
+| bugs introduced | 0 in 3,510 mode runs |
+| non-passive actions on correct apps (scenarios c to h, guard and heal) | 0 in 1,760 runs |
+| observe findings on correct apps (scenarios c to h) | 319 in 880 runs: 270 report a failure the scenario injects on purpose (an HTTP 500, going offline), which the app handles; 49 are false (`request:overload` ×45 and `request:duplicate` ×4, all in scenario g, polling and fan-out) |
+| latent app bugs (a: stale typeahead; b: double submit) | shown in 250 of 290 runs without GenClass; guard left 249 and heal 240 of the same runs buggy; the 10 fixed by an action were all heal `block` on one data layer (Angular with XMLHttpRequest, double submit) |
+| runs where an app's bug did not show with GenClass although it took no action | 4 (GenClass's own work shifted the timing of the app's race) |
+| determinism control (two runs without GenClass per seed) | 1,170 of 1,170 pairs identical |
+| automatic state discovery | React state, the Redux store and Zustand with devtools `enabled: true` found in 240 of 240 runs each; Zustand's devtools middleware in a production build: 0 of 240 (it turns itself off there) |
+
+The one ✗ is observe on Next.js 16 with SWR 2, scenario d (two overlapping optimistic updates, one rolled back), seed
+7: without GenClass the screen ended wrong in both runs, with GenClass it ended right, and GenClass took no action. So
+observe mode is not byte-identical to running without GenClass on an app with its own race: it can change which side
+of the race wins. Limits (from that page): small apps, one machine, headless Chromium only, WASM inference, production
+builds, few seeds per cell.
+
+## 17. Browser cost on a pilot app (2026-10-09 and 2026-10-10)
+
+What GenClass costs a real page: memory, download, main-thread time and the state-discovery walk, in one production
+app (the pilot app of §5, a Next.js 16 ordering site) with Playwright Chromium at a 390×844 phone viewport. These
+tables were first recorded in the package README's "Costs" section and are kept here as the record; no model accuracy
+is involved, so no recall or FIR applies. Not measured: other apps, real phones, Firefox and Safari.
+
+**Runtime 0.1.0-beta.3 with model 0.2.0 (2026-10-09).** Production build, 4× CPU throttling, medians of 5 runs,
+observe mode; the same build with and without `?genclass=off`:
+
+| | with GenClass |
+|---|---|
+| JavaScript on every page (first load, gzip) | +97 KB with 0.1.0-beta.3 (today's first load: §10) |
+| Main thread: load event, LCP, long tasks | no measurable change; main JS heap +0.4 MB |
+| Memory: renderer process (holds the model worker) | +190 to 280 MB RSS while the model is loaded (cold 448 vs 169 MB, warm 361 vs 171 MB) |
+| First visit download, WASM | 12.7 MB after the load event, as recorded then: q8 model 9.45 MB, ONNX Runtime wasm 3.07 MB brotli, tokenizer 207 KB. The READMEs round this to about 13 MB; with the 0.2.0 q8 file at its full size, 10.16 MB (§2), the same sum is about 13.4 MB. WebGPU devices: the 13.6 MB fp16 model plus the larger ONNX Runtime build |
+| Later visits | about 1 KB (`model.json` revalidated); the rest comes from Cache Storage, checked with sha256 |
+| Model load | WASM (1 thread): 0.9 to 1.3 s cold, 0.4 s warm. WebGPU (Apple M-series): 12 s cold, 2 s warm |
+| App build output | 0.1.0-beta.3: +41 MB of unused ONNX Runtime files. 0.2.0: none |
+
+**Automatic state discovery, runtime 0.1.0-beta.4 (never published; its changes shipped in 0.2.0), 2026-10-10.** The pilot app with only the one
+line, against the same build with `autoState: false`; Playwright Chromium, 390×844, observe mode, telemetry off:
+
+| | cost |
+|---|---|
+| JavaScript (first load, bytes on the wire) | +7 KB on `/menu` (discovery's share of the `/auto` entry; `GenClass.init()` setups do not load it) |
+| React commit walk, 4× CPU throttling | p50 0.2 ms, p95 1.8 ms, max 2.1 ms per commit including recording the change; total about 5 ms over the `/order` visit |
+| React commit walk, no throttling, 54 bench trials (about 2,000 commits) | p50 below 0.1 ms (the timer's resolution), p95 0.8 to 0.9 ms, max 3.8 ms |
+| Main-thread JS heap (after GC, 4× throttling) | 5.7 MB vs 5.2 MB without discovery |
+| Long tasks (> 50 ms) | unchanged (1 per run, 65 to 70 ms, with and without) |
+
+<a id="agents"></a>
+
+## 18. Coding agents: explore and replay on a real page (train VM, 2026-10-20, branch `feat/agent-loop`)
 
 [AGENT.md](AGENT.md) section 7. `packages/mcp/test/e2e/race.e2e.mjs` on the train VM: Node 22, headless Chromium
 through Playwright 1.63.0, `@genclass/runtime` and `@genclass/mcp` built from the branch, `GenClass.init({ model: false
@@ -836,7 +1032,7 @@ gzip; limits 108.6 / 100.48 KB): the agent link is its own entry (`dist/agent.js
 load; the XHR fix adds about 10 bytes. Tests: 36 in `test/agent.test.ts`, 57 in `packages/mcp`; the runtime suite
 passes (1,101 tests, 14 model-parity skips); `review-perf` 4 of 4.
 
-## 17. Coding agents on a real library issue: redux-toolkit#5139 (local, 2026-10-25, Chromium through Playwright 1.63.0)
+## 19. Coding agents on a real library issue: redux-toolkit#5139 (local, 2026-10-25, Chromium through Playwright 1.63.0)
 
 [docs/adoption/hunts/rtk-5139.md](../adoption/hunts/rtk-5139.md). The agent link and `@genclass/mcp` (both built from
 the repository) recording a standalone Redux Toolkit 2.13.0 reproduction: an optimistic `updateQueryData` patch
@@ -857,7 +1053,9 @@ none from the control. The Playwright test `genclass_explain` generated for the 
 (the witness depends on the click's timing, which a delivery-order replay does not recreate). One case, not a recall
 figure.
 
-## 18. The hunt harness: explore and replay against apps it does not own (cloud session, 2026-10-25, branch `claude/optimistic-feynman-8lbnyg`)
+<a id="hunt-harness"></a>
+
+## 20. The hunt harness: explore and replay against apps it does not own (cloud session, 2026-10-25, branch `claude/optimistic-feynman-8lbnyg`)
 
 [bench/hunt](../../bench/hunt/README.md) runs the same loop against an app it does not own: an init script runs the
 runtime's script-tag build inline before the page's first script (and removes the element), imports the agent link
@@ -879,7 +1077,7 @@ orders that delivered at least one response after the answer to a later request.
 | the harness's own DOM oracle | differs in 5 of 6 | same in 6 of 6 | same | same | same |
 | wall time (8 or 9 page loads, the test run included) | 22 s | 17 s | 15 s | 15 s | 17 s |
 
-The same counts as section 16, through the harness. One page and three planted bugs: a check that the harness and the
+The same counts as section 18, through the harness. One page and three planted bugs: a check that the harness and the
 injection do not change what GenClass finds, not a recall figure. False reports on the fixed variants: 0 of 6
 (search); the fixed form gives no verdict rather than a false "no race".
 
@@ -910,7 +1108,7 @@ or nothing was reordered, the document rewrite (redirect targets never rewritten
 mangled), a generated-test precondition that failed on about 7 of 30 loads, findings lost on steps that navigate,
 and session files outside `.gitignore`.
 
-## 19. Coding agents on a real app: Gitea's markdown preview (cloud container, 2026-10-25, adoption hunt)
+## 21. Coding agents on a real app: Gitea's markdown preview (cloud container, 2026-10-25, adoption hunt)
 
 [adoption/hunts/gitea.md](../adoption/hunts/gitea.md). Gitea `main` at `ff68b39` (same code as v28.2.0), built from
 source with SQLite; GenClass from `main` at `d77ffd8` (runtime 0.3.0-beta.1, mcp 0.1.0), injected from outside through
@@ -933,7 +1131,7 @@ seeded priorities of its two request keys favour the older one for seeds 1 to 8)
 change, a dropped update rather than a reordering, was reported as a race in 5 of 6 at 300 ms but not at 600 or 900 ms,
 where the baselines lost the update too. One app, three surfaces of one bug class: not a recall figure.
 
-## 20. Coding agents: explore's false reports before and after (cloud session, 2026-10-25, branch `claude/great-dijkstra-oa9emj`)
+## 22. Coding agents: explore's false reports before and after (cloud session, 2026-10-25, branch `claude/great-dijkstra-oa9emj`)
 
 [AGENT.md](AGENT.md) sections 2 and 5.1. The Strapi race hunt (`docs/adoption/hunts/strapi.md` on the
 `claude/dazzling-cray-8tqzkn` branch) found a real race on the Strapi admin and also showed `genclass_explore`
@@ -1060,7 +1258,7 @@ reads; for double-save it leaves out the notifications and blanks the digits of 
 The two small apps were written by the author of the rules they measure (a mechanism check on the libraries'
 documented patterns, not an independent recall figure). One Strapi, one seed, one machine; seeds 1 to 6 only.
 
-## 21. Issue 94: `request-stalled` on the demos, and the first-load cost of `summary().requests` (local, 2026-10-25, branch `issue-94`)
+## 23. Issue 94: `request-stalled` on the demos, and the first-load cost of `summary().requests` (local, 2026-10-25, branch `issue-94`)
 
 **`request-stalled` (VISUAL.md 3.24), default threshold 15 s.** `bench/stall/run.ts`, headless Chromium through
 Playwright 1.63.0 on a Mac, the demos built against this branch's runtime (`DEMOS_OUT_DIR=... node
@@ -1100,7 +1298,7 @@ sets when the app reads a non-JSON answer with `response.json()`. The request co
 snapshot and `request-stalled` are in the measured checks' chunk. A first version that counted in the first load cost
 +583 / +556 B and needed the owner-approved limits raised (`test/bundle.test.ts`), so it was moved; CI's build
 measures about 0.2 KB more than this machine for both branches.
-## 22. Measured visual checks `ad-heavy` and `text-warped` (development Mac, Chromium 153 through Playwright 1.63.0, 2026-10-25, branch `strange-sites`)
+## 24. Measured visual checks `ad-heavy` and `text-warped` (development Mac, Chromium 153 through Playwright 1.63.0, 2026-10-25, branch `strange-sites`)
 
 Measured checks, not model results (VISUAL.md sections 3.25 and 3.26). Run on a 16 GB development Mac, not on GitHub
 runners, so the cost figures are this machine's and only the comparison with main's engine on the same machine,

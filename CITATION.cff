@@ -1,0 +1,32 @@
+cff-version: 1.2.0
+message: "If you use GenClass Runtime in your work, please cite it with these metadata and name the version of @genclass/runtime you used."
+type: software
+title: "GenClass Runtime"
+abstract: >-
+  GenClass Runtime (@genclass/runtime) is an open-source (Apache-2.0) browser library that reports race
+  conditions in web apps while they happen: stale responses that land over newer data, duplicate requests such as
+  double submits, inconsistent state and failure storms. A small model runs on the user's device, in a Web Worker on
+  WebGPU or WASM, and each report comes with its evidence. By default it only reports (observe): it never holds,
+  delays or changes a request, a response or a state write. The opt-in guard mode may act on a few of them, and
+  heal is experimental.
+authors:
+  - name: "Daybot Solutions Inc."
+    website: "https://genclass.dev"
+repository-code: "https://github.com/genclass-dev/GenClass-lib"
+url: "https://genclass.dev"
+license: Apache-2.0
+# The newest published release of @genclass/runtime (npm `beta`; `latest` is 0.2.2, dated 2026-10-13 in the
+# CHANGELOG and published to npm on 2026-10-15, before this one).
+# Update both fields at each release.
+version: "0.3.0-beta.0"
+date-released: "2026-10-15"
+keywords:
+  - race condition
+  - stale response
+  - double submit
+  - web app
+  - browser
+  - runtime monitoring
+  - on-device model
+  - WebGPU
+  - WebAssembly

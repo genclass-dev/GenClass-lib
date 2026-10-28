@@ -9,8 +9,8 @@ state writes proceed. We take reports about it seriously.
 Please report security issues privately, not in public GitHub issues, discussions or pull requests.
 
 - **Email:** [mehar@daybot.ca](mailto:mehar@daybot.ca)
-- **GitHub:** a private vulnerability report (Security → Report a vulnerability) on the GenClass-lib repository, if
-  private reporting is enabled there.
+- **GitHub:** a private vulnerability report on the GenClass-lib repository
+  ([Security → Report a vulnerability](https://github.com/genclass-dev/GenClass-lib/security/advisories/new)).
 
 Include what you can of: the affected package and version (`GenClass.runtime.status`, or the version in
 `package.json`), how GenClass was installed (`@genclass/runtime/auto`, `GenClass.init`, the script tag), the mode
@@ -38,13 +38,20 @@ GenClass is pre-1.0. Security fixes go into the newest published version only; u
 | `@genclass/runtime`, the newest published `0.2.x` release (npm dist-tag `latest`) | yes |
 | `@genclass/runtime`, the newest `0.3.0` prerelease (npm dist-tag `beta`, from `0.3.0-beta.0`) | yes, fixed in the next prerelease; older `0.3.0` prereleases no |
 | `@genclass/runtime`, all `0.1.0` betas and alphas | no |
+| `genclass-runtime` (the former short name for the CLI, deprecated in this repository but not yet marked with `npm deprecate`; newest on npm 0.1.0-beta.3, which installs `@genclass/runtime` 0.1.0-beta.3 without a warning) | no: use `@genclass/runtime` |
 | `@genclass/runtime-model`, the version the supported runtime loads by default (`DEFAULT_MODEL_BASE_URL`) | yes |
 | `research/` and the other directories of this repository that are not published packages | no |
 
 ## In scope
 
-- the runtime library (`packages/runtime/src`), its zero-code entries (`/auto`, the script-tag build), the `init` /
-  `remove` CLI (`packages/runtime/bin`), the devtools overlay;
+- the runtime library (`packages/runtime/src`), its zero-code entries (`/auto`, the script-tag build), the devtools
+  overlay;
+- the CLI (`packages/runtime/bin`: `init`, `remove`, `login`, `connect`, `whoami`, `logout`, `fetch-model`, `info`),
+  including the session credentials `login` stores in `~/.config/genclass/credentials.json`
+  (`$XDG_CONFIG_HOME/genclass/` when that is set to an absolute path; `%APPDATA%\genclass\` on Windows; on macOS and
+  Linux, file mode 600 in a directory with mode 700), and the app token and private dashboard link `init` saves in
+  `.genclass.local` in the project (it makes sure git ignores that file, adding it to `.gitignore` when needed; the
+  link is a secret: whoever holds it sees the app's dashboard);
 - the model loader and host (integrity checks, Cache Storage, the worker);
 - the telemetry client and the collector (`telemetry-worker/`), including anything that sends more than
   [TELEMETRY.md](packages/runtime/TELEMETRY.md) says;

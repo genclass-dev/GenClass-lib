@@ -1,10 +1,17 @@
-# Flow expectations (v1: learn and report; no actions)
+# GenClass flow expectations (v1: learn and report; no actions)
 
-Status: in `@genclass/runtime` 0.3.0 as a deterministic, reporting-only layer, **opt-in**
+GenClass flow expectations learn, per route and user action, what usually follows (a request, a follow-up request, a
+state write, a navigation, a response in time) and report when it does not happen, such as an "Add to cart" click
+that usually sends a request and this time sent nothing. They only report, use no model, and are opt-in with
+`learn: { expectations: true }` in `@genclass/runtime` 0.3.0-beta.0 and later; their false-report rate is not measured
+yet.
+
+Status: in 0.3.0-beta.0 (npm `beta`) as a deterministic, reporting-only layer, **opt-in**
 (`GenClass.init({ learn: { expectations: true } })`, default false) until its false-report rate on correct apps is
-measured (the acceptance gate in docs/runtime/RESULTS.md, "Flow expectations"). Off, nothing is learned, stored or
-reported and `src/learn/flows.ts` is never loaded; on, the runtime imports it with a dynamic import after the first
-idle (a lazy chunk: no first-load bytes; inlined in the script-tag file), and activity before it arrives is not learned.
+measured (the acceptance gate in [RESULTS.md section 5](RESULTS.md#5-demos), "Flow expectations"). Off, nothing is
+learned, stored or reported and `src/learn/flows.ts` is never loaded; on, the runtime imports it with a dynamic import
+on the next task after init (a 0 ms timer on the injected clock, not an idle callback; a lazy chunk: no first-load
+bytes; inlined in the script-tag file), and activity before it arrives is not learned.
 Code: `packages/runtime/src/learn/flows.ts`, wired in `src/runtime.ts`; tests in `test/expectations.test.ts`.
 Nothing here is model-visible (CONTRACT §0 rule 1 and AGENTS.md rule 3 are untouched: no new fact, trigger,
 question or situation text), and nothing here acts in any mode. The one learned state the model does read, the

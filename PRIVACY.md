@@ -1,6 +1,6 @@
 # GenClass Runtime: privacy policy
 
-_Last updated: 2026-10-25._
+_Last updated: 2026-10-27._
 
 This policy covers the diagnostics that `@genclass/runtime` (from `0.1.0-beta.3`) sends to its maintainers. It does not
 cover the website or app that uses GenClass; that site has its own privacy policy.
@@ -79,8 +79,10 @@ came from, devices, countries, new or returning, entry and exit pages and funnel
 (time, route or function name, diagnosis, action). Dashboards do not show the situation text. Data from browsers that opted out or
 send Global Privacy Control never reaches a dashboard.
 
-When a developer creates a token with `npx @genclass/runtime@beta init`, after approving its changes, the tool sends us
-the name in their project's `package.json`. We keep one record per token: the token, that name, when it was created,
+When a developer creates a token with `npx @genclass/runtime@beta init` (runtime 0.3.0-beta.0 and later;
+`npx @genclass/runtime init` once 0.3.0 is `latest`), after approving its changes, the tool sends us the name in
+their project's `package.json`. When they create one at https://genclass.dev/start, we receive the app name they
+type, if any. We keep one record per token: the token, that name, when it was created,
 when data first and last arrived, a one-way hash of the dashboard link's secret, and the account it belongs to, if
 any. These records are kept until the owner
 asks us to delete them (contact below, with the token); the dashboard data itself is deleted after 90 days.
@@ -88,8 +90,8 @@ asks us to delete them (contact below, with the token); the dashboard data itsel
 ## Accounts on genclass.dev
 
 An account is optional: GenClass, its diagnostics and the private dashboard links work without one. A developer who
-creates one (at genclass.dev/signup, or with `npx @genclass/runtime@beta login`, runtime 0.3.0-beta.0 and later) can keep
-their apps in one place. An account stores:
+creates one (at genclass.dev/signup, or with `npx @genclass/runtime@beta login`, runtime 0.3.0-beta.0 and later;
+`npx @genclass/runtime login` once 0.3.0 is `latest`) can keep their apps in one place. An account stores:
 
 - **An email address:** as Google returned it when you sign in with Google, or as you typed it (trimmed and
   lowercased) when you sign up with an email and a password or add a password to your account, together with whether
@@ -137,11 +139,12 @@ and your plan. Never card numbers, bank details or billing addresses. For a purc
 record of the purchase (account id, email, subscription id, time) so that a person from GenClass can write to the buyer
 to start the work.
 
-**Forwarding** is off unless an account turns it on for one of its apps. Then, for each new detection
-from that app, GenClass sends a short record to the services that account chose (Sentry, PostHog, Datadog, Slack or
-its own webhook URL): the kind of problem, the model's confidence, what triggered the check, the page path, the
-runtime and model versions, the time and a link to the app's dashboard. Never text from the page. Those services
-handle the records under their own terms with the account owner. The keys and URLs for them are stored encrypted.
+**Forwarding** is off unless an account turns it on for one of its apps. Then, for each new likely detection
+from that app (never a possible one), GenClass sends a short record to the services that account chose (Sentry,
+PostHog, Datadog, Slack or its own webhook URL): the kind of problem, the model's confidence, what triggered the
+check, the page path, the runtime and model versions, the time and a link to the app's dashboard. Never text from
+the page. Those services handle the records under their own terms with the account owner. The keys and URLs for them
+are stored encrypted.
 
 **Export** lets an account download, or read with an export key, the events GenClass received for its own apps, as
 stored. Export keys are stored as one-way hashes.
@@ -177,7 +180,7 @@ can also contact your local data protection authority.
 
 The data comes from your users' browsers. Depending on where you operate, you may need to mention GenClass in your
 own privacy policy, or keep `telemetry: false` until your users consent to analytics. Full technical details are in
-[TELEMETRY.md](packages/runtime/TELEMETRY.md).
+[TELEMETRY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md).
 
 ## Changes
 

@@ -2,7 +2,11 @@
 
 ### Explain your flaky e2e test: which response landed over newer data, which click submitted twice.
 
-GenClass for Playwright, in two parts that share one file format:
+`@genclass/playwright` is GenClass for Playwright: it puts
+[`@genclass/runtime`](https://www.npmjs.com/package/@genclass/runtime) ([genclass.dev](https://genclass.dev)), the
+open-source (Apache-2.0) browser library that reports race conditions in web apps while they happen, on every page
+your tests open, and turns what it flagged into one pull-request report. This page covers `@genclass/playwright`
+0.1.0, which is not on npm yet, and the `genclass-races/1` file format. Two parts that share that file format:
 
 - **The fixture** (`@genclass/playwright/fixture`) puts [`@genclass/runtime`](../runtime) on every page your tests
   open, before the app's first script, in observe mode with telemetry off. With `chaos` it slows and reorders the
@@ -289,7 +293,7 @@ What it does so the comment is safe to post:
 
 ### What the comment looks like
 
-This is the exact output for the unit-test fixture in [`test/fixtures/races`](test/fixtures/races): two tests, two
+This is the exact output for the unit-test fixture in [`test/fixtures/races`](https://github.com/genclass-dev/GenClass-lib/tree/main/packages/playwright/test/fixtures/races): two tests, two
 seeds each, one signature flagged in both seeds and one in a single seed, both model detections (a run with
 `model: "load"`). The fixture is synthetic (the evidence lines are written for the test, not taken from a real run);
 `test/package.test.ts` fails if this block and the summariser drift apart. Each `#` of a request id below is
@@ -419,13 +423,19 @@ The same with the GitHub CLI only (it updates the bot's comment that starts with
 ## What to expect from the model
 
 With `model: "load"`, the report passes on what the runtime's model flagged. That was measured on the framework
-compatibility matrix ([`compat/RESULTS.md`](../../compat/RESULTS.md), run of 2026-10-10: headless Chromium,
-10 seeds per cell, model `genclass-runtime-r17` 2.0.0-rc4t, the default of `@genclass/runtime-model` 0.2.0, WASM,
-balanced profile, whose report threshold is 0.90 per [`docs/runtime/RESULTS.md`](../../docs/runtime/RESULTS.md)):
+compatibility matrix
+([`compat/RESULTS.md`](https://github.com/genclass-dev/GenClass-lib/blob/main/compat/RESULTS.md), run of
+2026-10-10; headless Chromium, 10 seeds per cell, model `genclass-runtime-r17` 2.0.0-rc4t, the default of
+`@genclass/runtime-model` 0.2.0, WASM, balanced profile, whose report threshold is 0.90). The runtime was
+`@genclass/runtime` packed at commit `d04eff3` (version string 0.1.0-beta.4, never published): the 0.1.0-beta.4 code
+plus the "Model ready" log fix. 0.2.0's audit trail, protect presets, hold-budget ceilings and invariant fixes, 0.2.1's
+first-request hold and telemetry defaults and every later release were not run through the matrix
+([`docs/runtime/RESULTS.md`](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/RESULTS.md) §16):
 
 - **Double submit** (scenario b, a create form clicked twice): 10 `request:duplicate` detections over 10 seeds in
-  each of the 14 data layers where the scenario applies (React state, TanStack Query, Zustand, Redux, Apollo,
-  Next.js, SWR, Pinia, Svelte stores, Angular fetch and XHR, Solid, plain fetch).
+  each of the 14 data layers where the scenario applies (React state, TanStack Query, Zustand with its devtools
+  middleware at the default and with `enabled: true`, Redux, Apollo, Next.js state, SWR, Pinia, Svelte stores,
+  Angular fetch, Angular XHR, Solid, plain fetch).
 - **Stale typeahead** (scenario a; the app showed stale results on 10 of 10 seeds without GenClass in 11 data
   layers): `delivery:stale` detections over 10 seeds were 2 (React state), 5 (Zustand with its devtools middleware
   set to `enabled: true`), 1 (Redux) and 2 (Next.js state), and 0 in the other 7 layers with the bug (Zustand with
@@ -450,6 +460,17 @@ The files hold test titles, operation names and the runtime's evidence lines. Fo
 store field's name and the runtime's short summary of its value before and after (`2 items ["r one", "r two"]`;
 fields whose name says they hold a secret are redacted by the runtime, as elsewhere). The comment you post contains
 the same, so read a report before posting it from a repository whose test data is private.
+
+Without the fixture (the reporter alone, with `@genclass/runtime` installed in your app), the runtime under
+test sends **anonymous diagnostics by default** on public hosts: GenClass's decisions and counts,
+no text from your page unless the app opts in, to the GenClass maintainers to improve the model. They are off on
+`localhost` and other local hosts (`*.localhost`, `*.local`, `*.test`, `127.0.0.1`, private networks) from
+`@genclass/runtime` 0.2.2, which is where e2e suites usually run. Earlier versions (`0.1.0-beta.3` to `0.2.1`) send
+from local hosts too, and `0.1.0-beta.3` to `0.2.0` include the redacted situation text by default. With those
+versions, or with a test server on a non-local host name, pass `telemetry: false` to the runtime under test; the
+other opt-outs are `?genclass=no-telemetry`, `localStorage.setItem("genclass.telemetry", "off")` and Global Privacy
+Control. Details:
+[`TELEMETRY.md`](https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md).
 
 ## Development
 

@@ -101,7 +101,7 @@ Everything below ships first in `0.2.0`.
   proved fixed. Off unless set; nothing sent feeds a decision, a finding or a tool result.
 
 - **Explore stops reporting order-dependent bookkeeping as races** ([docs/runtime/AGENT.md](../../docs/runtime/AGENT.md)
-  section 5.1, [RESULTS.md](../../docs/runtime/RESULTS.md) section 20). A reordered run is a race only when what the
+  section 5.1, [RESULTS.md](../../docs/runtime/RESULTS.md) section 22). A reordered run is a race only when what the
   page shows, its form values, the requests it sent or its errors differ from the request-order baseline; store values
   that differ while the page is the same are listed as "Internal state only", and an overwrite a later response
   repaired as "Along the way only", neither with a finding. A `[redacted]` value equals any value. Scenarios are

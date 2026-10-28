@@ -1,7 +1,7 @@
 {
   "name": "genclass-runtime",
   "version": "0.3.0-beta.1",
-  "description": "Short alias for the @genclass/runtime CLI: npx genclass-runtime init sets up GenClass Runtime in your app.",
+  "description": "Deprecated: use @genclass/runtime (npx @genclass/runtime init). Former short name for the CLI of GenClass Runtime, a browser library that reports race conditions, stale responses and duplicate requests in web apps.",
   "type": "module",
   "license": "Apache-2.0",
   "repository": {
@@ -10,6 +10,17 @@
     "directory": "packages/genclass-runtime"
   },
   "homepage": "https://genclass.dev",
+  "bugs": {
+    "url": "https://github.com/genclass-dev/GenClass-lib/issues"
+  },
+  "keywords": [
+    "genclass",
+    "cli",
+    "deprecated",
+    "race-condition",
+    "stale-response",
+    "duplicate-request"
+  ],
   "bin": {
     "genclass-runtime": "./cli.mjs"
   },

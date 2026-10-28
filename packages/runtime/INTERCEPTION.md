@@ -1,4 +1,4 @@
-# Interception surface
+# GenClass interception surface: every browser API @genclass/runtime wraps
 
 Everything `@genclass/runtime` wraps, replaces or listens to in a page, what each mode may change, what it never
 does, how every action can be undone, and how everything is put back. The source is the code; each row names the file
@@ -7,9 +7,24 @@ browser global, compares what changed with the inventory at the end of this page
 and counts the patch sites in `src/` (a new `addEventListener`, `defineProperty` or global assignment fails the test
 until this page is updated).
 
-Related: [THREAT-MODEL.md](../../docs/runtime/THREAT-MODEL.md) (what an attacker could do with this surface),
-[SECURITY.md](../../SECURITY.md), [TELEMETRY.md](TELEMETRY.md) (what leaves the page),
-[OPTIONS-SPEC.md](../../docs/runtime/OPTIONS-SPEC.md) (every option), [API.md](../../docs/runtime/API.md).
+> **Version.** Written for `@genclass/runtime` 0.3.0-beta.4 as it is on GitHub `main` (released 2026-10-27). The
+> copy in an npm package describes that package's version. As of 2026-10-27, `npm i @genclass/runtime@beta` installs
+> 0.3.0-beta.4 (the 0.3.0 line: 0.3.0-beta.1 to 0.3.0-beta.4, released 2026-10-22 to 2026-10-27), and
+> `npm i @genclass/runtime` installs 0.2.2 (`latest`, 2026-10-13), which has no measured visual checks, no `protect()`,
+> no webhook sink and no interaction analytics. Items marked 0.3.0 are not in 0.2.x; the interaction analytics rows
+> (`src/analytics/`) and the devtools overlay's `theme: "dark"` default are 0.3.0-beta.1, the `genclass.analytics.<token>`
+> entry 0.3.0-beta.2.
+
+The `src/...` links are relative to `packages/runtime/` in the repository
+([GenClass-lib on GitHub](https://github.com/genclass-dev/GenClass-lib/tree/main/packages/runtime)): the npm package
+ships the built `dist/`, not `src/`.
+
+Related: [THREAT-MODEL.md](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/THREAT-MODEL.md) (what
+an attacker could do with this surface),
+[SECURITY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/SECURITY.md),
+[TELEMETRY.md](TELEMETRY.md) (what leaves the page),
+[OPTIONS-SPEC.md](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/OPTIONS-SPEC.md) (every option),
+[API.md](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/API.md).
 
 ## Contents
 
@@ -94,10 +109,10 @@ devtools overlay's Alt+Shift+G hotkey (only when you mount the overlay).
 | `document` | `DOMContentLoaded` (once) | [src/cdn/config.ts](src/cdn/config.ts) `whenBody` | mount the devtools overlay when `<body>` exists | fires once |
 | the model `Worker` | `message`, `error`, `messageerror` | [src/model/host.ts](src/model/host.ts), [src/cdn/global.ts](src/cdn/global.ts) `blobModuleWorker` | the worker GenClass started | terminated |
 | inside the worker | `message`, `securitypolicyviolation` | [src/model/worker.ts](src/model/worker.ts) | the worker's own scope | terminated |
-| the devtools overlay (only when mounted) | `keydown` on `document` (capture: Alt+Shift+G toggles the overlay and calls `preventDefault` on that combination only), clicks and keys inside its own shadow root, `matchMedia` theme changes | [src/devtools/index.ts](src/devtools/index.ts), [src/devtools/ui.ts](src/devtools/ui.ts) | the overlay | on unmount |
-| `document` (capture), `window` | `securitypolicyviolation` (at most 50 kept), `load` (once) | [src/visual/start.ts](src/visual/start.ts) `startVisual` | measured visual checks ([VISUAL.md](../../docs/runtime/VISUAL.md)), only when `InitOptions.visual` is on for this page: violations during page load cannot be queried later; the checks' chunk loads 1.5 s after `load` | `securitypolicyviolation` yes; `load` fires once and is inert after `destroy()` |
+| the devtools overlay (only when mounted) | `keydown` on `document` (capture: Alt+Shift+G toggles the overlay and calls `preventDefault` on that combination only), clicks and keys inside its own shadow root, `matchMedia` theme changes (only with `theme: "auto"`, the default before 0.3.0-beta.1) | [src/devtools/index.ts](src/devtools/index.ts), [src/devtools/ui.ts](src/devtools/ui.ts) | the overlay | on unmount |
+| `document` (capture), `window` | `securitypolicyviolation` (at most 50 kept), `load` (once) | [src/visual/start.ts](src/visual/start.ts) `startVisual` | measured visual checks ([VISUAL.md](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/VISUAL.md)), only when `InitOptions.visual` is on for this page: violations during page load cannot be queried later; the checks' chunk loads 1.5 s after `load` | `securitypolicyviolation` yes; `load` fires once and is inert after `destroy()` |
 | `document`, `window`, `document.fonts` (capture, passive; only once the visual chunk runs) | `document`: `error`, `load`, `securitypolicyviolation`, `click`, `pointerover`, `focusin`, `pointerdown`, `pointerup`, `pointercancel`, `keydown`, `visibilitychange`, `prerenderingchange`; `window`: `wheel`, `touchmove`, `scroll`, `hashchange`, `popstate`, `resize`, `pageshow`; `document.fonts`: `loadingdone` | [src/visual/engine.ts](src/visual/engine.ts) `Visual.install` | measured visual checks: failed assets, clicks swallowed by an invisible layer, hover and focus contrast, focus under a sticky header, scroll attempts on a locked page. Read only: never `preventDefault`, `stopPropagation` or a write | yes |
-| `window` (capture, passive), `document` (only with `InitOptions.analytics` or `rt.analytics.start()`, once the analytics chunk runs) | `window`: `click`, `pointerdown`, `pointermove`, `keydown`, `wheel`, `touchstart` (capture), `scroll`, `pagehide`, `pageshow`; `document`: `visibilitychange`, `prerenderingchange` (once, on a prerendered page) | [src/analytics/index.ts](src/analytics/index.ts) `startAnalytics` | interaction analytics ([ANALYTICS.md](../../docs/runtime/ANALYTICS.md)): page views, engaged time, scroll depth, and clicks, rage clicks and dead clicks per element key, sent as `interactions` telemetry events. Trusted events only; never `preventDefault`, `stopPropagation` or a write; nothing reaches the event log or the model | yes, and on `rt.analytics.stop()` |
+| `window` (capture, passive), `document` (only with `InitOptions.analytics` or `rt.analytics.start()`, once the analytics chunk runs) | `window`: `click`, `pointerdown`, `pointermove`, `keydown`, `wheel`, `touchstart` (capture), `scroll`, `pagehide`, `pageshow`; `document`: `visibilitychange`, `prerenderingchange` (once, on a prerendered page) | [src/analytics/index.ts](src/analytics/index.ts) `startAnalytics` | interaction analytics ([ANALYTICS.md](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/ANALYTICS.md)): page views, engaged time, scroll depth, and clicks, rage clicks and dead clicks per element key, sent as `interactions` telemetry events. Trusted events only; never `preventDefault`, `stopPropagation` or a write; nothing reaches the event log or the model | yes, and on `rt.analytics.stop()` |
 
 ## Objects it instruments after handing them to the app
 
@@ -118,7 +133,7 @@ Installed with `autoState` (on by default for `@genclass/runtime/auto` and the s
 | Source | Hook point | What GenClass does there | Store kind | May GenClass change it? |
 |---|---|---|---|---|
 | React ≥ 16.8 (all renderers, dev and prod builds) | `__REACT_DEVTOOLS_GLOBAL_HOOK__` (above) | on each commit, walks only the fibers that re-rendered (≤ 1 ms, ≤ 20,000 fibers per commit) and records `useState`, `useReducer`, `useSyncExternalStore` and class-component state of named components (≤ 3 instances per component, ≤ 48 component stores, ≤ 16 hooks each). Functions, promises, elements, DOM nodes and class instances are skipped; a value equal to what a password, card or one-time-code input holds is redacted from then on | `observed` | **No.** Never held, dropped, reverted, rolled back or resynced (`state/hub.ts` `StoreHub.observe` only records; mutation `discard`/`defer` are not offered: `situation/build.ts` `builtinUnavailable`; rollback needs a writable store) |
-| React renderers that inject after GenClass | the renderer's hooks dispatcher (`ReactSharedInternals.H` in React 19, `ReactCurrentDispatcher.current` before) becomes an accessor that returns an object inheriting from React's dispatcher with own `useState`/`useReducer` whose setters are wrapped; class instances' `updater` is wrapped | the wrapper calls the real setter unchanged and first notes which operation (request, timer, user action) called it | — | No. After `destroy()` the wrappers stay (React keeps the setters' identity) and pass through |
+| React renderers that inject after GenClass | the renderer's hooks dispatcher (`ReactSharedInternals.H` in React 19, `ReactCurrentDispatcher.current` before) becomes an accessor that returns an object inheriting from React's dispatcher with own `useState`/`useReducer` whose setters are wrapped; class instances' `updater` is wrapped | the wrapper calls the real setter unchanged and first notes which operation (request, timer, user action) called it | none | No. After `destroy()` the wrappers stay (React keeps the setters' identity) and pass through |
 | Redux and Redux Toolkit stores created with the Redux DevTools compose or enhancer (RTK's default) | `__REDUX_DEVTOOLS_EXTENSION_COMPOSE__`, `__REDUX_DEVTOOLS_EXTENSION__()` | adds GenClass's Redux enhancer innermost (as the manual `genclassEnhancer`, [src/adapters/redux.ts](src/adapters/redux.ts)); the real extension stays outermost | `adapter` (full) | **Yes, in guard/heal**: like a registered store (a salient async dispatch may be held with `policy.holdWrites`, dropped, late-reverted within 800 ms, rolled back). Redux stores created before a runtime attached are observed only |
 | Zustand `devtools()` middleware and other Redux DevTools `connect()` clients | `__REDUX_DEVTOOLS_EXTENSION__.connect` | records every state they send (functions left out), attributed to the operation that made the change | `observed` | **No** |
 
@@ -138,14 +153,15 @@ from ever being held.
 
 | What | Where | When | File |
 |---|---|---|---|
-| Network: the model card, tokenizer, calibration, meta and the model variant (about 10 MB) from `model.baseUrl` (default jsDelivr `@genclass/runtime-model`), and onnxruntime-web's wasm from `model.ortWasmPaths` | with the page's fetch as it was when the module loaded (never through the wrapper) | at idle after load, `GenClass.init` in a browser with a model; not on devices reporting 2 GB or less nor on Save-Data (`model.loadIf` default) | [src/model/loader.ts](src/model/loader.ts), [src/model/backend.ts](src/model/backend.ts) |
-| Network: anonymous diagnostics to the GenClass collector (`DEFAULT_TELEMETRY_ENDPOINT`, a Cloudflare Worker): a summary a minute while active, records of at most 200 decisions per page load (routine ones 1 in 4) | native `fetch`/`sendBeacon` captured at module load, `text/plain`, `credentials: "omit"`, `referrerPolicy: "no-referrer"` | `GenClass.init` in a browser unless turned off ([TELEMETRY.md](TELEMETRY.md)); never in `createRuntime()` | [src/telemetry/](src/telemetry/) |
+| Network: the model card, tokenizer, calibration, meta and the model variant (about 10 MB) from `model.baseUrl` (default jsDelivr `@genclass/runtime-model`), and onnxruntime-web's wasm from `model.ortWasmPaths` | with the page's fetch as it was when the module loaded (never through the wrapper) | at idle after load, `GenClass.init` in a browser with a model; not on devices reporting 2 GB or less nor on Save-Data (`model.loadIf` default, 0.3.0; 0.2.x loads on every device, and on Save-Data only when first needed) | [src/model/loader.ts](src/model/loader.ts), [src/model/backend.ts](src/model/backend.ts) |
+| Network: anonymous diagnostics to the GenClass collector (`DEFAULT_TELEMETRY_ENDPOINT`, a Cloudflare Worker): a summary about once a minute while decisions continue; every detection with its decision record, and every other non-routine decision record; routine decision records (top diagnosis `expected`, nothing acted) sampled 1 in 4 and capped at 200 per page load (0.3.0; 0.2.x sends every decision record) | native `fetch`/`sendBeacon` captured at module load, `text/plain`, `credentials: "omit"`, `referrerPolicy: "no-referrer"` | `GenClass.init` in a browser unless turned off ([TELEMETRY.md](TELEMETRY.md)); never in `createRuntime()` | [src/telemetry/](src/telemetry/) |
+| Network (0.3.0): a webhook sink's batched POSTs of `{ schema: "genclass-sink/1", version, records }` to the URL the app configured, only when the app adds `webhook()` from `@genclass/runtime/sinks/webhook` or names `webhook:<url>` in its config (`init --sink webhook:<url>`) | with `/auto` and a named sink, first a dynamic `import()` of the sink resolver and then of the adapter, both lazy chunks of the app's own bundle; with the script tag, a dynamic `import()` of the adapter, `dist/sinks/webhook.js`, from where the script was loaded (the CDN, or `data-base` when self-hosted); a named `console-json` sink loads its adapter the same way and sends nothing. The POSTs use `navigator.sendBeacon`, else `fetch` with `keepalive`, both looked up at send time; `headers` force the fetch path; when the fetch path is used, list the URL in `requests.ignore` (the zero-code entries do this for `webhook:<url>`) | with the zero-code entries, the imports when the first sink record arrives; then each round of sink records, and on `pagehide` or when the tab is hidden | [src/sinks/webhook.ts](src/sinks/webhook.ts), [src/cdn/sinks.ts](src/cdn/sinks.ts) `namedSinks`, [src/cdn/sinks-load.ts](src/cdn/sinks-load.ts) |
 | Cache Storage | `genclass-model` cache (`model.cacheName`): model files, each checked against the card's size and sha256 | model load | [src/model/loader.ts](src/model/loader.ts) `fetchFile` |
 | `sessionStorage` | `genclass:bucket` (`sample`: `act@<sample>` or `observe@<sample>`, reused only under the same `sample`; never read or written at `sample` 0 or 1), the breaker's trip state | `sample` < 1; breaker trips | [src/runtime.ts](src/runtime.ts) `sampleBucket`, [src/decide/breaker.ts](src/decide/breaker.ts) |
-| `localStorage` / `sessionStorage` | `genclass:learn` (learned flows by default; operation shapes too with `learn.persist`: signatures, routes and field names with id-like parts normalised, counts, hashed action labels; ≤ `learn.maxBytes`), `genclass:learn:probe` (set and removed once at init to check storage works), `genclass:learn:session` in sessionStorage (the tab's session ordinal) | flows by default, not in jsdom / happy-dom (`learn.persist: false` turns it all off); the runtime's own writes are not recorded as storage events | [src/runtime.ts](src/runtime.ts) `saveProfilesSoon`, `startSession`, [docs/runtime/EXPECTATIONS.md](../../docs/runtime/EXPECTATIONS.md) |
+| `localStorage` / `sessionStorage` | `genclass:learn` (only with `learn.expectations: true` (0.3.0) or `learn.persist`: learned flows, and operation shapes too with `learn.persist`: signatures, routes and field names with id-like parts normalised, counts, hashed action labels; ≤ `learn.maxBytes`), `genclass:learn:probe` (set and removed once at init when a store is wanted, to check storage works), `genclass:learn:session` in sessionStorage (the tab's session ordinal, with a localStorage store) | only with `learn.expectations: true` or `learn.persist` (by default nothing is stored); with `learn.expectations` alone, not in jsdom / happy-dom; `learn.persist: false` turns it all off; the runtime's own writes are not recorded as storage events | [src/runtime.ts](src/runtime.ts) `saveProfilesSoon`, `startSession`, [docs/runtime/EXPECTATIONS.md](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/EXPECTATIONS.md) |
 | `localStorage` | `genclass.analytics.<token>`: the visit id (16 random hex characters), the time of the visit's last page view or event, and a visited-before flag; written with the storage observer muted (`rt.selfStorage`), so it never becomes a `storage` event | interaction analytics on (`InitOptions.analytics`, `rt.analytics.start()`): each page view and each `interactions` event; removed by `rt.analytics.stop()` | [src/analytics/index.ts](src/analytics/index.ts) `startAnalytics` |
-| `localStorage` (read only) | `genclass` (kill switch), `genclass.telemetry` (opt-out) | init | [src/index.ts](src/index.ts) `killSwitch`, [src/telemetry/config.ts](src/telemetry/config.ts) |
-| A module `Worker` (`genclass-model`) running onnxruntime-web; inline on the main thread only if the worker cannot start (`model.inlineFallback`, default true; `false`: no model then, status `skipped` / `worker-unavailable`) | | model load | [src/model/host.ts](src/model/host.ts) |
+| `localStorage` (read only) | `genclass` (kill switch; read only when the URL has no `?genclass=` value, which takes precedence), `genclass.telemetry` (opt-out) | init | [src/index.ts](src/index.ts) `killSwitch`, [src/telemetry/config.ts](src/telemetry/config.ts) |
+| A module `Worker` (`genclass-model`) running onnxruntime-web; inline on the main thread only if the worker cannot start (`model.inlineFallback`, default true; `false` (0.3.0; 0.2.x ignores it): no model then, status `skipped` / `worker-unavailable`) | | model load | [src/model/host.ts](src/model/host.ts) |
 | Memory | ≤ 64 response bodies of ≤ 256 KB (last good GET per identity), ≤ 4 MB of recent responses for coalescing, a 500-event history, 200 decisions, 1,000 audit entries | always | [src/observe/cache.ts](src/observe/cache.ts) |
 | Console | one line per detection or intervention (`report`), the telemetry notice, warnings | `report: "console"` (default) | [src/decide/report.ts](src/decide/report.ts) |
 | Network: the measured visual checks' chunk (`dist/visual/index.js`, from the same place as the runtime) | a dynamic `import()` | 1.5 s after `load` when `InitOptions.visual` is on for the page (development hosts by default), or when the devtools overlay mounts or `rt.checkNow()` runs | [src/visual/start.ts](src/visual/start.ts) |
@@ -190,7 +206,7 @@ including the time spent waiting for a body, deferred re-decisions and `onBefore
 (`test/invariants/network.test.ts`, `test/invariants/state.test.ts` "the hold budget caps ..."). When the model is
 not ready, slow, erroring or over its rate limit, the subject proceeds unchanged (fail open).
 
-**Measured visual checks** ([VISUAL.md](../../docs/runtime/VISUAL.md)) only read in every mode. Their runtime fixes need
+**Measured visual checks** ([VISUAL.md](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/VISUAL.md)) only read in every mode. Their runtime fixes need
 `visual: { on: true, fix: true }` and guard or heal mode, and only ever do two things: add an owned stylesheet rule
 that sets a readable colour on one element (text measured below 1.5:1), or remove one leaked inline
 `pointer-events: none` or `overflow: hidden` declaration on `html` or `body` after recording it. Each is re-measured
@@ -202,7 +218,7 @@ Every term can only lower the mode: `routes` rules, `sample`, the breaker (after
 the session drops to `observe`), a hidden tab (nothing new is held; background decisions are skipped in guard and heal, and deferred until the tab is
 visible in observe, where they can only detect) and
 `?genclass-mode`. Since 0.2.2 no URL or `localStorage` switch can raise it on a production host: `?genclass=guard`
-or `heal` raises only with `debug: true` or on a development host (see [THREAT-MODEL.md](../../docs/runtime/THREAT-MODEL.md)).
+or `heal` raises only with `debug: true` or on a development host (see [THREAT-MODEL.md](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/THREAT-MODEL.md)).
 
 ## What it never does
 
@@ -230,13 +246,13 @@ proceeds or the chosen action runs. Every action is recorded (`rt.interventions(
 | Trigger | Action | Tier | What it does | Preconditions (besides the gate) | Undo |
 |---|---|---|---|---|---|
 | mutation | `discard` | guard | drops a held store write; decided after the write applied (hold budget expired), reverts exactly that write | registered store (not observed-only); held: `policy.holdWrites`; late revert ≤ 800 ms after it applied and nothing written since depends on it (`StoreHub.revertable`) | yes: the write is committed / re-applied |
-| mutation | `defer` | guard | holds the write until related in-flight operations finish, then decides again | held write, at most 2 defers, within what is left of the hold budget | — (the write applies or is decided again) |
+| mutation | `defer` | guard | holds the write until related in-flight operations finish, then decides again | held write, at most 2 defers, within what is left of the hold budget | not needed: the write applies or is decided again |
 | request | `coalesce` | guard | does not send; answers with the response of the identical request in flight or finished ≤ 2 s ago (`x-genclass: coalesced`) | fetch; same identity (method, URL, headers, body); a shareable buffered response (≤ 256 KB) | no: the request was not sent. Any method, POST included (double submits): protect or `deny` it where repeats are deliberate |
 | request | `delay` | guard | sends after 250 ms × 2^(recent failure streak), at most 8 s | fetch, XHR | no (latency only) |
 | request | `block` | heal | does not send; answers 503 with `x-genclass: blocked` | fetch, XHR | no |
 | request | `serve_cached` | heal | does not send; answers with the last good response for this identity (`x-genclass: cached`) | GET; a cached body (≤ 256 KB, this page's memory) | no |
 | delivery | `discard` | guard | delivers the response, then for 10 s drops the writes its causal chain makes over newer data | the response would overwrite newer data; at least one target field in a registered store | yes: the dropped values are restored |
-| delivery | `defer` | guard | holds the response until related in-flight operations finish, then decides again | related work in flight; at most 2 defers; within the hold budget | — |
+| delivery | `defer` | guard | holds the response until related in-flight operations finish, then decides again | related work in flight; at most 2 defers; within the hold budget | not needed: the response is delivered or decided again |
 | failure | `retry` | heal | sends the request again after 200 ms × 2^(attempt − 1) (≤ 5 s); the app gets that attempt's result | fetch; replayable body; fewer than 4 attempts; idempotent method or idempotency key | no |
 | failure | `serve_cached` | heal | answers the failed request with the last good response | fetch; GET; cached body | no |
 | stall | `hedge` | heal | sends a second identical request; the first good answer reaches the app | fetch; GET; replayable | no |
@@ -292,7 +308,7 @@ source, the model's probabilities, the action proposed and the one that ran with
 (name, version, variant, device and the sha256 its file was verified against). `InitOptions.audit` sets the in-memory
 size (default 1,000) and a `sink` for your own logging. Query values in free text are replaced with "…". The trail is
 built from values the runtime already has: it never feeds a decision, never changes what the model reads and is never
-sent anywhere by GenClass ([src/decide/audit.ts](src/decide/audit.ts); API: [API.md](../../docs/runtime/API.md)).
+sent anywhere by GenClass ([src/decide/audit.ts](src/decide/audit.ts); API: [API.md](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/API.md)).
 
 ## Machine-checked inventory
 
