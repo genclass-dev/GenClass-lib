@@ -1575,6 +1575,31 @@ async function turnOffLink(c: C, id: string): Promise<Response> {
 }
 
 /**
+ * DELETE /api/account/projects/<id> { confirm: "delete" }: delete an owned app with everything kept for it (its stats,
+ * visits, the agent's reports and log, its paid features, its export copies) and the app itself. Its key stops counting
+ * at once: batches the app still sends are stored as batches without a known key are (R2 only) and reach no dashboard.
+ * Its private link and agent link stop working. Only the signed-in browser may do it.
+ */
+async function deleteProject(c: C, id: string): Promise<Response> {
+  const a = await browserWriter(c, "a project can be deleted");
+  if (a instanceof Response) return a;
+  const body = await readJson(c, 1024);
+  if (body instanceof Response) return body;
+  if (body.confirm !== "delete") return fail(400, 'send { "confirm": "delete" } to delete this project');
+  const p = await ownedProject(c, a.account.id, id);
+  if (!p) return fail(404, "not found");
+  await c.db.batch([
+    c.db.prepare("DELETE FROM integrations WHERE project_id = ?").bind(id),
+    c.db.prepare("DELETE FROM forward_log WHERE project_id = ?").bind(id),
+    ...["daily", "hourly", "recent", "sessions", "visits", "agent_reports", "agent_log"].map((t) => c.db.prepare(`DELETE FROM ${t} WHERE token = ?`).bind(p.token)),
+    c.db.prepare("DELETE FROM projects WHERE id = ? AND account_id = ?").bind(id, a.account.id),
+  ]);
+  forgetToken(p.token);
+  await forgetExports(c.db, c.env.BUCKET, [p.token]).catch(() => undefined);
+  return noContent();
+}
+
+/**
  * DELETE /api/account/sessions/<id>. A CLI session may end only itself ("current", the CLI's logout); the browser
  * may end any of the account's sessions, or every session but itself ("others").
  */
@@ -1787,9 +1812,11 @@ export async function routeAuth(request: Request, url: URL, path: string, env: E
       // Studio's "Create a new project" (the form posts to /api/account/projects, as the CLI does)
       if (!get) return method();
       const a = await webSession(c);
-      if (!a) return redirect("/login?next=%2Faccount%2Fnew");
+      // ?name= fills in the project's name (the page check's "Fix it with GenClass" names the site it checked)
+      const suggested = (url.searchParams.get("name") ?? "").replace(/[\u0000-\u001f]/g, "").trim().slice(0, 80);
+      if (!a) return redirect(`/login?next=${encodeURIComponent(`/account/new${suggested ? `?name=${encodeURIComponent(suggested)}` : ""}`)}`);
       const view = await accountView(c, a);
-      return page(200, (n) => newProjectPage(n, { account: view.account, projects: view.projects.map((p) => ({ id: p.id, name: p.name })), plan: view.plan }));
+      return page(200, (n) => newProjectPage(n, { account: view.account, projects: view.projects.map((p) => ({ id: p.id, name: p.name })), plan: view.plan, suggested }));
     }
     case "/login/device": {
       if (!get) return method();
@@ -1905,6 +1932,8 @@ export async function routeAuth(request: Request, url: URL, path: string, env: E
   }
   const link = /^\/api\/account\/projects\/([^/]+)\/link$/.exec(path);
   if (link) return m === "DELETE" ? turnOffLink(c, link[1]!) : post ? makeLink(c, link[1]!) : method();
+  const proj = /^\/api\/account\/projects\/([^/]+)$/.exec(path);
+  if (proj) return m === "DELETE" ? deleteProject(c, proj[1]!) : method();
   const ses = /^\/api\/account\/sessions\/([^/]+)$/.exec(path);
   if (ses) return m === "DELETE" ? revokeSession(c, ses[1]!) : method();
   const cred = /^\/api\/account\/credentials\/([^/]+)$/.exec(path);
@@ -1972,6 +2001,7 @@ function accountNotice(url: URL): AccountView["notice"] {
   if (q.get("linked") === "github") return { kind: "ok", text: "GitHub is linked. You can now sign in with it." };
   if (q.get("password") === "changed") return { kind: "ok", text: "Your password is changed. Every other browser and terminal is signed out." };
   if (q.get("password") === "added") return { kind: "ok", text: "Your password is set. You can now sign in with your email and password." };
+  if (q.get("deleted") === "project") return { kind: "ok", text: "The project is deleted, with its stats and its links." };
   if (q.get("error") === "google_taken") return { kind: "bad", text: "That Google account is already linked to another GenClass account, so it was not linked here." };
   if (q.get("error") === "github_taken") return { kind: "bad", text: "That GitHub account is already linked to another GenClass account, so it was not linked here." };
   return undefined;

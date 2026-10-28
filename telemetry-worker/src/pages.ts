@@ -1,5 +1,5 @@
-// HTML for https://genclass.dev/start (get a token) and https://genclass.dev/dashboard/<secret> (the dashboard), and
-// the shell and dashboard the account pages (src/account-pages.ts) reuse: /account/apps/<id> is this dashboard in its
+// HTML for https://genclass.dev/start (get a token), /start/open-source (the open-source parts, no account) and
+// https://genclass.dev/dashboard/<secret> (the dashboard), and the shell and dashboard the account pages (src/account-pages.ts) reuse: /account/apps/<id> is this dashboard in its
 // account mode (the account's projects in the header's switcher, the Connect dialog's ways in, the agent link, stats
 // from the account API). Every plan includes the dashboard (billing/plans.json); a plan file that left it out would
 // give the locked account mode (the key and the Connect dialog, the plans, no stats), and a locked private link is
@@ -26,7 +26,7 @@ export const ANALYTICS_RUNTIME = "0.3.0-beta.1";
  * set SNIPPET_RUNTIME to "0.3.0" and RUNTIME_PKG to "@genclass/runtime" (and RUNTIME_ON_NPM in wrangler.toml), then
  * deploy.
  */
-export const SNIPPET_RUNTIME = "0.3.0-beta.3";
+export const SNIPPET_RUNTIME = "0.3.0-beta.4";
 export const RUNTIME_PKG = "@genclass/runtime@beta";
 export const CDN_SCRIPT = `https://cdn.jsdelivr.net/npm/@genclass/runtime@${SNIPPET_RUNTIME}`;
 /** What local and private hosts do, as the runtime behaves (src/telemetry/config.ts) and PRIVACY.md says. */
@@ -63,6 +63,30 @@ export const LOGO =
 
 /** The MCP server for coding agents, pinned as its own install blocks pin it (packages/mcp/src/clients.ts). */
 export const MCP_PKG = "@genclass/mcp@0.2.0";
+
+/** The package names and URLs installPrompt names; passed in, so the page script runs the same function. */
+export interface PromptNames {
+  pkg: string;
+  cdn: string;
+  /** the agent link's module on the CDN, for pages without a bundler */
+  agent: string;
+  mcp: string;
+}
+export const PROMPT_NAMES: PromptNames = { pkg: RUNTIME_PKG, cdn: CDN_SCRIPT, agent: `${CDN_SCRIPT}/dist/agent.js`, mcp: MCP_PKG };
+
+/** What the Connect dialog's choices add to installPrompt; all off is observe, the overlay in development only. */
+export interface InstallChoices {
+  /** guard: GenClass may act when it is sure (drop a stale response, fix a CSS bug on the page), reversibly */
+  guard?: boolean;
+  /** with guard: act on smaller signals (aggressiveness "eager") */
+  eager?: boolean;
+  /** the devtools overlay on every host, the deployed site too (for demos and staging) */
+  badge?: boolean;
+  /** the agent link (a private dashboard link): the MCP server's production numbers and the Loop view */
+  agentLink?: string | null;
+  /** deploy with the project's own deploy command at the end */
+  deploy?: boolean;
+}
 
 // The palette, type, buttons, header and focus ring of genclass.dev (site/src/css/base.css and components.css), with
 // the site's values: black ground, bone text, the GenClass mark's green and red-orange, square corners, 1px rules,
@@ -270,7 +294,8 @@ export function startPage(nonce: string, opts: { runtimeReady?: boolean; endpoin
   <h1>Get a token for your web app</h1>
   <p class="lead">One token per app. Add it to GenClass and every page load, detection and fix is collected for the
   app's private dashboard. The dashboard is free.</p>
-  <p class="muted small">To keep several apps in one place, <a href="/signup">create an account</a> or <a href="/login">sign in</a>.</p>
+  <p class="muted small">To keep several apps in one place, <a href="/signup">create an account</a> or <a href="/login">sign in</a>.
+  No account and no token: <a href="/start/open-source">use the open-source parts only</a>.</p>
 </section>
 <section>
   <form id="f" class="card stack" novalidate>
@@ -321,6 +346,224 @@ See <a href="https://github.com/genclass-dev/GenClass-lib/blob/main/PRIVACY.md">
   });
 })();`;
   return shell(nonce, "Get a token | GenClass", body, script);
+}
+
+// ------------------------------------------------------------------------------------- /start/open-source
+// GenClass's open-source parts with no account: the runtime in the app's pages, the agent link, the MCP server and the
+// page check, all Apache-2.0, with no token and the runtime's anonymous diagnostics off, so nothing reaches
+// genclass.dev. For teams that cannot sign up for or send data to a hosted dashboard (enterprises). The page sends
+// nothing either: its choices rewrite the prompt in the browser, with the server's own openSourcePrompt.
+
+/** What /start/open-source's choices add to openSourcePrompt; all off is observe, the overlay in development only. */
+export interface OpenSourceChoices {
+  /** guard: GenClass may act when it is sure (drop a stale response, fix a CSS bug on the page), reversibly */
+  guard?: boolean;
+  /** with guard: act on smaller signals (aggressiveness "eager") */
+  eager?: boolean;
+  /** the console-json sink: every record also as one JSON line on the console, for the app's own log shipper */
+  logs?: boolean;
+  /** the model and onnxruntime-web from the app's own host (`fetch-model`), not jsDelivr */
+  selfHost?: boolean;
+  /** deploy with the project's own deploy command at the end */
+  deploy?: boolean;
+}
+
+/**
+ * The prompt /start/open-source copies: installPrompt's steps without a token, a dashboard or an agent link, with
+ * `telemetry: false` (the runtime sends no data anywhere; it still downloads public files from jsDelivr unless the app
+ * serves them), the MCP server on the developer's machine and the page check run locally. Pure and self-contained,
+ * like installPrompt: the page script runs this same function.
+ */
+export function openSourcePrompt(c: OpenSourceChoices = {}, n: PromptNames = PROMPT_NAMES): string {
+  const guard = !!c.guard;
+  const eager = guard && !!c.eager;
+  const logs = !!c.logs;
+  const own = !!c.selfHost;
+  const dir = "/genclass-model/";
+  // GenClass.init has automatic state discovery off unless asked (autoState: true, with the discover import first)
+  const init = ["telemetry: false", "autoState: true"];
+  if (guard) init.push('mode: "guard"', ...(eager ? ['aggressiveness: "eager"'] : []), "visual: { on: true, fix: true }");
+  if (own) init.push(`model: { baseUrl: "${dir}", ortWasmPaths: "${dir}ort/" }`);
+  if (logs) init.push("sinks: [consoleJson()]");
+  // the script tag carries all of it but the aggressiveness, which goes in GENCLASS_CONFIG (as in installPrompt)
+  const attrs = ['data-telemetry="off"'];
+  if (guard) attrs.push('data-mode="guard"', 'data-visual="fix"');
+  if (own) attrs.push(`data-model="${dir}"`, `data-ort="${dir}ort/"`);
+  if (logs) attrs.push('data-sink="console-json"');
+  attrs.push('data-devtools="local"');
+  const flags = ["--no-telemetry", ...(guard ? ["--mode guard"] : []), ...(logs ? ["--sink console-json"] : []), ...(own ? [`--model-url ${dir}`] : [])];
+  // init writes no visual or aggressiveness option: the prompt says where to add them
+  const initAdds = guard
+    ? `${eager ? 'aggressiveness: "eager" and ' : ""}visual: { on: true, fix: true } to the option file it writes (data-visual="fix" on the tag it writes${eager ? ", and the GENCLASS_CONFIG line above" : ""}; Astro gets a <meta name="genclass"> line instead: add visual=fix to its content${eager ? ', and the aggressiveness in a window.GENCLASS_CONFIG script before it' : ""})`
+    : "";
+  const local = '["localhost", "127.0.0.1"].includes(location.hostname)';
+  // A step is a one-element array, numbered at the end (choices add steps); other lines are strings. No named inner
+  // function: Wrangler's bundler (keepNames) would wrap it in a __name() helper that the page script, which runs this
+  // function's source, lacks.
+  const out: (string | [string])[] = [
+    "Add GenClass's open-source parts to this web app (Apache-2.0, https://github.com/genclass-dev/GenClass-lib): the @genclass/runtime library in its pages, which reports the bugs that never throw (double submits, stale responses that overwrite newer data, write races, visual bugs), and the @genclass/mcp server on this machine, so you, the coding agent, can see what happens on the dev pages, replay it and prove fixes. No GenClass account and no token: nothing is sent to genclass.dev. Do every step yourself.",
+    "",
+    [`Install the runtime with the project's package manager: npm install ${n.pkg} (or pnpm add / yarn add / bun add ${n.pkg}). A site with no build step (plain HTML pages, no bundler) installs nothing: it uses the script tags below.`],
+    [
+      "Start it as early as possible, with GenClass's anonymous diagnostics off (telemetry: false), so it sends no data anywhere" +
+        (own ? "" : "; the browser still downloads its model and onnxruntime-web, public files, from cdn.jsdelivr.net (about 13 MB, 18 MB on WebGPU devices, then cached) unless the app serves them") +
+        ". With a bundler, in the browser entry (main.ts, the root layout or the root component), with the discover import first, before React, Redux or Zustand load:",
+    ],
+    '   import "@genclass/runtime/discover"; // first: lets GenClass find React, Redux and Zustand state',
+    ...(logs ? ['   import { consoleJson } from "@genclass/runtime/sinks/console-json";'] : []),
+    '   import { GenClass } from "@genclass/runtime";',
+    `   const rt = GenClass.init({ ${init.join(", ")} });`,
+    "   Without a bundler, in the <head> of every HTML page, before the page's own scripts:",
+    ...(eager ? ['   <script>window.GENCLASS_CONFIG = { aggressiveness: "eager" };</script>'] : []),
+    `   <script src="${n.cdn}" ${attrs.join(" ")}></script>`,
+    "   and in the page's scripts the handle (rt below) is GenClass.runtime.",
+    `   (Or npx ${n.pkg} init ${flags.join(" ")} --yes does steps 1 and 2 and shows the diff, with a bundler or plain HTML pages: it starts GenClass with its zero-code entry (the /auto import with an option file, or the script tag pinned with an integrity hash), which finds React, Redux and Zustand state by itself, and adds step 3's dev-only overlay; the handle is then GenClass.runtime${guard ? `; add ${initAdds}` : ""}${own ? "; run the fetch-model command below before it" : ""}.)`,
+    [
+      (guard
+        ? `Mode guard: when GenClass is sure, it acts with minimal, reversible steps (it drops a stale response or fixes a CSS bug on the page) and never changes a response${eager ? '; aggressiveness "eager" lets it act on smaller signals' : ""}.`
+        : "Keep the default mode, observe: GenClass reports and never changes what the app does.") +
+        ' In development builds also mount the devtools overlay, which shows what GenClass sees on the page: if (import.meta.env.DEV) import("@genclass/runtime/devtools").then((d) => d.mountDevtools(rt)); (Next.js: process.env.NODE_ENV === "development"; the script tag\'s data-devtools="local" does the same).',
+    ],
+    ['Connect the state that responses write (search results, carts, lists, forms), so GenClass sees each write with the response or click that caused it. React state, Redux stores (configureStore, or createStore with the Redux DevTools compose) and Zustand stores made with the devtools middleware are found automatically (the discover import with autoState: true above; the script tag and init\'s /auto import do it by default); otherwise create it with rt.atom("name", initial) or wrap the store you have with rt.guard("name", { get, set }), and write through the handle. Values one response writes together (a search\'s query and its results) go in one atom, written once per response, so GenClass can drop a stale response as one write: const search = rt.atom("search", { query: "", results: [] }); then search.set((s) => ({ ...s, query: data.q, results: data.results })) and render from search.subscribe.'],
+    ['Development builds only, add the agent link: import { connectAgent } from "@genclass/runtime/agent"; if (import.meta.env.DEV) connectAgent(rt); (Next.js: process.env.NODE_ENV === "development"). It records what happens on local pages for the GenClass MCP server, talks only to 127.0.0.1 and is never part of a production build.'],
+    `   Without a bundler, after the runtime's script tag: <script type="module">if (${local}) import("${n.agent}").then((a) => { const go = () => (GenClass.runtime ? a.connectAgent(GenClass.runtime) : setTimeout(go, 50)); go(); });</script>`,
+    [`Add the GenClass MCP server to yourself: npx -y ${n.mcp} init writes .mcp.json for Claude Code (npx -y ${n.mcp} config <client> prints the block for Cursor, VS Code, Codex, Gemini CLI and others); then reload your MCP servers. It runs on this machine, its bridge listens on 127.0.0.1 only, and it needs no account: leave GENCLASS_DASHBOARD and GENCLASS_REPORT unset (either one sends to a GenClass dashboard). init also prints setup lines for the app with a bare GenClass.init(): keep the setup from steps 2 and 5 instead. Its tools: genclass_status, genclass_findings, genclass_explain, genclass_replay, genclass_explore, genclass_scan.`],
+    ...(logs
+      ? [
+          ['Findings print as [GenClass] lines in the browser console, and the console-json sink also prints each one as one JSON line, for the log shipper the app already uses. If the team has its own endpoint for them, the webhook sink sends batched POSTs there instead: import { webhook } from "@genclass/runtime/sinks/webhook"; sinks: [webhook({ url: "<the endpoint>" })], requests: { ignore: ["<the endpoint>"] } (so GenClass does not watch its own POSTs; data-sink="webhook:<the endpoint>" on the script tag does both). Ask me for that URL rather than inventing one.'] as [string],
+        ]
+      : []),
+    ...(own
+      ? [
+          [`Serve the model from the app itself, so its pages download no model from a CDN: npx ${n.pkg} fetch-model public/genclass-model (the folder the project serves as-is: public/ for Vite, Next.js and Astro, static/ for SvelteKit), before init if you use init. It downloads the model and onnxruntime-web's files, checks the model files against the sizes and SHA-256 hashes its model card lists, and records onnxruntime-web's hashes in ort/ort.json; the model option above points at it. On a host with a 25 MiB per-file limit (Cloudflare), run fetch-model public/genclass-model --variant q8 --ort wasm instead and add device: "wasm" to the model option (data-device="wasm" on the script tag; init --model-url adds it when it finds only the WASM build). With a bundler nothing else loads from a CDN. Without one, the runtime's script and what it loads on demand (its model worker, onnxruntime-web's JavaScript, sinks, visual checks, the overlay, the agent link) still come from jsDelivr unless you serve the package's dist/ folder from the app and point the script tag and the agent link's import at it (data-base if they are in different folders).`] as [string],
+        ]
+      : []),
+    [`Run the dev server and load a page to check that the app builds and runs without errors. Until the MCP server runs (your next conversation), the page logs a failed request to 127.0.0.1:47357: that is the agent link finding no server, and expected. In your next conversation, reload a dev page and genclass_status lists it. Then check a page for visual bugs with genclass_scan on its local URL, or from a terminal: npx ${n.pkg} scan http://localhost:5173/ --local (keep --local). It runs headless Chromium on this machine and needs Playwright: if the scan says it is missing, ask me before adding playwright as a dev dependency and downloading Chromium (about 600 MB): npm i -D playwright && npx playwright install chromium; or skip the scan and say so. Do not use hosted: true: it sends the page URL to GenClass's hosted page check, which is not open source.`],
+    ...(c.deploy
+      ? [["Deploy it, as chosen, with the command this project already uses (a deploy script in package.json, wrangler deploy for a Cloudflare Worker, vercel deploy --prod, and so on), then check that the deployed site serves the change."] as [string]]
+      : []),
+    [`Tell me what you changed${c.deploy ? " and where it is deployed" : ""}, that the app sets no GenClass token and has telemetry off, what it downloads from outside this network, and that a new conversation with you has the GenClass tools.`],
+  ];
+  let k = 0;
+  return out.map((l) => (typeof l === "string" ? l : `${++k}. ${l[0]}`)).join("\n");
+}
+
+/** A function's own source for a page script, safe inside its <script> element (no "</script" left in it). */
+function fnSource(fn: (...a: never[]) => unknown): string {
+  return fn.toString().replace(/<\/(script)/gi, "<\\/$1");
+}
+
+/**
+ * One choice of a prompt's checkboxes (/start/open-source, the Connect dialog); a sub choice is indented. It is not
+ * disabled in the markup: a browser brings back only enabled boxes with the page, so the page script disables it on
+ * pageshow, after that restore, while its parent is off (the prompts ignore it then anyway).
+ */
+function choiceOpt(k: string, label: string, note: string, sub = false): string {
+  return `<label class="copt${sub ? " sub" : ""}"><input type="checkbox" data-choice="${k}"><span><b>${label}</b> ${note}</span></label>`;
+}
+
+/** The commands' agent link, before its development check (which is the bundler's: init writes the same one). */
+const AGENT_LINK_HEAD = `// in the app's entry, after the lines init added
+import { GenClass } from "@genclass/runtime";
+import { connectAgent } from "@genclass/runtime/agent";`;
+
+/** The prompt block's styles on genclass.dev's palette (the dashboard's .copts and .cprompt, DASH_CSS, re-tokened). */
+const OSS_CSS = `
+.copts{display:grid;gap:6px;max-width:72ch}
+fieldset.copts{border:0;padding:0;margin:0;min-width:0}
+.copts legend{padding:0;margin-bottom:4px}
+.cmds h3{font-size:17px;letter-spacing:-.015em;font-weight:500;margin:0}
+.copt{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--rule2);cursor:pointer;font-size:14px;color:var(--ink2);line-height:1.45}
+.copt b{color:var(--ink);font-weight:500}
+.copt input{margin-top:4px;accent-color:var(--accent)}
+.copt.sub{margin-left:26px}
+.copt:has(input:disabled){opacity:.55;cursor:default}
+.copt:has(input:checked){border-color:var(--ink3)}
+.cprompt{display:grid;justify-items:start;gap:10px}
+.cprompt .btn.xl{min-height:52px;font-size:16px;padding:0 24px}
+.cp-sub{font-size:14px;color:var(--ink2);max-width:64ch}
+textarea.cp-text{width:100%;max-width:72ch;min-height:150px;padding:10px 12px;font:12.5px/1.5 var(--mono);color:var(--ink);background:var(--code);border:1px solid var(--rule2);border-radius:0;resize:vertical}
+ul.facts{list-style:none;display:grid;gap:8px;max-width:72ch;color:var(--ink2);font-size:14px}
+ul.facts li{padding-left:16px;position:relative}
+ul.facts li::before{content:"";position:absolute;left:0;top:.62em;width:6px;height:6px;background:var(--accent-f)}
+ul.facts code,.cmds p code{font:13px var(--mono);color:var(--ink)}
+@media (max-width:560px){.cprompt .btn.xl{width:100%;white-space:normal;text-align:center;padding:10px 16px}.copt.sub{margin-left:14px}}
+`;
+
+/**
+ * /start/open-source: GenClass's open-source parts with no account or token (openSourcePrompt behind one copy button,
+ * its choices, what leaves the network, the commands). Its script rewrites the prompt in the browser and sends nothing.
+ */
+export function openSourcePage(nonce: string): string {
+  const prompt = openSourcePrompt();
+  const cmd = (label: string, code: string) =>
+    `<div class="snip"><div class="row between"><h3>${label}</h3><button class="btn sm ghost" type="button" data-copy="${esc(code)}" aria-label="Copy ${esc(label)}">Copy</button></div><pre class="code" tabindex="0">${esc(code)}</pre></div>`;
+  const repo = "https://github.com/genclass-dev/GenClass-lib";
+  const body = `
+<style nonce="${nonce}">${OSS_CSS}</style>
+<section class="stack mt-xl">
+  <h1>GenClass without an account</h1>
+  <p class="lead">The open-source parts only, Apache-2.0: the runtime in your app's pages, and the MCP server and the
+  page check on your machine. No sign-in, no token, and nothing is sent to genclass.dev.</p>
+</section>
+<section class="card stack">
+  <fieldset class="copts" id="choices">
+    <legend class="cp-sub">What the prompt sets up (all off: observe, which only reports)</legend>
+    ${choiceOpt("guard", "Guard", "GenClass fixes what it is sure of, reversibly: it drops a stale response, fixes a CSS bug on the page.")}
+    ${choiceOpt("eager", "Eager", "With Guard: it acts on smaller signals too.", true)}
+    ${choiceOpt("logs", "Findings in our own logs", "Each finding also goes to the console as one JSON line, for the log shipper you already run.")}
+    ${choiceOpt("selfHost", "Serve the model ourselves", "The model and onnxruntime-web's wasm come from your app's host, not jsDelivr: for a strict Content-Security-Policy or a closed network. With script tags, the prompt says what else to serve.")}
+    ${choiceOpt("deploy", "Deploy when done", "The agent deploys with the project's own deploy command.")}
+  </fieldset>
+  <div class="cprompt">
+    <button class="btn green xl" type="button" id="cp" data-copy="${esc(prompt)}">Copy the prompt for your coding agent</button>
+    <p class="cp-sub">Paste it into Claude Code, Cursor or Codex: it adds GenClass to your app and the MCP server to the agent, with nothing to sign up for.</p>
+    <textarea class="cp-text" id="cpt" readonly hidden aria-label="The prompt, to copy by hand" rows="8">${esc(prompt)}</textarea>
+  </div>
+</section>
+<section class="stack">
+  <h2 class="h2l">What leaves your network</h2>
+  <ul class="facts">
+    <li>Nothing goes to genclass.dev: there is no token, and the runtime's anonymous diagnostics are off (<code>telemetry: false</code>).</li>
+    <li>Browsers download public files from jsDelivr (cdn.jsdelivr.net), once, then cached: the model and onnxruntime-web (about 13 MB on WASM, 18 MB on WebGPU) unless you serve them yourself, and on sites without a bundler the runtime's own files unless you serve its <code>dist/</code> folder. No app data goes with those requests.</li>
+    <li>The MCP server runs on your machine and its bridge listens on 127.0.0.1 only; with <code>GENCLASS_DASHBOARD</code> and <code>GENCLASS_REPORT</code> unset it sends nothing off the machine, and it keeps what it records in <code>.genclass/agent</code> in the project, which git ignores. <code>genclass_scan</code> and <code>scan --local</code> check pages in headless Chromium on your machine. A page URL leaves it only with <code>hosted: true</code> (or <code>scan</code> without <code>--local</code> when Playwright or its Chromium is missing): it then goes to GenClass's hosted page check (genclass-scan.mehar-144.workers.dev), which is not open source.</li>
+    <li>On developer machines, npm install and npx fetch packages from the npm registry (or your mirror), and the page check's Chromium comes from Playwright's download servers; <code>fetch-model</code> (to serve the model yourself) downloads the model and onnxruntime-web from jsDelivr, or from a mirror you name with <code>--from</code> and <code>--ort-from</code>.</li>
+    <li>The runtime, the MCP server, the model's training code and the collector behind genclass.dev are on <a href="${repo}">GitHub</a> under the Apache-2.0 license; the model's weights are on npm as <code>@genclass/runtime-model</code> (Apache-2.0).</li>
+  </ul>
+</section>
+<section class="stack cmds">
+  <h2 class="h2l">Or run the commands yourself</h2>
+  ${cmd("Add the runtime to your app", `npx ${RUNTIME_PKG} init --no-telemetry`)}
+  ${cmd("Connect the dev pages to the MCP server: Vite", `${AGENT_LINK_HEAD}\nif (import.meta.env.DEV && GenClass.runtime) connectAgent(GenClass.runtime);`)}
+  ${cmd("The same for Next.js and webpack", `${AGENT_LINK_HEAD.replace("the app's entry", "the app's entry (Next.js: instrumentation-client.ts)")}\nif (process.env.NODE_ENV === "development" && GenClass.runtime) connectAgent(GenClass.runtime);`)}
+  ${cmd("Add the MCP server for Claude Code", `npx -y ${MCP_PKG} init`)}
+  ${cmd("Check a page for visual bugs", `npx ${RUNTIME_PKG} scan http://localhost:5173/ --local`)}
+  <p class="muted small">init shows the diff and asks before it writes; add <code>--mode guard</code> for guard. Other agents: <code>npx -y ${MCP_PKG} config &lt;client&gt;</code> prints the block for Cursor, VS Code, Codex, Gemini CLI and others; keep <code>GENCLASS_DASHBOARD</code> and <code>GENCLASS_REPORT</code> out of it. The scan needs Playwright (<code>npm i -D playwright &amp;&amp; npx playwright install chromium</code>).</p>
+</section>
+<footer>Want a dashboard without sending data to us? The collector is open source too:
+<a href="${repo}/blob/main/telemetry-worker/README.md#self-host-the-collector-private-mode">run it on your own Cloudflare account</a>.
+Or <a href="/signup">create a free account</a>.</footer>`;
+  const script = `
+(function(){
+  var openSourcePrompt = ${fnSource(openSourcePrompt)};
+  var NAMES = ${JSON.stringify(PROMPT_NAMES).replace(/</g, "\\u003c")};
+  var box = document.getElementById("choices"), cp = document.getElementById("cp"), ta = document.getElementById("cpt");
+  function on(k){ var i = box.querySelector('[data-choice="' + k + '"]'); return !!(i && i.checked && !i.disabled); }
+  function now(){
+    var p = openSourcePrompt({ guard: on("guard"), eager: on("eager"), logs: on("logs"), selfHost: on("selfHost"), deploy: on("deploy") }, NAMES);
+    cp.setAttribute("data-copy", p); ta.value = p;
+  }
+  function eagerFollows(){ var g = box.querySelector('[data-choice="guard"]'), e = box.querySelector('[data-choice="eager"]'); e.disabled = !g.checked; if (!g.checked) e.checked = false; }
+  box.addEventListener("change", function(e){ if (e.target && e.target.getAttribute && e.target.getAttribute("data-choice") === "guard") eagerFollows(); now(); });
+  [].forEach.call(document.querySelectorAll("[data-copy]"), function(b){
+    b.addEventListener("click", function(){ gcCopy(b, b.getAttribute("data-copy"), b === cp ? ta : b.parentNode.parentNode.querySelector("pre")); });
+  });
+  // a browser can bring ticked boxes back with the page (back, reload); Chromium does it after load, before pageshow and
+  // without a change event, and skips disabled boxes: so eager is disabled only on pageshow, and the prompt follows then
+  function sync(){ eagerFollows(); now(); }
+  now(); window.addEventListener("pageshow", sync);
+})();`;
+  return shell(nonce, "Use GenClass without an account | GenClass", body, script);
 }
 
 // ------------------------------------------------------------------------------------------------- 404
@@ -552,6 +795,14 @@ details.more summary:hover{color:var(--ink)}
 .kn .lnk,.fine .lnk{color:var(--ink2);text-decoration:underline;text-underline-offset:3px}
 .kn .lnk:hover{color:var(--ink)}
 .cprompt{padding:8px 0 4px;display:grid;justify-items:start;gap:10px}
+/* the Connect dialog's choices: each a checkbox and one line of what it adds to the prompt */
+.copts{display:grid;gap:6px;margin:4px 0 12px;max-width:72ch}
+.copt{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;border:1px solid var(--rule2);border-radius:6px;cursor:pointer;font-size:13px;color:var(--ink3);line-height:1.45}
+.copt b{color:var(--ink);font-weight:500}
+.copt input{margin-top:3px;accent-color:var(--accent)}
+.copt.sub{margin-left:26px}
+.copt:has(input:disabled){opacity:.55;cursor:default}
+.copt:has(input:checked){border-color:var(--ink3)}
 .cprompt .cp-sub{font-size:13px;color:var(--ink3);max-width:64ch;line-height:1.5}
 .cprompt textarea.cp-text{width:100%;max-width:72ch;min-height:150px;padding:10px 12px;font:12.5px/1.5 var(--mono);color:var(--ink);background:var(--ctl);border:1px solid var(--rule2);border-radius:6px;resize:vertical}
 .connect .cana{padding:0}
@@ -864,6 +1115,8 @@ const DASH_JS = `
     return Object.keys(m).map(function(r){ return { route: r, count: m[r] }; }).sort(function(a, b){ return b.count - a.count; });
   }
   function lower(s){ return s.charAt(0).toLowerCase() + s.slice(1); }
+  // page loads the agent needs: it says what to do, then waits for them itself, so nobody has to type "done"
+  var WAIT = "When a step needs page loads on the dev page, tell me in one line exactly what to do there (for example: reload it and repeat the search fast), then wait for the loads yourself: check every 10 seconds (sleep 10 in a shell in between), for up to 5 minutes, instead of ending your turn.";
   // what a coding agent gets from Copy prompt for one kind of problem: what, where, the usual fix, the MCP steps
   function fixPrompt(k, n, where){
     var t = T(k), pages = where.slice(0, 4).map(function(w){ return w.route + " (" + fmt(w.count) + ")"; }).join(", ");
@@ -872,10 +1125,32 @@ const DASH_JS = `
     if (t.fix) out.push("How it is usually fixed: " + t.fix);
     out.push("", "Use the GenClass MCP server (" + MCP + "; the project's MCP page in the GenClass dashboard says how to add it):",
       "1. genclass_findings, then genclass_explain on the finding that matches. " + stepFor(k, where.length ? where[0].route : "the page"),
+      "   " + WAIT,
       "2. Find the code behind it and fix it; keep the regression test genclass_explain generates.",
       "3. Replay the recorded order again with genclass_replay: it must say not reproduced.",
       "4. Tell me what you changed, the test you added and the replay's verdict.");
     return out.join("\\n");
+  }
+  // one prompt for every kind of problem in the period, and the checks on the dev page: the loop for each (reproduce,
+  // fix, prove), from one paste
+  function fixAllPrompt(S){
+    var list = (S.breakdowns.detect_diagnosis || []).filter(function(x){ return x.key !== "expected"; });
+    var out = ["Fix the problems GenClass found in this web app (" + P.name + ") and prove each fix, with the GenClass MCP server (" + MCP + "; the project's MCP page in the GenClass dashboard says how to add it).", "", "In production, " + lower(RANGE[range]) + ":"];
+    list.forEach(function(x){
+      var t = T(x.key), w = whereOf(S, x.key);
+      out.push("- " + t.name + ", " + plural(x.count, "time", "times") + (w.length ? ", on " + w.slice(0, 3).map(function(v){ return v.route; }).join(", ") : "") + "." + (t.fix ? " Usual fix: " + t.fix : ""));
+    });
+    out.push("- And every check genclass_findings lists from the dev page (unreadable text, a scroll lock left on, a page that stops taking clicks).", "",
+      "1. genclass_status: the dev page must be connected; if it is not, tell me what to open.",
+      "2. For each problem: genclass_findings, then genclass_explain; reproduce it with genclass_explore or genclass_replay. " + WAIT,
+      "3. Fix the cause in the code, small and idiomatic; keep the regression test genclass_explain generates.",
+      "4. Replay the recorded order again: it must say not reproduced.",
+      "5. Sum up in one line per problem: what it was, the proof, the fix.");
+    return out.join("\\n");
+  }
+  function fixAll(S){
+    var any = (S.breakdowns.detect_diagnosis || []).some(function(x){ return x.key !== "expected"; });
+    ["fixall", "fixall2"].forEach(function(id){ var b = document.getElementById(id); if (!b) return; b.classList.toggle("hidden", !any); b.setAttribute("data-copy", any ? fixAllPrompt(S) : ""); });
   }
   function promptBtn(k, n, where, cls){
     var b = el("button", cls || "btn sm ghost", "Copy prompt"); b.type = "button";
@@ -1667,6 +1942,20 @@ const DASH_JS = `
     });
   }
   document.addEventListener("click", function(e){
+    var b = e.target && e.target.closest ? e.target.closest("[data-delproj]") : null; if (!b || !P.account) return;
+    var err = b.parentNode && b.parentNode.nextElementSibling;
+    // the first click asks, the second (within 6 s) deletes the project and opens the Projects page
+    if (b.getAttribute("data-armed") !== "1") {
+      b.setAttribute("data-armed", "1"); b.textContent = "Confirm: delete this project and its data";
+      setTimeout(function(){ if (b.getAttribute("data-armed") === "1" && !b.disabled) { b.removeAttribute("data-armed"); b.textContent = "Delete project"; } }, 6000);
+      return;
+    }
+    b.disabled = true; if (err) err.textContent = "";
+    fetch("/api/account/projects/" + encodeURIComponent(P.id), { method: "DELETE", credentials: "same-origin", headers: { accept: "application/json", "content-type": "application/json" }, body: JSON.stringify({ confirm: "delete" }) })
+      .then(function(r){ if (r.ok) { location.href = "/account?deleted=project"; return; } return r.json().catch(function(){ return {}; }).then(function(j){ throw new Error((j && j.error) || "HTTP " + r.status); }); })
+      .catch(function(x){ if (err) err.textContent = "Not deleted: " + x.message + "."; b.disabled = false; b.removeAttribute("data-armed"); b.textContent = "Delete project"; });
+  });
+  document.addEventListener("click", function(e){
     var b = e.target && e.target.closest ? e.target.closest("[data-mklink]") : null; if (!b || !P.account) return;
     var box = b.closest(".alink"), err = box ? box.querySelector(".err") : null;
     // a link already exists: the first click asks, the second (within 6 s) replaces it and the old one stops working
@@ -1676,11 +1965,39 @@ const DASH_JS = `
       return;
     }
     b.disabled = true; if (err) err.textContent = "";
-    fetch("/api/account/projects/" + encodeURIComponent(P.id) + "/link", { method: "POST", credentials: "same-origin", headers: { accept: "application/json", "content-type": "application/json" }, body: "{}" })
-      .then(function(r){ return r.json().catch(function(){ return {}; }).then(function(j){ if (!r.ok) throw new Error((j && j.error) || "HTTP " + r.status); return j; }); })
-      .then(function(j){ agentLink = j.dashboardUrl; mcpOpt.link = true; alinkShow(); mcpAll(); })
-      .catch(function(x){ if (err) err.textContent = "Not created: " + x.message + "."; b.disabled = false; b.removeAttribute("data-armed"); });
+    makeAgentLink().catch(function(x){ if (err) err.textContent = "Not created: " + x.message + "."; b.disabled = false; b.removeAttribute("data-armed"); });
   });
+  // a new agent link (auth.ts makeLink): shown on the MCP page and in Project Settings, and named by the Connect prompt
+  function makeAgentLink(){
+    return fetch("/api/account/projects/" + encodeURIComponent(P.id) + "/link", { method: "POST", credentials: "same-origin", headers: { accept: "application/json", "content-type": "application/json" }, body: "{}" })
+      .then(function(r){ return r.json().catch(function(){ return {}; }).then(function(j){ if (!r.ok) throw new Error((j && j.error) || "HTTP " + r.status); return j; }); })
+      .then(function(j){ agentLink = j.dashboardUrl; mcpOpt.link = true; alinkShow(); mcpAll(); promptNow(); });
+  }
+  // ---------- the Connect dialog's choices: its prompt is installPrompt, the server's own function, with them
+  var installPrompt = ${fnSource(installPrompt)};
+  var NAMES = ${JSON.stringify(PROMPT_NAMES).replace(/</g, "\\u003c")};
+  var choiceBox = document.getElementById("cchoices");
+  function choiceOn(k){ var i = choiceBox && choiceBox.querySelector('[data-choice="' + k + '"]'); return !!(i && i.checked && !i.disabled); }
+  function promptNow(){
+    var b = document.getElementById("cpinstall"), t = document.getElementById("cpinstallt"); if (!b || !choiceBox) return;
+    var p = installPrompt(P.token, P.endpoint || null, { guard: choiceOn("guard"), eager: choiceOn("eager"), badge: choiceOn("badge"), deploy: choiceOn("deploy"), agentLink: choiceOn("agent") ? agentLink : null }, NAMES);
+    b.setAttribute("data-copy", p); if (t) t.value = p;
+  }
+  if (choiceBox) choiceBox.addEventListener("change", function(e){
+    var i = e.target, k = i && i.getAttribute ? i.getAttribute("data-choice") : null, err = choiceBox.querySelector(".err"); if (!k) return;
+    if (k === "guard") { var ea = choiceBox.querySelector('[data-choice="eager"]'); if (ea) { ea.disabled = !i.checked; if (!i.checked) ea.checked = false; } }
+    if (k === "agent" && i.checked && !agentLink && P.account) {
+      // ticking it makes the link: the first time, or a new one that replaces the app's (the label says which)
+      i.disabled = true; if (err) err.textContent = "";
+      makeAgentLink().then(function(){ i.disabled = false; promptNow(); }, function(x){ i.disabled = false; i.checked = false; if (err) err.textContent = "No agent link: " + x.message + "."; promptNow(); });
+      return;
+    }
+    promptNow();
+  });
+  // a browser can bring ticked boxes back with the page (back, reload); Chromium does it after load, before pageshow and
+  // without a change event, and skips disabled boxes: so eager is disabled only on pageshow, and the prompt follows then
+  function choicesSync(){ var g0 = choiceBox.querySelector('[data-choice="guard"]'), e0 = choiceBox.querySelector('[data-choice="eager"]'); if (g0 && e0) { e0.disabled = !g0.checked; if (!g0.checked) e0.checked = false; } var a0 = choiceBox.querySelector('[data-choice="agent"]'); if (a0 && a0.checked && !agentLink) a0.checked = false; promptNow(); }
+  if (choiceBox) { promptNow(); window.addEventListener("pageshow", choicesSync); }
 
   function render(S){
     shownS = S;
@@ -1700,7 +2017,7 @@ const DASH_JS = `
     document.getElementById("content").classList.toggle("hidden", !live);
     ["period", "mdcopy", "verdict"].forEach(function(id){ var n = document.getElementById(id); if (n) n.classList.toggle("hidden", !live); });
     if (!live) return;
-    verdict(S); summary(S); tiles(S); usage(S); advisor(S); trend(S); possibleTrend(S); cards(S); possibleCards(S); pages(S); acted(S); health(S); stages(S); agentLog(S); loop(S); recent(S); visits(S); advanced(S);
+    verdict(S); summary(S); tiles(S); usage(S); advisor(S); fixAll(S); trend(S); possibleTrend(S); cards(S); possibleCards(S); pages(S); acted(S); health(S); stages(S); agentLog(S); loop(S); recent(S); visits(S); advanced(S);
     var B2 = S.breakdowns, T2 = S.totals;
     function put(id, t){ var n = document.getElementById(id); if (n) n.textContent = t; }
     put("c-trend", fmt(T2.detections));
@@ -1721,7 +2038,7 @@ const DASH_JS = `
   (function(){
     var VIEW = { top: "overview", trend: "overview", usage: "overview", advisor: "overview", getc: "overview", found: "problems", "possible-s": "problems", where: "pages", did: "pages",
       "recent-s": "activity", visits: "visitors", "ix-sources": "visitors", "ix-devices": "visitors", "ix-sessions": "visitors", "ix-entry": "visitors", "ix-funnels": "visitors", clicks: "visitors", moves: "visitors",
-      "health-s": "health", adv: "health", loop: "loop", mcp: "mcp", "mcp-tools": "mcp", "mcp-json": "mcp", settings: "settings", keys: "settings", forwarding: "forwarding", "export": "export" };
+      "health-s": "health", adv: "health", loop: "loop", mcp: "mcp", "mcp-tools": "mcp", "mcp-json": "mcp", settings: "settings", keys: "settings", delproj: "settings", forwarding: "forwarding", "export": "export" };
     var TITLE = {
       problems: ["Problems", "Each kind of problem GenClass found in this period: where it happened, how to fix it, and a prompt for your coding agent."],
       pages: ["Pages and actions", "The pages with the most problems, and what GenClass did about them."],
@@ -1730,11 +2047,11 @@ const DASH_JS = `
       health: ["Health", "Whether GenClass could watch your pages at all: model loads, decision time, what was not checked."],
       loop: ["Loop", "What broke on this app, and what your coding agent does with each problem."],
       mcp: ["MCP", "Let your coding agent read this project: production problems through @genclass/mcp, and what happens inside your pages while you develop."],
-      settings: ["Project Settings", "This project's name, key and agent access."],
+      settings: ["Project Settings", P.account ? "This project's name, key and agent access, and deleting it." : "This project's name, key and agent access."],
       forwarding: ["Integrations", "Send each new detection where you already look."],
       "export": ["Export", "Every event GenClass received for this app, as a file or through the API."]
     };
-    var PARENT = { "export": "settings" }, SCROLL = { did: 1, "possible-s": 1, "ix-sources": 1, "ix-devices": 1, "ix-sessions": 1, "ix-entry": 1, "ix-funnels": 1, clicks: 1, moves: 1, keys: 1, usage: 1, advisor: 1, getc: 1, adv: 1, "mcp-tools": 1, "mcp-json": 1 };
+    var PARENT = { "export": "settings" }, SCROLL = { did: 1, "possible-s": 1, "ix-sources": 1, "ix-devices": 1, "ix-sessions": 1, "ix-entry": 1, "ix-funnels": 1, clicks: 1, moves: 1, keys: 1, usage: 1, advisor: 1, getc: 1, adv: 1, "mcp-tools": 1, "mcp-json": 1, delproj: 1 };
     var links = [].slice.call(document.querySelectorAll(".snav a, .sb-pm a"));
     var parts = [].slice.call(document.querySelectorAll("[data-v]"));
     var current = null;
@@ -1933,29 +2250,58 @@ export function analyticsPrompt(token: string, where: string, endpoint: string |
 }
 
 /**
- * The prompt the Connect dialog's Framework tab copies, the whole integration from one paste: install the runtime and
- * start it with this project's key in observe mode (it only reports), connect the state responses write, the agent
- * link for development builds, the GenClass MCP server in the coding agent, a dev-server check, and where the first
- * events come from.
+ * The prompt the Connect dialog's Framework tab copies, the whole integration from one paste: install the runtime (or
+ * the script tags of a site with no build step) and start it with this project's key, the mode and overlay the dialog's
+ * choices pick, the state responses write (one atom per response), the agent link for development builds, the GenClass
+ * MCP server in the coding agent (with the agent link when chosen), a dev-server check, and a deploy when chosen.
+ * Pure, and it names nothing outside its arguments: the page script runs this same function (its source) when a
+ * choice changes, so the server's prompt and the dialog's stay one text.
  */
-export function installPrompt(token: string, endpoint: string | null = null): string {
-  const ep = endpoint ? `, telemetry: { endpoint: "${endpoint}" }` : "";
-  return [
-    "Add GenClass to this web app with its project key, so the app's GenClass dashboard shows what breaks for its users in production (double submits, stale responses, failing endpoints, write races), and so you, the coding agent, can see what happens on the dev pages, replay it and prove fixes.",
+export function installPrompt(token: string, endpoint: string | null = null, c: InstallChoices = {}, n: PromptNames = PROMPT_NAMES): string {
+  const guard = !!c.guard;
+  const eager = guard && !!c.eager;
+  const badge = !!c.badge;
+  const link = c.agentLink || "";
+  // GenClass.init has automatic state discovery off unless asked (autoState: true, with the discover import first)
+  const init = [`token: "${token}"`, "autoState: true"];
+  if (guard) init.push('mode: "guard"', ...(eager ? ['aggressiveness: "eager"'] : []), "visual: { on: true, fix: true }");
+  if (endpoint) init.push(`telemetry: { endpoint: "${endpoint}" }`);
+  // the script tag carries the mode, the visual fixes and the overlay; what it cannot carry goes in GENCLASS_CONFIG
+  const cfg = [...(eager ? ['aggressiveness: "eager"'] : []), ...(endpoint ? [`telemetry: { endpoint: "${endpoint}" }`] : [])];
+  const tag = `<script src="${n.cdn}" data-token="${token}"${guard ? ' data-mode="guard" data-visual="fix"' : ""}${badge ? " data-devtools" : ' data-devtools="local"'}></script>`;
+  const local = '["localhost", "127.0.0.1"].includes(location.hostname)';
+  const out = [
+    "Add GenClass to this web app with its project key, so the app's GenClass dashboard shows what breaks for its users in production (double submits, stale responses, failing endpoints, write races), and so you, the coding agent, can see what happens on the dev pages, replay it and prove fixes. Do every step yourself.",
     "",
-    `1. Install the runtime with the project's package manager: npm install ${RUNTIME_PKG} (or pnpm add / yarn add / bun add).`,
-    `2. Start it as early as possible in the browser entry (main.ts, the root layout or the root component), with this project's key ${token}:`,
+    `1. Install the runtime with the project's package manager: npm install ${n.pkg} (or pnpm add / yarn add / bun add ${n.pkg}). A site with no build step (plain HTML pages, no bundler) installs nothing: it uses the script tags below.`,
+    `2. Start it as early as possible, with this project's key ${token}. With a bundler, in the browser entry (main.ts, the root layout or the root component), with the discover import first, before React, Redux or Zustand load:`,
+    '   import "@genclass/runtime/discover"; // first: lets GenClass find React, Redux and Zustand state',
     '   import { GenClass } from "@genclass/runtime";',
-    `   const rt = GenClass.init({ token: "${token}"${ep} });`,
-    `   Without a bundler, put this in the HTML head instead: <script src="${CDN_SCRIPT}" data-token="${token}"></script>`,
-    `   The key is public: it can only add telemetry to this app, so it belongs in front-end code. (npx ${RUNTIME_PKG} init --token ${token} --yes does steps 1 and 2 and shows the diff.)`,
-    "3. Keep the default mode, observe: GenClass reports and never changes what the app does. In development builds also mount the devtools overlay, which shows what GenClass sees on the page: if (import.meta.env.DEV) import(\"@genclass/runtime/devtools\").then((d) => d.mountDevtools(rt)); (Next.js: process.env.NODE_ENV === \"development\").",
-    '4. Connect the state that responses write (search results, carts, lists, forms), so GenClass sees each write with the response or click that caused it. React, Redux and Zustand state is found automatically; otherwise create it with rt.atom("name", initial) or wrap the store you have with rt.guard("name", { get, set }), and write through the handle.',
+    `   const rt = GenClass.init({ ${init.join(", ")} });`,
+    "   Without a bundler, in the <head> of every HTML page, before the page's own scripts:",
+    ...(cfg.length ? [`   <script>window.GENCLASS_CONFIG = { ${cfg.join(", ")} };</script>`] : []),
+    `   ${tag}`,
+    "   and in the page's scripts the handle (rt below) is GenClass.runtime.",
+    `   The key is public: it can only add telemetry to this app, so it belongs in front-end code. (With a bundler, npx ${n.pkg} init --token ${token} --yes does steps 1 and 2 and shows the diff.)`,
+    (guard
+      ? `3. Mode guard, as chosen on the dashboard: when GenClass is sure, it acts with minimal, reversible steps (it drops a stale response or fixes a CSS bug on the page) and never changes a response${eager ? '; aggressiveness "eager" lets it act on smaller signals' : ""}.`
+      : "3. Keep the default mode, observe: GenClass reports and never changes what the app does.") +
+      (badge
+        ? ' Mount the devtools overlay on every host, the deployed site too, as chosen on the dashboard, so visitors see what GenClass does: import("@genclass/runtime/devtools").then((d) => d.mountDevtools(rt)); (the script tag\'s data-devtools does the same).'
+        : ' In development builds also mount the devtools overlay, which shows what GenClass sees on the page: if (import.meta.env.DEV) import("@genclass/runtime/devtools").then((d) => d.mountDevtools(rt)); (Next.js: process.env.NODE_ENV === "development"; the script tag\'s data-devtools="local" does the same).'),
+    '4. Connect the state that responses write (search results, carts, lists, forms), so GenClass sees each write with the response or click that caused it. React state, Redux stores (configureStore, or createStore with the Redux DevTools compose) and Zustand stores made with the devtools middleware are found automatically (the discover import with autoState: true above; the script tag and init\'s /auto import do it by default); otherwise create it with rt.atom("name", initial) or wrap the store you have with rt.guard("name", { get, set }), and write through the handle. Values one response writes together (a search\'s query and its results) go in one atom, written once per response, so GenClass can drop a stale response as one write: const search = rt.atom("search", { query: "", results: [] }); then search.set((s) => ({ ...s, query: data.q, results: data.results })) and render from search.subscribe.',
     '5. Development builds only, add the agent link: import { connectAgent } from "@genclass/runtime/agent"; if (import.meta.env.DEV) connectAgent(rt); (Next.js: process.env.NODE_ENV === "development"). It records what happens on local pages for the GenClass MCP server and is never part of a production build.',
-    `6. Add the GenClass MCP server to yourself: npx -y ${MCP_PKG} init writes .mcp.json for Claude Code (npx -y ${MCP_PKG} config <client> prints the block for Cursor, VS Code, Codex, Gemini CLI and others); then reload your MCP servers. Its tools: genclass_status, genclass_findings, genclass_explain, genclass_replay, genclass_explore, genclass_scan.`,
-    "7. Run the dev server and load a page to check that the app builds and runs without errors; genclass_status should then list the page. Local hosts (localhost, private networks) send nothing to the dashboard by default, so the first production events come from the deployed site.",
-    "8. Tell me what you changed.",
-  ].join("\n");
+    `   Without a bundler, after the runtime's script tag: <script type="module">if (${local}) import("${n.agent}").then((a) => { const go = () => (GenClass.runtime ? a.connectAgent(GenClass.runtime) : setTimeout(go, 50)); go(); });</script>`,
+    link
+      ? `6. Add the GenClass MCP server to yourself with this project's agent link, in your own settings rather than a file in the repository (anyone with the link can read this app's stats). Claude Code: claude mcp add genclass -e GENCLASS_DASHBOARD=${link} -e GENCLASS_REPORT=on -- npx -y ${n.mcp} (other agents: npx -y ${n.mcp} config <client> prints the block; add those two env values to it). GENCLASS_REPORT=on mirrors what you find, replay and prove to the dashboard's Loop view. Its tools: genclass_status, genclass_findings, genclass_explain, genclass_replay, genclass_explore, genclass_scan, genclass_analytics.`
+      : `6. Add the GenClass MCP server to yourself: npx -y ${n.mcp} init writes .mcp.json for Claude Code (npx -y ${n.mcp} config <client> prints the block for Cursor, VS Code, Codex, Gemini CLI and others); then reload your MCP servers. Its tools: genclass_status, genclass_findings, genclass_explain, genclass_replay, genclass_explore, genclass_scan.`,
+    "7. Run the dev server and load a page to check that the app builds and runs without errors; genclass_status lists a dev page once you load it with the MCP server running (a new MCP server loads in your next conversation). Local hosts (localhost, private networks) send nothing to the dashboard by default, so the first production events come from the deployed site.",
+    ...(c.deploy
+      ? ["8. Deploy it, as chosen on the dashboard, with the command this project already uses (a deploy script in package.json, wrangler deploy for a Cloudflare Worker, vercel deploy --prod, and so on), then check that the deployed site serves the change."]
+      : []),
+    `${c.deploy ? 9 : 8}. Tell me what you changed${c.deploy ? " and where it is deployed" : ""}, and that a new conversation with you has the GenClass tools.`,
+  ];
+  return out.join("\n");
 }
 
 /** One big primary button that copies analyticsPrompt, and at most two lines under it. */
@@ -1974,6 +2320,12 @@ interface ConnectOptions {
   analytics: string;
   /** The MCP tab (the page script renders it; the locked page has no script for it). Default true. */
   mcp?: boolean;
+  /**
+   * The choices above the prompt (guard, eager, the badge on every host, the agent link, deploy), which the dashboard's
+   * page script turns into the prompt; none on the locked page. `agent`: the agent link choice, and whether choosing it
+   * replaces a link the app already has (account mode), or names this private link (private mode).
+   */
+  choices?: { agent: "new" | "replace" | "this" | null };
 }
 
 /**
@@ -2001,7 +2353,26 @@ function connectSection(c: ConnectOptions): string {
   };
   const notYet = c.runtimeReady ? "" : `<p class="cnote" id="cnote">${NOT_ON_NPM} So this line keeps waiting.</p>`;
   const install = installPrompt(token, endpoint);
-  const ask = `<div class="cprompt"><button class="btn green xl" type="button" data-copy="${esc(install)}">Copy the prompt for your coding agent</button><p class="cp-sub">Paste it into Claude Code, Cursor or Codex: it installs GenClass in this app with this project's key.</p><textarea class="cp-text" readonly hidden aria-label="The prompt, to copy by hand" rows="8">${esc(install)}</textarea></div>`;
+  const ch = c.choices;
+  const opt = choiceOpt;
+  const agentNote = !ch?.agent
+    ? ""
+    : ch.agent === "this"
+      ? "The prompt names this private link, which opens these stats to anyone who has it."
+      : ch.agent === "replace"
+        ? "Makes a new agent link; the one the app has stops working."
+        : "Makes an agent link, a read-only link to these stats that stays in your agent's own settings.";
+  const choices = ch
+    ? `<div class="copts" id="cchoices" role="group" aria-label="What the prompt sets up">
+  ${opt("guard", "Guard", "GenClass fixes what it is sure of, reversibly: it drops a stale response, fixes a CSS bug on the page.")}
+  ${opt("eager", "Eager", "It acts on smaller signals too.", true)}
+  ${opt("badge", "Badge on the live site", "The GenClass overlay shows on every host, not only locally: for demos and staging.")}
+  ${ch.agent ? opt("agent", "Connect my coding agent to production", `Its MCP server reads these numbers and reports to the Loop view. ${agentNote}`) : ""}
+  ${opt("deploy", "Deploy when done", "The agent deploys with the project's own deploy command.")}
+  <p class="err" role="alert"></p>
+</div>`
+    : "";
+  const ask = `${choices}<div class="cprompt"><button class="btn green xl" type="button" id="cpinstall" data-copy="${esc(install)}">Copy the prompt for your coding agent</button><p class="cp-sub">Paste it into Claude Code, Cursor or Codex: it installs GenClass in this app with this project's key.</p><textarea class="cp-text" id="cpinstallt" readonly hidden aria-label="The prompt, to copy by hand" rows="8">${esc(install)}</textarea></div>`;
   const ways = c.account
     ? `<div class="ways">
     ${
@@ -2136,7 +2507,7 @@ export function dashboardPage(
   if (acct && opts.locked) return lockedDashboardPage(nonce, project, { ...opts, account: acct });
   const waiting = !project.lastEvent;
   const base = acct
-    ? { ...project, id: opts.id, firstEvent: opts.firstEvent ?? null, statsUrl: `/api/account/projects/${opts.id}/stats`, funnelsUrl: `/api/account/projects/${opts.id}/funnels`, account: true }
+    ? { ...project, id: opts.id, firstEvent: opts.firstEvent ?? null, statsUrl: `/api/account/projects/${opts.id}/stats`, funnelsUrl: `/api/account/projects/${opts.id}/funnels`, account: true, ...(opts.endpoint ? { endpoint: opts.endpoint } : {}) }
     : opts.endpoint
       ? { ...project, endpoint: opts.endpoint }
       : project;
@@ -2160,6 +2531,7 @@ export function dashboardPage(
     runtimeReady: opts.runtimeReady === true,
     endpoint: opts.endpoint ?? null,
     analytics: promptBlock(project.token, where, opts.endpoint ?? null, "Page views, visits, sources, devices and funnels on this dashboard. Paste the prompt into your coding agent and it turns them on."),
+    choices: { agent: acct ? (opts.privateLink ? "replace" : "new") : "this" },
   });
   const settings = `<div id="settings" data-v="settings">
 <section class="blk">
@@ -2179,6 +2551,15 @@ export function dashboardPage(
   <div class="blk-h"><h2>Agent access</h2><span class="aside">For @genclass/mcp</span></div>
   ${agentAccess(!!acct, !!opts.privateLink)}
 </section>
+${
+  acct && opts.id
+    ? `<section class="blk" id="delproj">
+  <div class="blk-h"><h2>Delete project</h2><span class="aside">Cannot be undone</span></div>
+  <p class="poss-note">Deletes ${esc(project.name)} with its stats, visitors, the agent's log and its export. Its key stops counting at once: batches the app still sends reach no dashboard, so take the GenClass lines out of its code too. Its agent link and any private dashboard link stop working.</p>
+  <div class="row mt-s"><button class="btn danger" type="button" data-delproj>Delete project</button></div><p class="err" role="alert"></p>
+</section>`
+    : ""
+}
 </div>`;
   // the rail (Studio's project navigation), the product menus of the views with sub-pages, the command menu's extras
   const rail: RailItem[][] = [
@@ -2232,6 +2613,7 @@ export function dashboardPage(
       groups: [
         { label: "Configuration", items: [{ href: "#settings", label: "General" }, { href: "#keys", label: "API keys" }] },
         ...(opts.extra ? [{ label: "Data", items: [{ href: "#forwarding", label: "Integrations" }, { href: "#export", label: "Export" }] }] : []),
+        ...(acct && opts.id ? [{ label: "Danger zone", items: [{ href: "#delproj", label: "Delete project" }] }] : []),
       ],
     },
   ];
@@ -2291,10 +2673,11 @@ versions ignore it. ${LOCAL_HOSTS} Your deployed site sends by default.</p>
   <button type="button" data-open="m-connect" data-tab="ana">${icon("pointer", 18)}<div><b>Turn on visitor analytics</b><span>One prompt for your coding agent</span></div></button>
   <a href="https://genclass.dev/docs/dashboard">${icon("book", 18)}<div><b>Read the dashboard guide</b><span>What each view means and how to act on it</span></div></a>
 </div>
-<div class="uh" data-v="overview"><h2 id="advn">Problems that need attention</h2><a class="btn sm ghost" href="#found" data-goto="found">All problems</a></div>
+<div class="uh" data-v="overview"><h2 id="advn">Problems that need attention</h2><div class="acts"><button class="btn sm hidden" type="button" id="fixall2" data-copy="" aria-label="Copy one prompt for your coding agent to fix every problem">Fix them all: copy one prompt</button><a class="btn sm ghost" href="#found" data-goto="found">All problems</a></div></div>
 <div class="adv" id="advisor" data-v="overview"></div>
 <section class="blk" id="found" data-v="problems">
   <div class="blk-h"><h2>What GenClass found</h2><span class="aside">Each kind of problem, where it happened and how to fix it</span></div>
+  <div class="acts mt-s"><button class="btn sm hidden" type="button" id="fixall" data-copy="" aria-label="Copy one prompt for your coding agent to fix every problem">Fix them all: copy one prompt</button></div>
   <div class="finds" id="issues"></div>
   <p class="quiet hidden" id="issuesempty">No problems found in this period.</p>
 </section>

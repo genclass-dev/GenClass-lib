@@ -2,7 +2,7 @@
 // through packages/runtime): what a developer reads on the page, the possible-issues tier and the display fixes.
 import { describe, expect, it } from "vitest";
 import { Window } from "happy-dom";
-import { ANALYTICS_RUNTIME, analyticsPrompt, CDN_SCRIPT, DASH_CSS, dashboardPage, esc, installPrompt, KEY_RUNTIME, MCP_PKG, MESH_SCRIPT, orgName, RUNTIME_PKG, securityHeaders, SNIPPET_RUNTIME, startPage, type DashboardOptions } from "../src/pages.js";
+import { ANALYTICS_RUNTIME, analyticsPrompt, CDN_SCRIPT, DASH_CSS, dashboardPage, esc, installPrompt, KEY_RUNTIME, MCP_PKG, MESH_SCRIPT, openSourcePage, openSourcePrompt, orgName, RUNTIME_PKG, securityHeaders, SNIPPET_RUNTIME, startPage, type DashboardOptions } from "../src/pages.js";
 import { accountPage, devicePage, forgotPage, lockedLinkPage, loginPage, messagePage, newProjectPage, passkeyStepPage, pendingPage, signupPage } from "../src/account-pages.js";
 import { sampleStats } from "../src/sample.js";
 import type { Stats } from "../src/dashboard.js";
@@ -40,11 +40,13 @@ async function render(stats: Stats, opts: DashboardOptions = {}, o: { url?: stri
   const nav = o.copied ? { clipboard: { writeText: async (t: string) => void o.copied!.push(t) } } : win.navigator;
   const run = new Function("window", "document", "location", "localStorage", "fetch", "setInterval", "navigator", "IntersectionObserver", script);
   run(win, doc, win.location, win.localStorage, fetch, () => 0, nav, class { observe() {} });
+  // a browser fires pageshow after load
+  win.dispatchEvent(new win.Event("pageshow"));
   await new Promise((r) => setTimeout(r, 20));
   const text = (sel: string) => (doc.querySelector(sel)?.textContent ?? "").replace(/\s+/g, " ").trim();
   const hidden = (id: string) => doc.getElementById(id)!.classList.contains("hidden");
   const heads = (sel: string) => [...doc.querySelectorAll(`${sel} th`)].map((x) => x.textContent);
-  return { doc, text, hidden, heads, urls, writes, close: () => win.happyDOM.close() };
+  return { doc, win, text, hidden, heads, urls, writes, close: () => win.happyDOM.close() };
 }
 
 describe("dashboard page: possible issues tier", () => {
@@ -284,6 +286,7 @@ function everyPage(): [string, string][] {
   const providers = { google: true, github: true };
   return [
     ["/start", startPage("n")],
+    ["/start/open-source", openSourcePage("n")],
     ["/dashboard", dashboardPage("n", project)],
     ["/account/apps (locked)", dashboardPage("n", project, { account: acct, id: "0123456789abcdef", locked: true })],
     ["/account/apps", dashboardPage("n", project, { account: acct, id: "0123456789abcdef" })],
@@ -874,8 +877,11 @@ describe("dashboard page: the Supabase Studio frame (src/studio.ts): header, rai
     await h.close();
     const p = installPrompt("gc_TestToken0123456789abc");
     expect(p).toContain(`npm install ${RUNTIME_PKG}`);
-    expect(p).toContain('GenClass.init({ token: "gc_TestToken0123456789abc" });');
-    expect(p).toContain(`<script src="${CDN_SCRIPT}" data-token="gc_TestToken0123456789abc"></script>`);
+    expect(p).toContain('GenClass.init({ token: "gc_TestToken0123456789abc", autoState: true });');
+    // GenClass.init finds React, Redux and Zustand state only with the discover import first and autoState: true
+    expect(p).toContain('import "@genclass/runtime/discover"; // first');
+    expect(p.indexOf('import "@genclass/runtime/discover"')).toBeLessThan(p.indexOf('import { GenClass } from "@genclass/runtime"'));
+    expect(p).toContain(`<script src="${CDN_SCRIPT}" data-token="gc_TestToken0123456789abc" data-devtools="local"></script>`);
     expect(p).toContain("observe");
     expect(p).toContain("Run the dev server");
     // the whole flow from one paste: the state, the agent link, the MCP server in the agent, the status check
@@ -884,9 +890,32 @@ describe("dashboard page: the Supabase Studio frame (src/studio.ts): header, rai
     expect(p).toContain('import { connectAgent } from "@genclass/runtime/agent"; if (import.meta.env.DEV) connectAgent(rt);');
     expect(p).toContain(`npx -y ${MCP_PKG} init`);
     expect(p).toContain('import("@genclass/runtime/devtools").then((d) => d.mountDevtools(rt))');
-    expect(p).toContain("genclass_status should then list the page");
+    expect(p).toContain("genclass_status lists a dev page once you load it with the MCP server running");
     expect(p).toContain(`npx ${RUNTIME_PKG} init --token gc_TestToken0123456789abc --yes`);
-    expect(installPrompt("gc_x", "https://c.example/v1/events")).toContain('GenClass.init({ token: "gc_x", telemetry: { endpoint: "https://c.example/v1/events" } });');
+    expect(installPrompt("gc_x", "https://c.example/v1/events")).toContain('GenClass.init({ token: "gc_x", autoState: true, telemetry: { endpoint: "https://c.example/v1/events" } });');
+    // a site with no build step gets everything from the prompt alone: the script tag, the agent link from the CDN on local hosts
+    expect(p).toContain("A site with no build step (plain HTML pages, no bundler) installs nothing");
+    expect(p).toContain(`import("${CDN_SCRIPT}/dist/agent.js")`);
+    expect(p).toContain('["localhost", "127.0.0.1"].includes(location.hostname)');
+    // values one response writes together go in one atom
+    expect(p).toContain('rt.atom("search", { query: "", results: [] })');
+    expect(p).not.toContain("Deploy it");
+  });
+
+  it("Connect prompt choices: guard (and eager), the badge on every host, the agent link with the Loop view, deploy", () => {
+    const t = "gc_TestToken0123456789abc";
+    const g = installPrompt(t, null, { guard: true, eager: true, badge: true, deploy: true, agentLink: "https://genclass.dev/dashboard/LINK" });
+    expect(g).toContain(`const rt = GenClass.init({ token: "${t}", autoState: true, mode: "guard", aggressiveness: "eager", visual: { on: true, fix: true } });`);
+    expect(g).toContain('<script>window.GENCLASS_CONFIG = { aggressiveness: "eager" };</script>');
+    expect(g).toContain(`<script src="${CDN_SCRIPT}" data-token="${t}" data-mode="guard" data-visual="fix" data-devtools></script>`);
+    expect(g).toContain("3. Mode guard, as chosen on the dashboard");
+    expect(g).toContain("Mount the devtools overlay on every host, the deployed site too");
+    expect(g).toContain(`claude mcp add genclass -e GENCLASS_DASHBOARD=https://genclass.dev/dashboard/LINK -e GENCLASS_REPORT=on -- npx -y ${MCP_PKG}`);
+    expect(g).not.toContain(`npx -y ${MCP_PKG} init`);
+    expect(g).toContain("8. Deploy it, as chosen on the dashboard");
+    expect(g).toContain("9. Tell me what you changed and where it is deployed");
+    // eager only with guard
+    expect(installPrompt(t, null, { eager: true })).not.toContain("eager");
   });
 
   it("Project overview: usage cards from the period's totals, the three problems that need attention first, each with its prompt", async () => {
@@ -967,6 +996,102 @@ describe("dashboard page: the Supabase Studio frame (src/studio.ts): header, rai
     await r.close();
   });
 
+  it("Fix them all: one prompt for every kind of problem, and the dev page's checks; the agent waits for page loads itself", async () => {
+    const st = sampleStats("7d", NOW);
+    const r = await render(st);
+    const b = r.doc.getElementById("fixall")!, b2 = r.doc.getElementById("fixall2")!;
+    expect(b.classList.contains("hidden")).toBe(false);
+    const p = b.getAttribute("data-copy")!;
+    expect(b2.getAttribute("data-copy")).toBe(p);
+    for (const x of st.breakdowns.detect_diagnosis!.filter((x) => x.key !== "expected")) expect(p).toMatch(new RegExp(`\\n- [^\\n]*${nf.format(x.count)} times?`));
+    expect(p).toContain("every check genclass_findings lists from the dev page");
+    expect(p).toContain("then wait for the loads yourself: check every 10 seconds (sleep 10 in a shell in between)");
+    expect(p).toContain("4. Replay the recorded order again: it must say not reproduced.");
+    // each problem's own prompt waits the same way
+    expect(r.doc.querySelector("#issues [data-copy]")!.getAttribute("data-copy")).toContain("then wait for the loads yourself");
+    await r.close();
+  });
+
+  it("Connect choices: ticking them rewrites the copied prompt with the server's own installPrompt; the agent choice makes the link", async () => {
+    const st = sampleStats("7d", NOW);
+    const r = await render(st, { account, id: "0123456789abcdef", firstEvent: "2026-10-12T09:00:00.000Z", runtimeReady: true });
+    const box = (k: string) => r.doc.querySelector(`#cchoices [data-choice="${k}"]`) as unknown as HTMLInputElement;
+    const copied = () => r.doc.getElementById("cpinstall")!.getAttribute("data-copy");
+    expect(copied()).toBe(installPrompt(st.token));
+    expect(box("eager").disabled).toBe(true);
+    box("guard").click();
+    expect(box("eager").disabled).toBe(false);
+    box("eager").click();
+    box("badge").click();
+    box("deploy").click();
+    expect(copied()).toBe(installPrompt(st.token, null, { guard: true, eager: true, badge: true, deploy: true }));
+    expect((r.doc.getElementById("cpinstallt") as unknown as HTMLTextAreaElement).value).toBe(copied());
+    // the agent choice makes the agent link (POST .../link), which the prompt then names, as the MCP page does
+    box("agent").click();
+    await new Promise((x) => setTimeout(x, 10));
+    const link = `https://genclass.dev/dashboard/${"S".repeat(32)}`;
+    expect(r.writes).toEqual(["POST /api/account/projects/0123456789abcdef/link"]);
+    expect(copied()).toBe(installPrompt(st.token, null, { guard: true, eager: true, badge: true, deploy: true, agentLink: link }));
+    expect(r.doc.querySelector("#mcp .alink-out code")!.textContent).toBe(link);
+    // unticking guard unticks eager
+    box("guard").click();
+    expect(box("eager").checked).toBe(false);
+    expect(copied()).toBe(installPrompt(st.token, null, { badge: true, deploy: true, agentLink: link }));
+    await r.close();
+    // a private link names itself; no request
+    const s = await render(st);
+    (s.doc.querySelector('#cchoices [data-choice="agent"]') as unknown as HTMLInputElement).click();
+    expect(s.doc.getElementById("cpinstall")!.getAttribute("data-copy")).toBe(installPrompt(st.token, null, { agentLink: "sample" }));
+    expect(s.writes).toEqual([]);
+    await s.close();
+  });
+
+  it("Connect choices a browser brings back with the page (back, reload; no change event) rewrite the prompt on pageshow", async () => {
+    const st = sampleStats("7d", NOW);
+    const r = await render(st, { account, id: "0123456789abcdef", firstEvent: "2026-10-12T09:00:00.000Z", runtimeReady: true });
+    const box = (k: string) => r.doc.querySelector(`#cchoices [data-choice="${k}"]`) as unknown as HTMLInputElement;
+    const copied = () => r.doc.getElementById("cpinstall")!.getAttribute("data-copy");
+    box("guard").checked = true;
+    box("badge").checked = true;
+    expect(copied()).toBe(installPrompt(st.token));
+    r.win.dispatchEvent(new r.win.Event("pageshow"));
+    expect(copied()).toBe(installPrompt(st.token, null, { guard: true, badge: true }));
+    expect(box("eager").disabled).toBe(false);
+    // a restored eager without guard, and a restored agent box with no link yet, are unticked; nothing is created
+    box("guard").checked = false;
+    box("eager").checked = true;
+    box("agent").checked = true;
+    r.win.dispatchEvent(new r.win.Event("pageshow"));
+    expect(box("eager").checked).toBe(false);
+    expect(box("agent").checked).toBe(false);
+    expect(copied()).toBe(installPrompt(st.token, null, { badge: true }));
+    expect(r.writes).toEqual([]);
+    await r.close();
+  });
+
+  it("Delete project in an account: Project Settings' danger zone asks once, then sends DELETE with the confirm; a private link has none", async () => {
+    const r = await render(sampleStats("7d", NOW), { account, id: "0123456789abcdef", firstEvent: "2026-10-12T09:00:00.000Z", runtimeReady: true });
+    expect([...r.doc.querySelectorAll(".sb-pm a")].some((a) => a.getAttribute("href") === "#delproj" && a.textContent === "Delete project")).toBe(true);
+    const b = r.doc.querySelector("#settings #delproj [data-delproj]") as unknown as HTMLElement;
+    expect(b.textContent).toBe("Delete project");
+    b.click();
+    expect(b.textContent).toBe("Confirm: delete this project and its data");
+    expect(r.writes).toEqual([]);
+    b.click();
+    await new Promise((x) => setTimeout(x, 10));
+    expect(r.writes).toEqual(["DELETE /api/account/projects/0123456789abcdef"]);
+    expect(r.text("#delproj .err")).toBe("");
+    await r.close();
+    const a = await render(sampleStats("7d", NOW), { account, id: "0123456789abcdef", firstEvent: "2026-10-12T09:00:00.000Z", runtimeReady: true }, { url: "https://genclass.dev/account/apps/0123456789abcdef#settings" });
+    expect(a.text("#vdesc")).toBe("This project's name, key and agent access, and deleting it.");
+    await a.close();
+    const s = await render(sampleStats("7d", NOW), {}, { url: "https://genclass.dev/dashboard/sample#settings" });
+    expect(s.doc.querySelector("[data-delproj]")).toBeNull();
+    expect(s.doc.querySelector('a[href="#delproj"]')).toBeNull();
+    expect(s.text("#vdesc")).toBe("This project's name, key and agent access.");
+    await s.close();
+  });
+
   it("Copy as Markdown: the period as a report a person or an agent can read (totals, problems with pages and fixes, latest detections)", async () => {
     const st = sampleStats("7d", NOW);
     const copied: string[] = [];
@@ -992,5 +1117,214 @@ describe("dashboard page: the Supabase Studio frame (src/studio.ts): header, rai
       expect(scripts.length, name).toBeGreaterThan(0);
       for (const code of scripts) expect(() => new Function(code), name).not.toThrow();
     }
+  });
+});
+
+describe("/start/open-source: the open-source parts with no account, no token and nothing sent to genclass.dev", () => {
+  /** The page in happy-dom with its own script run; `fetch` records any request (there must be none). */
+  async function openSource(o: { refuse?: boolean; before?: (doc: Document) => void; pageshow?: boolean } = {}) {
+    const html = openSourcePage("NONCE");
+    const { body, script } = page(html);
+    const win = new Window({ url: "https://genclass.dev/start/open-source" });
+    const doc = win.document;
+    doc.body.innerHTML = body;
+    o.before?.(doc as unknown as Document);
+    const urls: string[] = [], copied: string[] = [];
+    // a clipboard that records what was copied, or one the browser refuses
+    const nav = { clipboard: { writeText: (t: string) => (o.refuse ? Promise.reject(new Error("denied")) : Promise.resolve(void copied.push(t))) } };
+    const run = new Function("window", "document", "location", "fetch", "navigator", script);
+    run(win, doc, win.location, async (u: string) => void urls.push(u), nav);
+    // a browser fires pageshow after load (and after it brings ticked boxes back); pageshow: false stops before it
+    if (o.pageshow !== false) win.dispatchEvent(new win.Event("pageshow"));
+    const box = (k: string) => doc.querySelector(`#choices [data-choice="${k}"]`) as unknown as HTMLInputElement;
+    const copy = () => doc.getElementById("cp")!.getAttribute("data-copy");
+    return { html, win, doc, urls, copied, box, copy, close: () => win.happyDOM.close() };
+  }
+
+  it("the default prompt: no token, telemetry off, observe, the agent link and the MCP server without a dashboard, the local scan", () => {
+    const p = openSourcePrompt();
+    expect(p).toContain("No GenClass account and no token: nothing is sent to genclass.dev.");
+    expect(p).toContain(`npm install ${RUNTIME_PKG}`);
+    expect(p).toContain("const rt = GenClass.init({ telemetry: false, autoState: true });");
+    // GenClass.init finds React, Redux and Zustand state only with the discover import first and autoState: true
+    expect(p).toContain('import "@genclass/runtime/discover"; // first');
+    expect(p.indexOf('import "@genclass/runtime/discover"')).toBeLessThan(p.indexOf('import { GenClass } from "@genclass/runtime"'));
+    // no data is sent, but the public files still come from jsDelivr unless the app serves them; the prompt says so
+    expect(p).toContain("so it sends no data anywhere; the browser still downloads its model and onnxruntime-web, public files, from cdn.jsdelivr.net");
+    expect(p).not.toContain("sends nothing anywhere");
+    expect(p).toContain(`<script src="${CDN_SCRIPT}" data-telemetry="off" data-devtools="local"></script>`);
+    expect(p).toContain(`npx ${RUNTIME_PKG} init --no-telemetry --yes does steps 1 and 2`);
+    expect(p).toContain("and adds step 3's dev-only overlay; the handle is then GenClass.runtime.)");
+    expect(p).toContain("Keep the default mode, observe");
+    expect(p).toContain('rt.atom("search", { query: "", results: [] })');
+    expect(p).toContain('import { connectAgent } from "@genclass/runtime/agent"; if (import.meta.env.DEV) connectAgent(rt);');
+    expect(p).toContain(`import("${CDN_SCRIPT}/dist/agent.js")`);
+    expect(p).toContain(`npx -y ${MCP_PKG} init writes .mcp.json`);
+    expect(p).toContain("leave GENCLASS_DASHBOARD and GENCLASS_REPORT unset");
+    // the MCP server's init prints its own setup lines (a bare GenClass.init()): the prompt keeps its own
+    expect(p).toContain("keep the setup from steps 2 and 5 instead");
+    expect(p).toContain(`npx ${RUNTIME_PKG} scan http://localhost:5173/ --local`);
+    expect(p).toContain("Do not use hosted: true: it sends the page URL to GenClass's hosted page check, which is not open source.");
+    // the scan needs Playwright: the agent asks before adding the dev dependency and downloading Chromium
+    expect(p).toContain("ask me before adding playwright as a dev dependency and downloading Chromium (about 600 MB): npm i -D playwright && npx playwright install chromium");
+    // the agent link's failed request before the MCP server runs is expected
+    expect(p).toContain("the page logs a failed request to 127.0.0.1:47357");
+    expect(p).toContain("In your next conversation, reload a dev page and genclass_status lists it.");
+    // discovery covers React state, Redux through its DevTools hooks and Zustand with devtools; the prompt says so
+    expect(p).toContain("Zustand stores made with the devtools middleware are found automatically");
+    expect(p).toContain("(about 13 MB, 18 MB on WebGPU devices, then cached)");
+    // nothing that needs an account, a token or the hosted dashboard
+    expect(p).not.toMatch(/token: "|data-token|--token|gc_[A-Za-z0-9]/);
+    expect(p).not.toContain("GENCLASS_DASHBOARD=");
+    expect(p).not.toContain("GENCLASS_REPORT=");
+    expect(p).not.toContain("genclass.dev/dashboard");
+    expect(p).not.toContain("consoleJson");
+    expect(p).not.toContain("fetch-model");
+    expect(p).not.toContain("Deploy it");
+    // the steps are numbered 1..n with none missing
+    const nums = [...p.matchAll(/^(\d+)\. /gm)].map((m) => Number(m[1]));
+    expect(nums).toEqual(nums.map((_, i) => i + 1));
+    expect(p).toMatch(/\n8\. Tell me what you changed, that the app sets no GenClass token and has telemetry off, what it downloads from outside this network/);
+    // only printable text (no step marker or other control character reaches the page)
+    expect(p).not.toMatch(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/);
+  });
+
+  it("the choices: guard and eager, findings in the app's own logs, the model served by the app, deploy", () => {
+    const p = openSourcePrompt({ guard: true, eager: true, logs: true, selfHost: true, deploy: true });
+    expect(p).toContain('import { consoleJson } from "@genclass/runtime/sinks/console-json";');
+    expect(p).toContain('const rt = GenClass.init({ telemetry: false, autoState: true, mode: "guard", aggressiveness: "eager", visual: { on: true, fix: true }, model: { baseUrl: "/genclass-model/", ortWasmPaths: "/genclass-model/ort/" }, sinks: [consoleJson()] });');
+    expect(p).toContain('<script>window.GENCLASS_CONFIG = { aggressiveness: "eager" };</script>');
+    expect(p).toContain(`<script src="${CDN_SCRIPT}" data-telemetry="off" data-mode="guard" data-visual="fix" data-model="/genclass-model/" data-ort="/genclass-model/ort/" data-sink="console-json" data-devtools="local"></script>`);
+    expect(p).toContain(`npx ${RUNTIME_PKG} init --no-telemetry --mode guard --sink console-json --model-url /genclass-model/ --yes`);
+    // init writes no visual or aggressiveness option: the prompt says where they go
+    expect(p).toContain('add aggressiveness: "eager" and visual: { on: true, fix: true } to the option file it writes (data-visual="fix" on the tag it writes, and the GENCLASS_CONFIG line above; Astro gets a <meta name="genclass"> line instead: add visual=fix to its content, and the aggressiveness in a window.GENCLASS_CONFIG script before it); run the fetch-model command below before it.)');
+    expect(openSourcePrompt({ guard: true })).toContain('; add visual: { on: true, fix: true } to the option file it writes (data-visual="fix" on the tag it writes; Astro gets a <meta name="genclass"> line instead: add visual=fix to its content).)');
+    expect(p).toContain("Mode guard: when GenClass is sure");
+    expect(p).toContain("the webhook sink sends batched POSTs there instead");
+    expect(p).toContain('sinks: [webhook({ url: "<the endpoint>" })], requests: { ignore: ["<the endpoint>"] }');
+    expect(p).toContain(`npx ${RUNTIME_PKG} fetch-model public/genclass-model`);
+    expect(p).toContain('run fetch-model public/genclass-model --variant q8 --ort wasm instead and add device: "wasm" to the model option (data-device="wasm" on the script tag');
+    // the model served by the app: no jsDelivr download for it to mention
+    expect(p).not.toContain("still downloads");
+    expect(p).toContain("Deploy it, as chosen");
+    expect(p).toMatch(/\n11\. Tell me what you changed and where it is deployed/);
+    // eager only with guard
+    expect(openSourcePrompt({ eager: true })).toBe(openSourcePrompt());
+  });
+
+  it("the page: ticking the choices rewrites the copied prompt with the server's own openSourcePrompt, and it sends nothing", async () => {
+    const r = await openSource();
+    expect(r.copy()).toBe(openSourcePrompt());
+    expect(r.box("eager").disabled).toBe(true);
+    r.box("guard").click();
+    expect(r.box("eager").disabled).toBe(false);
+    r.box("eager").click();
+    r.box("logs").click();
+    r.box("selfHost").click();
+    r.box("deploy").click();
+    const all = openSourcePrompt({ guard: true, eager: true, logs: true, selfHost: true, deploy: true });
+    expect(r.copy()).toBe(all);
+    expect((r.doc.getElementById("cpt") as unknown as HTMLTextAreaElement).value).toBe(all);
+    // unticking guard unticks eager
+    r.box("guard").click();
+    expect(r.box("eager").checked).toBe(false);
+    expect(r.copy()).toBe(openSourcePrompt({ logs: true, selfHost: true, deploy: true }));
+    (r.doc.getElementById("cp") as unknown as HTMLElement).click();
+    await new Promise((x) => setTimeout(x, 5));
+    expect(r.copied).toEqual([openSourcePrompt({ logs: true, selfHost: true, deploy: true })]);
+    // the commands copy too
+    const cmds = [...r.doc.querySelectorAll(".cmds [data-copy]")].map((b) => b.getAttribute("data-copy"));
+    expect(cmds).toEqual([
+      `npx ${RUNTIME_PKG} init --no-telemetry`,
+      `// in the app's entry, after the lines init added\nimport { GenClass } from "@genclass/runtime";\nimport { connectAgent } from "@genclass/runtime/agent";\nif (import.meta.env.DEV && GenClass.runtime) connectAgent(GenClass.runtime);`,
+      `// in the app's entry (Next.js: instrumentation-client.ts), after the lines init added\nimport { GenClass } from "@genclass/runtime";\nimport { connectAgent } from "@genclass/runtime/agent";\nif (process.env.NODE_ENV === "development" && GenClass.runtime) connectAgent(GenClass.runtime);`,
+      `npx -y ${MCP_PKG} init`,
+      `npx ${RUNTIME_PKG} scan http://localhost:5173/ --local`,
+    ]);
+    // the choices are a fieldset with a visible legend; the commands' titles are h3 under the section's h2
+    expect(r.doc.querySelector("fieldset#choices > legend")!.textContent).toContain("What the prompt sets up");
+    expect(r.doc.querySelectorAll(".cmds h3").length).toBe(5);
+    expect(r.doc.querySelectorAll(".cmds h2").length).toBe(1);
+    expect(r.urls).toEqual([]);
+    await r.close();
+    // no form, no request anywhere in the page, and the way back to the hosted options
+    expect(r.html).not.toContain("<form");
+    expect(r.html).not.toContain("fetch(");
+    expect(r.html).toContain("#self-host-the-collector-private-mode");
+    expect(r.html).toContain('href="/signup"');
+  });
+
+  it("boxes a browser brings back with the page (back, reload; no change event) rewrite the prompt on pageshow", async () => {
+    // Chromium restores ticked boxes after the page script has run: the boxes are ticked, the prompt is the default
+    const r = await openSource();
+    r.box("guard").checked = true;
+    r.box("logs").checked = true;
+    expect(r.copy()).toBe(openSourcePrompt());
+    r.win.dispatchEvent(new r.win.Event("pageshow"));
+    expect(r.copy()).toBe(openSourcePrompt({ guard: true, logs: true }));
+    expect(r.box("eager").disabled).toBe(false);
+    // a restored eager without guard is unticked again
+    r.box("guard").checked = false;
+    r.box("eager").checked = true;
+    r.win.dispatchEvent(new r.win.Event("pageshow"));
+    expect(r.box("eager").checked).toBe(false);
+    expect(r.box("eager").disabled).toBe(true);
+    expect(r.copy()).toBe(openSourcePrompt({ logs: true }));
+    await r.close();
+    // boxes already ticked when the script runs count too
+    const t = await openSource({ before: (doc) => ((doc.querySelector('#choices [data-choice="selfHost"]') as HTMLInputElement).checked = true) });
+    expect(t.copy()).toBe(openSourcePrompt({ selfHost: true }));
+    await t.close();
+  });
+
+  it("Eager comes back with the page too: it is enabled in the markup and until pageshow, when the browser restores boxes", async () => {
+    const r = await openSource({ pageshow: false });
+    // Chromium skips disabled boxes when it restores them, so Eager must not be disabled before pageshow
+    expect(r.html).toMatch(/<input type="checkbox" data-choice="eager">/);
+    expect(r.box("eager").disabled).toBe(false);
+    expect(r.copy()).toBe(openSourcePrompt());
+    r.box("guard").checked = true;
+    r.box("eager").checked = true;
+    r.box("logs").checked = true;
+    r.win.dispatchEvent(new r.win.Event("pageshow"));
+    expect(r.box("eager").checked).toBe(true);
+    expect(r.box("eager").disabled).toBe(false);
+    expect(r.copy()).toBe(openSourcePrompt({ guard: true, eager: true, logs: true }));
+    await r.close();
+    // without guard, pageshow disables eager
+    const t = await openSource();
+    expect(t.box("eager").disabled).toBe(true);
+    await t.close();
+  });
+
+  it("a copy through the page's own textarea (execCommand) gives the focus back to the button", async () => {
+    const r = await openSource({ before: (doc) => ((doc as unknown as { execCommand: () => boolean }).execCommand = () => true) });
+    const cp = r.doc.getElementById("cp") as unknown as HTMLElement;
+    cp.focus();
+    cp.click();
+    expect(cp.textContent).toBe("Copied");
+    expect(r.doc.activeElement).toBe(cp);
+    expect(r.doc.querySelectorAll("textarea").length).toBe(1);
+    await r.close();
+  });
+
+  it("a clipboard the browser refuses: the prompt shows, focused and selected, to copy by hand", async () => {
+    const r = await openSource({ refuse: true });
+    const cp = r.doc.getElementById("cp") as unknown as HTMLElement, ta = r.doc.getElementById("cpt") as unknown as HTMLTextAreaElement;
+    expect(ta.hidden).toBe(true);
+    cp.click();
+    await new Promise((x) => setTimeout(x, 5));
+    expect(ta.hidden).toBe(false);
+    expect(r.doc.activeElement).toBe(ta);
+    expect(ta.value).toBe(openSourcePrompt());
+    expect(cp.textContent).toBe("Selected, now copy");
+    expect(r.copied).toEqual([]);
+    await r.close();
+  });
+
+  it("is linked from /start and from the sign-in and sign-up pages", () => {
+    expect(startPage("n")).toContain('<a href="/start/open-source">use the open-source parts only</a>');
+    for (const html of [loginPage("n", { google: false, github: false, next: null }), signupPage("n", { google: false, github: false, next: "/account/new?name=shop" })])
+      expect(html).toContain('<a href="/start/open-source">set it up without one</a>');
   });
 });
