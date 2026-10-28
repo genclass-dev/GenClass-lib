@@ -140,8 +140,8 @@ support.claude.com "Anthropic Software Directory Policy".
   keeps `npx` everywhere, since that format has no plugin-root variable. An unpinned launcher would block; the
   manifests test keeps the `npx` pins equal to `package.json`'s version and checks the assembled tree. Between a
   version bump and its release the sync script exits 3 (npm does not serve the new version yet) and the plugin
-  repository stays at the previous release until the first sync after the publish. Whether a vendored server still
-  draws a hold is the reviewer's call; "MCP server command wasn't read" has not appeared.
+  repository stays at the previous release until the first sync after the publish. The vendored version drew no hold,
+  "Meets directory policy, with warnings" (the dated bullet below); "MCP server command wasn't read" has not appeared.
 
 - **Policy items.** Privacy policy URL: `privacyPolicyUrl` in `plugin.json` (the plugin README's Privacy section).
   Support: `supportUrl` (GitHub issues). Tool annotations: every tool has `title`, `readOnlyHint`, `destructiveHint`
@@ -181,8 +181,18 @@ support.claude.com "Anthropic Software Directory Policy".
   asks for (the layout above): `.mcp.json` and the hook run the released server vendored under `server/` with `node`
   from `${CLAUDE_PLUGIN_ROOT}`, and the plugin ships no `package.json` or lockfile. Locally, the assembled repository
   passes `claude plugin validate --profile directory`, the vendored server answers `--version` and an MCP
-  `initialize`, and the hook exits silently without a bridge. The directory reads the result at its next check after
-  the sync pushes it; what it says is recorded here then.
+  `initialize`, and the hook exits silently without a bridge. The directory took that version, ec577ea, by its
+  scheduled check about 7 minutes after the sync's push (17 files, 333.2 kB): validation passed with the same 3 notes,
+  directory policy "Meets directory policy, with warnings" (no hold), the security scan passed in 3 minutes, and the
+  version is "with a reviewer": "This version passed the security scan and is waiting for a reviewer before it can be
+  listed. There's nothing you need to do." Compared with 68507fa: "3 new findings, 4 fixed". The warnings, each marked
+  as information or as something that can stay: "Uses a credential from the user's machine" (2 findings in
+  `server/cli.mjs`; the server writes and reads its own bridge token under `~/.genclass/`, and the text suggests a
+  `user_config` option with `sensitive: true` instead), "Unrecognized field in plugin.json" (the three URL fields),
+  "Contains a download-and-run command" in `server/cli.mjs` (the `npx` lines the server prints for other clients, and
+  `genclass_scan`, which runs `npx @genclass/runtime@beta scan`: "where the plugin runs this, ship the script inside
+  the plugin"; where it is documentation nothing changes), "Uses hooks" and "Runs a local program for an MCP server".
+  The first version still goes live only when an Anthropic reviewer publishes it; auto-publish applies after that.
 
 ## 4. punkpeye/awesome-mcp-servers
 
