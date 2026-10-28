@@ -32,7 +32,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&amp;family=Figtree:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/styles.css?v=ef9e798c">
-<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "Organization", "@id": "https://genclass.dev/#org", "name": "GenClass", "url": "https://genclass.dev/", "logo": "https://genclass.dev/icon-512.png", "sameAs": ["https://github.com/genclass-dev/GenClass-lib", "https://www.npmjs.com/package/@genclass/runtime"]}, {"@type": "WebSite", "@id": "https://genclass.dev/#site", "url": "https://genclass.dev/", "name": "GenClass", "publisher": {"@id": "https://genclass.dev/#org"}}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://genclass.dev/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://genclass.dev/docs"}, {"@type": "ListItem", "position": 3, "name": "Threat model", "item": "https://genclass.dev/docs/threat-model"}]}, {"@type": "TechArticle", "headline": "Threat model", "author": {"@id": "https://genclass.dev/#org"}, "publisher": {"@id": "https://genclass.dev/#org"}, "dateModified": "2026-10-13", "isBasedOn": "https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/THREAT-MODEL.md"}]}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "Organization", "@id": "https://genclass.dev/#org", "name": "GenClass", "url": "https://genclass.dev/", "logo": "https://genclass.dev/icon-512.png", "sameAs": ["https://github.com/genclass-dev/GenClass-lib", "https://www.npmjs.com/package/@genclass/runtime"]}, {"@type": "WebSite", "@id": "https://genclass.dev/#site", "url": "https://genclass.dev/", "name": "GenClass", "publisher": {"@id": "https://genclass.dev/#org"}}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://genclass.dev/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://genclass.dev/docs"}, {"@type": "ListItem", "position": 3, "name": "Threat model", "item": "https://genclass.dev/docs/threat-model"}]}, {"@type": "TechArticle", "headline": "Threat model", "author": {"@id": "https://genclass.dev/#org"}, "publisher": {"@id": "https://genclass.dev/#org"}, "dateModified": "2026-10-27", "isBasedOn": "https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/THREAT-MODEL.md"}]}</script>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
@@ -306,17 +306,35 @@ flows.</p>
 <h2 id="t8-configuration-by-url-storage-and-meta-tags">T8. Configuration by URL, storage and meta tags</h2>
 <p><strong>Threat.</strong> Someone who can make a user open a link, or inject markup, changes GenClass's configuration.</p>
 <p><strong>Mitigations.</strong> <code>?genclass-mode</code>, <code>?genclass-aggr</code> and <code>?genclass-sample=0</code> can only lower the mode, aggressiveness or
-sampling unless the app sets <code>debug: true</code>; <code>?genclass=off</code> turns GenClass off for that visitor only
-(<a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/src/runtime.ts">runtime.ts</a> constructor, <a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/src/index.ts">index.ts</a>
-<code>initUnsafe</code>). Since 0.2.2 <code>?genclass=</code> and <code>localStorage.genclass</code> also only demote, from the app's mode or from
-<code>observe</code> when it sets none: a crafted link can no longer raise a production site to guard or heal. Raising from the
-URL needs <code>debug: true</code> or a development host (<code>localhost</code>, <code>*.local</code>, <code>*.test</code>, private networks). With the zero-code
+sampling, on every host and whatever <code>debug</code> says (<code>?genclass-sample=1</code> does nothing); <code>?genclass=off</code> turns GenClass
+off for that visitor only (<a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/src/runtime.ts">runtime.ts</a> constructor,
+<a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/src/index.ts">index.ts</a> <code>initUnsafe</code>). Since 0.2.2 <code>?genclass=</code> and <code>localStorage.genclass</code>
+also only demote, from the app's mode or from <code>observe</code> when it sets none: a crafted link can no longer raise a
+production site to guard or heal. Since 0.2.3 <code>debug: true</code> is console logging only and no longer lets any URL or
+<code>localStorage</code> switch raise anything, and only a development host lets <code>?genclass=</code> / <code>localStorage.genclass</code> raise
+the mode (<a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/src/devhost.ts">devhost.ts</a>: http(s) on <code>localhost</code>, <code>127.0.0.1</code>, <code>[::1]</code> or
+<code>*.localhost</code> with an explicit port, or <code>*.test</code>). Hosts that only look local are production hosts there: Capacitor
+(<code>https://localhost</code>), Tauri (<code>tauri.localhost</code>), Electron (<code>file:</code>), intranet names, private addresses, <code>*.internal</code>
+and <code>*.local</code> (before 0.2.3 all of these counted as development hosts, and a link could raise them). With the zero-code
 entries (<code>/auto</code>, the script tag), only <code>&lt;meta name="genclass"&gt;</code> tags inside <code>&lt;head&gt;</code> are read, so markup injected into
 the body cannot configure GenClass, and the model and onnxruntime-web URLs a meta tag names must be same-origin
-(cross-origin ones are ignored with a warning; <a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/src/cdn/config.ts">cdn/config.ts</a>).</p>
+(cross-origin ones are ignored with a warning; <a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/src/cdn/config.ts">cdn/config.ts</a>). Route
+rules (<code>routes[]</code>, OPTIONS-SPEC §4.3) apply to the normalised path as well as the raw one, so a link to a look-alike
+path (<code>/se%61rch</code>, <code>/search/</code>, <code>//search</code>, <code>/search;x=1</code>) cannot step out of a rule that scopes <code>/search</code> to <code>off</code> or
+<code>observe</code> (since 0.2.3; a rule only lowers the mode, so the escape gave the visitor the app's global mode, never more;
+<a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/src/util/match.ts">util/match.ts</a> <code>normalizeRoute</code>). An invalid <code>mode</code> value (<code>"HEAL"</code>, an
+object) runs as <code>observe</code> with a warning instead of falling through the gate as heal (since 0.2.3; app configuration
+only, never a URL).</p>
 <p><strong>Residual.</strong> Markup injected into <code>&lt;head&gt;</code> can still set the mode (not a cross-origin model): pages that let
 untrusted HTML into <code>&lt;head&gt;</code> should configure through <code>window.GENCLASS_CONFIG</code> (it wins) or <code>GenClass.init(options)</code>.
-An app that sets <code>debug: true</code> in production lets the URL raise its mode.</p>
+A production app served from a loopback name with an explicit port (an Electron app with an embedded server, a
+self-hosted local tool on <code>http://127.0.0.1:&lt;port&gt;</code>) counts as a development host, so a crafted link can raise its mode
+with <code>?genclass=</code>; such apps should not rely on the URL switch being demote-only. <code>devtools: "local"</code> (and
+<code>data-devtools="local"</code>) mounts the overlay on every host <a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/src/cdn/config.ts">cdn/config.ts</a>
+<code>isLocalHost</code> counts as local (<code>file:</code>, loopback with or without a port, <code>*.localhost</code>, <code>*.local</code>, <code>*.test</code>), which is
+wider than the development-host test above: a Capacitor, Tauri or Electron build that ships it gets the overlay, and
+whoever is at the device can open it (Alt+Shift+G) and raise the mode for that session, as any script in the origin can
+(T1). Not reachable from a link. Set <code>devtools</code> per environment and do not ship <code>"local"</code> in such builds.</p>
 <h2 id="t9-cached-and-shared-responses">T9. Cached and shared responses</h2>
 <p><strong>Threat.</strong> A response cached or shared by GenClass reaches a request it was not meant for.</p>
 <p><strong>Mitigations.</strong> <code>serve_cached</code> (heal) answers only an identical GET (same method, URL, headers and body), from memory
@@ -338,7 +356,8 @@ account and sign-in endpoints (<code>protectPreset("auth")</code>), <code>policy
 <li>Discovered state is read and appears in situation text; DevTools-composed Redux stores are actionable.</li>
 <li>In guard/heal, identical POSTs within 2 s may be coalesced; heal may block requests or roll back whole stores; a
    late revert may make a loop resend (bounded).</li>
-<li>Meta tags in <code>&lt;head&gt;</code> configure the zero-code entries (mode, same-origin model URLs); <code>debug: true</code> lets the URL raise the mode.</li>
+<li>Meta tags in <code>&lt;head&gt;</code> configure the zero-code entries (mode, same-origin model URLs); a crafted <code>?genclass=</code> link
+   can raise the mode of a production app served from a loopback name with an explicit port.</li>
 <li><code>serve_cached</code> ignores cookies (cross-user responses in a long-lived SPA session, heal only).</li>
 </ol>
 <h2 id="recommended-production-setup">Recommended production setup</h2>

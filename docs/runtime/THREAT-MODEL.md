@@ -231,13 +231,24 @@ the mode ([devhost.ts](../../packages/runtime/src/devhost.ts): http(s) on `local
 and `*.local` (before 0.2.3 all of these counted as development hosts, and a link could raise them). With the zero-code
 entries (`/auto`, the script tag), only `<meta name="genclass">` tags inside `<head>` are read, so markup injected into
 the body cannot configure GenClass, and the model and onnxruntime-web URLs a meta tag names must be same-origin
-(cross-origin ones are ignored with a warning; [cdn/config.ts](../../packages/runtime/src/cdn/config.ts)).
+(cross-origin ones are ignored with a warning; [cdn/config.ts](../../packages/runtime/src/cdn/config.ts)). Route
+rules (`routes[]`, OPTIONS-SPEC §4.3) apply to the normalised path as well as the raw one, so a link to a look-alike
+path (`/se%61rch`, `/search/`, `//search`, `/search;x=1`) cannot step out of a rule that scopes `/search` to `off` or
+`observe` (since 0.2.3; a rule only lowers the mode, so the escape gave the visitor the app's global mode, never more;
+[util/match.ts](../../packages/runtime/src/util/match.ts) `normalizeRoute`). An invalid `mode` value (`"HEAL"`, an
+object) runs as `observe` with a warning instead of falling through the gate as heal (since 0.2.3; app configuration
+only, never a URL).
 
 **Residual.** Markup injected into `<head>` can still set the mode (not a cross-origin model): pages that let
 untrusted HTML into `<head>` should configure through `window.GENCLASS_CONFIG` (it wins) or `GenClass.init(options)`.
 A production app served from a loopback name with an explicit port (an Electron app with an embedded server, a
 self-hosted local tool on `http://127.0.0.1:<port>`) counts as a development host, so a crafted link can raise its mode
-with `?genclass=`; such apps should not rely on the URL switch being demote-only.
+with `?genclass=`; such apps should not rely on the URL switch being demote-only. `devtools: "local"` (and
+`data-devtools="local"`) mounts the overlay on every host [cdn/config.ts](../../packages/runtime/src/cdn/config.ts)
+`isLocalHost` counts as local (`file:`, loopback with or without a port, `*.localhost`, `*.local`, `*.test`), which is
+wider than the development-host test above: a Capacitor, Tauri or Electron build that ships it gets the overlay, and
+whoever is at the device can open it (Alt+Shift+G) and raise the mode for that session, as any script in the origin can
+(T1). Not reachable from a link. Set `devtools` per environment and do not ship `"local"` in such builds.
 
 ## T9. Cached and shared responses
 

@@ -203,6 +203,7 @@ Runtime API:
   - Results go in an LRU cache keyed by `method+" "+url`, 256 entries. Matchers are compiled once, in the `runtime.ts` constructor.
 - **`OpRec.scope`**: `{ mode, aggressiveness, protected, crossOrigin, label?, route?, correlationId? }`, set in `NetHost.startOp`.
 - **`runtime.ts computeScope()`** runs on init, on nav, on `setMode`/`setAggressiveness`, on a breaker trip or reset, and when `enabled` changes. It stores `this.scope`, which is snapshotted per op or mutation.
+- **`mode`** is validated in the `runtime.ts` constructor: any value but `observe`, `guard` or `heal` (from `createRuntime`, `GenClass.init` or `window.GENCLASS_CONFIG`, which `cdn/config.ts readWindowConfig` checks too) runs as `observe`, with one warning (since 0.2.3; before, an unknown value such as `"HEAL"` fell through `minMode` and the gate's `modeAllows` and ran as heal, and `?genclass-mode=observe` could not lower it). `modeAllows` permits a non-passive tier only for `guard` and `heal`.
 - **URL overrides** (`?genclass-mode`, `?genclass-aggr`, `?genclass-sample=0`) may only demote, on every host, with or without `debug:true` (debug is console logging only). `?genclass-sample=1` has no effect: no URL value puts a session in the act cohort. Before 0.2.3, `debug:true` let them raise the value and `?genclass-sample=1` under debug forced the act cohort; a link could then raise any site that left debug on in production. The page's own `?genclass=` / `localStorage.genclass` (src/index.ts) may raise the mode only on a development host (src/devhost.ts: http(s) on a loopback name with an explicit port, or `*.test`). For QA on a staging or production host, set `mode` / `sample` per environment, call `rt.setMode()`, or use the devtools overlay.
 
 ## 4. Options
@@ -231,7 +232,7 @@ Runtime API:
 ### 4.2 `sample`
 **Type** `number` in [0,1], clamped with a warning. **Default** `1`.
 
-**Semantics.** Sessions outside the fraction get an `observe` cap. The model still loads, so they form the comparison group. The bucket is **decided once at init** as `hash(session.id)/2^32 < sample`, then frozen and stored in `sessionStorage["genclass:bucket"]` (wrapped in try/catch). A later `setSession({id})` does not change it. An app that passes a stable user id gets the same bucket in every tab, which is the intended behaviour. `?genclass-sample=0` always forces observe, and `=1` has no effect (since 0.2.3; before, it forced the act cohort under debug).
+**Semantics.** Sessions outside the fraction get an `observe` cap. The model still loads, so they form the comparison group. The bucket is **decided once at init** as `hash(session.id)/2^32 < sample`, then frozen and stored in `sessionStorage["genclass:bucket"]` as `act@<sample>` or `observe@<sample>` (wrapped in try/catch). A stored verdict is reused only under the `sample` it was drawn under, so a deploy that changes `sample` draws again, and `sample: 0` (like `1`) never reads or writes it (since 0.2.3; before, a stored `act` overrode `sample: 0` until the tab closed). A later `setSession({id})` does not change it. An app that passes a stable user id gets the same bucket in every tab, which is the intended behaviour. `?genclass-sample=0` always forces observe, and `=1` has no effect (since 0.2.3; before, it forced the act cohort under debug).
 
 **Precedence.** It is one term of the min. `setMode` cannot lift it.
 
@@ -241,12 +242,15 @@ Runtime API:
 - Reload → same bucket.
 - Storage throws → deterministic within the page.
 - `setSession({id})` → bucket unchanged.
+- `sample:0` with a stored act verdict → observe, storage untouched.
+- A verdict stored under another `sample` (or in the pre-0.2.3 bare form) → drawn again.
 
 ### 4.3 `routes`
 **Type** `RouteRule[]`. **Default** `[]`.
 
 **Semantics.**
 - Rules are evaluated at init and on every `installNav` callback. The first match wins. A rule can only demote, and a rule that asks for a higher mode is clamped, with one warning.
+- A string rule is an exact path or a glob, matched against the raw `location.pathname` **and** against its normalised form (percent-decoded, `;` path parameters dropped, dot segments and repeated slashes resolved, no trailing slash except `/`; `util/match.ts normalizeRoute`), so `/se%61rch`, `/search/`, `//search` and `/search;x=1` fall under a `/search` rule, as they reach the same page on most servers (since 0.2.3; before, such a link escaped the rule and got the global mode). RegExp and predicate rules see both forms. Matching is case-sensitive (`/Search` is not `/search`; use a RegExp with the `i` flag), and `/admin/*` does not cover `/admin` itself (use `/admin*` or a RegExp). `status.scope.route` stays the raw path.
 - `mode:"off"` means ops created on that route are pass-through, though they are still recorded in the timeline.
 - Ops created under `off` or `observe` scope **are never the target of an action** later, even from another route (gate step 3).
 - The scope is snapshotted per op, so a write held under heal on route A is decided under heal after navigating to route B.
@@ -260,6 +264,7 @@ Runtime API:
 - An op held on route A is decided with A's scope.
 - An op from an `off` route is not offered as a target from route B.
 - RegExp, glob and predicate rules all work, and a throwing predicate is skipped.
+- `/se%61rch`, `/search/`, `//search` and `/search;x=1` fall under a `/search` rule; `/Search` does not; `/admin/*` does not cover `/admin`.
 
 ### 4.4 `requests`
 **Type** `RequestScope`. **Default** `{ ignore:[], protect:[], crossOrigin:"observe", labels:[], labelsToModel:false }`.

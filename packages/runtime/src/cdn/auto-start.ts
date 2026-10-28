@@ -19,7 +19,7 @@ export function startAuto(defaults: InitOptions = {}): Runtime {
   if (typeof g.window !== "object" || typeof g.document !== "object" || !g.document) return GenClass.init(defaults);
   const doc = g.document as Document;
   // automatic state discovery is on by default here (installed now, before the framework's modules run)
-  const { init, devtools } = splitConfig(mergeConfig(AUTO_DEFAULTS, defaults, readMetaConfig(doc, { location: g.location, warn: (m) => g.console?.warn?.(m) }), readWindowConfig(g.window)));
+  const { init, devtools } = splitConfig(mergeConfig(AUTO_DEFAULTS, defaults, readMetaConfig(doc, { location: g.location, warn: (m) => g.console?.warn?.(m) }), readWindowConfig(g.window, (m) => g.console?.warn?.(m))));
   const rt = GenClass.init(init);
   const dt = devtoolsOptions(devtools, g.location);
   if (dt && !isKilled(g)) {

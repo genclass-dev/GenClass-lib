@@ -201,11 +201,18 @@ export function readMetaConfig(
   return c;
 }
 
-/** `window.GENCLASS_CONFIG` (any InitOptions plus `devtools`). */
-export function readWindowConfig(win: unknown): PageConfig {
+/** `window.GENCLASS_CONFIG` (any InitOptions plus `devtools`). A `mode` that is not observe, guard or heal is dropped, with one warning. */
+export function readWindowConfig(win: unknown, warn?: (m: string) => void): PageConfig {
   try {
     const c = (win as { GENCLASS_CONFIG?: unknown } | null | undefined)?.GENCLASS_CONFIG;
-    return c && typeof c === "object" ? ({ ...(c as PageConfig) } as PageConfig) : {};
+    if (!c || typeof c !== "object") return {};
+    const out = { ...(c as PageConfig) } as PageConfig;
+    const m = out.mode as unknown;
+    if (m !== undefined && !(typeof m === "string" && MODES.includes(m))) {
+      warn?.(`[GenClass] window.GENCLASS_CONFIG.mode must be "observe", "guard" or "heal" (got ${typeof m === "string" ? JSON.stringify(m) : typeof m}); ignored.`);
+      delete out.mode;
+    }
+    return out;
   } catch {
     return {};
   }

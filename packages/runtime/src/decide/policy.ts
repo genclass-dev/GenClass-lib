@@ -112,7 +112,7 @@ const LEVEL_AT = { cautious: 0, balanced: 0.5, eager: 1 } as const;
 export function aggressivenessLevel(a: Aggressiveness | string | undefined | null): number {
   if (typeof a === "number" && Number.isFinite(a)) return Math.min(1, Math.max(0, a));
   if (typeof a === "string") {
-    if (a in LEVEL_AT) return LEVEL_AT[a as keyof typeof LEVEL_AT];
+    if ((LEVEL_NAMES as readonly string[]).includes(a)) return LEVEL_AT[a as keyof typeof LEVEL_AT];
     const n = Number(a);
     if (a.trim() !== "" && Number.isFinite(n)) return Math.min(1, Math.max(0, n));
   }
@@ -210,11 +210,11 @@ export function effectiveGates(c: PolicyConfig, raw: ModelGate | undefined, trig
   return out;
 }
 
+/** Whether a mode permits a tier: observe nothing, guard the guard tier, heal every tier. Any other value fails closed. */
 export function modeAllows(mode: Mode, tier: Tier): boolean {
   if (tier === "passive") return true;
-  if (mode === "observe") return false;
   if (mode === "guard") return tier === "guard";
-  return true;
+  return mode === "heal";
 }
 
 /** Why an action may not run under this mode and policy (null when it is permitted). */

@@ -32,7 +32,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&amp;family=Figtree:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/styles.css?v=ef9e798c">
-<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "Organization", "@id": "https://genclass.dev/#org", "name": "GenClass", "url": "https://genclass.dev/", "logo": "https://genclass.dev/icon-512.png", "sameAs": ["https://github.com/genclass-dev/GenClass-lib", "https://www.npmjs.com/package/@genclass/runtime"]}, {"@type": "WebSite", "@id": "https://genclass.dev/#site", "url": "https://genclass.dev/", "name": "GenClass", "publisher": {"@id": "https://genclass.dev/#org"}}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://genclass.dev/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://genclass.dev/docs"}, {"@type": "ListItem", "position": 3, "name": "API Reference", "item": "https://genclass.dev/docs/api"}]}, {"@type": "TechArticle", "headline": "@genclass/runtime API reference", "author": {"@id": "https://genclass.dev/#org"}, "publisher": {"@id": "https://genclass.dev/#org"}, "dateModified": "2026-10-13", "isBasedOn": "https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/API.md"}]}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "Organization", "@id": "https://genclass.dev/#org", "name": "GenClass", "url": "https://genclass.dev/", "logo": "https://genclass.dev/icon-512.png", "sameAs": ["https://github.com/genclass-dev/GenClass-lib", "https://www.npmjs.com/package/@genclass/runtime"]}, {"@type": "WebSite", "@id": "https://genclass.dev/#site", "url": "https://genclass.dev/", "name": "GenClass", "publisher": {"@id": "https://genclass.dev/#org"}}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://genclass.dev/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://genclass.dev/docs"}, {"@type": "ListItem", "position": 3, "name": "API Reference", "item": "https://genclass.dev/docs/api"}]}, {"@type": "TechArticle", "headline": "@genclass/runtime API reference", "author": {"@id": "https://genclass.dev/#org"}, "publisher": {"@id": "https://genclass.dev/#org"}, "dateModified": "2026-10-27", "isBasedOn": "https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/API.md"}]}</script>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
@@ -91,10 +91,13 @@ GenClass.destroy(): void                        // uninstall observers, restore 
 <p>Kill switch, for "is my app broken or did GenClass change something?":</p>
 <ul>
 <li><code>?genclass=off</code> in the page URL, or <code>localStorage.genclass = "off"</code>: <code>init</code> installs nothing and logs one line.</li>
-<li><code>?genclass=observe|guard|heal</code>: overrides the mode, within limits (<code>src/index.ts</code> -&gt; <code>initUnsafe</code>; a missing
-  <code>mode</code> counts as <code>guard</code> there): <code>observe</code> always; <code>guard</code> when no mode, <code>guard</code> or <code>heal</code> is configured (the
-  default <code>/auto</code> and script tag included, not <code>/auto/observe</code>); <code>heal</code> only when <code>heal</code> is configured, or with
-  <code>debug: true</code>.</li>
+<li><code>?genclass=observe|guard|heal</code> (or the same <code>localStorage.genclass</code> value): may only lower the mode, from the app's
+  <code>mode</code> or from <code>observe</code> when it sets none (<code>src/index.ts</code> -&gt; <code>initUnsafe</code>), with or without <code>debug: true</code>. It may
+  raise the mode only on a development host (<code>src/devhost.ts</code>: http(s) on <code>localhost</code>, <code>127.0.0.1</code>, <code>[::1]</code> or
+  <code>*.localhost</code> with an explicit port, or <code>*.test</code>), never on hosts that only look local (Capacitor's
+  <code>https://localhost</code>, Tauri's <code>tauri.localhost</code>, Electron's <code>file:</code>, intranet names, private addresses, <code>*.internal</code>,
+  <code>*.local</code>). Since 0.2.3; before, <code>debug: true</code> also let it raise, and every telemetry-local host counted as a
+  development host.</li>
 </ul>
 <p>Outside a browser (no <code>window</code>/<code>document</code>, e.g. SSR), <code>GenClass.init()</code> returns an inert runtime: no observers,
 no model. Use <a href="#headless-use-tests-ssr-simulation"><code>createRuntime</code></a> for headless work.</p>
@@ -108,7 +111,7 @@ hosts (<code>0.2.1</code> sends from them too, by mistake; fixed in <code>0.2.2<
 <a href="/docs/telemetry">packages/runtime/TELEMETRY.md</a>.</p>
 <h2 id="options">Options</h2>
 <pre><code class="language-ts">interface InitOptions {
-  mode?: &quot;observe&quot; | &quot;guard&quot; | &quot;heal&quot;;                 // default &quot;observe&quot;; &quot;guard&quot; is opt-in, &quot;heal&quot; experimental
+  mode?: &quot;observe&quot; | &quot;guard&quot; | &quot;heal&quot;;                 // default &quot;observe&quot;; &quot;guard&quot; is opt-in, &quot;heal&quot; experimental; any other value runs as observe, with a warning
   model?: {                                             // or false: no model (observe only)
     baseUrl?: string;                                   // directory with model.json (default: jsDelivr CDN)
     device?: &quot;auto&quot; | &quot;webgpu&quot; | &quot;wasm&quot;;                // default &quot;auto&quot;
@@ -124,7 +127,7 @@ hosts (<code>0.2.1</code> sends from them too, by mistake; fixed in <code>0.2.2<
   redact?: (path: string, value: unknown) =&gt; unknown;   // default: values whose leaf field names a secret (password, token, card number, cvv, ssn, iban, ...); never a whole store by its name
   plugins?: Plugin[];
   historySize?: number;                                 // events kept, default 500
-  debug?: boolean;                                      // console.debug every decision
+  debug?: boolean;                                      // console.debug every decision; logging only (never lets a URL raise anything)
   learn?: { persist?: boolean };                        // keep transition profiles in localStorage
   aggressiveness?: &quot;cautious&quot; | &quot;balanced&quot; | &quot;eager&quot; | number; // how eagerly to act (default &quot;balanced&quot;; see Policy)
   vocabulary?: { diagnoses?: Record&lt;string, string&gt;; actions?: Record&lt;string, string&gt; };
@@ -147,7 +150,10 @@ hosts (<code>0.2.1</code> sends from them too, by mistake; fixed in <code>0.2.2<
                                                         // [true]; false: nothing installed, model never downloaded; a predicate/source forces preload &quot;lazy&quot;
   sample?: number;                                      // [1] fraction of sessions that act (stable per session); the rest observe
   routes?: { match: string | RegExp | ((route: string) =&gt; boolean); mode?: Mode | &quot;off&quot;; aggressiveness?: Aggressiveness }[];
-                                                        // first match wins; demote only
+                                                        // first match wins; demote only. Matched against the raw pathname and its normalised
+                                                        // form (percent-decoded, no &quot;;&quot; parameters, no trailing or repeated slashes), so
+                                                        // &quot;/se%61rch&quot; and &quot;/search/&quot; fall under &quot;/search&quot;; case-sensitive; &quot;/admin/*&quot; does
+                                                        // not cover &quot;/admin&quot; itself (use &quot;/admin*&quot; or a RegExp)
   requests?: {
     ignore?: RequestMatcher[];                          // not observed at all (native pass-through)
     protect?: (RequestMatcher | `preset:${string}`)[];  // observed, never held/retried/cached/discarded, nor what its response causes;
@@ -187,9 +193,11 @@ mode/allow/deny/requireDiagnosis (at the effective mode) → thresholds → <cod
 (<code>limit:perMinute|perSubject|perSession</code>; defaults 60/min global, 10/min per subject, 200 per session) → <code>onBeforeAction</code> (<code>vetoed</code>, <code>would-veto</code>, or
 <code>limit:hold</code> past the budget) → execute. effectiveMode = min(mode, sample cap, breaker cap, route rule); URL overrides
 (<code>?genclass</code>, <code>?genclass-mode</code>, <code>?genclass-aggr</code>, <code>?genclass-sample</code>, <code>localStorage.genclass</code>) only demote, from the
-app's mode or from <code>observe</code> when it sets none; they may raise only with <code>debug: true</code> or on a development host
-(<code>localhost</code>, <code>*.local</code>, <code>*.test</code>, private networks). Before 0.2.2, <code>?genclass=guard</code> opted a visitor into guard when
-the app set no mode. <code>policy.holdBudgetMs</code> is a hard ceiling that includes defers, the
+app's mode or from <code>observe</code> when it sets none, with or without <code>debug: true</code>. <code>?genclass-mode</code>, <code>?genclass-aggr</code> and
+<code>?genclass-sample</code> are demote-only on every host (<code>?genclass-sample=0</code> makes the session observe; no value makes it
+act); only <code>?genclass=</code> and <code>localStorage.genclass</code> may raise, and only on a development host (see the kill switch
+above). Before 0.2.2, <code>?genclass=guard</code> opted a visitor into guard when the app set no mode; before 0.2.3,
+<code>debug: true</code> let every URL override raise. <code>policy.holdBudgetMs</code> is a hard ceiling that includes defers, the
 wait for a response or request body, a held write's deferred re-decisions and the veto hook.</p>
 <p>Protected requests (<code>requests.protect</code>) are never held, never wait for their body to be read, and neither they nor
 anything their response callbacks cause (writes, timers, follow-up requests: the ops inherit the protection) are
@@ -507,7 +515,7 @@ meta.json, visible as <code>runtime.status.gate</code>). Two gate kinds exist:
   cost units; a runs when ĝ(a) is above its tier's margin (defaults 2 / 2; tauGain default 1). Probabilities are
   clamped to ≥ 1e-6; when the model gives no probability for the passive action, the mass it left over is used.
 Aggressiveness (<code>InitOptions.aggressiveness</code>: "cautious" | "balanced" | "eager" | 0–1, default "balanced";
-<code>runtime.setAggressiveness(x)</code>; URL <code>?genclass-aggr=…</code>) selects the gate: when meta.json has <code>gate.profiles: {
+<code>runtime.setAggressiveness(x)</code>; URL <code>?genclass-aggr=…</code>, which may only lower it) selects the gate: when meta.json has <code>gate.profiles: {
 cautious, balanced, eager }</code> (each a gate of either kind, report included), a named level uses its profile and a
 number interpolates thresholds/margins, report and tauGain linearly between the neighbouring profiles (the nearer
 profile's kind when they differ). Without profiles the single gate (or the defaults) is shifted: cautious +0.05 on

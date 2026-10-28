@@ -60,7 +60,7 @@ import { AuditLog, type AuditDraft } from "./decide/audit.js";
 import { expandPresets } from "./presets.js";
 import { Breaker, breakerConfig } from "./decide/breaker.js";
 import { SinkDispatcher, SummaryTracker } from "./decide/summary.js";
-import { compileMatchers, compileValued, hash32, routeMatches, sanitizeLabel, type CompiledMatcher, type MatchInput } from "./util/match.js";
+import { compileMatchers, compileValued, hash32, normalizeRoute, routeMatches, sanitizeLabel, type CompiledMatcher, type MatchInput } from "./util/match.js";
 import { browserClock } from "./clock.js";
 import { GenClassUnavailableError } from "./errors.js";
 import { EventLog } from "./trace/events.js";
@@ -365,7 +365,11 @@ export class RuntimeImpl implements Runtime {
     this.debug = !!o.debug;
     // URL overrides only lower, on every host (OPTIONS-SPEC §3); `debug` is console logging only and never raises them
     const url = this.urlParams();
-    this._mode = o.mode ?? "observe";
+    // the mode option itself is validated: anything but the three modes runs as observe (an unknown value used to fall
+    // through minMode and modeAllows as heal)
+    const om = o.mode as unknown;
+    this._mode = om === "observe" || om === "guard" || om === "heal" ? om : "observe";
+    if (om !== undefined && om !== this._mode) this.warn(`mode must be "observe", "guard" or "heal" (got ${typeof om === "string" ? JSON.stringify(om) : typeof om}); running in observe.`);
     const um = url.get("genclass-mode");
     if (um === "observe" || um === "guard" || um === "heal") if (MODE_RANK[um] <= MODE_RANK[this._mode]) this._mode = um;
     if (o.policy?.maxActionsPerMinute !== undefined && o.policy?.actionLimits?.perMinute !== undefined) this.warn("policy.maxActionsPerMinute is deprecated and ignored when actionLimits.perMinute is set.");
@@ -569,8 +573,10 @@ export class RuntimeImpl implements Runtime {
   }
 
   /**
-   * The session's act/observe bucket (OPTIONS-SPEC §4.2): hash(session id) < sample, frozen in sessionStorage.
-   * `?genclass-sample=0` puts it in the observe bucket; no URL value puts it in the act bucket.
+   * The session's act/observe bucket (OPTIONS-SPEC §4.2): hash(session id) < sample, frozen in sessionStorage as
+   * `act@<sample>` / `observe@<sample>`, so a verdict drawn under another `sample` (a deploy changed it) is drawn again.
+   * `?genclass-sample=0` and `sample: 0` put it in the observe bucket without reading storage; no URL value puts it in
+   * the act bucket.
    */
   private sampleBucket(sample: number | undefined, urlSample: string | null): boolean {
     if (urlSample === "0") return false;
@@ -581,16 +587,19 @@ export class RuntimeImpl implements Runtime {
       p = Number.isFinite(p) ? Math.min(1, Math.max(0, p)) : 1;
     }
     if (p >= 1) return true;
+    if (p <= 0) return false;
     const ss = this.storage("session");
+    const actAt = `act@${p}`;
+    const observeAt = `observe@${p}`;
     try {
       const saved = ss?.getItem("genclass:bucket");
-      if (saved === "act" || saved === "observe") return saved === "act";
+      if (saved === actAt || saved === observeAt) return saved === actAt;
     } catch {
       /* deterministic within the page */
     }
     const act = hash32(this.sessionId) / 4294967296 < p;
     try {
-      ss?.setItem("genclass:bucket", act ? "act" : "observe");
+      ss?.setItem("genclass:bucket", act ? actAt : observeAt);
     } catch {
       /* ignore */
     }
@@ -602,15 +611,20 @@ export class RuntimeImpl implements Runtime {
     return typeof loc?.pathname === "string" ? loc.pathname : "/";
   }
 
-  /** Route scope (OPTIONS-SPEC §4.3): the first matching rule, demote only. Recomputed on navigation. */
+  /**
+   * Route scope (OPTIONS-SPEC §4.3): the first rule that matches the raw path or its normalised form (percent-decoded,
+   * no `;` parameters, dot segments and repeated slashes resolved, no trailing slash), demote only. Recomputed on
+   * navigation. `scope.route` stays the raw path.
+   */
   computeScope(): void {
     const route = this.currentRoute();
+    const norm = normalizeRoute(route);
     let mode: ModeOrOff = "heal";
     let aggr = 1;
     let rule: number | undefined;
     for (let i = 0; i < this.routes.length; i++) {
       const r = this.routes[i];
-      if (!r || !routeMatches(r.match, route)) continue;
+      if (!r || !(routeMatches(r.match, route) || (norm !== route && routeMatches(r.match, norm)))) continue;
       rule = i;
       if (r.mode === "off" || r.mode === "observe" || r.mode === "guard" || r.mode === "heal") {
         if (MODE_RANK[r.mode] > MODE_RANK[this._mode]) {

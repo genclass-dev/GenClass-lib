@@ -1,7 +1,8 @@
 // Batch 12: configuration options (docs/runtime/OPTIONS-SPEC.md). One block per option.
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { defaultScript, FakeClock, setup } from "./helpers.js";
 import { deviceEnv, evalLoadIf, IdleUnloadProvider } from "../src/index.js";
+import { hash32 } from "../src/util/match.js";
 import type { DecisionProvider, ModelStatus, SinkRecord } from "../src/types.js";
 
 const DELAY = defaultScript({ request: { diagnosis: "overload", action: "delay" } });
@@ -267,5 +268,98 @@ describe("model.unloadAfterIdleMs", () => {
     expect(made).toBe(2);
     await expect(p.evaluate({ trigger: "request", state: {} as never, questions: {} })).resolves.toEqual({});
     p.dispose();
+  });
+});
+
+// `mode` is validated (0.2.3 review): before, a value that was not observe, guard or heal ("HEAL", "Guard", an object)
+// fell through `minMode` and `modeAllows` and ran as heal, which `?genclass-mode=observe` could not lower either.
+describe("mode: any value but observe, guard or heal runs as observe, with one warning", () => {
+  it.each(["HEAL", "Guard", "heal ", "", {}, 1, true, null])("%j", async (bad) => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const s = setup({ mode: bad as never, triage: "always", script: DELAY });
+    expect(s.rt.mode).toBe("observe");
+    expect(s.rt.status.effectiveMode).toBe("observe");
+    expect(warn.mock.calls.filter((c) => /mode must be "observe", "guard" or "heal"/.test(String(c[0]))).length).toBe(1);
+    s.server.on("GET", "/api/x", { body: 1, latency: 5 });
+    await hit(s);
+    expect(s.rt.interventions().length).toBe(0);
+    warn.mockRestore();
+  });
+
+  it("the three modes pass unchanged, without a warning", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    for (const m of ["observe", "guard", "heal"] as const) expect(setup({ mode: m }).rt.mode).toBe(m);
+    expect(setup({ mode: undefined }).rt.mode).toBe("observe");
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it("modeAllows fails closed for a value that is not a mode", async () => {
+    const { modeAllows } = await import("../src/decide/policy.js");
+    for (const bad of ["HEAL", "Guard", "", "off", undefined, null]) {
+      expect(modeAllows(bad as never, "guard"), String(bad)).toBe(false);
+      expect(modeAllows(bad as never, "heal"), String(bad)).toBe(false);
+      expect(modeAllows(bad as never, "passive"), String(bad)).toBe(true);
+    }
+  });
+
+  it("window.GENCLASS_CONFIG.mode is validated like the meta tag and data attributes", async () => {
+    const { readWindowConfig } = await import("../src/cdn/config.js");
+    const warns: string[] = [];
+    expect(readWindowConfig({ GENCLASS_CONFIG: { mode: "guard", debug: true } }, (m) => warns.push(m))).toEqual({ mode: "guard", debug: true });
+    expect(readWindowConfig({ GENCLASS_CONFIG: { mode: "HEAL", debug: true } }, (m) => warns.push(m))).toEqual({ debug: true });
+    expect(readWindowConfig({ GENCLASS_CONFIG: { mode: {} } }, (m) => warns.push(m))).toEqual({});
+    expect(warns.length).toBe(2);
+    expect(warns[0]).toMatch(/GENCLASS_CONFIG\.mode must be "observe", "guard" or "heal" \(got "HEAL"\)/);
+    expect(readWindowConfig({ GENCLASS_CONFIG: { mode: "HEAL" } })).toEqual({}); // no sink: still dropped
+    expect(readWindowConfig({})).toEqual({});
+  });
+});
+
+// The sample bucket (OPTIONS-SPEC §4.2) is frozen in sessionStorage. 0.2.3 review: a saved "act" verdict overrode
+// `sample: 0` (a tab that drew act under 0.5 kept acting after a deploy set 0, or a same-origin script wrote it); now
+// 0 never reads storage, and a verdict is kept with the sample it was drawn under and reused only under the same one.
+describe("sample: the stored bucket is read only for the sample it was drawn under; 0 never reads it", () => {
+  const storage = (init: Record<string, string> = {}) => {
+    const m = new Map(Object.entries(init));
+    return { m, getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, String(v)), removeItem: (k: string) => void m.delete(k) };
+  };
+  const ID = "session-1";
+  const draw = (p: number) => hash32(ID) / 4294967296 < p;
+
+  it("sample: 0 ignores a saved act verdict and writes nothing", async () => {
+    for (const saved of ["act", "act@0.5", "act@0"]) {
+      const ss = storage({ "genclass:bucket": saved });
+      const s = setup({ sample: 0, session: { id: ID }, triage: "always", script: DELAY, extraGlobal: { sessionStorage: ss } });
+      expect([s.rt.status.sampled, s.rt.status.effectiveMode], saved).toEqual([false, "observe"]);
+      expect(ss.m.get("genclass:bucket"), saved).toBe(saved);
+      s.server.on("GET", "/api/x", { body: 1, latency: 5 });
+      await hit(s);
+      expect(s.rt.interventions().length, saved).toBe(0);
+    }
+  });
+
+  it("a verdict drawn under the same sample is reused; one from another sample, or the old bare format, is drawn again", () => {
+    const ss = storage({ "genclass:bucket": "observe@0.5" });
+    expect(setup({ sample: 0.5, session: { id: ID }, extraGlobal: { sessionStorage: ss } }).rt.status.sampled).toBe(false);
+    ss.m.set("genclass:bucket", "act@0.5");
+    expect(setup({ sample: 0.5, session: { id: ID }, extraGlobal: { sessionStorage: ss } }).rt.status.sampled).toBe(true);
+    for (const stale of ["act@0.9", "observe@0.9", "act", "observe", "act@", "nonsense"]) {
+      ss.m.set("genclass:bucket", stale);
+      expect(setup({ sample: 0.5, session: { id: ID }, extraGlobal: { sessionStorage: ss } }).rt.status.sampled, stale).toBe(draw(0.5));
+      expect(ss.m.get("genclass:bucket"), stale).toBe(draw(0.5) ? "act@0.5" : "observe@0.5");
+    }
+  });
+
+  it("a fresh draw is stored with its sample, and reloading under the same sample keeps it", () => {
+    const ss = storage();
+    const first = setup({ sample: 0.3, session: { id: ID }, extraGlobal: { sessionStorage: ss } }).rt.status.sampled;
+    expect(first).toBe(draw(0.3));
+    expect(ss.m.get("genclass:bucket")).toBe(first ? "act@0.3" : "observe@0.3");
+    expect(setup({ sample: 0.3, session: { id: "another-id" }, extraGlobal: { sessionStorage: ss } }).rt.status.sampled).toBe(first);
+    // sample: 1 never reads or writes it either
+    ss.m.set("genclass:bucket", "observe@1");
+    expect(setup({ sample: 1, session: { id: ID }, extraGlobal: { sessionStorage: ss } }).rt.status.sampled).toBe(true);
+    expect(ss.m.get("genclass:bucket")).toBe("observe@1");
   });
 });

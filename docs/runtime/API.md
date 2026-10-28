@@ -58,7 +58,7 @@ hosts (`0.2.1` sends from them too, by mistake; fixed in `0.2.2`), outside a bro
 
 ```ts
 interface InitOptions {
-  mode?: "observe" | "guard" | "heal";                 // default "observe"; "guard" is opt-in, "heal" experimental
+  mode?: "observe" | "guard" | "heal";                 // default "observe"; "guard" is opt-in, "heal" experimental; any other value runs as observe, with a warning
   model?: {                                             // or false: no model (observe only)
     baseUrl?: string;                                   // directory with model.json (default: jsDelivr CDN)
     device?: "auto" | "webgpu" | "wasm";                // default "auto"
@@ -97,7 +97,10 @@ interface InitOptions {
                                                         // [true]; false: nothing installed, model never downloaded; a predicate/source forces preload "lazy"
   sample?: number;                                      // [1] fraction of sessions that act (stable per session); the rest observe
   routes?: { match: string | RegExp | ((route: string) => boolean); mode?: Mode | "off"; aggressiveness?: Aggressiveness }[];
-                                                        // first match wins; demote only
+                                                        // first match wins; demote only. Matched against the raw pathname and its normalised
+                                                        // form (percent-decoded, no ";" parameters, no trailing or repeated slashes), so
+                                                        // "/se%61rch" and "/search/" fall under "/search"; case-sensitive; "/admin/*" does
+                                                        // not cover "/admin" itself (use "/admin*" or a RegExp)
   requests?: {
     ignore?: RequestMatcher[];                          // not observed at all (native pass-through)
     protect?: (RequestMatcher | `preset:${string}`)[];  // observed, never held/retried/cached/discarded, nor what its response causes;

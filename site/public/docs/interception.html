@@ -32,7 +32,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&amp;family=Figtree:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/styles.css?v=ef9e798c">
-<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "Organization", "@id": "https://genclass.dev/#org", "name": "GenClass", "url": "https://genclass.dev/", "logo": "https://genclass.dev/icon-512.png", "sameAs": ["https://github.com/genclass-dev/GenClass-lib", "https://www.npmjs.com/package/@genclass/runtime"]}, {"@type": "WebSite", "@id": "https://genclass.dev/#site", "url": "https://genclass.dev/", "name": "GenClass", "publisher": {"@id": "https://genclass.dev/#org"}}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://genclass.dev/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://genclass.dev/docs"}, {"@type": "ListItem", "position": 3, "name": "Interception surface", "item": "https://genclass.dev/docs/interception"}]}, {"@type": "TechArticle", "headline": "Interception surface", "author": {"@id": "https://genclass.dev/#org"}, "publisher": {"@id": "https://genclass.dev/#org"}, "dateModified": "2026-10-13", "isBasedOn": "https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/INTERCEPTION.md"}]}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "Organization", "@id": "https://genclass.dev/#org", "name": "GenClass", "url": "https://genclass.dev/", "logo": "https://genclass.dev/icon-512.png", "sameAs": ["https://github.com/genclass-dev/GenClass-lib", "https://www.npmjs.com/package/@genclass/runtime"]}, {"@type": "WebSite", "@id": "https://genclass.dev/#site", "url": "https://genclass.dev/", "name": "GenClass", "publisher": {"@id": "https://genclass.dev/#org"}}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://genclass.dev/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://genclass.dev/docs"}, {"@type": "ListItem", "position": 3, "name": "Interception surface", "item": "https://genclass.dev/docs/interception"}]}, {"@type": "TechArticle", "headline": "Interception surface", "author": {"@id": "https://genclass.dev/#org"}, "publisher": {"@id": "https://genclass.dev/#org"}, "dateModified": "2026-10-27", "isBasedOn": "https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/INTERCEPTION.md"}]}</script>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
@@ -469,7 +469,7 @@ from ever being held.</p>
 </tr>
 <tr>
 <td><code>sessionStorage</code></td>
-<td><code>genclass:bucket</code> (<code>sample</code>), the breaker's trip state</td>
+<td><code>genclass:bucket</code> (<code>sample</code>: <code>act@&lt;sample&gt;</code> or <code>observe@&lt;sample&gt;</code>), the breaker's trip state</td>
 <td><code>sample</code> &lt; 1; breaker trips</td>
 <td><a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/src/runtime.ts">src/runtime.ts</a> <code>sampleBucket</code>, <a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/src/decide/breaker.ts">src/decide/breaker.ts</a></td>
 </tr>
@@ -522,8 +522,11 @@ including the time spent waiting for a body, deferred re-decisions and <code>onB
 not ready, slow, erroring or over its rate limit, the subject proceeds unchanged (fail open).</p>
 <p>Every term can only lower the mode: <code>routes</code> rules, <code>sample</code>, the breaker (after 2 undos or 3 errors following actions,
 the session drops to <code>observe</code>), a hidden tab (nothing new is held, background decisions are skipped) and
-<code>?genclass-mode</code>. Since 0.2.2 no URL or <code>localStorage</code> switch can raise it on a production host: <code>?genclass=guard</code>
-or <code>heal</code> raises only with <code>debug: true</code> or on a development host (see <a href="/docs/threat-model">THREAT-MODEL.md</a>).</p>
+<code>?genclass-mode</code> (and <code>?genclass-aggr</code>, <code>?genclass-sample=0</code>), on every host. Since 0.2.2 no URL or <code>localStorage</code>
+switch can raise the mode on a production host, and since 0.2.3 <code>debug: true</code> does not change that:
+<code>?genclass=guard</code> or <code>heal</code> raises only on a development host, http(s) on a loopback name with an explicit port or
+<code>*.test</code> (<a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/src/devhost.ts">src/devhost.ts</a>; never Capacitor, Tauri, Electron, intranet or private-address hosts; see
+<a href="/docs/threat-model">THREAT-MODEL.md</a>).</p>
 <h2 id="what-it-never-does">What it never does</h2>
 <table>
 <thead>

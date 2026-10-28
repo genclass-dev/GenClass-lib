@@ -212,6 +212,22 @@ describe("aggressiveness (batch 11)", () => {
     expect(parseGate(P)?.profiles?.eager).toEqual({ report: 0.5, guard: { default: 0.6 }, heal: { default: 0.5 } });
     expect([aggressivenessLevel("cautious"), aggressivenessLevel("eager"), aggressivenessLevel(0.3), aggressivenessLevel("0.8"), aggressivenessLevel("x"), aggressivenessLevel(7)]).toEqual([0, 1, 0.3, 0.8, 0.5, 1]);
   });
+  // 0.2.3 review: the level names were looked up with `in` on a plain object, so an Object.prototype member name gave a
+  // function instead of a number (and NaN gates downstream). Only the three names count; anything else is balanced.
+  it("only the three level names are levels: Object.prototype member names are balanced, from the option, a route rule or the URL", async () => {
+    const { aggressivenessLevel } = await import("../src/decide/policy.js");
+    for (const n of ["constructor", "__proto__", "valueOf", "toString", "hasOwnProperty", "isPrototypeOf"]) {
+      expect(aggressivenessLevel(n), n).toBe(0.5);
+      expect(setup({ aggressiveness: n as never }).rt.aggressiveness, n).toBe(0.5);
+      expect(setup({ routes: [{ match: "/search", aggressiveness: n as never }] }).rt.status.scope?.aggressiveness, n).toBe(0.5);
+      // from the URL the name is an unknown value like any other: balanced, so it lowers eager and leaves cautious alone
+      const loc = { href: `http://app.test/search?genclass-aggr=${n}`, pathname: "/search", search: `?genclass-aggr=${n}` };
+      const fromEager = setup({ aggressiveness: "eager", extraGlobal: { location: loc } }).rt;
+      expect(fromEager.aggressiveness, n).toBe(0.5);
+      expect(Number.isFinite(fromEager.gates("delivery").guard), n).toBe(true);
+      expect(setup({ aggressiveness: "cautious", extraGlobal: { location: loc } }).rt.aggressiveness, n).toBe(0);
+    }
+  });
   it("named levels pick their profile; numbers interpolate between neighbours (report too)", () => {
     const c = policyConfig(undefined);
     expect(effectiveGates(c, P, "delivery", 0.5)).toMatchObject({ guard: 0.7, level: "balanced", levelSource: "profiles" });

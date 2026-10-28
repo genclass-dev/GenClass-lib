@@ -6,7 +6,9 @@
 // with options from the tag's data attributes, <meta name="genclass"> and window.GENCLASS_CONFIG (src/cdn/config.ts),
 // and exposes window.GenClass: { init, runtime, destroy, devtools, createRuntime, version }. `data-manual` only
 // exposes window.GenClass (call GenClass.init(options) yourself; the page configuration still applies underneath); `data-devtools` mounts the overlay (bare: always,
-// "local": only on localhost); `data-base` is the URL of the package's dist/ directory when you self-host the file.
+// "local": only on hosts isLocalHost in src/cdn/config.ts counts as local: loopback, *.localhost, *.local, *.test and
+// file:, with or without a port, which is wider than the development-host test a link's `?genclass=` needs
+// (src/devhost.ts; THREAT-MODEL T8)); `data-base` is the URL of the package's dist/ directory when you self-host the file.
 //
 // Everything heavy loads on demand from the same place as this file (on jsDelivr/unpkg: the exact version of this
 // file): the model worker (dist/cdn/worker.js, started from a same-origin Blob URL because browsers refuse
@@ -136,7 +138,7 @@ function install(): void {
     init(options: PageConfig = {}): Runtime {
       // the page's configuration (meta tag, the tag's data attributes, window.GENCLASS_CONFIG) is the default
       // automatic state discovery is on by default for the script tag (installed now, before the framework loads)
-      const { init, devtools } = splitConfig(mergeConfig({ autoState: true }, readMetaConfig(document, { location, warn: (m) => console.warn(m) }), fromDataset(ds), readWindowConfig(window), options));
+      const { init, devtools } = splitConfig(mergeConfig({ autoState: true }, readMetaConfig(document, { location, warn: (m) => console.warn(m) }), fromDataset(ds), readWindowConfig(window, (m) => console.warn(m)), options));
       const rt = GenClass.init(withCdnModel(init));
       const dt = devtoolsOptions(devtools, location);
       if (dt && !isKilled(window)) void mount(rt, dt);

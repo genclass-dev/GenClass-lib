@@ -189,7 +189,8 @@ SSR or in Node, `/auto` installs nothing and returns an inert runtime.
 
 It exposes `window.GenClass`, discovers the app's state like the import does, and loads the model worker, ONNX
 Runtime Web and the overlay on demand from the same version on the CDN. `data-mode` takes `observe` (the default), `guard` or `heal`; `data-devtools="local"` shows the
-overlay only on localhost; `data-manual` skips the automatic `GenClass.init()`. Pin a version in production
+overlay only on local hosts (loopback, `*.localhost`, `*.local`, `*.test` and `file:`, so also in a Capacitor, Tauri or
+Electron build that ships it); `data-manual` skips the automatic `GenClass.init()`. Pin a version in production
 (`https://cdn.jsdelivr.net/npm/@genclass/runtime@0.2.3`); the plain-HTML path of `init` writes a pinned
 jsDelivr URL with SRI.
 

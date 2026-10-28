@@ -1,10 +1,11 @@
 # Changelog
 
-## 0.2.3 (2026-10-25)
+## 0.2.3 (2026-10-27)
 
-A security fix on top of 0.2.2; nothing else changed. No model-visible text changed (`situation-v2.3`), telemetry
-and its opt-outs are unchanged, and the default model is still `@genclass/runtime-model@0.2.0`. The same fix is in
-0.3.0-beta.2.
+Security fixes on top of 0.2.2, and what the review of them found; nothing else changed. No model-visible text
+changed (`situation-v2.3`), telemetry and its opt-outs are unchanged, and the default model is still
+`@genclass/runtime-model@0.2.0`. The first fix is also in 0.3.0-beta.2; the review's fixes below are not yet on the
+0.3.0 line (main carries the same code).
 
 - **Security: a link can no longer raise GenClass's mode through `debug: true` or through a host that only looks
   local.** Two holes, both in what the page's own URL may change:
@@ -32,9 +33,39 @@ and its opt-outs are unchanged, and the default model is still `@genclass/runtim
   recipe (`?genclass-sample=1` or `?genclass=heal` with `debug: true`) is gone: set `mode` / `sample` per
   environment, call `rt.setMode()`, or use the devtools overlay. Remaining residual: a production app served from a
   loopback name with an explicit port (an Electron app with an embedded server) counts as a development host
-  (THREAT-MODEL T8). Upgrade to 0.2.3 (or 0.3.0-beta.2 on the `beta` dist-tag); until then, do not ship `debug: true`
-  in production. Tests: `test/mode-switch.test.ts`; docs: CONTRACT §2 and §13, THREAT-MODEL T8, OPTIONS-SPEC §3 and
-  §4.2, API.md, README, INTERCEPTION.md.
+  (THREAT-MODEL T8). Upgrade to 0.2.3 (or 0.3.0-beta.2 or later: the npm dist-tag `beta`); until then, do not ship
+  `debug: true` in production. Tests: `test/mode-switch.test.ts`; docs: CONTRACT §2 and §13, THREAT-MODEL T8,
+  OPTIONS-SPEC §3 and §4.2, API.md, README, INTERCEPTION.md.
+- **Security: a look-alike path no longer steps out of a route rule.** `routes[]` matched the raw `location.pathname`,
+  which the browser never percent-decodes, while most servers route on the decoded path: a link to `/se%61rch`,
+  `/search/`, `//search` or `/search;x=1` reached the `/search` page with the app's global mode although a rule scoped
+  `/search` to `off` or `observe` (a rule can only lower the mode, so the visitor got the global mode, never more). A
+  rule now matches the raw path or its normalised form (percent-decoded, `;` parameters dropped, dot segments and
+  repeated slashes resolved, no trailing slash); `status.scope.route` is still the raw path. Matching is case-sensitive,
+  and `/admin/*` does not cover `/admin` itself (use `/admin*` or a RegExp); both are now documented. Affected: every
+  version with `routes` (0.1.0-beta.1 and later, 0.3.0-beta.4 included). Tests: `test/status-scope.test.ts`; docs:
+  OPTIONS-SPEC §4.3, API.md, THREAT-MODEL T8.
+- **Fix: an invalid `mode` ran as heal.** `mode: "HEAL"`, `"Guard"`, `"heal "`, an object or a number (a typo in an
+  env-driven config, or `window.GENCLASS_CONFIG`, which was copied unchecked) fell through the mode ranking and the
+  gate's `modeAllows` and ran guard- and heal-tier actions, which `?genclass-mode=observe` could not lower. Now any value
+  but `observe`, `guard` or `heal` runs as `observe`, with one warning (`window.GENCLASS_CONFIG.mode` is validated like
+  the meta tag and the data attributes), and `modeAllows` permits a non-passive tier only for `guard` and `heal`, so the
+  gate fails closed. App configuration only, never reachable from a URL. Tests: `test/options.test.ts`,
+  `test/policy.test.ts`.
+- **Fix: a stored sample verdict overrode `sample: 0`.** The act/observe bucket is frozen in
+  `sessionStorage["genclass:bucket"]`, and a tab that drew `act` under `sample: 0.5` kept acting after a deploy set
+  `sample: 0`, until it closed (a same-origin script could write the value too). Now `sample: 0` never reads the storage,
+  and a verdict is stored with the sample it was drawn under (`act@0.5`) and reused only under that sample: a change of
+  `sample` draws again. Open tabs are re-bucketed once on upgrade. Tests: `test/options.test.ts`; docs: OPTIONS-SPEC
+  §4.2, INTERCEPTION.md.
+- **Hardening: `aggressiveness` level names.** The three names were looked up with `in` on a plain object, so
+  `"constructor"`, `"__proto__"`, `"valueOf"` or another `Object.prototype` member name (from the option, a route rule
+  or `?genclass-aggr=`) gave a function instead of a number, and NaN gate thresholds downstream. Only `cautious`,
+  `balanced` and `eager` are names now; anything else is `balanced`, as documented. Test: `test/gates.test.ts`.
+- **Docs: `devtools: "local"` is wider than the development-host test.** It mounts the overlay on every host
+  `isLocalHost` counts as local (`file:`, loopback with or without a port, `*.localhost`, `*.local`, `*.test`), so a
+  Capacitor, Tauri or Electron build that ships it gets the overlay, whose mode switch raises the mode for whoever is at
+  the device. Unchanged in code; documented in THREAT-MODEL T8 and the README. Set `devtools` per environment.
 
 ## 0.2.2 (2026-10-13)
 
