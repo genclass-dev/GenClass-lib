@@ -98,4 +98,33 @@ describe("devtools: Checks tab (VISUAL.md 9.3)", () => {
     $('[data-pane="checks"] [data-act="undo"]')!.click();
     expect(undo).toHaveBeenCalledTimes(1);
   });
+
+  it("counts measured checks in the collapsed pill, names them in words and opens on them (VISUAL.md 9.3)", async () => {
+    const rt = new MockRuntime();
+    const h = mountDevtools(rt, {});
+    handles.push(h);
+    const sr = (h.element as HTMLElement).shadowRoot as ShadowRoot;
+    const $ = (s: string) => sr.querySelector<HTMLElement>(s);
+    expect($(".pc.c b")?.textContent).toBe("0");
+    expect($(".pc.c")?.classList.contains("on")).toBe(false);
+    const undo = vi.fn(() => true);
+    rt.emitTo("check", finding({ fix: { id: "f1", applied: true, css: "p.hero__subtitle { color: rgb(115, 115, 115); }", undo } }));
+    rt.emitTo("check", finding({ id: "c2", kind: "scroll-lock-stuck", suggestion: undefined, message: "[GenClass] Check (measured): the page cannot scroll." }));
+    await frame();
+    // a page GenClass fixed on screen does not read "0 · 0": the pill's third counter has the checks, and it pulses
+    expect($(".pc.a b")?.textContent).toBe("0");
+    expect($(".pc.d b")?.textContent).toBe("0");
+    expect($(".pc.c b")?.textContent).toBe("2");
+    expect($(".pc.c")?.classList.contains("on")).toBe(true);
+    expect($(".pc.c")?.title).toBe("2 measured checks, 1 fixed on screen");
+    expect($(".pill")?.getAttribute("aria-label")).toContain("2 checks (1 fixed)");
+    expect($(".pill")?.classList.contains("pck")).toBe(true);
+    // with no interventions or detections yet, the panel opens on the checks
+    $(".pill")!.click();
+    await frame();
+    expect($('[data-tab="checks"]')?.getAttribute("aria-selected")).toBe("true");
+    const cards = [...sr.querySelectorAll<HTMLElement>('[data-pane="checks"] article.card')];
+    expect(cards.map((c) => c.querySelector(".cl")?.textContent)).toEqual(["Page cannot scroll", "Invisible text"]);
+    expect(cards.map((c) => c.querySelector(".ct")?.textContent)).toEqual(["scroll-lock-stuck", "text-invisible"]);
+  });
 });

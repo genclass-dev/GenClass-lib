@@ -30,6 +30,7 @@
 // - Retention (daily cron): daily counters and recent rows 90 days, hourly counters 48 hours, summary state 2 days,
 //   visits 90 days (on every plan).
 
+import { applyDemo, demoData } from "./demo.js";
 import { json, readCapped } from "./http.js";
 
 export const TOKEN_RE = /^gc_[A-Za-z0-9]{22}$/;
@@ -1359,7 +1360,7 @@ export async function stats(db: D1Like, p: Project, range: Range, now: Date): Pr
 
   const fromIso = hourly ? `${from}:00:00.000Z` : `${from}T00:00:00.000Z`;
   const vs = await visitStats(db, p.token, fromIso, parseFunnels(rows(fun)[0]?.funnels));
-  return {
+  const out: Stats = {
     name: p.name,
     token: p.token,
     created: p.created,
@@ -1378,6 +1379,9 @@ export async function stats(db: D1Like, p: Project, range: Range, now: Date): Pr
     visits: vs.visits,
     funnels: vs.funnels,
   };
+  // the recorded demo's estimate for its project (src/demo.ts); every other project gets its measured counts
+  const demo = demoData(p.name);
+  return demo && p.last_event ? applyDemo(out, demo, now) : out;
 }
 
 // --------------------------------------------------------------------------------------------- retention

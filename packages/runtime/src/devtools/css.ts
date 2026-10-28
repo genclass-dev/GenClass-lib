@@ -54,6 +54,7 @@ border:1px solid var(--line2);font-size:12.5px;font-weight:500;color:var(--fg);t
 .pc b{font:500 12px var(--mono)}
 .pc.on.a{color:var(--go)}
 .pc.on.d{color:var(--bug)}
+.pc.on.c{color:var(--bug)}
 .pd{width:7px;height:7px;background:var(--fg3);margin-left:1px}
 .s-ready .pd,.s-ready .dot{background:var(--go-f)}
 .s-error .pd,.s-error .dot{background:var(--bug-f)}
@@ -63,7 +64,8 @@ border:1px solid var(--line2);font-size:12.5px;font-weight:500;color:var(--fg);t
 .pill::after{content:"";position:absolute;inset:-1px;pointer-events:none;opacity:0;outline:1px solid var(--ring,transparent);outline-offset:0}
 .pill.pa::after{--ring:var(--go);animation:ring 1.5s cubic-bezier(.2,.7,.3,1)}
 .pill.pdd::after{--ring:var(--bug);animation:ring 1.5s cubic-bezier(.2,.7,.3,1)}
-.pill.pa .pc.a b,.pill.pdd .pc.d b{animation:bump .5s cubic-bezier(.2,.8,.2,1)}
+.pill.pck::after{--ring:var(--bug);animation:ring 1.5s cubic-bezier(.2,.7,.3,1)}
+.pill.pa .pc.a b,.pill.pdd .pc.d b,.pill.pck .pc.c b{animation:bump .5s cubic-bezier(.2,.8,.2,1)}
 @keyframes ring{0%{opacity:.9;outline-offset:0}100%{opacity:0;outline-offset:12px}}
 @keyframes bump{40%{transform:scale(1.25)}}
 @keyframes blink{50%{opacity:.35}}
@@ -142,6 +144,8 @@ background:var(--bg2);border-top:1px solid var(--line);border-bottom:1px solid v
 .cb{flex:1;min-width:0}
 .ch{display:flex;align-items:baseline;gap:8px;min-height:20px}
 .ct{flex:1;min-width:0;font-weight:600;letter-spacing:-.01em;line-height:1.35;padding-top:3px}
+.chk .cl{font-weight:600;letter-spacing:-.01em;line-height:1.35;padding-top:3px}
+.chk .ct{font:400 11px var(--mono);color:var(--fg3)}
 .ago{font:400 11px var(--mono);color:var(--fg3);white-space:nowrap}
 .rep{align-self:center;height:18px;padding:0 5px;font:500 11px/16px var(--mono);color:var(--bug);background:var(--bug-bg);border:1px solid var(--bug-line)}
 .cx{margin:3px 0 0;font-size:12.5px;line-height:1.5;color:var(--fg2);overflow-wrap:anywhere}

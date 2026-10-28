@@ -8,6 +8,7 @@
 // No external scripts; styles and fonts only from Google Fonts. Inline <script>/<style> run under a per-response CSP
 // nonce; dynamic text is inserted with textContent in scripts and escaped (esc) in server-rendered HTML.
 
+import { demoData } from "./demo.js";
 import { embed, esc } from "./escape.js";
 import { COPY_JS, icon, ICON_LINKS, studioPage, type ProductMenu, type RailItem } from "./studio.js";
 
@@ -392,6 +393,15 @@ export const DASH_CSS = `
 .tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end}
 .tools #updated{font-size:12px;color:var(--ink3);white-space:nowrap}
 .ov-meta{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-top:10px;font-size:13px;color:var(--ink3)}
+/* the app's status under its name: Critical, Needs attention or Healthy, large, in red, amber or green */
+.verdict{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;margin-top:14px}
+.verdict i{width:16px;height:16px;border-radius:50%;background:currentColor;box-shadow:0 0 0 5px rgba(255,255,255,.06);flex:none}
+.verdict b{font:600 40px/1.1 var(--display);letter-spacing:-.02em}
+.verdict span{font-size:15px;color:var(--ink2)}
+.verdict.ok{color:var(--accent)}
+.verdict.warn{color:var(--amber)}
+.verdict.bad{color:#f2555a}
+@media (max-width:560px){.verdict b{font-size:30px}}
 .live{display:inline-flex;align-items:center;gap:7px;color:var(--ink2)}
 .live i{width:7px;height:7px;border-radius:50%;background:var(--ink3);display:inline-block}
 .live.on i{background:var(--accent)}
@@ -728,6 +738,7 @@ const DASH_JS = `
     function put(t, bold){ host.appendChild(bold ? el("b", null, t) : document.createTextNode(t)); }
     if (!T0.sessions) { put("No page loads in this period yet."); return; }
     put(RANGE[S.range] + " GenClass watched "); put(plural(T0.sessions, "page load", "page loads"), true);
+    if (P.demo && T0.ix_sessions) { put(" from "); put(plural(T0.ix_sessions, "visitor", "visitors"), true); }
     if (!T0.detections && poss) { put(" and found no problems. It flagged "); put(plural(poss, "possible issue", "possible issues"), true); put(" at lower confidence, listed separately below."); return; }
     if (!T0.detections) { put(" and found nothing wrong. It only reports situations that stand out, so a quiet stretch is normal."); return; }
     put(" and found "); put(plural(T0.detections, "problem", "problems"), true);
@@ -747,14 +758,27 @@ const DASH_JS = `
   function stat(label0, value, sub){
     var d = el("div"); d.appendChild(el("div", "k", label0)); d.appendChild(el("div", "v", value)); if (sub) d.appendChild(el("div", "s", sub)); return d;
   }
+  // the app's status: Healthy with no problems in the period; Critical when 100 or more were not fixed live, or
+  // problems not fixed live reached 5% of page loads; otherwise Needs attention
+  function verdict(S){
+    var T0 = S.totals, n = T0.detections || 0, open = Math.max(0, n - (T0.interventions || 0)), loads = T0.sessions || 0;
+    var host = document.getElementById("verdict"); if (!host) return;
+    var v = !n ? ["ok", "Healthy", "No problems found " + RANGE[S.range].charAt(0).toLowerCase() + RANGE[S.range].slice(1)]
+      : open >= 100 || (loads && open / loads >= 0.05) ? ["bad", "Critical", plural(open, "problem", "problems") + " not fixed live"]
+      : ["warn", "Needs attention", open ? plural(open, "problem", "problems") + " not fixed live" : "every problem was fixed live; the code still needs the fix"];
+    host.classList.remove("ok", "warn", "bad"); host.classList.add(v[0]);
+    document.getElementById("verdictt").textContent = v[1];
+    document.getElementById("verdicts").textContent = v[2];
+  }
   function tiles(S){
     var T0 = S.totals, B = S.breakdowns, host = document.getElementById("tiles"); host.textContent = "";
     var ready = T0.model_ready || 0, failed = T0.model_load_failed || 0, modes = map(B.mode), acting = (modes.guard || 0) + (modes.heal || 0) > 0;
     var outcomes = map(B.action_outcome), applied = outcomes.applied || T0.interventions || 0, undone = outcomes.undone || 0;
-    host.appendChild(stat("Problems found", fmt(T0.detections), delta(T0.detections || 0, (S.previous || {}).detections || 0)));
+    host.appendChild(stat("Problems found", fmt(T0.detections) + (P.demo ? "+" : ""), P.demo ? "detected in production" : delta(T0.detections || 0, (S.previous || {}).detections || 0)));
     var seenPages = count(S, "page_route");
     host.appendChild(stat("Pages affected", fmt(count(S, "detect_route")), seenPages ? "of " + plural(seenPages, "page", "pages") + " that sent data" : ""));
-    host.appendChild(stat("Stopped by GenClass", fmt(T0.interventions), acting ? (applied ? Math.round(100 * undone / applied) + "% undone by users" : "nothing needed stopping") : "observe mode reports only"));
+    if (P.demo) host.appendChild(stat("Fixed live", fmt(T0.interventions), "hotfixed on users' screens, no redeploy"));
+    else host.appendChild(stat("Stopped by GenClass", fmt(T0.interventions), acting ? (applied ? Math.round(100 * undone / applied) + "% undone by users" : "nothing needed stopping") : "observe mode reports only"));
     host.appendChild(stat("Model loaded", share(ready, ready + failed), ready ? "average " + (T0.modelLoadAvgMs >= 1000 ? (T0.modelLoadAvgMs / 1000).toFixed(1) + " s" : fmt(T0.modelLoadAvgMs) + " ms") + ", " + plural(failed, "failure", "failures") : "no model loads yet"));
   }
   // ---------- problems over time
@@ -1770,9 +1794,9 @@ const DASH_JS = `
     document.getElementById("updated").textContent = "Updated " + new Date(S.generated).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
     document.getElementById("nodata").classList.toggle("hidden", live);
     document.getElementById("content").classList.toggle("hidden", !live);
-    ["period", "mdcopy"].forEach(function(id){ var n = document.getElementById(id); if (n) n.classList.toggle("hidden", !live); });
+    ["period", "mdcopy", "verdict"].forEach(function(id){ var n = document.getElementById(id); if (n) n.classList.toggle("hidden", !live); });
     if (!live) return;
-    summary(S); tiles(S); usage(S); advisor(S); fixAll(S); trend(S); possibleTrend(S); cards(S); possibleCards(S); pages(S); acted(S); health(S); stages(S); agentLog(S); loop(S); recent(S); visits(S); advanced(S);
+    verdict(S); summary(S); tiles(S); usage(S); advisor(S); fixAll(S); trend(S); possibleTrend(S); cards(S); possibleCards(S); pages(S); acted(S); health(S); stages(S); agentLog(S); loop(S); recent(S); visits(S); advanced(S);
     var B2 = S.breakdowns, T2 = S.totals;
     function put(id, t){ var n = document.getElementById(id); if (n) n.textContent = t; }
     put("c-trend", fmt(T2.detections));
@@ -1781,6 +1805,11 @@ const DASH_JS = `
     put("c-did", fmt(T2.interventions));
   }
 
+  if (P.demo) {
+    Object.keys(P.demo.types).forEach(function(k){ var t = P.demo.types[k]; TYPES[k] = { name: t.name, c: t.c, what: t.what, fix: t.fix }; STEPS[k] = function(r){ return t.step.replace("{page}", r); }; });
+    Object.keys(P.demo.actions).forEach(function(k){ ACTIONS[k] = P.demo.actions[k]; });
+    SLOTS = P.demo.slots;
+  }
   document.getElementById("pname").textContent = P.name;
   // Views: each rail or product-menu link opens one view (the parts marked data-v with it; a part may name several);
   // the header stays. The hash names the link, so a view can be linked to and the back button works. #connect (and
@@ -2260,11 +2289,14 @@ export function dashboardPage(
   const acct = opts.account;
   if (acct && opts.locked) return lockedDashboardPage(nonce, project, { ...opts, account: acct });
   const waiting = !project.lastEvent;
-  const data = acct
+  const base = acct
     ? { ...project, id: opts.id, firstEvent: opts.firstEvent ?? null, statsUrl: `/api/account/projects/${opts.id}/stats`, funnelsUrl: `/api/account/projects/${opts.id}/funnels`, account: true, ...(opts.endpoint ? { endpoint: opts.endpoint } : {}) }
     : opts.endpoint
       ? { ...project, endpoint: opts.endpoint }
       : project;
+  const demo = demoData(project.name);
+  // the recorded demo's project (src/demo.ts): its stats come with the estimate; the page needs the kinds' names
+  const data = demo ? { ...base, demo: { types: demo.types, actions: demo.actions, slots: demo.slots } } : base;
   const t = esc(project.token);
   const keep = opts.keepDays ?? 90;
   const report = '<a href="https://github.com/genclass-dev/GenClass-lib/issues/new?title=False%20detection%3A%20">Report a false detection</a>';
@@ -2374,6 +2406,7 @@ ${
 <header class="phead" id="top">
   <div class="minw0">
     <h1 id="pname" data-v="overview"></h1>
+    <div class="verdict hidden" id="verdict" data-v="overview" role="status"><i></i><b id="verdictt"></b><span id="verdicts"></span></div>
     <h1 id="vtitle" class="hidden"></h1>
     <p id="vdesc" class="hidden"></p>
     <div class="ov-meta" data-v="overview"><span class="live" id="status"><i></i><span id="statust">Loading</span></span><span>Project key <code>${t}</code></span></div>
