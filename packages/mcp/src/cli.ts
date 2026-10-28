@@ -1,17 +1,22 @@
 // genclass-mcp: the command (bin/genclass-mcp.mjs).
 //
 //   genclass-mcp                 the MCP server on stdio (what an agent's MCP config runs)
-//   genclass-mcp init [--hook]   add the server to this project's .mcp.json (and, with --hook, the prompt hook to
+//   genclass-mcp init [--hook] [--no-skill]
+//                                add the server to this project's .mcp.json and the genclass skill (the package's
+//                                plugin/skills/genclass/SKILL.md, with a `genclass:init` marker line) to
+//                                .claude/skills/genclass/SKILL.md (and, with --hook, the prompt hook to
 //                                .claude/settings.json), then print the lines for the app's dev build
 //   genclass-mcp hook            UserPromptSubmit hook: new findings since the last prompt, as additional context
 //   genclass-mcp status          the bridge's status, for people
 //   genclass-mcp config [client] how to add the server to an MCP client (all of them without an argument)
 //
-// init writes only those two files, merging with what is there, and says what it changed.
+// init writes only those three files, merging with what is there (the skill: a rerun replaces a file that carries the
+// marker and leaves one without it), and says what it changed.
 
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { CLIENTS, clientById, hookCommand, installMarkdown, serverConfig } from "./clients.js";
+import { fileURLToPath } from "node:url";
+import { CLIENTS, clientById, hookCommand, installMarkdown, pinned, serverConfig } from "./clients.js";
 import { callBridge } from "./http.js";
 import { serve, stateDirOf } from "./server.js";
 import { clean, q } from "./text.js";
@@ -29,7 +34,10 @@ export interface CliIo {
 const HELP = `genclass-mcp ${VERSION}: GenClass for coding agents
 
   genclass-mcp                 run the MCP server on stdio (the bridge listens on 127.0.0.1:${DEFAULT_PORT})
-  genclass-mcp init [--hook]   add it to this project's .mcp.json (--hook: also a prompt hook in .claude/settings.json)
+  genclass-mcp init [--hook] [--no-skill]
+                               add it to this project's .mcp.json and write the genclass skill (the procedure Claude Code
+                               loads for timing bugs) to .claude/skills/genclass/SKILL.md; --hook: also a prompt hook in
+                               .claude/settings.json; --no-skill: leave the skill out
   genclass-mcp hook            print new findings for a UserPromptSubmit hook
   genclass-mcp status          show connected pages and findings
   genclass-mcp config [client] how to add it to an MCP client (${CLIENTS.map((c) => c.id).join(", ")})
@@ -54,7 +62,44 @@ function writeJson(file: string, v: unknown): void {
   writeFileSync(file, `${JSON.stringify(v, null, 2)}\n`);
 }
 
-export function init(io: CliIo, hook: boolean): number {
+/** The marker line init puts in the skill it writes: a rerun replaces a file that carries it and leaves one that does not. */
+export const SKILL_MARK = "genclass:init";
+/** Where init writes the skill in a project (Claude Code reads a project's skills from .claude/skills/<name>/SKILL.md). */
+export const SKILL_PATH = join(".claude", "skills", "genclass", "SKILL.md");
+
+/** The package's own skill, plugin/skills/genclass/SKILL.md: next to dist/ (the built command) and src/ (the tests), both one level down. */
+function skillSource(): string {
+  return fileURLToPath(new URL("../plugin/skills/genclass/SKILL.md", import.meta.url));
+}
+
+/** The skill as init writes it: the package's copy with the marker line right after the frontmatter. */
+export function skillText(version: string, source: string = readFileSync(skillSource(), "utf8")): string {
+  const mark = `<!-- ${SKILL_MARK}: written by \`npx -y ${pinned(version)} init\`; a rerun replaces this file while this line is here, so remove the line to keep your edits -->`;
+  const end = source.startsWith("---\n") ? source.indexOf("\n---\n", 4) : -1;
+  return end < 0 ? `${mark}\n\n${source}` : `${source.slice(0, end + 5)}${mark}\n${source.slice(end + 5)}`;
+}
+
+/** Writes the skill (`init` without --no-skill): new, replaced (it had the marker) or left alone (it did not). Never fails init. */
+function writeSkill(io: CliIo): void {
+  let text: string;
+  try {
+    text = skillText(VERSION);
+  } catch (e) {
+    io.err(`Could not read the package's skill (${skillSource()}): ${e instanceof Error ? e.message : String(e)}; not writing ${SKILL_PATH}.\n`);
+    return;
+  }
+  const file = join(io.cwd, SKILL_PATH);
+  const cur = existsSync(file) ? readFileSync(file, "utf8") : null;
+  if (cur !== null && !cur.includes(SKILL_MARK)) {
+    io.out(`${SKILL_PATH} exists without the ${SKILL_MARK} marker (yours, or edited); leaving it.\n`);
+    return;
+  }
+  mkdirSync(dirname(file), { recursive: true });
+  writeFileSync(file, text);
+  io.out(cur === null ? `Wrote the genclass skill (the procedure Claude Code loads for timing bugs) to ${file}; --no-skill leaves it out.\n` : `Replaced the genclass skill at ${file} (it carried the ${SKILL_MARK} marker).\n`);
+}
+
+export function init(io: CliIo, hook: boolean, skill = true): number {
   const mcpFile = join(io.cwd, ".mcp.json");
   const existing = existsSync(mcpFile) ? readJson(mcpFile) : {};
   if (existing === null) {
@@ -68,6 +113,7 @@ export function init(io: CliIo, hook: boolean): number {
     writeJson(mcpFile, { ...existing, mcpServers: servers });
     io.out(`Added the genclass server to ${mcpFile}.\n`);
   }
+  if (skill) writeSkill(io);
   if (hook) {
     const sFile = join(io.cwd, ".claude", "settings.json");
     const s = existsSync(sFile) ? readJson(sFile) : {};
@@ -160,7 +206,7 @@ export async function runCli(argv: string[], io: CliIo & { stdin: NodeJS.Readabl
     io.out(`${VERSION}\n`);
     return 0;
   }
-  if (cmd === "init") return init(io, rest.includes("--hook"));
+  if (cmd === "init") return init(io, rest.includes("--hook"), !rest.includes("--no-skill"));
   if (cmd === "hook") return hookCmd(io);
   if (cmd === "config") return configCmd(io, rest[0]);
   if (cmd === "status") {

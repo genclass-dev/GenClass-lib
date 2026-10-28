@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx -y @genclass/mcp@0.2.0 hook",
+            "command": "npx -y @genclass/mcp@0.2.1 hook",
             "timeout": 30
           }
         ]

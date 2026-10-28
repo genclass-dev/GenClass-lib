@@ -6,7 +6,7 @@
       "command": "npx",
       "args": [
         "-y",
-        "@genclass/mcp@0.2.0"
+        "@genclass/mcp@0.2.1"
       ]
     }
   }
