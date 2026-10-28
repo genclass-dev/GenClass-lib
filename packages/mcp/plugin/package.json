@@ -1,0 +1,9 @@
+{
+  "name": "genclass-plugin",
+  "private": true,
+  "description": "The launcher's lockfile. .mcp.json and hooks/hooks.json run npx -y @genclass/mcp@<version>; package-lock.json next to this file records what that resolves to (exact version, registry source, integrity), which Anthropic's plugin directory reads. Nothing installs this package: the plugin runs the server through npx.",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@genclass/mcp": "0.2.1"
+  }
+}

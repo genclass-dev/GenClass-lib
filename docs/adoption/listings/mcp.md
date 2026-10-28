@@ -124,12 +124,25 @@ support.claude.com "Anthropic Software Directory Policy".
   token); the optional dashboard read is the only network request off the machine. Compliance: contact email and
   the four acknowledgements. Updates: GitHub push webhook.
 - **What the checks will say.** Local run of `claude plugin validate --profile directory` on the assembled
-  repository (Claude Code 2.1.309, 2026-10-28): passes with nothing to report. The portal also holds pinned launchers for a reviewer:
-  expect "Runs a pinned npx or uvx package" (both `.mcp.json` and the hook run `npx -y @genclass/mcp@0.2.1`), and
-  possibly "MCP server command wasn't read" because the server is not a file inside the plugin folder. An unpinned
-  launcher would block; `packages/mcp/test/manifests.test.ts` keeps both pins equal to `package.json`'s version. The
-  way to avoid the hold is to ship the built server (`dist/cli.js`, 125 KB, no dependencies) inside the plugin
-  folder and run `node ${CLAUDE_PLUGIN_ROOT}/...`; that means committing a build output, so it is left to the owner.
+  repository (Claude Code 2.1.311, 2026-10-28, with and without the lockfile below): passes with nothing to report;
+  the lockfile check is the portal's alone. The portal's first validation (2026-10-28, `main` at e911b25, before the
+  lockfile) passed with one warning, "Launcher lock missing" on `mcpServers.genclass` in `.mcp.json`: ship a
+  `package-lock.json` (`npm ci`) or `uv.lock` next to the manifest that declares the server; exact versions,
+  registry sources and hashes are required for the Verified badge. `package.json` and `package-lock.json` at the
+  plugin root answer it (lockfileVersion 3; `@genclass/mcp` at the plugin's version with its registry tarball and
+  sha512 integrity; `packages/mcp/test/manifests.test.ts` keeps them at `package.json`'s version, and the daily sync
+  carries them to the plugin repository). The portal also held the pinned launchers for a reviewer, "Runs a pinned
+  npx or uvx package" (2 findings: `.mcp.json` and the hook run `npx -y @genclass/mcp@0.2.1`), whose text prefers
+  "a package that ships a lockfile" (which it now does) or the package's readable source vendored into the plugin
+  and run from `${CLAUDE_PLUGIN_ROOT}`; whether the lockfile lifts the hold is the reviewer's call. Possibly also
+  "MCP server command wasn't read" because the server is not a file inside the plugin folder. An unpinned launcher
+  would block; the manifests test keeps both pins equal to `package.json`'s version. The way to avoid the hold for
+  certain is to ship the built server (`dist/cli.js`, 125 KB, no dependencies) inside the plugin folder and run
+  `node ${CLAUDE_PLUGIN_ROOT}/...`; that means committing a build output, so it is left to the owner. Between a
+  version bump and its release the lock still names the previous release (npm does not serve the new one yet), and a
+  daily sync in that window carries that mismatch to the plugin repository until the post-release sync. Claude Code
+  2.1.311 installs a plugin's lockfile when it installs the plugin (`npm ci --ignore-scripts` in the plugin's cache
+  folder), so installing the plugin now also fetches `@genclass/mcp` there; the launchers still run `npx`.
 - **Policy items.** Privacy policy URL: `privacyPolicyUrl` in `plugin.json` (the plugin README's Privacy section).
   Support: `supportUrl` (GitHub issues). Tool annotations: every tool has `title`, `readOnlyHint`, `destructiveHint`
   and `openWorldHint`. Test account: none needed (no account exists); for a reviewer's page to test against, the

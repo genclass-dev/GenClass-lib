@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- **The plugin ships the launcher's lockfile.** `plugin/package.json` (private; its one dependency is `@genclass/mcp`
+  at this version) and `plugin/package-lock.json` (lockfileVersion 3: the version, its registry tarball and sha512
+  integrity) sit next to `.mcp.json`. Anthropic's directory asked for them on the plugin's first validation
+  (2026-10-28, the warning "Launcher lock missing": a lockfile with exact versions, registry sources and hashes is
+  required for the Verified badge), and its policy hold on pinned `npx` launchers prefers "a package that ships a
+  lockfile". Both files reach [genclass-dev/genclass-plugin](https://github.com/genclass-dev/genclass-plugin) through
+  its daily sync. Claude Code (2.1.311) installs what a plugin's lockfile lists when it installs the plugin
+  (`npm ci --ignore-scripts --workspaces=false --no-audit --no-fund` in the plugin's cache folder, so
+  `node_modules/@genclass/mcp` appears there); the launchers still run `npx -y @genclass/mcp@<version>`.
+  `test/manifests.test.ts` keeps both files at `package.json`'s version and requires the integrity. Only
+  `npm install --package-lock-only --ignore-scripts` in `plugin/` writes the lock, and only once npm serves the
+  version, so a release is: bump, `npm run sync -w @genclass/mcp`, tag; after the publish, the same sync again (it
+  regenerates the lock from npm) and a commit. In between, the test accepts the previous release's lock while npm
+  does not serve the new version (it asks `npm view` in that state only).
 - **The plugin has a repository of its own, [genclass-dev/genclass-plugin](https://github.com/genclass-dev/genclass-plugin)**:
   the plugin folder at the root, with marketplace files for Claude Code (`.claude-plugin/marketplace.json`), Codex
   (`.agents/plugins/marketplace.json`) and Cursor, the Gemini CLI manifest and the licence, assembled by

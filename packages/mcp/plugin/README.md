@@ -32,6 +32,9 @@ page of the dev server. The page side needs `@genclass/runtime` 0.3.0-beta.1 or 
 | skill `genclass` | `skills/genclass/SKILL.md` | the procedure once Claude reaches for the tools (the explore arguments and Playwright pairing, how to read a report, what to say when done, what to do when the tools are missing); its description carries the triggers (an intermittent frontend bug; after changing code that fetches, submits, autosaves, polls or debounces; before calling a UI change done), as do the server's instructions. Without the plugin, `npx -y @genclass/mcp@0.2.1 init` writes the same file to `.claude/skills/genclass/SKILL.md` |
 
 The launcher is pinned to the plugin's version, so the plugin runs the exact release it was reviewed with.
+`package.json` and `package-lock.json` next to `.mcp.json` record what that launcher resolves to (the version, its
+registry tarball and its sha512 integrity), for the directory's checks and for a Claude Code that installs a plugin's
+lockfile (`npm ci --ignore-scripts`) when it installs the plugin.
 `plugin.json` and `mcp.json` at this folder's root are the same server in the
 [Agent Plugins](https://agent-plugins.org) format, for Cursor, Codex and other clients that read it (server and skill,
 no hook).
