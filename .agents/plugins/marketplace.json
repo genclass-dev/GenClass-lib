@@ -1,0 +1,12 @@
+{
+  "name": "genclass",
+  "interface": { "displayName": "GenClass" },
+  "plugins": [
+    {
+      "name": "genclass",
+      "source": { "source": "local", "path": "./packages/mcp/plugin" },
+      "policy": { "installation": "AVAILABLE", "authentication": "ON_USE" },
+      "category": "Developer Tools"
+    }
+  ]
+}

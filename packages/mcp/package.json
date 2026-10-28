@@ -54,7 +54,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "sync": "GENCLASS_SYNC=1 vitest run test/manifests.test.ts",
-    "bundle": "node scripts/mcpb.mjs"
+    "bundle": "node scripts/mcpb.mjs",
+    "plugin-repo": "node scripts/plugin-repo.mjs"
   },
   "devDependencies": {
     "@anthropic-ai/mcpb": "2.1.2",

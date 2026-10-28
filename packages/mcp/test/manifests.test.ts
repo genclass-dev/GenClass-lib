@@ -5,7 +5,9 @@
 // keeps the repo-root copy of the skill (skills/genclass/SKILL.md, what skill directories such as skills.sh read)
 // byte-identical to the plugin's. The second describe checks the skill and the server's instructions: the
 // instructions carry the triggers, the skill the procedure (docs/runtime/AGENT.md section 4.2).
-import { readFileSync, writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { lstatSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { CLIENTS, hookCommand, installMarkdown, pinned, serverConfig } from "../src/clients.js";
@@ -174,5 +176,66 @@ describe("the genclass skill and the server's instructions (AGENT.md section 4.2
     for (const w of SYMPTOMS) expect(INSTRUCTIONS.slice(0, 500), w).toContain(w);
     expect(INSTRUCTIONS).toContain("genclass skill");
     expect(INSTRUCTIONS).not.toContain("\u2014");
+  });
+});
+
+describe("the Codex marketplace at the repository root (.agents/plugins/marketplace.json)", () => {
+  it("points at the plugin folder with Codex's required policy fields", () => {
+    // developers.openai.com/plugins/build/plugins: source.path starts with ./ and stays inside the root; policy.installation,
+    // policy.authentication (ON_INSTALL or ON_USE) and category are required on each entry
+    const m = JSON.parse(read(".agents/plugins/marketplace.json"));
+    expect(m.name).toBe("genclass");
+    expect(m.plugins).toHaveLength(1);
+    expect(m.plugins[0]).toMatchObject({ name: "genclass", source: { source: "local", path: "./packages/mcp/plugin" }, policy: { installation: "AVAILABLE", authentication: "ON_USE" } });
+    expect(typeof m.plugins[0].category).toBe("string");
+  });
+});
+
+/** Every file under `dir`, as paths relative to it (symlinks are listed, not followed). */
+function walk(dir: string, rel = ""): string[] {
+  return readdirSync(join(dir, rel)).flatMap((n) => {
+    const r = rel ? `${rel}/${n}` : n;
+    return lstatSync(join(dir, r)).isDirectory() ? walk(dir, r) : [r];
+  });
+}
+
+describe("the plugin's own repository (packages/mcp/scripts/plugin-repo.mjs assembles genclass-dev/genclass-plugin)", () => {
+  const out = mkdtempSync(join(tmpdir(), "genclass-plugin-repo-"));
+  execFileSync(process.execPath, [join(pkgDir, "scripts", "plugin-repo.mjs"), out], { stdio: "pipe" });
+  const at = (f: string) => readFileSync(join(out, f), "utf8");
+
+  it("is the plugin folder at the root, byte for byte, plus the licence and the Gemini manifest", () => {
+    const plugin = join(pkgDir, "plugin");
+    for (const f of walk(plugin)) expect(readFileSync(join(out, f)), f).toEqual(readFileSync(join(plugin, f)));
+    expect(at("LICENSE")).toBe(read("LICENSE"));
+    expect(at("gemini-extension.json")).toBe(read("gemini-extension.json"));
+  });
+
+  it("its marketplace files point at the root and carry package.json's version", () => {
+    const claude = JSON.parse(at(".claude-plugin/marketplace.json"));
+    expect(claude.name).toBe("genclass");
+    expect(claude.plugins[0]).toMatchObject({ name: "genclass", source: "./", version: V });
+    const codex = JSON.parse(at(".agents/plugins/marketplace.json"));
+    expect(codex.plugins[0]).toMatchObject({ name: "genclass", source: { source: "local", path: "./" }, policy: { installation: "AVAILABLE", authentication: "ON_USE" } });
+    const cursor = JSON.parse(at(".cursor-plugin/marketplace.json"));
+    expect(cursor.plugins[0]).toMatchObject({ name: "genclass", source: "./", version: V });
+  });
+
+  it("has nothing Anthropic's directory blocks or holds: no symlinks, no system files, every non-image file under 256 KiB, 512 files or fewer", () => {
+    // claude.com/docs/plugins/pre-submission-checklist
+    const files = walk(out);
+    expect(files.length).toBeLessThanOrEqual(512);
+    for (const f of files) {
+      expect(lstatSync(join(out, f)).isSymbolicLink(), `${f} is a symlink`).toBe(false);
+      expect(/(^|\/)(\.DS_Store|Thumbs\.db|desktop\.ini|__MACOSX)/.test(f), f).toBe(false);
+      if (!/\.(png|jpe?g|gif|webp|svg|woff2?|ttf|otf)$/i.test(f)) expect(statSync(join(out, f)).size, `${f} over 256 KiB`).toBeLessThanOrEqual(256 * 1024);
+    }
+  });
+
+  it("its workflow re-runs this script from GenClass-lib and touches nothing by hand", () => {
+    const y = at(".github/workflows/sync.yml");
+    expect(y).toContain("repository: genclass-dev/GenClass-lib");
+    expect(y).toContain("node lib/packages/mcp/scripts/plugin-repo.mjs out");
+    expect(y).toContain("--exclude .git --exclude .github");
   });
 });

@@ -1,5 +1,6 @@
 ---
 name: genclass
+license: Apache-2.0
 description: Find, reproduce and prove fixes for web-app bugs that depend on timing or layout with the GenClass MCP tools. Use when the user says something happens "sometimes", "randomly", "only in production" or "on slow connections", when a value "flips back", and for stale or old results, lost edits, double submits or a page that scrolls sideways on a phone; also after you change code that fetches, submits, autosaves, polls, debounces, paginates or listens to a socket, and before you call a page or UI change done.
 ---
 
