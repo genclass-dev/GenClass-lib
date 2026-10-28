@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased
+
+- **The plugin has a repository of its own, [genclass-dev/genclass-plugin](https://github.com/genclass-dev/genclass-plugin)**:
+  the plugin folder at the root, with marketplace files for Claude Code (`.claude-plugin/marketplace.json`), Codex
+  (`.agents/plugins/marketplace.json`) and Cursor, the Gemini CLI manifest and the licence, assembled by
+  `node packages/mcp/scripts/plugin-repo.mjs` (`npm run plugin-repo -w @genclass/mcp`) and re-synced there daily by
+  its own workflow. Anthropic's directory stops validating a repository whose GitHub archive is over 50 MiB
+  (GenClass-lib's is 51), and Codex, Gemini CLI, `gh skill` and the skills CLI clone or read a whole repository for
+  one plugin (Gemini CLI and `gh skill` read the latest GitHub release first, which in GenClass-lib predates the
+  plugin), so the small repository is what the install lines name: `/plugin marketplace add genclass-dev/genclass-plugin`,
+  `codex plugin marketplace add genclass-dev/genclass-plugin` then `codex plugin add genclass@genclass`,
+  `gemini extensions install https://github.com/genclass-dev/genclass-plugin`, `npx skills add genclass-dev/genclass-plugin`,
+  `gh skill install genclass-dev/genclass-plugin genclass`. The marketplace in GenClass-lib still lists the plugin.
+- **A Codex marketplace file at the repository root**, `.agents/plugins/marketplace.json` (Codex's own format; Codex
+  already read `.claude-plugin/marketplace.json`).
+- **The skill's frontmatter names its licence** (`license: Apache-2.0`, the Agent Skills field `gh skill publish`
+  recommends).
+
 ## 0.2.1 (2026-10-27)
 
 - **The plugin has an icon** (`plugin/.claude-plugin/icon.png`, the genclass.dev mark, 512 by 512), which the Anthropic directory reads on the first save.

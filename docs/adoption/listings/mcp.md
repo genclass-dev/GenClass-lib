@@ -25,7 +25,10 @@ submitted.
   `GENCLASS_DASHBOARD`.
 - **Repository.** Public URL: https://github.com/genclass-dev/GenClass-lib (`daybot-solutions-inc/GenClass-lib` is a
   mirror; submit the `genclass-dev` one everywhere). Server: `packages/mcp`. Claude Code plugin: `packages/mcp/plugin`.
-  Registry name: `io.github.genclass-dev/genclass`.
+  Registry name: `io.github.genclass-dev/genclass`. The plugin at a repository root, with its marketplace files:
+  https://github.com/genclass-dev/genclass-plugin (assembled from `packages/mcp/plugin` by
+  `packages/mcp/scripts/plugin-repo.mjs`, re-synced daily by its own workflow, never edited by hand). Submit that
+  one to plugin and skill directories, and GenClass-lib to MCP server directories.
 
 ### Texts to reuse
 
@@ -41,12 +44,15 @@ submitted.
 
 ### Assets the owner supplies
 
-- **Logo.** There is none in this repository. Cline wants a 400x400 PNG; the Anthropic directory a square PNG of 512 to
-  2048 px under 2 MB at `packages/mcp/plugin/.claude-plugin/icon.png` (it becomes the listing icon only the first time
-  the plugin is saved in the portal; `claude plugin validate --profile directory` warns `ICON_MISSING` until then);
-  Cursor a logo committed to the repository.
+- **Logo.** `packages/mcp/plugin/.claude-plugin/icon.png` (the genclass.dev mark, 512 by 512, also at the root of
+  genclass-plugin) is what the Anthropic directory reads the first time the plugin is saved in the portal. Cline
+  wants a 400x400 PNG; Cursor a logo committed to the repository.
 - **Contact email** for the forms that ask (Anthropic, mcpservers.org). PRIVACY.md names mehar@daybot.ca.
-- **GitHub topic** `gemini-cli-extension` on the repository (Gemini gallery).
+- **GitHub topics.** `gemini-cli-extension` (Gemini gallery), `agent-skills` (`gh skill`), `claude-code-plugin`,
+  `claude-plugin` and `codex-plugin` are set on genclass-plugin; GenClass-lib carries `gemini-cli-extension`,
+  `claude-code-plugin` and `mcp-server`. Gemini CLI and `gh skill` read the latest GitHub release before the default
+  branch, and GenClass-lib's latest release (v0.2.1, 2026-10-11) predates the plugin, so only genclass-plugin installs
+  through them.
 
 ## Order
 
@@ -109,14 +115,16 @@ support.claude.com "Anthropic Software Directory Policy".
 - **Who.** A Pro, Max, Team or Enterprise plan (Team or Enterprise: an Owner, or a member with the Directory
   permission), with GitHub connected on claude.ai and push access to the repository. The first organization to
   submit a repository folder holds that listing.
-- **Steps.** claude.ai/directory/manage, Submit new, Plugin bundle. Source: repository `genclass-dev/GenClass-lib`,
-  plugin path `packages/mcp/plugin`, branch `main`; Validate. Listing details are read from
-  `packages/mcp/plugin/.claude-plugin/plugin.json` and `packages/mcp/plugin/README.md`. Data handling: the plugin
+- **Steps.** claude.ai/directory/manage, Submit new, Plugin bundle. Source: repository
+  `genclass-dev/genclass-plugin`, no plugin path (the plugin is the repository root), branch `main`; Validate.
+  GenClass-lib itself cannot be submitted: the portal stops validating a repository whose GitHub archive is over
+  50 MiB (pre-submission checklist), and GenClass-lib's is 51 MiB. Listing details are read from
+  `.claude-plugin/plugin.json` and `README.md` at that root (the same files as `packages/mcp/plugin/`). Data handling: the plugin
   collects and sends nothing; it reads and writes `.genclass/agent/` in the project and `~/.genclass/` (the bridge
   token); the optional dashboard read is the only network request off the machine. Compliance: contact email and
   the four acknowledgements. Updates: GitHub push webhook.
-- **What the checks will say.** Local run of `claude plugin validate packages/mcp/plugin --profile directory`
-  (Claude Code 2.1.310): passes; one warning, `ICON_MISSING`. The portal also holds pinned launchers for a reviewer:
+- **What the checks will say.** Local run of `claude plugin validate --profile directory` on the assembled
+  repository (Claude Code 2.1.309, 2026-10-28): passes with nothing to report. The portal also holds pinned launchers for a reviewer:
   expect "Runs a pinned npx or uvx package" (both `.mcp.json` and the hook run `npx -y @genclass/mcp@0.2.1`), and
   possibly "MCP server command wasn't read" because the server is not a file inside the plugin folder. An unpinned
   launcher would block; `packages/mcp/test/manifests.test.ts` keeps both pins equal to `package.json`'s version. The
@@ -301,3 +309,30 @@ Source: mxschmitt/awesome-playwright `README.md` (section "AI & Agents", alphabe
 
   `@genclass/playwright` (the race-file reporter) would go under `## Reporters` in the same format once it is
   released.
+
+## Skill and plugin directories (2026-10-28)
+
+The skill is `skills/genclass/SKILL.md`, at the root of both repositories; the plugin is the root of genclass-plugin.
+Verified on this machine on 2026-10-28 from the pushed repository: `claude plugin marketplace add`, `codex plugin
+marketplace add` and `codex plugin add genclass@genclass`, `gemini extensions install`, `gh skill install` (gh 2.103)
+and `npx skills add` all install from `genclass-dev/genclass-plugin`.
+
+- **skills.sh** (Vercel's directory, what `npx skills add` reads): automatic, ranked by anonymous install counts; the
+  skill is listed at https://www.skills.sh/genclass-dev/genclass-lib/genclass (installs of the monorepo copy), and the
+  install lines now name genclass-plugin, which gets its own page the same way. Nothing to submit.
+- **Smithery skills** (smithery.ai/skills): mirrors the skills CLI's index; nothing to submit.
+- **Gemini CLI gallery** (geminicli.com/extensions): a daily crawl of repositories with the topic
+  `gemini-cli-extension` and a root `gemini-extension.json`; genclass-plugin has both. Nothing to submit.
+- **Codex**: OpenAI's public plugin directory takes local servers only from approved partners
+  (developers.openai.com/plugins/deploy/desktop-only), so the path is `codex plugin marketplace add
+  genclass-dev/genclass-plugin` (Codex reads `.agents/plugins/marketplace.json`, and the Claude one as a fallback) and,
+  by hand, one README line in hashgraph-online/awesome-codex-plugins.
+- **Claude**: the directory (section 3 above); the owner submits from the paid claude.ai account with GitHub
+  connected. Also claude-plugins.dev indexes public plugin repositories by topic.
+- **Cursor**: cursor.com/marketplace/publish (manual review of an open-source repository) and
+  cursor.directory/plugins/new (sign in, paste the repository URL; it detects `skills/`, `.mcp.json` and
+  `hooks/hooks.json` at the root). Both by hand.
+- **GitHub Copilot**: `gh skill install genclass-dev/genclass-plugin genclass` works today; the community registry is
+  github/awesome-copilot (a pull request adding the skill folder). By hand.
+- **Tessl registry** (`tessl skill publish --public`, after approval) and VoltAgent/awesome-agent-skills ("real
+  community usage" required): later, once installs exist.

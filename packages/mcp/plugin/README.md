@@ -1,16 +1,23 @@
-# GenClass plugin for Claude Code
+# GenClass plugin
 
-GenClass lets Claude see what happens inside the pages of your web app running on your machine (each click, request
+For Claude Code, Codex, Cursor, Gemini CLI and other agents that read plugins or skills. GenClass lets the agent see what happens inside the pages of your web app running on your machine (each click, request
 and response, the order the responses were delivered, what each response wrote into the app's state, uncaught
 errors), find race conditions by re-running a page with the network answering in different orders, replay one exact
 order to prove a fix, and write a Playwright test that fails while the bug is there.
 
 ## Install
 
+Claude Code (the server, a prompt hook that brings new findings to each prompt, and the `genclass` skill):
+
 ```
-/plugin marketplace add genclass-dev/GenClass-lib
+/plugin marketplace add genclass-dev/genclass-plugin
 /plugin install genclass@genclass
 ```
+
+Codex (the server and the skill): `codex plugin marketplace add genclass-dev/genclass-plugin`, then
+`codex plugin add genclass@genclass`. Gemini CLI (the same): `gemini extensions install https://github.com/genclass-dev/genclass-plugin`.
+The skill alone, in any agent the skills CLI knows: `npx skills add genclass-dev/genclass-plugin`; for GitHub Copilot,
+`gh skill install genclass-dev/genclass-plugin genclass`.
 
 Then connect your app's development build (two lines; `genclass_setup` prints them for your framework) and load a
 page of the dev server. The page side needs `@genclass/runtime` 0.3.0-beta.1 or later. See the
@@ -58,6 +65,13 @@ diagnostics, which `GenClass.init({ telemetry: false })` turns off ([PRIVACY.md]
   (`claude mcp add genclass -- npx -y @genclass/mcp@0.2.1`), or set `"disableAllHooks": true` in your settings, which
   turns off every hook.
 - In the app: remove the `connectAgent(rt)` line; the page then never talks to the bridge.
+
+## Where this comes from
+
+This folder is `packages/mcp/plugin` in [genclass-dev/GenClass-lib](https://github.com/genclass-dev/GenClass-lib).
+The repository [genclass-dev/genclass-plugin](https://github.com/genclass-dev/genclass-plugin) is this folder at a
+repository root with the marketplace files, assembled by `node packages/mcp/scripts/plugin-repo.mjs` and re-synced
+daily, so issues and pull requests go to GenClass-lib.
 
 ## License
 

@@ -32,7 +32,7 @@ client it runs in.
 As a plugin (the server, a prompt hook that brings new findings to each prompt, and the `genclass` skill with the procedure):
 
 ```
-/plugin marketplace add genclass-dev/GenClass-lib
+/plugin marketplace add genclass-dev/genclass-plugin
 /plugin install genclass@genclass
 ```
 
@@ -43,7 +43,7 @@ claude mcp add --scope project genclass -- npx -y @genclass/mcp@0.2.1
 # or: npx -y @genclass/mcp@0.2.1 init --hook   (.mcp.json and the skill, plus the prompt hook in .claude/settings.json)
 ```
 
-Or just the skill (no server; `skills/genclass/SKILL.md` at the repository root, for skill directories): `npx skills add genclass-dev/GenClass-lib`
+Or just the skill (no server): `npx skills add genclass-dev/genclass-plugin`. (`genclass-dev/genclass-plugin` is this plugin at a repository root, assembled from this package; the marketplace in `genclass-dev/GenClass-lib` lists the same plugin.)
 
 ### Claude Desktop
 
@@ -109,6 +109,15 @@ Or `.mcp.json` at the workspace root (the portable format; `.vscode/mcp.json` ta
 
 ### Codex CLI
 
+As a plugin (the server and the `genclass` skill):
+
+```bash
+codex plugin marketplace add genclass-dev/genclass-plugin
+codex plugin add genclass@genclass
+```
+
+Or the server alone:
+
 ```bash
 codex mcp add genclass -- npx -y @genclass/mcp@0.2.1
 ```
@@ -123,6 +132,14 @@ startup_timeout_sec = 30
 ```
 
 ### Gemini CLI
+
+As an extension (the server and the `genclass` skill):
+
+```bash
+gemini extensions install https://github.com/genclass-dev/genclass-plugin
+```
+
+Or the server alone:
 
 ```bash
 gemini mcp add genclass npx -- -y @genclass/mcp@0.2.1   # -s user: for all projects
@@ -282,8 +299,10 @@ read a report, what to say when done, what to do when the tools are missing) is 
 - `npx -y @genclass/mcp@0.2.1 init` writes it to `.claude/skills/genclass/SKILL.md` in the project (`--no-skill`
   leaves it out). The written file carries a `genclass:init` marker line: a rerun replaces a file with the marker and
   leaves one without it (yours, or edited), and says which;
-- `npx skills add genclass-dev/GenClass-lib` installs the repository-root copy, `skills/genclass/SKILL.md`, through a
-  skill directory, with no server (the skill then says how to add one).
+- `npx skills add genclass-dev/genclass-plugin` (the skills CLI: Codex, Cursor, Copilot, Gemini CLI, Claude Code and
+  others) or `gh skill install genclass-dev/genclass-plugin genclass` (GitHub CLI 2.90 or later, for Copilot) installs
+  the skill alone, with no server (the skill then says how to add one). `npx skills add genclass-dev/GenClass-lib`
+  installs the same file from this repository's root copy, `skills/genclass/SKILL.md`.
 
 To remove it: delete `.claude/skills/genclass/` (or the directory the skill tool wrote to); with the plugin,
 `/plugin uninstall genclass@genclass`.

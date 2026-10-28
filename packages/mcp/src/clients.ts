@@ -81,10 +81,10 @@ export const CLIENTS: ClientInstall[] = [
     block: (v) =>
       [
         "As a plugin (the server, a prompt hook that brings new findings to each prompt, and the `genclass` skill with the procedure):",
-        fence("", "/plugin marketplace add genclass-dev/GenClass-lib\n/plugin install genclass@genclass"),
+        fence("", "/plugin marketplace add genclass-dev/genclass-plugin\n/plugin install genclass@genclass"),
         "Or the server alone (`--scope project` writes `.mcp.json` for everyone on the project; `--scope user` for all your projects). `init` also writes the skill to `.claude/skills/genclass/SKILL.md` (`--no-skill` leaves it out):",
         fence("bash", `claude mcp add --scope project ${NAME} -- npx -y ${pinned(v)}\n# or: npx -y ${pinned(v)} init --hook   (.mcp.json and the skill, plus the prompt hook in .claude/settings.json)`),
-        "Or just the skill (no server; `skills/genclass/SKILL.md` at the repository root, for skill directories): `npx skills add genclass-dev/GenClass-lib`",
+        "Or just the skill (no server): `npx skills add genclass-dev/genclass-plugin`. (`genclass-dev/genclass-plugin` is this plugin at a repository root, assembled from this package; the marketplace in `genclass-dev/GenClass-lib` lists the same plugin.)",
       ].join("\n\n"),
   },
   {
@@ -126,6 +126,9 @@ export const CLIENTS: ClientInstall[] = [
     match: /codex/i,
     block: (v) =>
       [
+        "As a plugin (the server and the `genclass` skill):",
+        fence("bash", "codex plugin marketplace add genclass-dev/genclass-plugin\ncodex plugin add genclass@genclass"),
+        "Or the server alone:",
         fence("bash", `codex mcp add ${NAME} -- npx -y ${pinned(v)}`),
         "Or `~/.codex/config.toml` (`.codex/config.toml` in a trusted project). The first start downloads the package, so allow more than the default 10 seconds:",
         fence("toml", `[mcp_servers.${NAME}]\ncommand = "npx"\nargs = ["-y", "${pinned(v)}"]\nstartup_timeout_sec = 30`),
@@ -137,6 +140,9 @@ export const CLIENTS: ClientInstall[] = [
     match: /gemini/i,
     block: (v) =>
       [
+        "As an extension (the server and the `genclass` skill):",
+        fence("bash", "gemini extensions install https://github.com/genclass-dev/genclass-plugin"),
+        "Or the server alone:",
         fence("bash", `gemini mcp add ${NAME} npx -- -y ${pinned(v)}   # -s user: for all projects`),
         "Or `.gemini/settings.json` in the project (`~/.gemini/settings.json` for all projects):",
         fence("json", mcpServers(v)),
