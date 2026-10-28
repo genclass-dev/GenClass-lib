@@ -3,6 +3,11 @@
 
 <head>
     <meta charset="UTF-8">
+    <!-- GenClass: guard mode, eager, visual fixes and the devtools overlay; the key is public (telemetry for this app only). -->
+    <script>window.GENCLASS_CONFIG = { aggressiveness: "eager" };</script>
+    <script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@0.3.0-beta.3" data-token="gc_Ypx0KvVRfXL81JRMNDEa9H" data-mode="guard" data-visual="fix" data-devtools></script>
+    <!-- GenClass agent link: local hosts only, for the coding agent's MCP server; never loaded on the deployed site. -->
+    <script type="module">if (["localhost", "127.0.0.1"].includes(location.hostname)) import("https://cdn.jsdelivr.net/npm/@genclass/runtime@0.3.0-beta.3/dist/agent.js").then((a) => { const go = () => (GenClass.runtime ? a.connectAgent(GenClass.runtime) : setTimeout(go, 50)); go(); });</script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Vermont Snow Day Predictor | Burlington Montpelier Schools | Will VT Schools Close Tomorrow?</title>
     <meta name="description"

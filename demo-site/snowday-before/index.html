@@ -3,6 +3,11 @@
 
 <head>
     <meta charset="UTF-8">
+    <!-- GenClass: guard mode, eager, visual fixes and the devtools overlay; the key is public (telemetry for this app only). -->
+    <script>window.GENCLASS_CONFIG = { aggressiveness: "eager" };</script>
+    <script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@0.3.0-beta.3" data-token="gc_Ypx0KvVRfXL81JRMNDEa9H" data-mode="guard" data-visual="fix" data-devtools></script>
+    <!-- GenClass agent link: local hosts only, for the coding agent's MCP server; never loaded on the deployed site. -->
+    <script type="module">if (["localhost", "127.0.0.1"].includes(location.hostname)) import("https://cdn.jsdelivr.net/npm/@genclass/runtime@0.3.0-beta.3/dist/agent.js").then((a) => { const go = () => (GenClass.runtime ? a.connectAgent(GenClass.runtime) : setTimeout(go, 50)); go(); });</script>
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6531771326648501"
         crossorigin="anonymous"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
@@ -2261,40 +2266,44 @@
             }
         }
 
-        // The page's small state store: board search results and the alert subscription count.
-        const store = (() => {
-            const state = { 'boards.query': '', 'boards.results': [], 'poll.votes': [] };
-            const subs = new Map();
+        // The page's state, as GenClass atoms so GenClass sees each write with the response or click that caused it.
+        // If the runtime did not load (blocked CDN), a plain atom with the same get/set/subscribe keeps the page working.
+        function atom(name, initial) {
+            if (window.GenClass && GenClass.runtime) return GenClass.runtime.atom(name, initial);
+            let value = initial;
+            const subs = new Set();
             return {
-                get: (k) => state[k],
-                set(k, v) { state[k] = v; for (const fn of subs.get(k) || []) fn(v); },
-                subscribe(k, fn) { if (!subs.has(k)) subs.set(k, new Set()); subs.get(k).add(fn); },
-                keys: () => Object.keys(state),
+                get: () => value,
+                set(next) { value = typeof next === 'function' ? next(value) : next; for (const fn of subs) fn(value); },
+                subscribe(fn) { subs.add(fn); return () => subs.delete(fn); },
             };
-        })();
+        }
+        // Board search: the query and its results are one value, written once per response.
+        const search = atom('search', { query: '', results: [] });
         // Board search: every keystroke fetches; whichever response arrives last wins, even if it answers an older query.
         document.getElementById('board-q').addEventListener('input', async function (e) {
             const q = e.target.value;
             const response = await fetch('/api/boards?q=' + encodeURIComponent(q));
             const data = await response.json();
-            store.set('boards.results', data.results);
-            store.set('boards.query', data.q);
+            search.set((s) => ({ ...s, query: data.q, results: data.results }));
         });
-        store.subscribe('boards.results', function (results) {
+        search.subscribe(function (s) {
             const ul = document.getElementById('board-results');
             ul.textContent = '';
-            for (const name of results) { const li = document.createElement('li'); li.textContent = name; ul.appendChild(li); }
+            for (const name of s.results) { const li = document.createElement('li'); li.textContent = name; ul.appendChild(li); }
         });
+        // Poll: the votes this visitor cast.
+        const poll = atom('poll', []);
         // Poll: each click posts a vote; two quick clicks vote twice.
         for (const btn of document.querySelectorAll('#poll button')) {
             btn.addEventListener('click', async function () {
                 const response = await fetch('/api/vote', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ choice: btn.dataset.choice }) });
                 const data = await response.json();
-                const votes = store.get('poll.votes');
-                if (!votes.some((v) => v.id === data.id)) store.set('poll.votes', [...votes, data]);
+                const votes = poll.get();
+                if (!votes.some((v) => v.id === data.id)) poll.set([...votes, data]);
             });
         }
-        store.subscribe('poll.votes', function (votes) {
+        poll.subscribe(function (votes) {
             document.getElementById('yes-count').textContent = String(124 + votes.filter((v) => v.choice === 'yes').length);
             document.getElementById('no-count').textContent = String(88 + votes.filter((v) => v.choice === 'no').length);
         });
