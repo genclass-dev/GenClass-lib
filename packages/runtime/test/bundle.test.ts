@@ -94,7 +94,9 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
   // readWindowConfig's mode check add 0.27 KB to /auto and 0.17 KB to the main entry over main at 49c8c03 (108.63 /
   // 100.46 KB, test/first-load-size.mjs against main's dist, 2026-10-27; docs/runtime/RESULTS.md section 10). /auto's
   // limit is that size plus 0.07 KB; the main entry stays 0.02 KB under its limit, which is unchanged.
-  const LIMIT_KB: Record<string, number> = { "auto.js": 108.7, "index.js": 100.48 };
+  // CI (Node 22) gzips /auto to 108.83 KB where this Mac (Node 25) gets 108.63 KB, a zlib difference; the limit
+  // follows CI's number (owner OK on 2026-10-28, with the 0.1 KB raise first; the growth itself is 0.28 KB).
+  const LIMIT_KB: Record<string, number> = { "auto.js": 108.9, "index.js": 100.48 };
   it("first-load cost of /auto and the main entry, minified + gzip: under the limits", async () => {
     const { build } = await import("esbuild");
     const uses: Record<string, string> = { "auto.js": "", "index.js": "GenClass.init({});" };

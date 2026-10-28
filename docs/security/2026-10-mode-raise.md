@@ -422,7 +422,7 @@ Found by the GenClass maintainers while testing `0.3.0-beta.0` in a pilot app on
   covers them (then its affected range becomes `<= 0.3.0-beta.4` and the patched versions `0.2.3` / `0.3.0-beta.5`) or
   F1 gets its own; F2 to F4 can stay CHANGELOG entries either way.
 - The `main` port of F1 to F4 raises `packages/runtime/test/bundle.test.ts`'s `/auto` first-load limit from 108.6 to
-  108.7 KB (the fixes add 0.27 KB to `/auto` and 0.17 KB to the main entry; RESULTS.md section 10), pending your OK as
+  108.9 KB (the fixes add 0.27 KB to `/auto` and 0.17 KB to the main entry; RESULTS.md section 10), pending your OK as
   the earlier limits were. It also brings OPTIONS-SPEC §3 and THREAT-MODEL T8 in line with `0.3.0-beta.2`'s code (the
   stale `debug` wording listed above); CONTRACT.md line 540, the README's `?genclass-sample=1` recipe and
   INTERCEPTION.md's "raises only with `debug: true`" sentence are still as listed and need your OK (CONTRACT) or a
